@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('articles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('author_id');
+            $table->foreignId('author_id')->constrained();
             $table->string('title', 100);
             $table->text('content');
             $table->string('slug')->unique();
@@ -25,8 +25,8 @@ return new class extends Migration
             $table->timestamp('published_at');
             $table->timestamp('created_at');
             $table->timestamp('updated_at');
-            $table->foreignId('user_id');
-            $table->foreignId('article_category_id');
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('article_category_id')->constrained();
             $table->timestamps();
         });
     }

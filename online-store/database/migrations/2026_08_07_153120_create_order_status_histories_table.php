@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('order_status_histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id');
-            $table->foreignId('order_id');
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->enum('previous_status', ["pending","processing","delivering","delivered","completed","cancelled","refunded"]);
             $table->enum('new_status', ["pending","processing","delivering","delivered","completed","cancelled","refunded"]);
             $table->string('reason', 100)->nullable();

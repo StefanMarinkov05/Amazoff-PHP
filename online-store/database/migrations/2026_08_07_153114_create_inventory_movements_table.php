@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('inventory_movements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inventory_id');
+            $table->foreignId('inventory_id')->constrained()->onDelete('cascade');
             $table->enum('movement_type', ["initial_stock","new_delivery","order_reservation","completed_sale","reservation_release","customer_return","damaged_product","manual_correction"]);
             $table->integer('quantity');
             $table->string('note')->nullable();
             $table->timestamp('movement_date');
             $table->timestamp('created_at');
-            $table->foreignId('created_by')->nullable();
+            $table->foreignId('created_by')->constrained()->nullable();
             $table->timestamps();
         });
     }

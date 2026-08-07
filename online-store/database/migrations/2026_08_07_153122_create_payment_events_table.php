@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('payment_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('payment_id');
+            $table->foreignId('payment_id')->constrained()->onDelete('cascade');
             $table->string('stripe_event_id')->unique();
             $table->string('event_type', 50);
             $table->enum('status_before', ["pending","processing","paid","failed","cancelled","refunded","partially_refunded"]);

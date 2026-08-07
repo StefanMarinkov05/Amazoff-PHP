@@ -29,8 +29,8 @@ return new class extends Migration
             $table->string('dimensions')->nullable();
             $table->string('seo_title', 100)->nullable();
             $table->string('seo_description', 255)->nullable();
-            $table->foreignId('product_category_id');
-            $table->foreignId('brand_id');
+            $table->foreignId('product_category_id')->constrained();
+            $table->foreignId('brand_id')->constrained();
             $table->timestamps();
         });
     }

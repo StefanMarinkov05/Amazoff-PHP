@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('newsletter_subscribers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable();
+            $table->foreignId('user_id')->constrained()->nullable();
             $table->enum('status', ["subscribed","unsubscribed"]);
             $table->string('email', 100)->unique();
             $table->timestamp('subscribed_at');

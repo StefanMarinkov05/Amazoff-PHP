@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('product_variations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id');
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->string('sku')->unique();
             $table->decimal('price', 10, 2);
             $table->decimal('discount_price', 10, 2)->nullable();
@@ -24,8 +24,8 @@ return new class extends Migration
             $table->decimal('weight', 8, 2)->nullable();
             $table->string('material')->nullable();
             $table->string('package_type')->nullable();
-            $table->foreignId('image_id')->nullable();
-            $table->foreignId('product_image_id');
+            $table->foreignId('image_id')->constrained()->nullable();
+            $table->foreignId('product_image_id')->constrained();
             $table->timestamps();
         });
     }

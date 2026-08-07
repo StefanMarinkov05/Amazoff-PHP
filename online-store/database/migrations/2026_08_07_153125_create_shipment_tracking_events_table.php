@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('shipment_tracking_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('shipment_id');
+            $table->foreignId('shipment_id')->constrained()->onDelete('cascade');
             $table->enum('status', ["pending","shipped","in_transit","delivered","returned","cancelled"]);
             $table->timestamp('event_time');
             $table->string('description')->nullable();

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email', 100)->unique();
             $table->string('password', 255);
             $table->boolean('is_active')->default(true);
-            $table->foreignId('profile_id')->nullable();
+            $table->foreignId('profile_id')->constrained()->nullable();
             $table->timestamp('created_at');
             $table->timestamp('updated_at');
             $table->timestamps();

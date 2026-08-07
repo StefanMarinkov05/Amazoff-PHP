@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('permission_role', function (Blueprint $table) {
-            $table->foreignId('permission_id');
-            $table->foreignId('role_id');
+            $table->foreignId('permission_id')->constrained();
+            $table->foreignId('role_id')->constrained();
         });
     }
 
