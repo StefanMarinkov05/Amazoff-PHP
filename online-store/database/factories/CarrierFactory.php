@@ -2,10 +2,9 @@
 
 namespace Database\Factories;
 
-use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class UserFactory extends Factory
+class CarrierFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -14,12 +13,10 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'email' => fake()->safeEmail(),
-            'password' => fake()->password(),
+            'code' => fake()->regexify('[A-Za-z0-9]{20}'),
+            'api_url' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'contact_phone' => fake()->regexify('[A-Za-z0-9]{30}'),
             'is_active' => fake()->boolean(),
-            'profile_id' => Profile::factory(),
-            'created_at' => fake()->dateTime(),
-            'updated_at' => fake()->dateTime(),
         ];
     }
 }
