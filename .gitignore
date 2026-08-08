@@ -1,0 +1,22 @@
+# Secrets — never commit. A key that reaches git history can only be fixed by
+# rotating the key; deleting the commit is not enough.
+.env
+.env.*
+!.env.example
+*.pem
+auth.json
+
+# Planning material — CLAUDE.md, ADRs, spec, open questions. On disk for
+# reference, deliberately not versioned in this repo; online-store/ is the
+# actual deliverable.
+misc/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Laravel's own .gitignore is added when the app is scaffolded and merges
+# with this file.

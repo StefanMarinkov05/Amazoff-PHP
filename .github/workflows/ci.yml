@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: online-store
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: online_shop_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # Matches composer.lock, which is solved against PHP 8.4-only
+          # symfony/* packages — see docker/php/Dockerfile for the same note.
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: online-store/package-lock.json
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: online-store/vendor
+          key: composer-${{ hashFiles('online-store/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: online_shop_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      # Deterministic checks block the merge; LLM review advises only (ADR-0024).
+      - name: Pint (formatting)
+        run: ./vendor/bin/pint --test
+
+      - name: PHPStan / Larastan (static analysis)
+        run: ./vendor/bin/phpstan analyse --memory-limit=1G
+
+      # phpunit.xml pins the test run to DB_CONNECTION=sqlite, DB_DATABASE=:memory:
+      # regardless of these job env vars — fast and isolated per test. The
+      # migrate step above is what validates the schema against real MySQL.
+      - name: Pest (tests)
+        run: ./vendor/bin/pest
