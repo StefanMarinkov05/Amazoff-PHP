@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ContactMessage extends Model
 {
@@ -15,6 +16,7 @@ class ContactMessage extends Model
      * @var array
      */
     protected $fillable = [
+        'user_id',
         'name',
         'email',
         'subject',
@@ -30,7 +32,13 @@ class ContactMessage extends Model
     {
         return [
             'id' => 'integer',
+            'user_id' => 'integer',
             'created_at' => 'timestamp',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

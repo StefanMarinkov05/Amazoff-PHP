@@ -352,6 +352,7 @@ models:
     subscribed_at: timestamp
 
   ContactMessage:
+    user_id: id:User nullable
     name: string:50
     email: string:100
     subject: string:100 nullable
