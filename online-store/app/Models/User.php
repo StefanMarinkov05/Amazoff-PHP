@@ -1,18 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
-
+   
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
-class User extends Model
+#[Fillable(['name', 'email', 'password'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory;
-
-    /**
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, HasRoles, Notifiable;
+  
+     /**
      * The attributes that are mass assignable.
      *
      * @var array
@@ -32,6 +42,17 @@ class User extends Model
      */
     protected $hidden = [
         'password',
+
+    /**
+     * Roles that grant access to the Filament panel. Staff roles only —
+     * a plain customer has no role at all.
+     *
+     * @var array<int, string>
+     */
+    public const STAFF_ROLES = [
+        'administrator',
+        'content_editor',
+        'warehouse_employee',
     ];
 
     /**
@@ -49,7 +70,7 @@ class User extends Model
             'updated_at' => 'timestamp',
         ];
     }
-
+  
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
@@ -68,5 +89,13 @@ class User extends Model
     public function profile(): BelongsTo
     {
         return $this->belongsTo(Profile::class);
+    /**
+     * Filament is not protected past login — this is what actually gates
+     * the panel. Role-based rather than a Policy: panel access is not
+     * per-model authorization, it is "is this user staff at all".
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasAnyRole(self::STAFF_ROLES);
     }
 }
