@@ -1,0 +1,323 @@
+models:
+  User:
+    name: string:50
+    email: string:100 unique
+    password: string:255
+    is_active: boolean default:true
+    profile_id: id:Profile nullable
+    created_at: timestamp
+    updated_at: timestamp
+    relationships:
+      hasMany: Order, ProductReview
+      belongsToMany: Role
+  Role:
+    name: string
+    description: string nullable
+    relationships:
+      belongsToMany: User, Permission
+
+  Permission:
+    name: string:50 unique
+    description: string nullable
+    relationships:
+      belongsToMany: Role
+
+  Address:
+    user_id: id:User
+    street: string:150
+    postcode: string:20
+    phone_number: string:30
+    city: string:50
+    country: string:30
+    relationships:
+      belongsTo: User
+
+  Product:
+    name: string:100
+    slug: string unique
+    sku: string unique
+    short_description: string:100 nullable
+    description: string:1000 nullable
+    is_available: boolean default:true
+    is_featured: boolean default:false
+    available_quantity: integer default:0
+    reserved_quantity: integer default:0
+    min_order_quantity: integer default:1
+    regular_price: decimal:8,2
+    rate: decimal:3,2
+    weight: decimal:8,2 nullable
+    dimensions: string nullable
+    seo_title: string:100 nullable
+    seo_description: string:255 nullable
+    relationships:
+      belongsTo: ProductCategory, Brand
+      hasMany: ProductImage, ProductVariation, ProductAttributeValue, ProductReview
+      belongsToMany: Discount
+
+  ProductCategory:
+    name: string:50
+    slug: string unique
+    relationships:
+      hasMany:Product
+
+  Brand:
+    name: string:50
+    relationships:
+      hasMany: Product
+
+  ProductImage:
+    product_id: id:Product
+    url: string:255
+    alt_text: string nullable
+    is_main: boolean default:false
+    sort_order: integer default:0
+    relationships:
+      belongsTo: Product
+
+  ProductVariation:
+    product_id: id:Product
+    sku: string unique
+    price: decimal:10,2
+    discount_price: decimal:10,2 nullable
+    stock_quantity: integer default:0
+    is_available: boolean default:true
+    size: string nullable
+    color: string nullable
+    weight: decimal:8,2 nullable
+    material: string nullable
+    package_type: string nullable
+    image_id: id:ProductImage nullable
+    relationships:
+      belongsTo: Product, ProductImage
+      hasMany: Inventory
+
+  ProductAttribute:
+    name: string:50
+    relationships:
+      hasMany: ProductAttributeValue
+
+  ProductAttributeValue:
+    product_id: id:Product
+    attribute_id: id:ProductAttribute
+    value: string:50
+    relationships:
+      belongsTo: Product, ProductAttribute
+
+  Inventory:
+    product_id: id:Product
+    variation_id: id:ProductVariation
+    current_quantity: integer default:0
+    reserved_quantity: integer default:0
+    available_quantity: integer default:0
+    sold_quantity: integer default:0
+    returned_quantity: integer default:0
+    damaged_quantity: integer default:0
+    relationships:
+      belongsTo: Product, ProductVariation
+      hasMany: InventoryMovement
+
+  InventoryMovement:
+    inventory_id: id:Inventory
+    movement_type: enum:initial_stock,new_delivery,order_reservation,completed_sale,reservation_release,customer_return,damaged_product,manual_correction
+    quantity: integer
+    note: string nullable
+    movement_date: timestamp
+    created_at: timestamp
+    created_by: id:User nullable
+    relationships:
+      belongsTo: Inventory
+
+  Discount:
+    name: string:100
+    type: enum:percentage,product,order
+    value: decimal:5,2
+    code: string:50 nullable
+    description: string:100 nullable
+    minimum_order_value: decimal:10,2 nullable
+    start_date: timestamp
+    end_date: timestamp nullable
+    total_usage_limit: integer nullable
+    usage_limit_per_customer: integer nullable
+    is_active: boolean default:true
+    relationships:
+      belongsToMany: Product, User
+      hasMany: Order
+
+  Cart:
+    user_id: id:User
+    relationships:
+      hasMany: CartItem
+
+  CartItem:
+    cart_id: id:Cart
+    product_id: id:Product
+    variation_id: id:ProductVariation
+    quantity: integer default:1
+    relationships:
+      belongsTo: Cart, Product, ProductVariation
+
+  Order:
+    user_id: id:User
+    serial_number: string unique
+    status: enum:pending,preparing,delivering,delivered,completed,cancelled,refunded
+    payment_status: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    total_amount: decimal:10,2
+    discount_amount: decimal:10,2 nullable
+    shipping_amount: decimal:10,2 nullable
+    billing_address_id: id:Address nullable
+    delivery_address_id: id:Address nullable
+    relationships:
+      hasMany: OrderItem
+      belongsToMany: Discount
+      belongsTo: User
+      hasOne: Shipment
+
+  OrderItem:
+    product_id: id:Product
+    variation_id: id:ProductVariation
+    product_name: string:100
+    product_sku: string:50
+    quantity: integer default:1
+    unit_price: decimal:10,2
+    relationships:
+      belongsTo: Order, Product, ProductVariation
+
+  OrderStatusHistory:
+    user_id: id:User
+    order_id: id:Order
+    previous_status: enum:pending,processing,delivering,delivered,completed,cancelled,refunded
+    new_status: enum:pending,processing,delivering,delivered,completed,cancelled,refunded
+    reason: string:100 nullable
+    note: string nullable
+    changed_at: timestamp
+
+  Payment:
+    order_id: id:Order
+    method: enum:card,paypal,cash_on_delivery
+    currency: string:10 default:'EUR'
+    status: enum:pending,completed,failed,refunded
+    amount: decimal:10,2
+    paid_at: timestamp nullable
+    relationships:
+      belongsTo: Order
+
+  PaymentEvent:
+    payment_id: id:Payment
+    stripe_event_id: string unique
+    event_type: string:50
+    status_before: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    status_after: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    processed_at: timestamp
+    note: string nullable
+    relationships:
+      belongsTo: Payment
+
+  Carrier:
+    name: string:50
+    code: string:20 unique
+    api_url: string:255 nullable
+    contact_phone: string:30 nullable
+    is_active: boolean default:true
+    relationships:
+      hasMany: Shipment
+
+  Shipment:
+    order_id: id:Order
+    carrier_id: id:Carrier
+    tracking_number: string unique
+    status: enum:pending,shipped,in_transit,delivered,returned
+    label_url: string nullable
+    courier_tracking_url: string nullable
+    shipping_address_id: id:Address nullable
+    recipient_name: string:100
+    recipient_phone: string:30
+    street: string:150
+    city: string:50
+    postcode: string:20 nullable
+    country: string:30
+    shipped_at: timestamp nullable
+    delivered_at: timestamp nullable
+    created_at: timestamp
+    updated_at: timestamp
+    relationships:
+      belongsTo: Order, Carrier
+      hasMany: ShipmentTrackingEvent
+
+  ShipmentTrackingEvent:
+    shipment_id: id:Shipment
+    status: enum:pending,shipped,in_transit,delivered,returned,cancelled
+    event_time: timestamp
+    description: string nullable
+    relationships:
+      belongsTo: Shipment
+
+  Article:
+    author_id: id:User
+    title: string:100
+    content: text
+    slug: string unique
+    status: enum:draft,published,archived,scheduled
+    summary: string:255 nullable
+    featured: boolean default:false
+    seo_title: string:100 nullable
+    seo_description: string:255 nullable
+    published_at: timestamp
+    created_at: timestamp
+    updated_at: timestamp
+    relationships:
+      belongsTo: User, ArticleCategory
+      belongsToMany: Tag
+
+  ArticleCategory:
+    name: string:50
+    description: string nullable
+    slug: string unique
+    created_at: timestamp
+    updated_at: timestamp
+    relationships:
+      hasMany: Article
+
+  Tag:
+    name: string:30
+    slug: string unique
+    relationships:
+      belongsToMany: Article
+
+  ArticleTag:
+    article_id: id:Article
+    tag_id: id:Tag
+    relationships:
+      belongsTo: Article, Tag
+
+  ProductReview:
+    user_id: id:User
+    product_id: id:Product
+    description: string:255
+    rating: decimal:3,2
+    approved: boolean default:false
+    created_at: timestamp
+    relationships:
+      belongsTo: User, Product
+
+  NewsletterSubscriber:
+    user_id: id:User nullable
+    status: enum:subscribed,unsubscribed
+    email: string:100 unique
+    subscribed_at: timestamp
+
+  ContactMessage:
+    name: string:50
+    email: string:100
+    subject: string:100 nullable
+    message: text
+    created_at: timestamp
+
+  AuditLog:
+    user_id: id:User nullable
+    action: string:100
+    entity_type: string:50
+    entity_id: integer nullable
+    description: text nullable
+    created_at: timestamp
+    relationships:
+      belongsTo: User

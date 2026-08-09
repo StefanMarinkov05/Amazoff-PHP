@@ -1,13 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Database\Factories;
 
-use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class UserFactory extends Factory
+class ArticleCategoryFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -16,10 +13,8 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'email' => fake()->safeEmail(),
-            'password' => fake()->password(),
-            'is_active' => fake()->boolean(),
-            'profile_id' => Profile::factory(),
+            'description' => fake()->text(),
+            'slug' => fake()->slug(),
             'created_at' => fake()->dateTime(),
             'updated_at' => fake()->dateTime(),
         ];
