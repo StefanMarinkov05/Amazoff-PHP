@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -54,6 +57,9 @@ class Order extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'status' => OrderStatus::class,
+            'payment_status' => PaymentStatus::class,
+            'payment_method' => PaymentMethod::class,
             'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'shipping_amount' => 'decimal:2',

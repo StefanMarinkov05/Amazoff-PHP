@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\InventoryMovementType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,7 @@ class InventoryMovement extends Model
             'id' => 'integer',
             'inventory_id' => 'integer',
             'created_by_id' => 'integer',
+            'movement_type' => InventoryMovementType::class,
         ];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +39,8 @@ class PaymentEvent extends Model
         return [
             'id' => 'integer',
             'payment_id' => 'integer',
+            'status_before' => PaymentStatus::class,
+            'status_after' => PaymentStatus::class,
             'payload' => 'array',
             'processed_at' => 'timestamp',
         ];

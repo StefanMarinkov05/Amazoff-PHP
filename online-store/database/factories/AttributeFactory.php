@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\AttributeInputType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class AttributeFactory extends Factory
@@ -16,7 +17,7 @@ class AttributeFactory extends Factory
         return [
             'name' => fake()->name(),
             'slug' => fake()->slug(),
-            'input_type' => fake()->randomElement(['select', 'color', 'text']),
+            'input_type' => fake()->randomElement(AttributeInputType::cases()),
             'is_filterable' => fake()->boolean(),
             'sort_order' => fake()->numberBetween(-10000, 10000),
         ];

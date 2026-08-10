@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AttributeInputType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -35,6 +36,7 @@ class Attribute extends Model
     {
         return [
             'id' => 'integer',
+            'input_type' => AttributeInputType::class,
             'is_filterable' => 'boolean',
         ];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\ShipmentStatus;
 use App\Models\Carrier;
 use App\Models\Order;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,7 +21,7 @@ class ShipmentFactory extends Factory
             'carrier_id' => Carrier::factory(),
             'shipment_number' => fake()->regexify('[A-Za-z0-9]{100}'),
             'tracking_number' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'status' => fake()->randomElement(['pending', 'shipped', 'in_transit', 'delivered', 'returned', 'cancelled']),
+            'status' => fake()->randomElement(ShipmentStatus::cases()),
             'raw_status' => fake()->regexify('[A-Za-z0-9]{100}'),
             'label_path' => fake()->regexify('[A-Za-z0-9]{255}'),
             'courier_tracking_url' => fake()->regexify('[A-Za-z0-9]{255}'),
