@@ -30,8 +30,17 @@ target from ADR-0001, not the current state.
 
 Blueprint has generated the schema from `online-store/draft.yaml`: 40
 migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
-every factory persists a row. The models are data structures only — no
-business logic, no Policies, no Actions.
+every factory persists a row, which `tests/Feature/FactoryTest.php` now
+asserts rather than leaving to a manual check.
+
+`App\Enums` holds 12 backed enums covering every `enum` column in the schema.
+The 12 models with such columns cast them, and the factories draw from
+`Enum::cases()`. All 12 implement Filament's `HasLabel`; seven also implement
+`HasColor`. Four of them — `OrderStatus`, `PaymentStatus`, `ShipmentStatus`,
+`ArticleStatus` — carry a transition matrix; see ADR-0004 for where the rest of
+the state machine is meant to live.
+Beyond enum casts and relations the models remain data structures — no
+Actions, no Policies, and nothing yet calls `canTransitionTo()`.
 
 Larastan and Pest are configured and passing against what exists so far.
 

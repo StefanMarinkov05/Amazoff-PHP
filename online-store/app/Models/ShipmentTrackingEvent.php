@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ShipmentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,6 +36,7 @@ class ShipmentTrackingEvent extends Model
         return [
             'id' => 'integer',
             'shipment_id' => 'integer',
+            'status' => ShipmentStatus::class,
             'event_time' => 'timestamp',
         ];
     }

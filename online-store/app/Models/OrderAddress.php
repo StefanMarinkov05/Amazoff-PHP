@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AddressType;
+use App\Enums\DeliveryType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +46,8 @@ class OrderAddress extends Model
             'id' => 'integer',
             'order_id' => 'integer',
             'source_address_id' => 'integer',
+            'type' => AddressType::class,
+            'delivery_type' => DeliveryType::class,
         ];
     }
 

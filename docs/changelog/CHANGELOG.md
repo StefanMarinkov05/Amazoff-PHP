@@ -37,6 +37,29 @@ when the work happened, not when it was committed — nothing in
   factories. `migrate:fresh` applies cleanly; every factory persists a row.
 - `online-store/stubs/blueprint/` — overrides `model.fillable.stub` and
   `model.hidden.stub` to emit `@var list<string>`, which Larastan requires.
+- `App\Enums` — 12 backed enums covering all 19 `enum` columns in the schema:
+  `OrderStatus`, `PaymentStatus`, `PaymentMethod`, `ShipmentStatus`,
+  `InventoryMovementType`, `ArticleStatus`, `CouponType`, `CouponScope`,
+  `AddressType`, `DeliveryType`, `AttributeInputType`, `NewsletterStatus`.
+  Each carries `values()` and implements Filament's `HasLabel`, so tables,
+  filters, and select fields render them without a per-resource value map.
+- `HasColor` on the seven enums where a badge colour carries meaning —
+  `OrderStatus`, `PaymentStatus`, `PaymentMethod`, `ShipmentStatus`,
+  `InventoryMovementType`, `ArticleStatus`, `NewsletterStatus`. The remaining
+  five classify rather than describe state, where a colour would be decoration.
+- `allowedTransitions()` and `canTransitionTo()` on the four lifecycle enums —
+  `OrderStatus`, `PaymentStatus`, `ShipmentStatus`, `ArticleStatus`. Which
+  enums get a matrix, why the other eight do not, and where the policy and
+  enforcement halves belong are in ADR-0004. Nothing calls these yet.
+- Enum casts on the 12 affected models, so the enums are authoritative in
+  application code rather than decorative. Verified against MySQL: a status
+  written as an enum case reads back as one.
+- Factories use `Enum::cases()` in place of the literal value arrays Blueprint
+  generated. A renamed case now fails at parse rather than on insert.
+- `tests/Feature/FactoryTest.php` — persists one row from every factory,
+  discovered by glob. This is the check `docs/how-to/regenerate-with-blueprint.md`
+  describes as the only way to catch a factory writing a value its column
+  cannot hold; it was documented but not automated.
 
 ### Fixed
 
@@ -72,3 +95,8 @@ when the work happened, not when it was committed — nothing in
 - Audit log shape.
 - No seeder for the three staff roles. They exist in the local database but
   a fresh `migrate:fresh --seed` creates none.
+- Enum value lists exist in two places: the 19 `enum()` literals in the
+  migrations, and `App\Enums`. The migrations are frozen by the append-only
+  rule, so the duplication cannot be removed retroactively. Migrations added
+  from here on should use `OrderStatus::values()` rather than a literal array,
+  which keeps the copy generated instead of typed.

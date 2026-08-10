@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CouponScope;
+use App\Enums\CouponType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -44,6 +46,8 @@ class Coupon extends Model
     {
         return [
             'id' => 'integer',
+            'type' => CouponType::class,
+            'scope' => CouponScope::class,
             'value' => 'decimal:2',
             'max_discount_amount' => 'decimal:2',
             'minimum_order_value' => 'decimal:2',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ArticleStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,7 @@ class Article extends Model
             'id' => 'integer',
             'author_id' => 'integer',
             'article_category_id' => 'integer',
+            'status' => ArticleStatus::class,
             'featured' => 'boolean',
             'published_at' => 'timestamp',
         ];

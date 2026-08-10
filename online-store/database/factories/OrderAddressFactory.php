@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\AddressType;
+use App\Enums\DeliveryType;
 use App\Models\Address;
 use App\Models\Order;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -18,8 +20,8 @@ class OrderAddressFactory extends Factory
         return [
             'order_id' => Order::factory(),
             'source_address_id' => Address::factory(),
-            'type' => fake()->randomElement(['billing', 'delivery']),
-            'delivery_type' => fake()->randomElement(['address', 'office']),
+            'type' => fake()->randomElement(AddressType::cases()),
+            'delivery_type' => fake()->randomElement(DeliveryType::cases()),
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'phone' => fake()->phoneNumber(),

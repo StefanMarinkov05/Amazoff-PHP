@@ -27,8 +27,11 @@ rather than silently diverging.
   different versions of the same business rule.
 - No repository pattern. Eloquent is the repository.
 - Every fixed value set is a backed enum in `App\Enums`, with behaviour on
-  it (`->label()`, `->color()`, `->canTransitionTo()`). Never the same list
-  twice.
+  it. Never the same list twice. Display goes through Filament's `HasLabel`
+  and `HasColor` contracts — Filament reads those off the enum by itself, so
+  a bespoke `label()` would have to be wired up in every resource showing the
+  column. Lifecycle behaviour (`canTransitionTo()`) only where illegal moves
+  exist and some actor can attempt them; see `docs/adr/0004-state-transitions.md`.
 
   Exception: roles. Provided by `spatie/laravel-permission`, not an enum —
   §3.5 requires them editable at runtime. See
@@ -83,6 +86,16 @@ rather than silently diverging.
   migration; always add a new one.
 - Generated code is a first draft. It gets read before it's trusted.
 - Verify against a running app. `php -l` proves syntax, not behaviour.
+
+## Before proposing a fix for an error
+
+Check `docs/how-to/troubleshooting.md` first. Several of the errors this project
+produces look like ordinary bugs and are not — a green Larastan run against red
+IDE diagnostics, a factory that passes every static check and fails on insert, a
+regeneration that reports success and leaves stale definitions behind.
+
+If the error is not there and you solve it, add an entry — including why it
+recurs and what would prevent it permanently, not just what fixed it this time.
 
 ## Commands
 
