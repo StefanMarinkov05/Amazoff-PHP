@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\User;
@@ -14,11 +16,16 @@ class AddressFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'street' => fake()->streetName(),
-            'postcode' => fake()->postcode(),
-            'phone_number' => fake()->phoneNumber(),
+            'label' => fake()->regexify('[A-Za-z0-9]{50}'),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'phone' => fake()->phoneNumber(),
+            'country' => fake()->countryCode(),
             'city' => fake()->city(),
-            'country' => fake()->country(),
+            'postcode' => fake()->postcode(),
+            'street' => fake()->streetName(),
+            'is_default_billing' => fake()->boolean(),
+            'is_default_shipping' => fake()->boolean(),
         ];
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,17 +15,21 @@ class OrderItem extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
+        'order_id',
         'product_id',
-        'variation_id',
+        'product_variation_id',
         'product_name',
         'product_sku',
+        'variation_name',
         'quantity',
         'unit_price',
-        'order_id',
-        'product_variation_id',
+        'line_total',
+        'discount_amount',
+        'vat_rate',
+        'vat_amount',
     ];
 
     /**
@@ -35,11 +41,14 @@ class OrderItem extends Model
     {
         return [
             'id' => 'integer',
-            'product_id' => 'integer',
-            'variation_id' => 'integer',
-            'unit_price' => 'decimal:2',
             'order_id' => 'integer',
+            'product_id' => 'integer',
             'product_variation_id' => 'integer',
+            'unit_price' => 'decimal:2',
+            'line_total' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'vat_rate' => 'decimal:2',
+            'vat_amount' => 'decimal:2',
         ];
     }
 
@@ -54,11 +63,6 @@ class OrderItem extends Model
     }
 
     public function productVariation(): BelongsTo
-    {
-        return $this->belongsTo(ProductVariation::class);
-    }
-
-    public function variation(): BelongsTo
     {
         return $this->belongsTo(ProductVariation::class);
     }

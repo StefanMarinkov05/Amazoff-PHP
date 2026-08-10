@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Order;
@@ -14,13 +16,12 @@ class OrderStatusHistoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
             'order_id' => Order::factory(),
-            'previous_status' => fake()->randomElement(["pending","processing","delivering","delivered","completed","cancelled","refunded"]),
-            'new_status' => fake()->randomElement(["pending","processing","delivering","delivered","completed","cancelled","refunded"]),
-            'reason' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'note' => fake()->word(),
-            'changed_at' => fake()->dateTime(),
+            'user_id' => User::factory(),
+            'previous_status' => fake()->randomElement(['new', 'awaiting_payment', 'paid', 'confirmed', 'preparing', 'ready_for_shipment', 'shipped', 'delivered', 'cancelled', 'returned', 'refunded']),
+            'new_status' => fake()->randomElement(['new', 'awaiting_payment', 'paid', 'confirmed', 'preparing', 'ready_for_shipment', 'shipped', 'delivered', 'cancelled', 'returned', 'refunded']),
+            'reason' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'note' => fake()->text(),
         ];
     }
 }

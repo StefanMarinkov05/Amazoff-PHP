@@ -1,5 +1,5 @@
 # PHP-FPM image for local development. Not used in production — Forge
-# provisions PHP-FPM directly on the VPS per ADR-0016.
+# provisions PHP-FPM directly on the VPS.
 #
 # 8.4, not 8.3: composer.json declares "^8.3" but composer.lock was solved
 # against symfony/* v8.1.x, which requires PHP >=8.4.1. The lockfile is what

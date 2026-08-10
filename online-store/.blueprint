@@ -31,44 +31,6 @@ created:
     - database/factories/ProductReviewFactory.php
     - database/factories/NewsletterSubscriberFactory.php
     - database/factories/ContactMessageFactory.php
-    - database/migrations/2026_08_09_094323_create_users_table.php
-    - database/migrations/2026_08_09_094324_create_addresses_table.php
-    - database/migrations/2026_08_09_094325_create_product_categories_table.php
-    - database/migrations/2026_08_09_094326_create_brands_table.php
-    - database/migrations/2026_08_09_094327_create_products_table.php
-    - database/migrations/2026_08_09_094328_create_product_images_table.php
-    - database/migrations/2026_08_09_094329_create_product_variations_table.php
-    - database/migrations/2026_08_09_094330_create_attributes_table.php
-    - database/migrations/2026_08_09_094331_create_attribute_values_table.php
-    - database/migrations/2026_08_09_094332_create_product_specifications_table.php
-    - database/migrations/2026_08_09_094333_create_inventories_table.php
-    - database/migrations/2026_08_09_094334_create_inventory_movements_table.php
-    - database/migrations/2026_08_09_094335_create_coupons_table.php
-    - database/migrations/2026_08_09_094336_create_coupon_redemptions_table.php
-    - database/migrations/2026_08_09_094337_create_wishlist_items_table.php
-    - database/migrations/2026_08_09_094338_create_carts_table.php
-    - database/migrations/2026_08_09_094339_create_cart_items_table.php
-    - database/migrations/2026_08_09_094340_create_orders_table.php
-    - database/migrations/2026_08_09_094341_create_order_addresses_table.php
-    - database/migrations/2026_08_09_094342_create_order_items_table.php
-    - database/migrations/2026_08_09_094343_create_order_status_histories_table.php
-    - database/migrations/2026_08_09_094344_create_payments_table.php
-    - database/migrations/2026_08_09_094345_create_payment_events_table.php
-    - database/migrations/2026_08_09_094346_create_carriers_table.php
-    - database/migrations/2026_08_09_094347_create_shipments_table.php
-    - database/migrations/2026_08_09_094348_create_shipment_tracking_events_table.php
-    - database/migrations/2026_08_09_094349_create_article_categories_table.php
-    - database/migrations/2026_08_09_094350_create_articles_table.php
-    - database/migrations/2026_08_09_094351_create_tags_table.php
-    - database/migrations/2026_08_09_094352_create_product_reviews_table.php
-    - database/migrations/2026_08_09_094353_create_newsletter_subscribers_table.php
-    - database/migrations/2026_08_09_094354_create_contact_messages_table.php
-    - database/migrations/2026_08_09_094355_create_coupon_product_category_table.php
-    - database/migrations/2026_08_09_094356_create_attribute_product_table.php
-    - database/migrations/2026_08_09_094357_create_coupon_product_table.php
-    - database/migrations/2026_08_09_094358_create_attribute_value_product_variation_table.php
-    - database/migrations/2026_08_09_094359_create_article_tag_table.php
-    - database/migrations/2026_08_09_094400_create_article_product_table.php
     - app/Models/User.php
     - app/Models/Address.php
     - app/Models/ProductCategory.php
@@ -132,7 +94,7 @@ models:
     ArticleTag: { article_id: 'id:Article', tag_id: 'id:Tag', relationships: { belongsTo: 'Article, Tag' } }
     ProductReview: { user_id: 'id:User nullable', product_id: 'id:Product', order_item_id: 'id:OrderItem nullable', author_name: 'string:100', rating: tinyInteger, body: text, approved: 'boolean default:false', indexes: [{ unique: 'user_id, product_id' }] }
     NewsletterSubscriber: { user_id: 'id:User nullable', email: 'string:100 unique', status: 'enum:subscribed,unsubscribed', subscribed_at: timestamp }
-    ContactMessage: { name: 'string:50', email: 'string:100', subject: 'string:100 nullable', message: text }
+    ContactMessage: { user_id: 'id:User nullable', name: 'string:50', email: 'string:100', subject: 'string:100 nullable', message: text }
     AuditLog: { user_id: 'id:User nullable', action: 'string:100', entity_type: 'string:50', entity_id: 'integer nullable', description: 'text nullable', created_at: timestamp, relationships: { belongsTo: User } }
     Attribute: { name: 'string:50', slug: 'string:60 unique', input_type: 'enum:select,color,text', is_filterable: 'boolean default:true', sort_order: 'integer default:0', relationships: { hasMany: AttributeValue, belongsToMany: Product } }
     AttributeValue: { attribute_id: 'id:Attribute', value: 'string:100', slug: 'string:120', color_hex: 'char:7 nullable', sort_order: 'integer default:0', relationships: { belongsToMany: ProductVariation }, indexes: [{ unique: 'attribute_id, slug' }] }

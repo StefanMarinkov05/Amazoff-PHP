@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,16 +15,15 @@ class OrderStatusHistory extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
-        'user_id',
         'order_id',
+        'user_id',
         'previous_status',
         'new_status',
         'reason',
         'note',
-        'changed_at',
     ];
 
     /**
@@ -34,19 +35,18 @@ class OrderStatusHistory extends Model
     {
         return [
             'id' => 'integer',
-            'user_id' => 'integer',
             'order_id' => 'integer',
-            'changed_at' => 'timestamp',
+            'user_id' => 'integer',
         ];
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

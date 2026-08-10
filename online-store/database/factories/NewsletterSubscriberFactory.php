@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\User;
@@ -14,8 +16,8 @@ class NewsletterSubscriberFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'status' => fake()->randomElement(["subscribed","unsubscribed"]),
             'email' => fake()->safeEmail(),
+            'status' => fake()->randomElement(['subscribed', 'unsubscribed']),
             'subscribed_at' => fake()->dateTime(),
         ];
     }

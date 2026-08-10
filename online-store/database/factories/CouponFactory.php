@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -15,8 +17,8 @@ class CouponFactory extends Factory
             'code' => fake()->regexify('[A-Za-z0-9]{50}'),
             'name' => fake()->name(),
             'description' => fake()->text(),
-            'type' => fake()->randomElement(["percentage","fixed"]),
-            'scope' => fake()->randomElement(["entire_order","products","categories"]),
+            'type' => fake()->randomElement(['percentage', 'fixed']),
+            'scope' => fake()->randomElement(['entire_order', 'products', 'categories']),
             'value' => fake()->randomFloat(2, 0, 99999999.99),
             'max_discount_amount' => fake()->randomFloat(2, 0, 99999999.99),
             'minimum_order_value' => fake()->randomFloat(2, 0, 99999999.99),

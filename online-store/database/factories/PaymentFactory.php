@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Order;
@@ -14,10 +16,13 @@ class PaymentFactory extends Factory
     {
         return [
             'order_id' => Order::factory(),
-            'method' => fake()->randomElement(["card","paypal","cash_on_delivery"]),
-            'currency' => fake()->regexify('[A-Za-z0-9]{10}'),
-            'status' => fake()->randomElement(["pending","completed","failed","refunded"]),
+            'method' => fake()->randomElement(['stripe', 'cash_on_delivery']),
+            'status' => fake()->randomElement(['pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded']),
+            'currency' => fake()->randomLetter(),
             'amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'refunded_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'stripe_payment_intent_id' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'stripe_checkout_session_id' => fake()->regexify('[A-Za-z0-9]{255}'),
             'paid_at' => fake()->dateTime(),
         ];
     }

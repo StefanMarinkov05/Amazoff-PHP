@@ -1,40 +1,45 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
+        'product_category_id',
+        'brand_id',
         'name',
         'slug',
         'sku',
         'short_description',
         'description',
-        'is_available',
-        'is_featured',
-        'available_quantity',
-        'reserved_quantity',
-        'min_order_quantity',
         'regular_price',
-        'rate',
+        'discount_price',
+        'discount_starts_at',
+        'discount_ends_at',
+        'vat_rate',
+        'min_order_quantity',
         'weight',
         'dimensions',
+        'is_available',
+        'is_featured',
         'seo_title',
         'seo_description',
-        'product_category_id',
-        'brand_id',
     ];
 
     /**
@@ -46,24 +51,17 @@ class Product extends Model
     {
         return [
             'id' => 'integer',
-            'is_available' => 'boolean',
-            'is_featured' => 'boolean',
-            'regular_price' => 'decimal:2',
-            'rate' => 'decimal:2',
-            'weight' => 'decimal:2',
             'product_category_id' => 'integer',
             'brand_id' => 'integer',
+            'regular_price' => 'decimal:2',
+            'discount_price' => 'decimal:2',
+            'discount_starts_at' => 'timestamp',
+            'discount_ends_at' => 'timestamp',
+            'vat_rate' => 'decimal:2',
+            'weight' => 'decimal:2',
+            'is_available' => 'boolean',
+            'is_featured' => 'boolean',
         ];
-    }
-
-    public function productCategory(): BelongsTo
-    {
-        return $this->belongsTo(ProductCategory::class);
-    }
-
-    public function brand(): BelongsTo
-    {
-        return $this->belongsTo(Brand::class);
     }
 
     public function productImages(): HasMany
@@ -76,8 +74,38 @@ class Product extends Model
         return $this->hasMany(ProductVariation::class);
     }
 
+    public function productSpecifications(): HasMany
+    {
+        return $this->hasMany(ProductSpecification::class);
+    }
+
     public function productReviews(): HasMany
     {
         return $this->hasMany(ProductReview::class);
+    }
+
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+
+    public function attributes(): BelongsToMany
+    {
+        return $this->belongsToMany(Attribute::class);
+    }
+
+    public function coupons(): BelongsToMany
+    {
+        return $this->belongsToMany(Coupon::class);
+    }
+
+    public function productCategory(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 }

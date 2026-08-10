@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
-use App\Models\;
+use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,11 +18,12 @@ class ProductReviewFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'product_id' => ::factory(),
-            'description' => fake()->text(),
-            'rating' => fake()->randomFloat(2, 0, 9.99),
+            'product_id' => Product::factory(),
+            'order_item_id' => OrderItem::factory(),
+            'author_name' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'rating' => fake()->numberBetween(-8, 8),
+            'body' => fake()->text(),
             'approved' => fake()->boolean(),
-            'created_at' => fake()->dateTime(),
         ];
     }
 }

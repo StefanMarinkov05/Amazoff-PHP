@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Address;
@@ -16,12 +18,12 @@ class OrderAddressFactory extends Factory
         return [
             'order_id' => Order::factory(),
             'source_address_id' => Address::factory(),
-            'type' => fake()->randomElement(["billing","delivery"]),
-            'delivery_type' => fake()->randomElement(["address","office"]),
+            'type' => fake()->randomElement(['billing', 'delivery']),
+            'delivery_type' => fake()->randomElement(['address', 'office']),
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'phone' => fake()->phoneNumber(),
-            'country' => fake()->country(),
+            'country' => fake()->countryCode(),
             'city' => fake()->city(),
             'postcode' => fake()->postcode(),
             'street' => fake()->streetName(),

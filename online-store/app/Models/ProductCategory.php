@@ -1,9 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductCategory extends Model
 {
@@ -12,11 +17,13 @@ class ProductCategory extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
+        'parent_id',
         'name',
         'slug',
+        'description',
     ];
 
     /**
@@ -28,6 +35,22 @@ class ProductCategory extends Model
     {
         return [
             'id' => 'integer',
+            'parent_id' => 'integer',
         ];
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function coupons(): BelongsToMany
+    {
+        return $this->belongsToMany(Coupon::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class);
     }
 }

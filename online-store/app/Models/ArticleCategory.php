@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,12 +15,12 @@ class ArticleCategory extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'name',
-        'description',
         'slug',
+        'description',
     ];
 
     /**
@@ -30,8 +32,6 @@ class ArticleCategory extends Model
     {
         return [
             'id' => 'integer',
-            'created_at' => 'timestamp',
-            'updated_at' => 'timestamp',
         ];
     }
 

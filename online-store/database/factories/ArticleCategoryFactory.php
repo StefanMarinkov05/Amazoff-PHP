@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -13,10 +15,8 @@ class ArticleCategoryFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'description' => fake()->text(),
             'slug' => fake()->slug(),
-            'created_at' => fake()->dateTime(),
-            'updated_at' => fake()->dateTime(),
+            'description' => fake()->text(),
         ];
     }
 }
