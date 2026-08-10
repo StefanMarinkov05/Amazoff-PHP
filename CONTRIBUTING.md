@@ -38,6 +38,36 @@ checkout`, `fix: webhook signature check bypassed on retry`, `docs: adr for
 translation storage`. One logical change per commit — not one commit per
 file, not one commit for the whole feature.
 
+## Changelog
+
+`docs/changelog/CHANGELOG.md` is updated in the same commit as the change it
+describes, not afterwards — a changelog written later is written from the diff,
+which is the one thing a reader can already see.
+
+What goes in: anything that changes what the application does, what is installed,
+or what a developer has to know. Added, Changed, Fixed, Removed, and an `Open`
+section for what is known-unresolved. What stays out: refactors with no
+behavioural change, formatting, and anything only visible to the person who wrote
+it.
+
+Entries are terse and point outward. Reasoning belongs in the ADR the entry
+names, not in the entry — one line plus a pointer beats a paragraph that will
+disagree with the ADR within a month.
+
+The `Open` section is the part that earns the file. Known-unresolved items live
+there so they are not rediscovered as new findings, and they are deleted only
+when actually resolved.
+
+**One file, not one per release.** The changelog is read as a timeline —
+"what changed between then and now" — and splitting it by release turns one
+scroll into a hunt across files. The format is designed for a single file with
+newest at the top; the project is not large enough for that to strain.
+
+**Fixed is not a troubleshooting guide.** A `Fixed` entry says a bug is gone. It
+does not help the next person who hits the same symptom, because they are
+searching for the symptom and the entry is filed under the date of the fix. That
+is a different document with a different reader — see below.
+
 ## Architectural changes
 
 If the change contradicts something in `docs/adr/`, that's an ADR

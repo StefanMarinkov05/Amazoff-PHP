@@ -44,7 +44,13 @@ here's why, here's what we gave up"). Explanation just describes how things
 work right now, with nothing left to defend. Quick test: if the doc is
 making a case, it's an ADR; if it's describing a result, it's explanation.
 
-**Not decided yet** — the original draft described "common errors and how
-they're fixed," which is really a troubleshooting guide, not a changelog.
-Early planning had a `docs/troubleshooting/` folder for this;
-it doesn't exist here yet.
+**Troubleshooting** is the "common errors and how they're fixed" material from
+the original draft, which was never a changelog: a changelog entry says a bug is
+gone and is filed under the date of the fix, while a troubleshooting entry is
+found by the symptom someone is looking at right now.
+
+It lives at `how-to/troubleshooting.md` rather than in the `docs/troubleshooting/`
+folder early planning had. Someone with a symptom is someone with a specific job,
+which is what how-to is for, and one file is searchable in a way a folder of
+one-problem files is not. The folder becomes worth it if the guide outgrows a
+single sitting.
