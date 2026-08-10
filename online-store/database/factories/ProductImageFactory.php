@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Product;
@@ -14,8 +16,8 @@ class ProductImageFactory extends Factory
     {
         return [
             'product_id' => Product::factory(),
-            'url' => fake()->url(),
-            'alt_text' => fake()->word(),
+            'path' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'alt_text' => fake()->regexify('[A-Za-z0-9]{255}'),
             'is_main' => fake()->boolean(),
             'sort_order' => fake()->numberBetween(-10000, 10000),
         ];

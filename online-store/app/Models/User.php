@@ -3,56 +3,62 @@
 declare(strict_types=1);
 
 namespace App\Models;
-   
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
+
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+/**
+ * Hand-written, not Blueprint-generated. `blueprint:build` must be run with
+ * `--only=models,factories` and this file restored afterwards, or it will be
+ * overwritten with a plain Eloquent model missing the auth, Filament, and
+ * role wiring below.
+ */
 class User extends Authenticatable implements FilamentUser
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
-  
-     /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'is_active',
-        'profile_id',
-    ];
+    use HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Roles that grant access to the Filament panel. Staff only — a plain
+     * customer holds no role at all.
      *
-     * @var array
-     */
-    protected $hidden = [
-        'password',
-
-    /**
-     * Roles that grant access to the Filament panel. Staff roles only —
-     * a plain customer has no role at all.
-     *
-     * @var array<int, string>
+     * @var list<string>
      */
     public const STAFF_ROLES = [
         'administrator',
         'content_editor',
         'warehouse_employee',
+    ];
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'first_name',
+        'last_name',
+        'email',
+        'email_verified_at',
+        'password',
+        'phone',
+        'avatar_path',
+        'is_active',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
     /**
@@ -64,38 +70,43 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'id' => 'integer',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
             'is_active' => 'boolean',
-            'profile_id' => 'integer',
-            'created_at' => 'timestamp',
-            'updated_at' => 'timestamp',
         ];
     }
-  
+
+    /**
+     * Filament is not protected past login — this is what actually gates the
+     * panel. Role-based rather than a Policy: panel access is not per-model
+     * authorization, it is "is this user staff at all".
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasAnyRole(self::STAFF_ROLES);
+    }
+
+    /** @return HasMany<Order, $this> */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
 
+    /** @return HasMany<ProductReview, $this> */
     public function productReviews(): HasMany
     {
         return $this->hasMany(ProductReview::class);
     }
 
-    public function roles(): BelongsToMany
+    /** @return HasMany<Address, $this> */
+    public function addresses(): HasMany
     {
-        return $this->belongsToMany(Role::class);
+        return $this->hasMany(Address::class);
     }
 
-    public function profile(): BelongsTo
+    /** @return HasMany<WishlistItem, $this> */
+    public function wishlistItems(): HasMany
     {
-        return $this->belongsTo(Profile::class);
-    /**
-     * Filament is not protected past login — this is what actually gates
-     * the panel. Role-based rather than a Policy: panel access is not
-     * per-model authorization, it is "is this user staff at all".
-     */
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return $this->hasAnyRole(self::STAFF_ROLES);
+        return $this->hasMany(WishlistItem::class);
     }
 }

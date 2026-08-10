@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -16,18 +17,31 @@ class Order extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'user_id',
         'serial_number',
+        'email',
+        'phone',
+        'first_name',
+        'last_name',
         'status',
         'payment_status',
-        'total_amount',
+        'payment_method',
+        'currency',
+        'subtotal_amount',
         'discount_amount',
         'shipping_amount',
-        'billing_address_id',
-        'delivery_address_id',
+        'vat_amount',
+        'total_amount',
+        'customer_note',
+        'internal_note',
+        'invoice_required',
+        'invoice_company',
+        'invoice_vat_number',
+        'invoice_eik',
+        'anonymized_at',
     ];
 
     /**
@@ -40,11 +54,13 @@ class Order extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
-            'total_amount' => 'decimal:2',
+            'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'shipping_amount' => 'decimal:2',
-            'billing_address_id' => 'integer',
-            'delivery_address_id' => 'integer',
+            'vat_amount' => 'decimal:2',
+            'total_amount' => 'decimal:2',
+            'invoice_required' => 'boolean',
+            'anonymized_at' => 'timestamp',
         ];
     }
 
@@ -53,28 +69,33 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function discounts(): BelongsToMany
+    public function orderStatusHistories(): HasMany
     {
-        return $this->belongsToMany(Discount::class);
+        return $this->hasMany(OrderStatusHistory::class);
     }
 
-    public function user(): BelongsTo
+    public function orderAddresses(): HasMany
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(OrderAddress::class);
     }
 
-    public function billingAddress(): BelongsTo
+    public function couponRedemptions(): HasMany
     {
-        return $this->belongsTo(Address::class);
-    }
-
-    public function deliveryAddress(): BelongsTo
-    {
-        return $this->belongsTo(Address::class);
+        return $this->hasMany(CouponRedemption::class);
     }
 
     public function shipment(): HasOne
     {
         return $this->hasOne(Shipment::class);
+    }
+
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

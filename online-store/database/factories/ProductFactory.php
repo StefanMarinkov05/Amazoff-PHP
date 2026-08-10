@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Brand;
@@ -14,24 +16,25 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'slug' => fake()->slug(),
-            'sku' => fake()->word(),
-            'short_description' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'description' => fake()->text(),
-            'is_available' => fake()->boolean(),
-            'is_featured' => fake()->boolean(),
-            'available_quantity' => fake()->numberBetween(-10000, 10000),
-            'reserved_quantity' => fake()->numberBetween(-10000, 10000),
-            'min_order_quantity' => fake()->numberBetween(-10000, 10000),
-            'regular_price' => fake()->randomFloat(2, 0, 999999.99),
-            'rate' => fake()->randomFloat(2, 0, 9.99),
-            'weight' => fake()->randomFloat(2, 0, 999999.99),
-            'dimensions' => fake()->word(),
-            'seo_title' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'seo_description' => fake()->regexify('[A-Za-z0-9]{255}'),
             'product_category_id' => ProductCategory::factory(),
             'brand_id' => Brand::factory(),
+            'name' => fake()->name(),
+            'slug' => fake()->slug(),
+            'sku' => fake()->regexify('[A-Za-z0-9]{64}'),
+            'short_description' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'description' => fake()->text(),
+            'regular_price' => fake()->randomFloat(2, 0, 99999999.99),
+            'discount_price' => fake()->randomFloat(2, 0, 99999999.99),
+            'discount_starts_at' => fake()->dateTime(),
+            'discount_ends_at' => fake()->dateTime(),
+            'vat_rate' => fake()->randomFloat(2, 0, 999.99),
+            'min_order_quantity' => fake()->numberBetween(-10000, 10000),
+            'weight' => fake()->randomFloat(2, 0, 999999.99),
+            'dimensions' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'is_available' => fake()->boolean(),
+            'is_featured' => fake()->boolean(),
+            'seo_title' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'seo_description' => fake()->regexify('[A-Za-z0-9]{255}'),
         ];
     }
 }

@@ -31,11 +31,18 @@ toggles — that would otherwise round-trip to the server on every input.
 
 ### Blueprint, scaffolding
 
-Installed, not used yet — no `draft.yaml` exists in this repo. Intended use:
-generate migrations, models, and factories per vertical slice from
-`draft.yaml`. Not a round-trip tool — once a slice's models are hand-edited,
-that slice is not regenerated. §27 lists around 25 entities; the boilerplate
-part of each is repetitive to hand-write.
+Generates migrations, models, and factories from `online-store/draft.yaml`.
+§27 lists around 25 entities; the boilerplate part of each is repetitive to
+hand-write.
+
+In use — 32 models, 32 factories, and 39 migrations generated from it.
+
+Not a round-trip tool. Blueprint never overwrites an existing file, so
+re-running it after editing `draft.yaml` layers new columns onto stale ones
+instead of replacing them. `app/Models/User.php` and `UserFactory` are
+hand-written and excluded from generation. Two of Blueprint's stubs are
+overridden in `online-store/stubs/blueprint/` so generated models satisfy
+Larastan. See `docs/how-to/regenerate-with-blueprint.md`.
 
 ### Saloon, courier clients
 
@@ -115,9 +122,13 @@ both machines and in CI. Production runs on Forge, no containers.
   it.
 − Two packages installed without a settled design behind them
   (`astrotomic/laravel-translatable`, `spatie/laravel-activitylog`).
-− Filament, Blueprint, Saloon, Purify, and Livewire are installed but not
-  yet used anywhere in `app/`. Whether they deliver on the reasoning above
-  is not yet tested against real code.
+− Filament, Saloon, Purify, and Livewire are installed but not yet used
+  anywhere in `app/`. Whether they deliver on the reasoning above is not yet
+  tested against real code.
+− Blueprint's output needs correcting after every run: it maps column names
+  to Faker methods without checking column types, and generates a factory
+  reference for every foreign key regardless of nullability. Both produced
+  runtime failures that Pint, Larastan, and Pest all pass.
 
 ## Alternatives rejected
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,13 +15,15 @@ class ProductReview extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'user_id',
         'product_id',
-        'description',
+        'order_item_id',
+        'author_name',
         'rating',
+        'body',
         'approved',
     ];
 
@@ -34,9 +38,9 @@ class ProductReview extends Model
             'id' => 'integer',
             'user_id' => 'integer',
             'product_id' => 'integer',
-            'rating' => 'decimal:2',
+            'order_item_id' => 'integer',
+            'rating' => 'integer',
             'approved' => 'boolean',
-            'created_at' => 'timestamp',
         ];
     }
 
@@ -48,5 +52,10 @@ class ProductReview extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function orderItem(): BelongsTo
+    {
+        return $this->belongsTo(OrderItem::class);
     }
 }

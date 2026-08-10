@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,15 +15,14 @@ class InventoryMovement extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'inventory_id',
+        'created_by_id',
         'movement_type',
         'quantity',
         'note',
-        'movement_date',
-        'created_by',
     ];
 
     /**
@@ -34,9 +35,7 @@ class InventoryMovement extends Model
         return [
             'id' => 'integer',
             'inventory_id' => 'integer',
-            'movement_date' => 'timestamp',
-            'created_at' => 'timestamp',
-            'created_by' => 'integer',
+            'created_by_id' => 'integer',
         ];
     }
 

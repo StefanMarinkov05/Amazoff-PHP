@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,18 +16,15 @@ class Inventory extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
-        'product_id',
-        'variation_id',
+        'product_variation_id',
         'current_quantity',
         'reserved_quantity',
-        'available_quantity',
         'sold_quantity',
         'returned_quantity',
         'damaged_quantity',
-        'product_variation_id',
     ];
 
     /**
@@ -37,29 +36,17 @@ class Inventory extends Model
     {
         return [
             'id' => 'integer',
-            'product_id' => 'integer',
-            'variation_id' => 'integer',
             'product_variation_id' => 'integer',
         ];
-    }
-
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
-
-    public function productVariation(): BelongsTo
-    {
-        return $this->belongsTo(ProductVariation::class);
-    }
-
-    public function variation(): BelongsTo
-    {
-        return $this->belongsTo(ProductVariation::class);
     }
 
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    public function productVariation(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariation::class);
     }
 }

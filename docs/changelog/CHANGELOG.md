@@ -27,9 +27,36 @@ when the work happened, not when it was committed — nothing in
   the ADR vs explanation split.
 - `docs/explanation/gdpr.md` — soft vs hard delete, order anonymization,
   hashed coupon redemption identifiers.
+- `docs/how-to/regenerate-with-blueprint.md` — safe regeneration procedure,
+  the two hand-written files, and the generated code that needs correcting.
+- `docs/how-to/use-ci.md` — what the workflow runs, how to reproduce a
+  failure locally, and what a green check does not cover.
 - `CLAUDE.md`, `CONTRIBUTING.md`, `CONTRIBUTIONS.md`,
   `.github/PULL_REQUEST_TEMPLATE.md` at repo root.
+- Schema generated from `draft.yaml`: 39 migrations, 32 models, 32
+  factories. `migrate:fresh` applies cleanly; every factory persists a row.
+- `online-store/stubs/blueprint/` — overrides `model.fillable.stub` and
+  `model.hidden.stub` to emit `@var list<string>`, which Larastan requires.
 
+### Fixed
+
+- `app/Models/User.php` was invalid PHP — an unclosed `$hidden` array and an
+  unclosed `profile()` method from a merge conflict resolved by hand. It also
+  referenced `Profile`, `Role`, and `Permission`, all removed in the
+  `spatie/laravel-permission` switch, and redefined `roles()`, colliding with
+  the `HasRoles` trait. Now hand-written and excluded from generation.
+- Four factories contained empty class names (`use App\Models\;`,
+  `::factory()`) and would not parse.
+- 21 factories referenced columns that no longer existed after the schema
+  revision. Blueprint does not overwrite existing files, so a second
+  `blueprint:build` had layered new columns onto stale ones.
+- `AddressFactory` and `OrderAddressFactory` generated `fake()->country()`
+  into a `char(2)` column, failing with a truncation error on insert.
+- `ProductCategoryFactory` set `'parent_id' => ProductCategory::factory()`
+  on a self-referencing key, recursing without termination.
+- `UserFactory` hashed a random password per row and left no known password
+  for tests to log in with. Now hashes once per process, with an
+  `unverified()` state.
 
 ### Removed
 

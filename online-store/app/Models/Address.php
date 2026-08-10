@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,15 +15,20 @@ class Address extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'user_id',
-        'street',
-        'postcode',
-        'phone_number',
-        'city',
+        'label',
+        'first_name',
+        'last_name',
+        'phone',
         'country',
+        'city',
+        'postcode',
+        'street',
+        'is_default_billing',
+        'is_default_shipping',
     ];
 
     /**
@@ -34,6 +41,8 @@ class Address extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'is_default_billing' => 'boolean',
+            'is_default_shipping' => 'boolean',
         ];
     }
 

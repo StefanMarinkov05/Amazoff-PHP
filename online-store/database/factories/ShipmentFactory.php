@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
-use App\Models\;
-use App\Models\Address;
+use App\Models\Carrier;
 use App\Models\Order;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -16,22 +17,17 @@ class ShipmentFactory extends Factory
     {
         return [
             'order_id' => Order::factory(),
-            'carrier_id' => ::factory(),
-            'tracking_number' => fake()->word(),
-            'status' => fake()->randomElement(["pending","shipped","in_transit","delivered","returned"]),
-            'label_url' => fake()->word(),
-            'courier_tracking_url' => fake()->word(),
-            'shipping_address_id' => Address::factory(),
-            'recipient_name' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'recipient_phone' => fake()->regexify('[A-Za-z0-9]{30}'),
-            'street' => fake()->streetName(),
-            'city' => fake()->city(),
-            'postcode' => fake()->postcode(),
-            'country' => fake()->country(),
+            'carrier_id' => Carrier::factory(),
+            'shipment_number' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'tracking_number' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'status' => fake()->randomElement(['pending', 'shipped', 'in_transit', 'delivered', 'returned', 'cancelled']),
+            'raw_status' => fake()->regexify('[A-Za-z0-9]{100}'),
+            'label_path' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'courier_tracking_url' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'cod_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'weight' => fake()->randomFloat(2, 0, 999999.99),
             'shipped_at' => fake()->dateTime(),
             'delivered_at' => fake()->dateTime(),
-            'created_at' => fake()->dateTime(),
-            'updated_at' => fake()->dateTime(),
         ];
     }
 }

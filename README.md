@@ -76,6 +76,6 @@ Copy the printed webhook signing secret into `online-store/.env` as
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs Pint, Larastan,
-and Pest against MySQL on every push and pull request targeting `main`. It is
-the merge gate (ADR-0024) — external APIs are mocked, so it needs no real
-credentials.
+and Pest against MySQL on every push and pull request targeting `main`.
+External APIs are mocked, so it needs no real credentials. See
+[`docs/how-to/use-ci.md`](docs/how-to/use-ci.md).

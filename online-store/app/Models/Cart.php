@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,10 +16,13 @@ class Cart extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'user_id',
+        'coupon_id',
+        'session_id',
+        'expires_at',
     ];
 
     /**
@@ -30,6 +35,8 @@ class Cart extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'coupon_id' => 'integer',
+            'expires_at' => 'timestamp',
         ];
     }
 
@@ -41,5 +48,10 @@ class Cart extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 }

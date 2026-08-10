@@ -1,21 +1,23 @@
 created:
     - database/factories/UserFactory.php
-    - database/factories/RoleFactory.php
-    - database/factories/PermissionFactory.php
     - database/factories/AddressFactory.php
-    - database/factories/ProductFactory.php
     - database/factories/ProductCategoryFactory.php
     - database/factories/BrandFactory.php
+    - database/factories/ProductFactory.php
     - database/factories/ProductImageFactory.php
     - database/factories/ProductVariationFactory.php
-    - database/factories/ProductAttributeFactory.php
-    - database/factories/ProductAttributeValueFactory.php
+    - database/factories/AttributeFactory.php
+    - database/factories/AttributeValueFactory.php
+    - database/factories/ProductSpecificationFactory.php
     - database/factories/InventoryFactory.php
     - database/factories/InventoryMovementFactory.php
-    - database/factories/DiscountFactory.php
+    - database/factories/CouponFactory.php
+    - database/factories/CouponRedemptionFactory.php
+    - database/factories/WishlistItemFactory.php
     - database/factories/CartFactory.php
     - database/factories/CartItemFactory.php
     - database/factories/OrderFactory.php
+    - database/factories/OrderAddressFactory.php
     - database/factories/OrderItemFactory.php
     - database/factories/OrderStatusHistoryFactory.php
     - database/factories/PaymentFactory.php
@@ -23,69 +25,31 @@ created:
     - database/factories/CarrierFactory.php
     - database/factories/ShipmentFactory.php
     - database/factories/ShipmentTrackingEventFactory.php
-    - database/factories/ArticleFactory.php
     - database/factories/ArticleCategoryFactory.php
+    - database/factories/ArticleFactory.php
     - database/factories/TagFactory.php
-    - database/factories/ArticleTagFactory.php
     - database/factories/ProductReviewFactory.php
     - database/factories/NewsletterSubscriberFactory.php
     - database/factories/ContactMessageFactory.php
-    - database/factories/AuditLogFactory.php
-    - database/migrations/2026_08_07_153102_create_users_table.php
-    - database/migrations/2026_08_07_153103_create_roles_table.php
-    - database/migrations/2026_08_07_153104_create_permissions_table.php
-    - database/migrations/2026_08_07_153105_create_addresses_table.php
-    - database/migrations/2026_08_07_153106_create_products_table.php
-    - database/migrations/2026_08_07_153107_create_product_categories_table.php
-    - database/migrations/2026_08_07_153108_create_brands_table.php
-    - database/migrations/2026_08_07_153109_create_product_images_table.php
-    - database/migrations/2026_08_07_153110_create_product_variations_table.php
-    - database/migrations/2026_08_07_153111_create_product_attributes_table.php
-    - database/migrations/2026_08_07_153112_create_product_attribute_values_table.php
-    - database/migrations/2026_08_07_153113_create_inventories_table.php
-    - database/migrations/2026_08_07_153114_create_inventory_movements_table.php
-    - database/migrations/2026_08_07_153115_create_discounts_table.php
-    - database/migrations/2026_08_07_153116_create_carts_table.php
-    - database/migrations/2026_08_07_153117_create_cart_items_table.php
-    - database/migrations/2026_08_07_153118_create_orders_table.php
-    - database/migrations/2026_08_07_153119_create_order_items_table.php
-    - database/migrations/2026_08_07_153120_create_order_status_histories_table.php
-    - database/migrations/2026_08_07_153121_create_payments_table.php
-    - database/migrations/2026_08_07_153122_create_payment_events_table.php
-    - database/migrations/2026_08_07_153123_create_carriers_table.php
-    - database/migrations/2026_08_07_153124_create_shipments_table.php
-    - database/migrations/2026_08_07_153125_create_shipment_tracking_events_table.php
-    - database/migrations/2026_08_07_153126_create_articles_table.php
-    - database/migrations/2026_08_07_153127_create_article_categories_table.php
-    - database/migrations/2026_08_07_153128_create_tags_table.php
-    - database/migrations/2026_08_07_153129_create_article_tags_table.php
-    - database/migrations/2026_08_07_153130_create_product_reviews_table.php
-    - database/migrations/2026_08_07_153131_create_newsletter_subscribers_table.php
-    - database/migrations/2026_08_07_153132_create_contact_messages_table.php
-    - database/migrations/2026_08_07_153133_create_audit_logs_table.php
-    - database/migrations/2026_08_07_153134_create_role_user_table.php
-    - database/migrations/2026_08_07_153135_create_permission_role_table.php
-    - database/migrations/2026_08_07_153136_create_discount_product_table.php
-    - database/migrations/2026_08_07_153137_create_discount_user_table.php
-    - database/migrations/2026_08_07_153138_create_discount_order_table.php
-    - database/migrations/2026_08_07_153139_create_article_tag_table.php
     - app/Models/User.php
-    - app/Models/Role.php
-    - app/Models/Permission.php
     - app/Models/Address.php
-    - app/Models/Product.php
     - app/Models/ProductCategory.php
     - app/Models/Brand.php
+    - app/Models/Product.php
     - app/Models/ProductImage.php
     - app/Models/ProductVariation.php
-    - app/Models/ProductAttribute.php
-    - app/Models/ProductAttributeValue.php
+    - app/Models/Attribute.php
+    - app/Models/AttributeValue.php
+    - app/Models/ProductSpecification.php
     - app/Models/Inventory.php
     - app/Models/InventoryMovement.php
-    - app/Models/Discount.php
+    - app/Models/Coupon.php
+    - app/Models/CouponRedemption.php
+    - app/Models/WishlistItem.php
     - app/Models/Cart.php
     - app/Models/CartItem.php
     - app/Models/Order.php
+    - app/Models/OrderAddress.php
     - app/Models/OrderItem.php
     - app/Models/OrderStatusHistory.php
     - app/Models/Payment.php
@@ -93,44 +57,49 @@ created:
     - app/Models/Carrier.php
     - app/Models/Shipment.php
     - app/Models/ShipmentTrackingEvent.php
-    - app/Models/Article.php
     - app/Models/ArticleCategory.php
+    - app/Models/Article.php
     - app/Models/Tag.php
-    - app/Models/ArticleTag.php
     - app/Models/ProductReview.php
     - app/Models/NewsletterSubscriber.php
     - app/Models/ContactMessage.php
-    - app/Models/AuditLog.php
 models:
-    User: { name: 'string:50', email: 'string:100 unique', password: 'string:255', is_active: 'boolean default:true', profile_id: 'id:Profile nullable', created_at: timestamp, updated_at: timestamp, relationships: { hasMany: 'Order, ProductReview', belongsToMany: Role } }
+    User: { first_name: 'string:50', last_name: 'string:50', email: 'string:100 unique', email_verified_at: 'timestamp nullable', password: 'string:255', remember_token: 'string:100 nullable', phone: 'string:30 nullable', avatar_path: 'string:255 nullable', is_active: 'boolean default:true', softdeletes: softdeletes, relationships: { hasMany: 'Order, ProductReview, Address, WishlistItem' } }
     Role: { name: string, description: 'string nullable', relationships: { belongsToMany: 'User, Permission' } }
     Permission: { name: 'string:50 unique', description: 'string nullable', relationships: { belongsToMany: Role } }
-    Address: { user_id: 'id:User', street: 'string:150', postcode: 'string:20', phone_number: 'string:30', city: 'string:50', country: 'string:30', relationships: { belongsTo: User } }
-    Product: { name: 'string:100', slug: 'string unique', sku: 'string unique', short_description: 'string:100 nullable', description: 'string:1000 nullable', is_available: 'boolean default:true', is_featured: 'boolean default:false', available_quantity: 'integer default:0', reserved_quantity: 'integer default:0', min_order_quantity: 'integer default:1', regular_price: 'decimal:8,2', rate: 'decimal:3,2', weight: 'decimal:8,2 nullable', dimensions: 'string nullable', seo_title: 'string:100 nullable', seo_description: 'string:255 nullable', relationships: { belongsTo: 'ProductCategory, Brand', hasMany: 'ProductImage, ProductVariation, ProductAttributeValue, ProductReview', belongsToMany: Discount } }
-    ProductCategory: { name: 'string:50', slug: 'string unique', relationships: 'hasMany:Product' }
-    Brand: { name: 'string:50', relationships: { hasMany: Product } }
-    ProductImage: { product_id: 'id:Product', url: 'string:255', alt_text: 'string nullable', is_main: 'boolean default:false', sort_order: 'integer default:0', relationships: { belongsTo: Product } }
-    ProductVariation: { product_id: 'id:Product', sku: 'string unique', price: 'decimal:10,2', discount_price: 'decimal:10,2 nullable', stock_quantity: 'integer default:0', is_available: 'boolean default:true', size: 'string nullable', color: 'string nullable', weight: 'decimal:8,2 nullable', material: 'string nullable', package_type: 'string nullable', image_id: 'id:ProductImage nullable', relationships: { belongsTo: 'Product, ProductImage', hasMany: Inventory } }
+    Address: { user_id: 'id:User', label: 'string:50 nullable', first_name: 'string:50', last_name: 'string:50', phone: 'string:30', country: 'char:2', city: 'string:50', postcode: 'string:20', street: 'string:150', is_default_billing: 'boolean default:false', is_default_shipping: 'boolean default:false' }
+    Product: { product_category_id: 'id:ProductCategory', brand_id: 'id:Brand nullable', name: 'string:100', slug: 'string:100 unique', sku: 'string:64 unique', short_description: 'string:255 nullable', description: 'text nullable', regular_price: 'decimal:10,2', discount_price: 'decimal:10,2 nullable', discount_starts_at: 'timestamp nullable', discount_ends_at: 'timestamp nullable', vat_rate: 'decimal:5,2 default:20.00', min_order_quantity: 'integer default:1', weight: 'decimal:8,2 nullable', dimensions: 'string:100 nullable', is_available: 'boolean default:true', is_featured: 'boolean default:false', seo_title: 'string:100 nullable', seo_description: 'string:255 nullable', softdeletes: softdeletes, relationships: { hasMany: 'ProductImage, ProductVariation, ProductSpecification, ProductReview, WishlistItem', belongsToMany: 'Attribute, Coupon' } }
+    ProductCategory: { parent_id: 'id:ProductCategory nullable', name: 'string:50', slug: 'string:100 unique', description: 'string:255 nullable', relationships: { hasMany: Product, belongsToMany: Coupon } }
+    Brand: { name: 'string:50', slug: 'string:100 unique', relationships: { hasMany: Product } }
+    ProductImage: { product_id: 'id:Product', path: 'string:255', alt_text: 'string:255 nullable', is_main: 'boolean default:false', sort_order: 'integer default:0' }
+    ProductVariation: { product_id: 'id:Product', image_id: 'id:ProductImage nullable', sku: 'string:64 unique', price: 'decimal:10,2 nullable', discount_price: 'decimal:10,2 nullable', weight: 'decimal:8,2 nullable', is_available: 'boolean default:true', softdeletes: softdeletes, relationships: { hasOne: Inventory, belongsToMany: AttributeValue } }
     ProductAttribute: { name: 'string:50', relationships: { hasMany: ProductAttributeValue } }
     ProductAttributeValue: { product_id: 'id:Product', attribute_id: 'id:ProductAttribute', value: 'string:50', relationships: { belongsTo: 'Product, ProductAttribute' } }
-    Inventory: { product_id: 'id:Product', variation_id: 'id:ProductVariation', current_quantity: 'integer default:0', reserved_quantity: 'integer default:0', available_quantity: 'integer default:0', sold_quantity: 'integer default:0', returned_quantity: 'integer default:0', damaged_quantity: 'integer default:0', relationships: { belongsTo: 'Product, ProductVariation', hasMany: InventoryMovement } }
-    InventoryMovement: { inventory_id: 'id:Inventory', movement_type: 'enum:initial_stock,new_delivery,order_reservation,completed_sale,reservation_release,customer_return,damaged_product,manual_correction', quantity: integer, note: 'string nullable', movement_date: timestamp, created_at: timestamp, created_by: 'id:User nullable', relationships: { belongsTo: Inventory } }
+    Inventory: { product_variation_id: 'id:ProductVariation', current_quantity: 'integer default:0', reserved_quantity: 'integer default:0', sold_quantity: 'integer default:0', returned_quantity: 'integer default:0', damaged_quantity: 'integer default:0', relationships: { hasMany: InventoryMovement }, indexes: [{ unique: product_variation_id }] }
+    InventoryMovement: { inventory_id: 'id:Inventory', created_by_id: 'id:User nullable', movement_type: 'enum:initial_stock,new_delivery,order_reservation,completed_sale,reservation_release,customer_return,damaged_product,manual_correction', quantity: integer, note: 'string:255 nullable' }
     Discount: { name: 'string:100', type: 'enum:percentage,product,order', value: 'decimal:5,2', code: 'string:50 nullable', description: 'string:100 nullable', minimum_order_value: 'decimal:10,2 nullable', start_date: timestamp, end_date: 'timestamp nullable', total_usage_limit: 'integer nullable', usage_limit_per_customer: 'integer nullable', is_active: 'boolean default:true', relationships: { belongsToMany: 'Product, User', hasMany: Order } }
-    Cart: { user_id: 'id:User', relationships: { hasMany: CartItem } }
-    CartItem: { cart_id: 'id:Cart', product_id: 'id:Product', variation_id: 'id:ProductVariation', quantity: 'integer default:1', relationships: { belongsTo: 'Cart, Product, ProductVariation' } }
-    Order: { user_id: 'id:User', serial_number: 'string unique', status: 'enum:pending,preparing,delivering,delivered,completed,cancelled,refunded', payment_status: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', total_amount: 'decimal:10,2', discount_amount: 'decimal:10,2 nullable', shipping_amount: 'decimal:10,2 nullable', billing_address_id: 'id:Address nullable', delivery_address_id: 'id:Address nullable', relationships: { hasMany: OrderItem, belongsToMany: Discount, belongsTo: User, hasOne: Shipment } }
-    OrderItem: { product_id: 'id:Product', variation_id: 'id:ProductVariation', product_name: 'string:100', product_sku: 'string:50', quantity: 'integer default:1', unit_price: 'decimal:10,2', relationships: { belongsTo: 'Order, Product, ProductVariation' } }
-    OrderStatusHistory: { user_id: 'id:User', order_id: 'id:Order', previous_status: 'enum:pending,processing,delivering,delivered,completed,cancelled,refunded', new_status: 'enum:pending,processing,delivering,delivered,completed,cancelled,refunded', reason: 'string:100 nullable', note: 'string nullable', changed_at: timestamp }
-    Payment: { order_id: 'id:Order', method: 'enum:card,paypal,cash_on_delivery', currency: "string:10 default:'EUR'", status: 'enum:pending,completed,failed,refunded', amount: 'decimal:10,2', paid_at: 'timestamp nullable', relationships: { belongsTo: Order } }
-    PaymentEvent: { payment_id: 'id:Payment', stripe_event_id: 'string unique', event_type: 'string:50', status_before: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', status_after: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', processed_at: timestamp, note: 'string nullable', relationships: { belongsTo: Payment } }
-    Carrier: { name: 'string:50', code: 'string:20 unique', api_url: 'string:255 nullable', contact_phone: 'string:30 nullable', is_active: 'boolean default:true', relationships: { hasMany: Shipment } }
-    Shipment: { order_id: 'id:Order', carrier_id: 'id:Carrier', tracking_number: 'string unique', status: 'enum:pending,shipped,in_transit,delivered,returned', label_url: 'string nullable', courier_tracking_url: 'string nullable', shipping_address_id: 'id:Address nullable', recipient_name: 'string:100', recipient_phone: 'string:30', street: 'string:150', city: 'string:50', postcode: 'string:20 nullable', country: 'string:30', shipped_at: 'timestamp nullable', delivered_at: 'timestamp nullable', created_at: timestamp, updated_at: timestamp, relationships: { belongsTo: 'Order, Carrier', hasMany: ShipmentTrackingEvent } }
-    ShipmentTrackingEvent: { shipment_id: 'id:Shipment', status: 'enum:pending,shipped,in_transit,delivered,returned,cancelled', event_time: timestamp, description: 'string nullable', relationships: { belongsTo: Shipment } }
-    Article: { author_id: 'id:User', title: 'string:100', content: text, slug: 'string unique', status: 'enum:draft,published,archived,scheduled', summary: 'string:255 nullable', featured: 'boolean default:false', seo_title: 'string:100 nullable', seo_description: 'string:255 nullable', published_at: timestamp, created_at: timestamp, updated_at: timestamp, relationships: { belongsTo: 'User, ArticleCategory', belongsToMany: Tag } }
-    ArticleCategory: { name: 'string:50', description: 'string nullable', slug: 'string unique', created_at: timestamp, updated_at: timestamp, relationships: { hasMany: Article } }
-    Tag: { name: 'string:30', slug: 'string unique', relationships: { belongsToMany: Article } }
+    Cart: { user_id: 'id:User nullable', coupon_id: 'id:Coupon nullable', session_id: 'string:100 nullable', expires_at: 'timestamp nullable', relationships: { hasMany: CartItem }, indexes: [{ index: session_id }] }
+    CartItem: { cart_id: 'id:Cart', product_variation_id: 'id:ProductVariation', quantity: 'integer default:1', indexes: [{ unique: 'cart_id, product_variation_id' }] }
+    Order: { user_id: 'id:User nullable', serial_number: 'string:50 unique', email: 'string:100', phone: 'string:30', first_name: 'string:50', last_name: 'string:50', status: 'enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded', payment_status: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', payment_method: 'enum:stripe,cash_on_delivery', currency: "char:3 default:'EUR'", subtotal_amount: 'decimal:10,2', discount_amount: 'decimal:10,2 default:0', shipping_amount: 'decimal:10,2 default:0', vat_amount: 'decimal:10,2 default:0', total_amount: 'decimal:10,2', customer_note: 'text nullable', internal_note: 'text nullable', invoice_required: 'boolean default:false', invoice_company: 'string:150 nullable', invoice_vat_number: 'string:30 nullable', invoice_eik: 'string:20 nullable', anonymized_at: 'timestamp nullable', relationships: { hasMany: 'OrderItem, OrderStatusHistory, OrderAddress, CouponRedemption', hasOne: 'Shipment, Payment' }, indexes: [{ index: email }] }
+    OrderItem: { order_id: 'id:Order', product_id: 'id:Product nullable', product_variation_id: 'id:ProductVariation nullable', product_name: 'string:100', product_sku: 'string:64', variation_name: 'string:150 nullable', quantity: 'integer default:1', unit_price: 'decimal:10,2', line_total: 'decimal:10,2', discount_amount: 'decimal:10,2 default:0', vat_rate: 'decimal:5,2', vat_amount: 'decimal:10,2' }
+    OrderStatusHistory: { order_id: 'id:Order', user_id: 'id:User nullable', previous_status: 'enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded nullable', new_status: 'enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded', reason: 'string:255 nullable', note: 'text nullable' }
+    Payment: { order_id: 'id:Order', method: 'enum:stripe,cash_on_delivery', status: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', currency: "char:3 default:'EUR'", amount: 'decimal:10,2', refunded_amount: 'decimal:10,2 default:0', stripe_payment_intent_id: 'string:255 nullable unique', stripe_checkout_session_id: 'string:255 nullable', paid_at: 'timestamp nullable', relationships: { hasMany: PaymentEvent } }
+    PaymentEvent: { payment_id: 'id:Payment', stripe_event_id: 'string:255 unique', event_type: 'string:50', status_before: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded nullable', status_after: 'enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded', payload: 'json nullable', processed_at: timestamp, note: 'string:255 nullable' }
+    Carrier: { name: 'string:50', code: 'string:20 unique', is_active: 'boolean default:true', relationships: { hasMany: Shipment } }
+    Shipment: { order_id: 'id:Order', carrier_id: 'id:Carrier', shipment_number: 'string:100 nullable', tracking_number: 'string:100 nullable unique', status: 'enum:pending,shipped,in_transit,delivered,returned,cancelled', raw_status: 'string:100 nullable', label_path: 'string:255 nullable', courier_tracking_url: 'string:255 nullable', cod_amount: 'decimal:10,2 nullable', weight: 'decimal:8,2 nullable', shipped_at: 'timestamp nullable', delivered_at: 'timestamp nullable', relationships: { hasMany: ShipmentTrackingEvent } }
+    ShipmentTrackingEvent: { shipment_id: 'id:Shipment', status: 'enum:pending,shipped,in_transit,delivered,returned,cancelled', raw_status: 'string:100 nullable', description: 'string:255 nullable', event_time: timestamp }
+    Article: { author_id: 'id:User', article_category_id: 'id:ArticleCategory nullable', title: 'string:100', slug: 'string:100 unique', summary: 'string:255 nullable', content: text, main_image_path: 'string:255 nullable', status: 'enum:draft,published,scheduled,archived', featured: 'boolean default:false', seo_title: 'string:100 nullable', seo_description: 'string:255 nullable', published_at: 'timestamp nullable', relationships: { belongsToMany: 'Tag, Product' } }
+    ArticleCategory: { name: 'string:50', slug: 'string:100 unique', description: 'string:255 nullable', relationships: { hasMany: Article } }
+    Tag: { name: 'string:30', slug: 'string:60 unique', relationships: { belongsToMany: Article } }
     ArticleTag: { article_id: 'id:Article', tag_id: 'id:Tag', relationships: { belongsTo: 'Article, Tag' } }
-    ProductReview: { user_id: 'id:User', product_id: 'id:Product', description: 'string:255', rating: 'decimal:3,2', approved: 'boolean default:false', created_at: timestamp, relationships: { belongsTo: 'User, Product' } }
-    NewsletterSubscriber: { user_id: 'id:User nullable', status: 'enum:subscribed,unsubscribed', email: 'string:100 unique', subscribed_at: timestamp }
-    ContactMessage: { name: 'string:50', email: 'string:100', subject: 'string:100 nullable', message: text, created_at: timestamp }
+    ProductReview: { user_id: 'id:User nullable', product_id: 'id:Product', order_item_id: 'id:OrderItem nullable', author_name: 'string:100', rating: tinyInteger, body: text, approved: 'boolean default:false', indexes: [{ unique: 'user_id, product_id' }] }
+    NewsletterSubscriber: { user_id: 'id:User nullable', email: 'string:100 unique', status: 'enum:subscribed,unsubscribed', subscribed_at: timestamp }
+    ContactMessage: { user_id: 'id:User nullable', name: 'string:50', email: 'string:100', subject: 'string:100 nullable', message: text }
     AuditLog: { user_id: 'id:User nullable', action: 'string:100', entity_type: 'string:50', entity_id: 'integer nullable', description: 'text nullable', created_at: timestamp, relationships: { belongsTo: User } }
+    Attribute: { name: 'string:50', slug: 'string:60 unique', input_type: 'enum:select,color,text', is_filterable: 'boolean default:true', sort_order: 'integer default:0', relationships: { hasMany: AttributeValue, belongsToMany: Product } }
+    AttributeValue: { attribute_id: 'id:Attribute', value: 'string:100', slug: 'string:120', color_hex: 'char:7 nullable', sort_order: 'integer default:0', relationships: { belongsToMany: ProductVariation }, indexes: [{ unique: 'attribute_id, slug' }] }
+    ProductSpecification: { product_id: 'id:Product', name: 'string:50', value: 'string:100', sort_order: 'integer default:0' }
+    Coupon: { code: 'string:50 unique', name: 'string:100', description: 'string:255 nullable', type: 'enum:percentage,fixed', scope: 'enum:entire_order,products,categories', value: 'decimal:10,2', max_discount_amount: 'decimal:10,2 nullable', minimum_order_value: 'decimal:10,2 nullable', starts_at: 'timestamp nullable', ends_at: 'timestamp nullable', total_usage_limit: 'integer nullable', usage_limit_per_customer: 'integer nullable', times_used: 'integer default:0', is_active: 'boolean default:true', relationships: { hasMany: CouponRedemption, belongsToMany: 'Product, ProductCategory' } }
+    CouponRedemption: { coupon_id: 'id:Coupon', order_id: 'id:Order', user_id: 'id:User nullable', email_hash: 'char:64', discount_amount: 'decimal:10,2', indexes: [{ unique: 'coupon_id, order_id' }, { index: 'coupon_id, email_hash' }] }
+    WishlistItem: { user_id: 'id:User', product_id: 'id:Product', indexes: [{ unique: 'user_id, product_id' }] }
+    OrderAddress: { order_id: 'id:Order', source_address_id: 'id:Address nullable', type: 'enum:billing,delivery', delivery_type: 'enum:address,office', first_name: 'string:50', last_name: 'string:50', phone: 'string:30', country: 'char:2', city: 'string:50', postcode: 'string:20', street: 'string:150 nullable', courier_office_code: 'string:50 nullable', courier_office_name: 'string:150 nullable', indexes: [{ unique: 'order_id, type' }] }

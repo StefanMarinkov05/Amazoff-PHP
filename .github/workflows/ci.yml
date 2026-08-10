@@ -77,7 +77,8 @@ jobs:
           DB_PASSWORD: password
         run: php artisan migrate --force
 
-      # Deterministic checks block the merge; LLM review advises only (ADR-0024).
+      # Deterministic checks block the merge; a human or LLM review advises,
+      # it does not replace this.
       - name: Pint (formatting)
         run: ./vendor/bin/pint --test
 

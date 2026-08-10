@@ -28,16 +28,21 @@ No Policy classes exist yet, so `canAccessPanel()` is currently the only
 authorization check in the codebase. "All checks go through Policies" is the
 target from ADR-0001, not the current state.
 
+Blueprint has generated the schema from `online-store/draft.yaml`: 40
+migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
+every factory persists a row. The models are data structures only — no
+business logic, no Policies, no Actions.
+
 Larastan and Pest are configured and passing against what exists so far.
 
 ## Installed, not wired in
 
-Saloon, Stripe's SDK, Purify, Blueprint, `astrotomic/laravel-translatable`,
-and `spatie/laravel-activitylog` are all in `composer.json`. None of them
-have any application code using them yet — no `CourierGateway`, no
-Livewire components, no `draft.yaml`, no Article or Payment model. ADR-0001
-has the reasoning for each; this is a statement that the reasoning hasn't
-been tested against real code yet.
+Saloon, Stripe's SDK, Purify, `astrotomic/laravel-translatable`, and
+`spatie/laravel-activitylog` are all in `composer.json`. None of them have
+any application code using them yet — no `CourierGateway`, no Livewire
+components, no payment or shipment logic beyond the generated models.
+ADR-0001 has the reasoning for each; this is a statement that the reasoning
+hasn't been tested against real code yet.
 
 ## Open
 

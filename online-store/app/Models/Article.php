@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,21 +16,21 @@ class Article extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'author_id',
+        'article_category_id',
         'title',
-        'content',
         'slug',
-        'status',
         'summary',
+        'content',
+        'main_image_path',
+        'status',
         'featured',
         'seo_title',
         'seo_description',
         'published_at',
-        'user_id',
-        'article_category_id',
     ];
 
     /**
@@ -41,23 +43,20 @@ class Article extends Model
         return [
             'id' => 'integer',
             'author_id' => 'integer',
+            'article_category_id' => 'integer',
             'featured' => 'boolean',
             'published_at' => 'timestamp',
-            'created_at' => 'timestamp',
-            'updated_at' => 'timestamp',
-            'user_id' => 'integer',
-            'article_category_id' => 'integer',
         ];
     }
 
-    public function user(): BelongsTo
+    public function tags(): BelongsToMany
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(Tag::class);
     }
 
-    public function articleCategory(): BelongsTo
+    public function products(): BelongsToMany
     {
-        return $this->belongsTo(ArticleCategory::class);
+        return $this->belongsToMany(Product::class);
     }
 
     public function author(): BelongsTo
@@ -65,8 +64,8 @@ class Article extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function tags(): BelongsToMany
+    public function articleCategory(): BelongsTo
     {
-        return $this->belongsToMany(Tag::class);
+        return $this->belongsTo(ArticleCategory::class);
     }
 }

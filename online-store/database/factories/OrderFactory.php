@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
-use App\Models\Address;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,14 +16,27 @@ class OrderFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'serial_number' => fake()->word(),
-            'status' => fake()->randomElement(["pending","preparing","delivering","delivered","completed","cancelled","refunded"]),
-            'payment_status' => fake()->randomElement(["pending","processing","paid","failed","cancelled","refunded","partially_refunded"]),
-            'total_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'serial_number' => fake()->regexify('[A-Za-z0-9]{50}'),
+            'email' => fake()->safeEmail(),
+            'phone' => fake()->phoneNumber(),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'status' => fake()->randomElement(['new', 'awaiting_payment', 'paid', 'confirmed', 'preparing', 'ready_for_shipment', 'shipped', 'delivered', 'cancelled', 'returned', 'refunded']),
+            'payment_status' => fake()->randomElement(['pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded']),
+            'payment_method' => fake()->randomElement(['stripe', 'cash_on_delivery']),
+            'currency' => fake()->randomLetter(),
+            'subtotal_amount' => fake()->randomFloat(2, 0, 99999999.99),
             'discount_amount' => fake()->randomFloat(2, 0, 99999999.99),
             'shipping_amount' => fake()->randomFloat(2, 0, 99999999.99),
-            'billing_address_id' => Address::factory(),
-            'delivery_address_id' => Address::factory(),
+            'vat_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'total_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'customer_note' => fake()->text(),
+            'internal_note' => fake()->text(),
+            'invoice_required' => fake()->boolean(),
+            'invoice_company' => fake()->regexify('[A-Za-z0-9]{150}'),
+            'invoice_vat_number' => fake()->regexify('[A-Za-z0-9]{30}'),
+            'invoice_eik' => fake()->regexify('[A-Za-z0-9]{20}'),
+            'anonymized_at' => fake()->dateTime(),
         ];
     }
 }

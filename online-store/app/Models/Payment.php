@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -13,14 +16,17 @@ class Payment extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'order_id',
         'method',
-        'currency',
         'status',
+        'currency',
         'amount',
+        'refunded_amount',
+        'stripe_payment_intent_id',
+        'stripe_checkout_session_id',
         'paid_at',
     ];
 
@@ -35,8 +41,14 @@ class Payment extends Model
             'id' => 'integer',
             'order_id' => 'integer',
             'amount' => 'decimal:2',
+            'refunded_amount' => 'decimal:2',
             'paid_at' => 'timestamp',
         ];
+    }
+
+    public function paymentEvents(): HasMany
+    {
+        return $this->hasMany(PaymentEvent::class);
     }
 
     public function order(): BelongsTo

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\ArticleCategory;
@@ -15,19 +17,17 @@ class ArticleFactory extends Factory
     {
         return [
             'author_id' => User::factory(),
+            'article_category_id' => ArticleCategory::factory(),
             'title' => fake()->sentence(4),
-            'content' => fake()->paragraphs(3, true),
             'slug' => fake()->slug(),
-            'status' => fake()->randomElement(["draft","published","archived","scheduled"]),
             'summary' => fake()->text(),
+            'content' => fake()->paragraphs(3, true),
+            'main_image_path' => fake()->regexify('[A-Za-z0-9]{255}'),
+            'status' => fake()->randomElement(['draft', 'published', 'scheduled', 'archived']),
             'featured' => fake()->boolean(),
             'seo_title' => fake()->regexify('[A-Za-z0-9]{100}'),
             'seo_description' => fake()->regexify('[A-Za-z0-9]{255}'),
             'published_at' => fake()->dateTime(),
-            'created_at' => fake()->dateTime(),
-            'updated_at' => fake()->dateTime(),
-            'user_id' => User::factory(),
-            'article_category_id' => ArticleCategory::factory(),
         ];
     }
 }

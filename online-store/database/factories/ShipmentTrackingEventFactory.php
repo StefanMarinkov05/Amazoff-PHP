@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Shipment;
@@ -14,9 +16,10 @@ class ShipmentTrackingEventFactory extends Factory
     {
         return [
             'shipment_id' => Shipment::factory(),
-            'status' => fake()->randomElement(["pending","shipped","in_transit","delivered","returned","cancelled"]),
-            'event_time' => fake()->dateTime(),
+            'status' => fake()->randomElement(['pending', 'shipped', 'in_transit', 'delivered', 'returned', 'cancelled']),
+            'raw_status' => fake()->regexify('[A-Za-z0-9]{100}'),
             'description' => fake()->text(),
+            'event_time' => fake()->dateTime(),
         ];
     }
 }

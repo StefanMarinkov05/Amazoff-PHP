@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use App\Models\Inventory;
@@ -15,12 +17,10 @@ class InventoryMovementFactory extends Factory
     {
         return [
             'inventory_id' => Inventory::factory(),
-            'movement_type' => fake()->randomElement(["initial_stock","new_delivery","order_reservation","completed_sale","reservation_release","customer_return","damaged_product","manual_correction"]),
+            'created_by_id' => User::factory(),
+            'movement_type' => fake()->randomElement(['initial_stock', 'new_delivery', 'order_reservation', 'completed_sale', 'reservation_release', 'customer_return', 'damaged_product', 'manual_correction']),
             'quantity' => fake()->numberBetween(-10000, 10000),
-            'note' => fake()->word(),
-            'movement_date' => fake()->dateTime(),
-            'created_at' => fake()->dateTime(),
-            'created_by' => User::factory(),
+            'note' => fake()->regexify('[A-Za-z0-9]{255}'),
         ];
     }
 }

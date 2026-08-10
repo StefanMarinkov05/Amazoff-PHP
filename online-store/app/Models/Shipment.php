@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,22 +16,19 @@ class Shipment extends Model
     /**
      * The attributes that are mass assignable.
      *
-     * @var array
+     * @var list<string>
      */
     protected $fillable = [
         'order_id',
         'carrier_id',
+        'shipment_number',
         'tracking_number',
         'status',
-        'label_url',
+        'raw_status',
+        'label_path',
         'courier_tracking_url',
-        'shipping_address_id',
-        'recipient_name',
-        'recipient_phone',
-        'street',
-        'city',
-        'postcode',
-        'country',
+        'cod_amount',
+        'weight',
         'shipped_at',
         'delivered_at',
     ];
@@ -45,12 +44,16 @@ class Shipment extends Model
             'id' => 'integer',
             'order_id' => 'integer',
             'carrier_id' => 'integer',
-            'shipping_address_id' => 'integer',
+            'cod_amount' => 'decimal:2',
+            'weight' => 'decimal:2',
             'shipped_at' => 'timestamp',
             'delivered_at' => 'timestamp',
-            'created_at' => 'timestamp',
-            'updated_at' => 'timestamp',
         ];
+    }
+
+    public function shipmentTrackingEvents(): HasMany
+    {
+        return $this->hasMany(ShipmentTrackingEvent::class);
     }
 
     public function order(): BelongsTo
@@ -61,15 +64,5 @@ class Shipment extends Model
     public function carrier(): BelongsTo
     {
         return $this->belongsTo(Carrier::class);
-    }
-
-    public function shippingAddress(): BelongsTo
-    {
-        return $this->belongsTo(Address::class);
-    }
-
-    public function shipmentTrackingEvents(): HasMany
-    {
-        return $this->hasMany(ShipmentTrackingEvent::class);
     }
 }
