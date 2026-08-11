@@ -67,9 +67,33 @@ Unique slugs: `products`, `product_categories`, `brands`, `articles`,
 `article_categories`, `tags`, `attributes`. Unique codes: `coupons`,
 `carriers`.
 
-**Known gap.** `attribute_product` and `attribute_value_product_variation` have
-no unique constraint and no primary key, so the same attribute can be attached
-to a product twice. Recorded in ADR-0002; needs a new migration.
+## Composite primary keys
+
+All six pivot tables carry a composite primary key over their column pair:
+`attribute_product`, `attribute_value_product_variation`, `coupon_product`,
+`coupon_product_category`, `article_tag`, `article_product`. A primary key
+rather than a unique index — InnoDB clusters by it, and these tables are always
+read by one side of the pair, never by an id of their own.
+
+They were generated as bare foreign-key pairs with neither, so each accepted the
+same pair twice. A duplicate is not a visible error: it doubles a row in every
+join, so a product would list an attribute twice. See ADR-0005.
+
+## Check constraints
+
+45 `CHECK` constraints across 11 tables enforce what a single row must satisfy —
+money and quantities non-negative, discounts below the price they reduce, VAT
+rates inside 0–100, reservations not above stock on hand, refunds not above the
+payment, date windows ordered, review ratings inside the five-star scale, and a
+percentage coupon capped at 100.
+
+They are absent on SQLite, which has no `ALTER TABLE ADD CONSTRAINT`; the
+migration skips itself there.
+
+What the database cannot express, and therefore stays an application invariant:
+cross-table SKU uniqueness, every product having at least one variation, two
+variations sharing an attribute-value set, order totals agreeing with bcmath
+rounding, and status transitions. ADR-0005 lists them; ADR-0004 owns the last.
 
 ## Soft deletes
 

@@ -14,13 +14,17 @@ class InventoryFactory extends Factory
      */
     public function definition(): array
     {
+        $currentQuantity = fake()->numberBetween(0, 500);
+
         return [
             'product_variation_id' => ProductVariation::factory(),
-            'current_quantity' => fake()->numberBetween(-10000, 10000),
-            'reserved_quantity' => fake()->numberBetween(-10000, 10000),
-            'sold_quantity' => fake()->numberBetween(-10000, 10000),
-            'returned_quantity' => fake()->numberBetween(-10000, 10000),
-            'damaged_quantity' => fake()->numberBetween(-10000, 10000),
+            'current_quantity' => $currentQuantity,
+            // §20: available = current - reserved, so a reservation above the
+            // quantity on hand is the lost-update bug the database now blocks.
+            'reserved_quantity' => fake()->numberBetween(0, $currentQuantity),
+            'sold_quantity' => fake()->numberBetween(0, 500),
+            'returned_quantity' => fake()->numberBetween(0, 20),
+            'damaged_quantity' => fake()->numberBetween(0, 10),
         ];
     }
 }

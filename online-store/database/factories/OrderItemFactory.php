@@ -16,6 +16,12 @@ class OrderItemFactory extends Factory
      */
     public function definition(): array
     {
+        $quantity = fake()->numberBetween(1, 5);
+        $unitPrice = fake()->randomFloat(2, 5, 2000);
+        $lineTotal = round($unitPrice * $quantity, 2);
+        $discountAmount = fake()->boolean(20) ? round($lineTotal * 0.1, 2) : 0.0;
+        $vatRate = fake()->randomElement([20.00, 9.00]);
+
         return [
             'order_id' => Order::factory(),
             'product_id' => Product::factory(),
@@ -23,12 +29,15 @@ class OrderItemFactory extends Factory
             'product_name' => fake()->regexify('[A-Za-z0-9]{100}'),
             'product_sku' => fake()->regexify('[A-Za-z0-9]{64}'),
             'variation_name' => fake()->regexify('[A-Za-z0-9]{150}'),
-            'quantity' => fake()->numberBetween(-10000, 10000),
-            'unit_price' => fake()->randomFloat(2, 0, 99999999.99),
-            'line_total' => fake()->randomFloat(2, 0, 99999999.99),
-            'discount_amount' => fake()->randomFloat(2, 0, 99999999.99),
-            'vat_rate' => fake()->randomFloat(2, 0, 999.99),
-            'vat_amount' => fake()->randomFloat(2, 0, 99999999.99),
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            // Derived rather than drawn independently, so the snapshot §17
+            // requires is internally consistent instead of three unrelated
+            // numbers that happen to sit in the same row.
+            'line_total' => $lineTotal,
+            'discount_amount' => $discountAmount,
+            'vat_rate' => $vatRate,
+            'vat_amount' => round(($lineTotal - $discountAmount) * $vatRate / (100 + $vatRate), 2),
         ];
     }
 }
