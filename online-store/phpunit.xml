@@ -23,8 +23,15 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- MySQL, not SQLite in memory. SQLite ignores VARCHAR lengths and
+             cannot execute ALTER TABLE ADD CONSTRAINT at all, so the CHECK
+             constraints and every column length were unenforced under test:
+             AttributeFactory wrote a slug past its varchar(60) and the suite
+             passed. Tests now run against the same engine as production.
+             Host, port, and credentials come from the environment; only the
+             database name is overridden so a test run cannot touch dev data. -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="online_shop_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

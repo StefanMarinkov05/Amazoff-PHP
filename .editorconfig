@@ -1,0 +1,36 @@
+# One config for the whole repository, including online-store/.
+#
+# Do not add a second .editorconfig under online-store/. A nested file
+# declaring `root = true` stops the cascade, so nothing beneath it ever sees
+# this one — which is how the two files previously disagreed about JavaScript
+# and compose indentation without anyone noticing.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Trailing whitespace is significant in Markdown: two spaces is a line break.
+[*.md]
+trim_trailing_whitespace = false
+
+# YAML cannot be indented with tabs and is conventionally two spaces. This
+# covers docker-compose.yml and the GitHub Actions workflows.
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.{js,jsx,ts,tsx,json,vue,css,scss}]
+indent_size = 2
+
+[*.blade.php]
+indent_size = 4
+
+# Lockfiles are generated. Leave them exactly as the tool wrote them.
+[{composer.lock,package-lock.json}]
+insert_final_newline = false
+trim_trailing_whitespace = false
