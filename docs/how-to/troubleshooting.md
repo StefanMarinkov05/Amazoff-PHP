@@ -498,6 +498,94 @@ in about forty seconds.
 
 ---
 
+## The app is silently running on SQLite instead of the Docker MySQL container
+
+**Symptom.** `docker compose exec app php artisan tinker --execute="echo
+DB::connection()->getDriverName();"` prints `sqlite`, not `mysql`. Nothing
+looks broken — `migrate:fresh --seed` runs, the app loads, data persists.
+`./vendor/bin/pest` fails with `Access denied for user 'root'@'...' (using
+password: NO)`.
+
+**Cause.** `online-store/.env` is the generic Laravel skeleton (`APP_NAME=Laravel`,
+`DB_CONNECTION=sqlite`, no Stripe/Econt/Speedy keys) rather than this project's
+own `online-store/.env.example` (`DB_CONNECTION=mysql`, `DB_HOST=db`,
+credentials matching `docker-compose.yml`'s `db` service). This happens when
+`.env` was created by an earlier `artisan key:generate` or framework
+bootstrap before the setup step that copies the project's `.env.example`, or
+was never replaced afterward. `phpunit.xml` forces `DB_CONNECTION=mysql` for
+tests regardless of `.env`, so Pest tries MySQL anyway — with no
+`DB_PASSWORD` set anywhere, using an empty one.
+
+**Fix.**
+
+```bash
+cp online-store/.env.example online-store/.env
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate:fresh --seed
+docker compose exec app php artisan filament:assets
+```
+
+**Why it recurs.** SQLite works well enough that nothing forces the mistake
+into view — the app runs, the panel logs in, data survives a restart. The
+gap is the same one the constraint entry above describes: `VARCHAR` lengths,
+`enum` enforcement, and all 45 `CHECK` constraints are silently absent, and
+nothing about a working app reveals that.
+
+**Prevention.** After `docker compose up -d --build`, confirm the driver
+before trusting anything else:
+
+```bash
+docker compose exec app php artisan tinker --execute="echo DB::connection()->getDriverName();"
+```
+
+Should print `mysql`.
+
+---
+
+## `pest` fails locally with "Access denied ... to database 'online_shop_test'"
+
+**Symptom.** `./vendor/bin/pest` fails on every test with `SQLSTATE[HY000]
+[1044] Access denied for user 'sail'@'%' to database 'online_shop_test'`,
+even though the app itself connects to MySQL fine and `online_shop` has data
+in it.
+
+**Cause.** `docker-compose.yml`'s `db` service only provisions
+`MYSQL_DATABASE: online_shop` — the single database the app uses.
+`phpunit.xml` points Pest at a second, separate database,
+`online_shop_test`, so development data is never at risk from a test run.
+Nothing created that second database locally. CI doesn't hit this because
+its MySQL service container is configured with `MYSQL_DATABASE:
+online_shop_test` directly (`.github/workflows/ci.yml`) and runs as `root`,
+which has access to everything by default.
+
+**Fix.** `docker/mysql/init/01-test-database.sh`, mounted into the `db`
+service at `/docker-entrypoint-initdb.d/`, creates `online_shop_test` and
+grants the app user (`sail`) access to it. It runs automatically the first
+time the container initializes an empty `db_data` volume — a fresh clone, or
+`docker compose down -v` followed by `up`. It does not run retroactively
+against a volume that already has data; run it by hand once for an existing
+volume:
+
+```bash
+docker compose exec db mysql -uroot -p"$DB_PASSWORD" -e "
+    CREATE DATABASE IF NOT EXISTS online_shop_test;
+    GRANT ALL PRIVILEGES ON online_shop_test.* TO 'sail'@'%';
+    FLUSH PRIVILEGES;
+"
+```
+
+**Why it recurs.** `docker-entrypoint-initdb.d` scripts are silent on a
+volume that already exists — there's no error, no log line pointing at the
+missing database, just a Pest failure that reads like a credentials problem
+rather than a missing-database one.
+
+**Prevention.** The init script is now committed, so this only affects a
+volume that existed before it was added. Anyone hitting this on an older
+volume runs the manual `GRANT` above once; anyone starting fresh (or wiping
+`db_data`) gets it automatically.
+
+---
+
 ## A seeded column silently does nothing
 
 **Symptom.** A seeder sets a field and the resulting row does not have it. No

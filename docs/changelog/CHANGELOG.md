@@ -77,6 +77,11 @@ when the work happened, not when it was committed — nothing in
 - `User` implements `Filament\Models\Contracts\HasName`, alongside the
   existing `FilamentUser`. See Fixed, below, for why this was load-bearing
   rather than cosmetic.
+- `docker/mysql/init/01-test-database.sh`, mounted into the `db` service's
+  `docker-entrypoint-initdb.d/`. Creates `online_shop_test` and grants the
+  app user access to it on first container initialization, matching what
+  CI's MySQL service already provisions — local `pest` runs against a fresh
+  clone without a manual `CREATE DATABASE` step.
 
 ### Changed
 
