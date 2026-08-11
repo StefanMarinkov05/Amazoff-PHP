@@ -20,7 +20,9 @@ class ArticleFactory extends Factory
             'author_id' => User::factory(),
             'article_category_id' => ArticleCategory::factory(),
             'title' => fake()->sentence(4),
-            'slug' => fake()->slug(),
+            // varchar(100), unique. Bounded by word count so it cannot
+            // overrun — see TagFactory.
+            'slug' => fake()->unique()->slug(4),
             'summary' => fake()->text(),
             'content' => fake()->paragraphs(3, true),
             'main_image_path' => fake()->regexify('[A-Za-z0-9]{255}'),

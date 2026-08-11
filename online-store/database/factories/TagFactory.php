@@ -15,7 +15,12 @@ class TagFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'slug' => fake()->slug(),
+            // varchar(60). fake()->slug() defaults to about six words and
+            // reaches 85 characters, overrunning intermittently — long enough
+            // to pass locally and fail in CI. Bounded by word count rather
+            // than substr() so the value stays a well-formed slug: slug(2)
+            // tops out around 40 characters.
+            'slug' => fake()->unique()->slug(2),
         ];
     }
 }

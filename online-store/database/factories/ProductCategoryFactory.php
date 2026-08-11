@@ -22,7 +22,9 @@ class ProductCategoryFactory extends Factory
         return [
             'parent_id' => null,
             'name' => fake()->words(2, true),
-            'slug' => fake()->unique()->slug(),
+            // varchar(100), unique. Bounded by word count so it cannot
+            // overrun — see TagFactory.
+            'slug' => fake()->unique()->slug(3),
             'description' => fake()->sentence(),
         ];
     }

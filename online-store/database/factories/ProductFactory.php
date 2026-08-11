@@ -27,7 +27,9 @@ class ProductFactory extends Factory
             'product_category_id' => ProductCategory::factory(),
             'brand_id' => Brand::factory(),
             'name' => fake()->name(),
-            'slug' => fake()->slug(),
+            // varchar(100), unique. Bounded by word count so it cannot
+            // overrun — see TagFactory.
+            'slug' => fake()->unique()->slug(4),
             'sku' => fake()->regexify('[A-Za-z0-9]{64}'),
             'short_description' => fake()->regexify('[A-Za-z0-9]{255}'),
             'description' => fake()->text(),
