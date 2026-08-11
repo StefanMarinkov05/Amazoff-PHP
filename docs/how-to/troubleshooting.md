@@ -36,7 +36,10 @@ factory, discovered by glob, so a new factory is covered the moment it exists.
 Do not delete it because it looks trivial; it is the only check in the suite
 that touches this class of bug.
 
----
+That test only works because the suite runs on MySQL. It previously ran on
+SQLite in memory, which ignores `VARCHAR` lengths entirely — `AttributeFactory`
+wrote a slug past its `varchar(60)` and the test passed every time. See the
+entry below on what SQLite does not enforce.
 
 ## Regenerating with Blueprint leaves factories referencing dead columns
 
@@ -213,6 +216,75 @@ problem, which is everyone who has been working on the project.
 **Prevention.** Reference data the application needs in order to work at all
 belongs in `DatabaseSeeder`, not in a developer's database. Test setup changes
 against a genuinely fresh database rather than an existing one.
+
+---
+
+## Migrations and tests are unbearably slow
+
+**Symptom.** `migrate:fresh` takes six or seven minutes. The test suite takes
+the same. A single `CREATE TABLE` followed by `DROP TABLE`, run directly inside
+the database container, takes eight seconds.
+
+**Cause.** The MySQL container ran with production durability on a Docker
+Desktop volume: `innodb_flush_log_at_trx_commit=1`, `sync_binlog=1`, and the
+binary log enabled. Every statement was fsynced to a Windows-backed filesystem,
+and DDL pays that cost repeatedly.
+
+**Fix.** Relaxed in `docker-compose.yml` — flush at 2, `sync_binlog=0`,
+`--skip-log-bin`. `migrate:fresh` went from 6m51s to seconds and the suite from
+7m34s to 43s.
+
+**Why it recurs.** The defaults are correct for production and nobody changes
+them for local work, because the cost is invisible until something runs DDL in
+a loop. It looks like Laravel being slow, or the machine being slow.
+
+**Prevention.** This container is development and tests only; production runs on
+Forge with MySQL's defaults intact. The settings are commented in
+`docker-compose.yml` so nobody restores them thinking they are a safety
+improvement. If migrations start crawling again, check these first.
+
+---
+
+## A migration with many ALTER TABLE statements takes minutes
+
+**Symptom.** A migration that adds a few dozen constraints runs for several
+minutes, while the same work batched runs in seconds.
+
+**Cause.** Each `ALTER TABLE` is a separate round trip and MySQL may rebuild the
+table for each one. Forty-five separate statements took 4m57s; the same
+constraints grouped into one `ALTER TABLE` per table took 39s.
+
+**Fix.** Group clauses per table:
+`ALTER TABLE x ADD CONSTRAINT a ..., ADD CONSTRAINT b ...`.
+
+**Why it recurs.** Writing one statement per constraint is the obvious shape,
+reads more clearly, and is what a loop over a list produces naturally.
+
+**Prevention.** In any migration touching more than a handful of columns on one
+table, build the clauses and issue a single `ALTER TABLE`.
+
+---
+
+## `schema:dump` fails with unknown mysqldump variables
+
+**Symptom.** `php artisan schema:dump` fails with
+`mysqldump: unknown variable 'column-statistics=0'` and a TLS error.
+
+**Cause.** Debian's `default-mysql-client` package is MariaDB's client, which
+does not accept the MySQL-only flags Laravel passes.
+
+**Fix.** Install Oracle's `mysql-client` from MySQL's apt repository. Already
+done in `docker/php/Dockerfile`.
+
+**Why it recurs.** The package name says `mysql` and the binary is called
+`mysqldump`, so nothing suggests a different vendor until a MySQL-specific flag
+is used.
+
+**Prevention.** Two details in that Dockerfile look like mistakes and are not:
+the signing key is `RPM-GPG-KEY-mysql-2025` because the 2023 key expired on
+2025-10-22, and the apt suite is `bookworm` although the image is Debian trixie,
+because MySQL's trixie suite currently ships no `mysql-8.0` component. Check
+`mysqldump --version` reports MySQL and not MariaDB before debugging further.
 
 ---
 

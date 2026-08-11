@@ -28,6 +28,20 @@ services:
 
   db:
     image: mysql:8.0
+    # Durability traded for speed. This container is local development and
+    # tests only — production runs on Forge, which keeps MySQL's defaults.
+    #
+    # Out of the box MySQL fsyncs the redo log and the binlog on every commit
+    # (innodb_flush_log_at_trx_commit=1, sync_binlog=1). On a Docker Desktop
+    # volume that made a single CREATE TABLE + DROP TABLE take eight seconds,
+    # and `migrate:fresh` nearly seven minutes. The only thing those settings
+    # protect against is losing committed data when the host loses power,
+    # which for a database rebuilt by `migrate:fresh` costs nothing.
+    command:
+      - --innodb-flush-log-at-trx-commit=2
+      - --sync-binlog=0
+      - --skip-log-bin
+      - --innodb-flush-method=nosync
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-online_shop}
       MYSQL_USER: ${DB_USERNAME:-sail}

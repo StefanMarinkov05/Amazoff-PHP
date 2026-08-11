@@ -61,6 +61,18 @@ when the work happened, not when it was committed — nothing in
   describes as the only way to catch a factory writing a value its column
   cannot hold; it was documented but not automated.
 
+### Changed
+
+- Local database container runs with relaxed durability
+  (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).
+  Production is unaffected — it runs on Forge with MySQL's defaults. A single
+  `CREATE TABLE` + `DROP TABLE` inside the container went from 8.28s to 3.16s;
+  `migrate:fresh` from 6m51s to seconds.
+- `docker/php/Dockerfile` installs Oracle's `mysql-client` rather than Debian's
+  `default-mysql-client`, which is MariaDB's and rejects the flags Laravel
+  passes to `mysqldump`. `schema:dump` now works, which lets `migrate:fresh`
+  load a schema dump instead of replaying every migration.
+
 ### Fixed
 
 - `app/Models/User.php` was invalid PHP — an unclosed `$hidden` array and an
