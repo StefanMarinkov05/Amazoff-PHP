@@ -36,6 +36,23 @@ factory, discovered by glob, so a new factory is covered the moment it exists.
 Do not delete it because it looks trivial; it is the only check in the suite
 that touches this class of bug.
 
+**Bound the generator, do not truncate the result.** `fake()->slug()` defaults
+to about six words and reaches 85 characters, so against a `varchar(60)` it
+fails perhaps one run in three — green locally, red in CI, and green again on
+re-run. Pass a word count instead: `slug(2)` tops out around 40 characters,
+`slug(3)` around 54, `slug(4)` around 60. A `substr()` wrapper also works but
+produces slugs cut mid-word, which then read as real data in the demo seed.
+
+**A fix for one factory is a fix for one factory.** When this appeared in
+`AttributeFactory` it was corrected there and nowhere else; `TagFactory` had
+the identical bug against the identical `varchar(60)` and failed in CI two
+merges later. On any truncation failure, grep the whole factory directory for
+the same generator before calling it fixed:
+
+```bash
+grep -rn "fake()->slug()" online-store/database/factories/
+```
+
 That test only works because the suite runs on MySQL. It previously ran on
 SQLite in memory, which ignores `VARCHAR` lengths entirely — `AttributeFactory`
 wrote a slug past its `varchar(60)` and the test passed every time. See the

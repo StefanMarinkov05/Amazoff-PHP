@@ -15,7 +15,9 @@ class BrandFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'slug' => fake()->slug(),
+            // varchar(100), unique. Bounded by word count so it cannot
+            // overrun — see TagFactory.
+            'slug' => fake()->unique()->slug(3),
         ];
     }
 }
