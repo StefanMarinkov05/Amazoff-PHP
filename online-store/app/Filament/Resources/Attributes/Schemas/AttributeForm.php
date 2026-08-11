@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\Attributes\Schemas;
 
 use App\Enums\AttributeInputType;
@@ -17,7 +19,8 @@ class AttributeForm
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('slug')
-                    ->required()->unique(),
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 Select::make('input_type')
                     ->options(AttributeInputType::class)
                     ->required(),

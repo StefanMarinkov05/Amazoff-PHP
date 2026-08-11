@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\Attributes\Pages;
 
 use App\Filament\Resources\Attributes\AttributeResource;

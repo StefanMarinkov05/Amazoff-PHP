@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\ProductCategories\Schemas;
 
 use Filament\Forms\Components\Select;
@@ -17,7 +19,8 @@ class ProductCategoryForm
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('slug')
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 TextInput::make('description'),
             ]);
     }
