@@ -63,7 +63,7 @@ generated work passes a review pass before it reaches the repository.
 
 ### Scope
 
-Documentation, code comments, and summaries — turning draft notes into full
+Documentation, code comments, summaries and commit messages — turning draft notes into full
 explanatory text. Schema-shaped code where the content is mechanical: enums,
 model casts, factories, and scaffolding.
 

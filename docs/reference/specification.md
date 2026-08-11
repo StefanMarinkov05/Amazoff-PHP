@@ -12,7 +12,10 @@ Markers used throughout: **[Added]** — not in the issued document. **[Changed]
 — in the issued document, built differently. **[Deferred]** — in the issued
 document, not planned for this delivery. **[Open]** — undecided.
 
-§37 is the contract. §1–36 are the wish list, and §38 is optional.
+§37 is the contract. §1–36 are the wish list, and §38 is optional. A separate,
+unnumbered set of implementation standards was issued afterwards and is recorded
+under "Implementation standards" below; those constrain how the project is built
+rather than what it does.
 
 ## Deviations at a glance
 
@@ -354,6 +357,105 @@ Analysis and planning; project foundation; product catalogue; cart and checkout;
 external integrations; blog and administration; testing and deployment.
 
 **[Changed]** The issued document numbers two consecutive phases 3.
+
+## Implementation standards
+
+Issued separately from the numbered specification and unnumbered in the source.
+They constrain how the project is built rather than what it does, so compliance
+is a state the repository is in at any moment rather than a feature that ships.
+
+Status is what is true on `main` today: **Met** — satisfied and verified.
+**Not met** — a known gap with work outstanding. **Open** — no decision yet.
+**Pending** — nothing built that could satisfy or violate it.
+
+### Tooling and conventions
+
+| # | Requirement | Status |
+|---|---|---|
+| 1 | One code formatter and shared settings across every IDE | Met — see below |
+| 2 | Consistent naming conventions for files, classes, methods, variables | Met — Pint enforces PSR-12; `App\Enums`, Actions, and Policies follow Laravel conventions |
+| 3 | Commit messages explain what changed, not `fix` / `test` / `final2` | Met — convention recorded in `CONTRIBUTING.md` |
+
+Pint handles PHP formatting; `.editorconfig` handles everything else. There is
+one `.editorconfig`, at the repository root, and there must stay one: a nested
+file declaring `root = true` stops the cascade, so nothing beneath it sees the
+outer config.
+
+That is exactly what happened before — a second `.editorconfig` in
+`online-store/` shadowed the root for the entire application, and the two
+disagreed about compose indentation (2 versus 4) and about JavaScript, which the
+inner file did not mention at all. Since every JavaScript file lives under
+`online-store/`, all of them were indenting at 4 against the root's stated
+intent. Merged into the root file and the nested one deleted.
+
+### Frontend
+
+| # | Requirement | Status |
+|---|---|---|
+| 4 | Replace Laravel's default welcome page with a real home page | **Not met** — `routes/web.php` still returns `view('welcome')`, and `welcome.blade.php` is the only view in the project |
+| 5 | At most one or two core CSS and JavaScript technologies; no unnecessary mixing | Met by decision — Livewire and Alpine, argued in ADR-0001. Nothing built yet to violate it |
+| 6 | Per-view CSS and JavaScript files where genuinely needed | Pending |
+| 7 | Where the task calls for Livewire, use Livewire components rather than plain forms that reload the page | Met by decision — ADR-0001. Enforced in review |
+| 8 | No oversized Blade files; repeated markup extracted into components | Pending |
+
+### Authentication
+
+| # | Requirement | Status |
+|---|---|---|
+| 9 | No more than one authentication library or ready-made solution in the project | Met, with a constraint to hold |
+
+Laravel's own authentication is the only one present. Filament's panel login is
+not a second solution — it authenticates through the same guard. This becomes a
+live risk the moment storefront authentication is built: adding Breeze,
+Jetstream, or Fortify alongside would violate this outright. The storefront
+builds on Laravel's authentication directly.
+
+### Code quality
+
+| # | Requirement | Status |
+|---|---|---|
+| 10 | No magic numbers or literal strings in logic | Met for fixed value sets — twelve backed enums cover all 19 enum columns. Money and other constants as they arrive |
+| 11 | No repeated code; extract components, partials, helpers, or reusable classes | Met by architecture — business logic lives in one Action per command, called by both the storefront and Filament |
+| 12 | Understand the approach rather than copying an implementation | Met by process — `CLAUDE.md` treats generated code as a first draft that is read before it is trusted |
+| 13 | No `dd()`, `dump()`, `console.log()`, or test data left in the finished solution | Met — none present |
+
+### Validation and data
+
+| # | Requirement | Status |
+|---|---|---|
+| 14 | Always validate server-side, never only through HTML attributes or JavaScript | Met by decision — §11 and §28 already require it; Form Requests per `CLAUDE.md` |
+| 15 | Do not rely on PHP validation alone; add matching database constraints | Met — see below |
+
+Composite primary keys on all six pivot tables, and 45 `CHECK` constraints
+across 11 tables. Form Requests remain the readable half; the constraints are
+the binding one, and they hold for seeders, queued jobs, and fixture imports
+alike. `docs/adr/0005-database-level-validation.md` records what is enforced,
+what cannot be expressed as a constraint and therefore stays an application
+invariant, and the ten factories this forced fixing.
+
+### Configuration
+
+| # | Requirement | Status |
+|---|---|---|
+| 16 | Never read `.env` directly in application code; add settings to `config/` and read them with `config()` | Met — no `env()` call exists in `app/` or `routes/` |
+| 17 | Ship `.env.example` with the required variables and no real passwords or keys | Met |
+
+### Files and uploads
+
+| # | Requirement | Status |
+|---|---|---|
+| 18 | Check size, type, and storage method for images, video, and PDFs | Pending |
+| 19 | Generate unique names for uploaded files so they cannot collide | Pending |
+
+§34 already requires secure file validation with restricted types and sizes, and
+`explanation/gdpr.md` covers where user-uploaded content lives. Both apply the
+moment product images and article images are built.
+
+### Repository hygiene
+
+| # | Requirement | Status |
+|---|---|---|
+| 20 | Never commit `.env`, `vendor`, `node_modules`, logs, or user-uploaded files | Met — `.gitignore` covers `.env`, `.env.backup`, `.env.production`, `*.log`, `/vendor`, `/node_modules`, `/public/storage`, `/storage/*.key` |
 
 ## Defects in the issued document
 
