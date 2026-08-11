@@ -20,7 +20,8 @@ class InventoryMovementFactory extends Factory
             'inventory_id' => Inventory::factory(),
             'created_by_id' => User::factory(),
             'movement_type' => fake()->randomElement(InventoryMovementType::cases()),
-            'quantity' => fake()->numberBetween(-10000, 10000),
+            // Sign carries direction; zero records nothing and is rejected.
+            'quantity' => fake()->randomElement([-1, 1]) * fake()->numberBetween(1, 50),
             'note' => fake()->regexify('[A-Za-z0-9]{255}'),
         ];
     }

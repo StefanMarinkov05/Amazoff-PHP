@@ -21,7 +21,9 @@ class ProductReviewFactory extends Factory
             'product_id' => Product::factory(),
             'order_item_id' => OrderItem::factory(),
             'author_name' => fake()->regexify('[A-Za-z0-9]{100}'),
-            'rating' => fake()->numberBetween(-8, 8),
+            // tinyInteger accepts -128..127; the scale is five stars. Weighted
+            // high because real review distributions are.
+            'rating' => fake()->randomElement([5, 5, 5, 4, 4, 4, 3, 2, 1]),
             'body' => fake()->text(),
             'approved' => fake()->boolean(),
         ];

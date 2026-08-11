@@ -15,6 +15,14 @@ class ProductFactory extends Factory
      */
     public function definition(): array
     {
+        $regularPrice = fake()->randomFloat(2, 5, 2000);
+        $isDiscounted = fake()->boolean(30);
+        $discountStartsAt = fake()->dateTimeBetween('-2 months', '+1 month');
+        // Strictly after the start: the database rejects a window that ends
+        // where it begins, and such a window would never activate anyway.
+        $discountEndsAt = (clone $discountStartsAt)
+            ->modify('+'.fake()->numberBetween(1, 90).' days');
+
         return [
             'product_category_id' => ProductCategory::factory(),
             'brand_id' => Brand::factory(),
@@ -23,13 +31,19 @@ class ProductFactory extends Factory
             'sku' => fake()->regexify('[A-Za-z0-9]{64}'),
             'short_description' => fake()->regexify('[A-Za-z0-9]{255}'),
             'description' => fake()->text(),
-            'regular_price' => fake()->randomFloat(2, 0, 99999999.99),
-            'discount_price' => fake()->randomFloat(2, 0, 99999999.99),
-            'discount_starts_at' => fake()->dateTime(),
-            'discount_ends_at' => fake()->dateTime(),
-            'vat_rate' => fake()->randomFloat(2, 0, 999.99),
-            'min_order_quantity' => fake()->numberBetween(-10000, 10000),
-            'weight' => fake()->randomFloat(2, 0, 999999.99),
+            'regular_price' => $regularPrice,
+            // Null 70% of the time: most products are not on offer. When it is
+            // set it must be below the regular price — the database enforces
+            // that, and a "discount" above list price is meaningless anyway.
+            'discount_price' => $isDiscounted
+                ? round($regularPrice * fake()->randomFloat(2, 0.5, 0.9), 2)
+                : null,
+            'discount_starts_at' => $isDiscounted ? $discountStartsAt : null,
+            'discount_ends_at' => $isDiscounted ? $discountEndsAt : null,
+            // The two Bulgarian rates: 20% standard, 9% reduced.
+            'vat_rate' => fake()->randomElement([20.00, 9.00]),
+            'min_order_quantity' => fake()->boolean(15) ? fake()->numberBetween(2, 6) : 1,
+            'weight' => fake()->randomFloat(2, 0.05, 40),
             'dimensions' => fake()->regexify('[A-Za-z0-9]{100}'),
             'is_available' => fake()->boolean(),
             'is_featured' => fake()->boolean(),
