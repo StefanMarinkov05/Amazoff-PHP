@@ -23,6 +23,16 @@ Who built what, and where AI assistance was used. Separate from
 ### Aleksandar Stanchev
 
 - Modelled the first prototype of the schema
+- Six Filament resources over the catalogue's lookup entities — `Brand`,
+  `Tag`, `ProductCategory`, `ArticleCategory`, `Attribute`,
+  `AttributeValue` — scaffolded with an LLM and corrected by hand where the
+  generator missed unique-index validation and a self-referencing category
+  cycle
+- `RoleSeeder`, the `DatabaseSeeder` staff account, and the `User` model
+  fixes (`HasName`) needed to make the Filament panel usable end to end
+- Diagnosed the local app running against SQLite instead of the project's
+  MySQL container, and added `docker/mysql/init/` to auto-provision the
+  local test database
 
 ## Documentation
 
@@ -57,9 +67,11 @@ authoring method is covered under AI assistance below.
 
 ## AI assistance
 
-Used by Stefan only, not Aleksandar. The tool is Claude Code, configured with
-skills covering architecture, code review, and documentation standards so that
-generated work passes a review pass before it reaches the repository.
+Used by Stefan from the start of the project. Aleksandar started using it on
+2026-08-11, for the Filament admin panel work above. The tool is Claude Code,
+configured with skills covering architecture, code review, and documentation
+standards so that generated work passes a review pass before it reaches the
+repository.
 
 ### Scope
 
