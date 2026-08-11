@@ -17,8 +17,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libicu-dev \
-    default-mysql-client \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Oracle's mysql-client, not Debian's `default-mysql-client` — on Debian that
+# package is MariaDB's client, which rejects the MySQL-only flags Laravel passes
+# to mysqldump (--column-statistics=0, --set-gtid-purged=OFF). `schema:dump`
+# fails against it, and without schema:dump every `migrate:fresh` replays all
+# migrations: roughly four minutes on this stack, paid again by every test run.
+#
+# Two things that will look wrong and are not:
+#   - RPM-GPG-KEY-mysql-2025, not -2023. The 2023 key expired 2025-10-22, and
+#     apt rejects the repository outright once it has.
+#   - `bookworm`, while this image is Debian trixie. MySQL's trixie suite
+#     exists but ships no mysql-8.0 component yet; the bookworm build installs
+#     and runs fine here. Move to trixie once the component appears.
+RUN curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 \
+        | gpg --dearmor -o /usr/share/keyrings/mysql.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/mysql.gpg] http://repo.mysql.com/apt/debian/ bookworm mysql-8.0" \
+        > /etc/apt/sources.list.d/mysql.list \
+    && apt-get update && apt-get install -y --no-install-recommends mysql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         pdo_mysql \
         mbstring \
