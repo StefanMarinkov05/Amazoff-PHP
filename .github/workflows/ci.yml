@@ -85,8 +85,14 @@ jobs:
       - name: PHPStan / Larastan (static analysis)
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
-      # phpunit.xml pins the test run to DB_CONNECTION=sqlite, DB_DATABASE=:memory:
-      # regardless of these job env vars — fast and isolated per test. The
-      # migrate step above is what validates the schema against real MySQL.
+      # phpunit.xml sets DB_CONNECTION=mysql and DB_DATABASE=online_shop_test;
+      # host, port and credentials come from here. Tests run against the same
+      # engine as production because SQLite enforces neither column lengths nor
+      # the CHECK constraints from ADR-0005 — see docs/how-to/use-ci.md.
       - name: Pest (tests)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
         run: ./vendor/bin/pest

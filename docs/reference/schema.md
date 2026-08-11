@@ -88,7 +88,8 @@ payment, date windows ordered, review ratings inside the five-star scale, and a
 percentage coupon capped at 100.
 
 They are absent on SQLite, which has no `ALTER TABLE ADD CONSTRAINT`; the
-migration skips itself there.
+migration skips itself there. This is why the test suite runs on MySQL — see
+`how-to/use-ci.md`.
 
 What the database cannot express, and therefore stays an application invariant:
 cross-table SKU uniqueness, every product having at least one variation, two
