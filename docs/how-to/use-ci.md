@@ -30,14 +30,23 @@ repo's **Actions** tab has the full run history.
 Any step failing turns the whole check red and stops the run — later steps
 do not execute.
 
-## Why Pest runs against SQLite, not the MySQL service
+## Why Pest runs against the MySQL service
 
-`online-store/phpunit.xml` pins `DB_CONNECTION=sqlite`,
-`DB_DATABASE=:memory:` for the test run, regardless of what MySQL service
-is available in the job. This is intentional, not a leftover: tests run
-fast and isolated against an in-memory database. The MySQL service exists
-for step 6 — proving the migrations actually apply to a real MySQL schema,
-which SQLite would not catch every incompatibility for.
+`online-store/phpunit.xml` sets `DB_CONNECTION=mysql` and
+`DB_DATABASE=online_shop_test`. Host, port, and credentials come from the
+environment, so the same file works in CI and in Docker locally, and only the
+database name is overridden — a test run cannot touch development data.
+
+It used to run against SQLite in memory, which was faster and wrong. SQLite
+ignores `VARCHAR` lengths, keeps `enum` columns as free text, and has no
+`ALTER TABLE ADD CONSTRAINT`, so the migration adding the 45 `CHECK`
+constraints (ADR-0005) skipped itself and none of them existed during a test
+run. A factory writing past a `varchar(60)` passed every time.
+
+The cost that normally argues for SQLite — a slow `migrate:fresh` — turned out
+to be the database container's durability settings rather than MySQL itself.
+See the entry in `troubleshooting.md`; the full suite runs in about forty
+seconds.
 
 ## Reproducing a CI failure locally
 

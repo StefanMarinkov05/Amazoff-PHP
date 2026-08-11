@@ -288,6 +288,31 @@ because MySQL's trixie suite currently ships no `mysql-8.0` component. Check
 
 ---
 
+## A constraint holds in development and not under test
+
+**Symptom.** A `CHECK` constraint, an `enum` column, or a column length rejects
+bad data when used by hand, but a test writing the same value passes.
+
+**Cause.** The suite was running against SQLite in memory. SQLite ignores
+`VARCHAR` lengths, stores `enum` columns as free text, and cannot execute
+`ALTER TABLE ADD CONSTRAINT` at all — so the migration adding the 45 `CHECK`
+constraints skipped itself there and none of them existed during a test run.
+
+**Fix.** `phpunit.xml` points at MySQL and the `online_shop_test` database.
+Host, port, and credentials come from the environment; only the database name is
+overridden, so a test run cannot touch development data.
+
+**Why it recurs.** SQLite in memory is the Laravel default for tests and is
+genuinely faster. The divergence is silent: nothing reports that a constraint
+was not applied, and the suite stays green while the guarantee is absent.
+
+**Prevention.** The suite runs on the engine production uses. The cost that
+usually pushes people back to SQLite — a slow `migrate:fresh` — is the
+durability problem above, not MySQL itself; with that fixed the full suite runs
+in about forty seconds.
+
+---
+
 ## A seeded column silently does nothing
 
 **Symptom.** A seeder sets a field and the resulting row does not have it. No
