@@ -60,6 +60,23 @@ when the work happened, not when it was committed — nothing in
   discovered by glob. This is the check `docs/how-to/regenerate-with-blueprint.md`
   describes as the only way to catch a factory writing a value its column
   cannot hold; it was documented but not automated.
+- Six Filament resources over the catalogue's lookup entities: `Brand`,
+  `Tag`, `ProductCategory`, `ArticleCategory`, `Attribute`, `AttributeValue`.
+  Scaffolded with `make:filament-resource --generate`, then corrected by hand
+  — see Fixed, below. `ProductCategory`'s self-referencing `parent_id` and
+  `AttributeValue`'s `attribute_id` foreign key both resolved to `Select`
+  fields backed by `relationship()` without manual intervention.
+- `database/seeders/RoleSeeder.php` — creates the three `User::STAFF_ROLES`
+  rows (`administrator`, `content_editor`, `warehouse_employee`). Runs in
+  every environment, production included, since a role must exist before
+  anyone can be assigned to it through the panel.
+- `DatabaseSeeder` now creates a staff account and assigns it the
+  `administrator` role, gated behind `! app()->isProduction()` — reference
+  data (roles) seeds everywhere, a known-password test credential does not.
+  Closes the gap the `Open` section below used to track.
+- `User` implements `Filament\Models\Contracts\HasName`, alongside the
+  existing `FilamentUser`. See Fixed, below, for why this was load-bearing
+  rather than cosmetic.
 
 ### Changed
 
@@ -92,6 +109,32 @@ when the work happened, not when it was committed — nothing in
 - `UserFactory` hashed a random password per row and left no known password
   for tests to log in with. Now hashes once per process, with an
   `unverified()` state.
+- `make:filament-resource --generate` does not infer unique-index validation
+  from the schema. All six generated forms had a `slug` field with no
+  `->unique()` rule despite a database-level unique constraint on every one
+  of them; `AttributeValueForm` needed a composite rule
+  (`modifyRuleUsing`) to match `attribute_values`' `UNIQUE(attribute_id,
+  slug)` rather than a plain column-level check. Corrected by hand in all
+  six resources.
+- `AttributeValueForm.php` imported `Filament\Forms\Get`, which does not
+  exist in Filament v4 — `Get`/`Set` moved to
+  `Filament\Schemas\Components\Utilities\Get`. Pint and the IDE (which
+  cannot resolve any vendor class from the host — see `troubleshooting.md`)
+  both missed it; Larastan caught it as `class.notFound`. Would otherwise
+  have failed at runtime the first time the closure using it ran.
+- `FilamentManager::getUserName()` threw a `TypeError` on every panel page
+  after login. It falls back to reading a `name` attribute when the
+  authenticated model does not implement `HasName`, and this schema has no
+  `name` column — only `first_name`/`last_name`. Fixed by implementing
+  `HasName::getFilamentName()` on `User`.
+- `DatabaseSeeder` passed `'name' => 'Test User'` to a `users` table with no
+  `name` column — silently discarded by Eloquent rather than erroring (see
+  the seeded-column entry in `troubleshooting.md`). Replaced with a seeder
+  that sets `first_name`/`last_name`, matching the actual schema.
+- `public/css/filament` and `public/fonts/filament` existed as empty
+  directories — the compiled assets were never published, so every asset
+  request 404'd and the panel rendered unstyled. `php artisan
+  filament:assets` now runs as part of setup; see `README.md`.
 
 ### Removed
 
@@ -105,8 +148,6 @@ when the work happened, not when it was committed — nothing in
   Not pinned.
 - Content translation storage shape and default locale.
 - Audit log shape.
-- No seeder for the three staff roles. They exist in the local database but
-  a fresh `migrate:fresh --seed` creates none.
 - Enum value lists exist in two places: the 19 `enum()` literals in the
   migrations, and `App\Enums`. The migrations are frozen by the append-only
   rule, so the duplication cannot be removed retroactively. Migrations added

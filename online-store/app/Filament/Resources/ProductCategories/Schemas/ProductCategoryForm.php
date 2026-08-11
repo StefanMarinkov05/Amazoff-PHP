@@ -15,7 +15,8 @@ class ProductCategoryForm
         return $schema
             ->components([
                 Select::make('parent_id')
-                    ->relationship('parent', 'name'),
+                    ->relationship('parent', 'name', ignoreRecord: true)
+                    ->helperText('Leave empty for a top-level category.'),
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('slug')

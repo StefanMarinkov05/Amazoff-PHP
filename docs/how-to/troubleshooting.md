@@ -225,7 +225,11 @@ every account.
 have no seeder, so a fresh database has none, and `canAccessPanel()` gates the
 panel on holding one.
 
-**Fix.** Not yet fixed — tracked in the changelog's `Open` section.
+**Fix.** `database/seeders/RoleSeeder.php` creates the three
+`User::STAFF_ROLES` rows and runs in every environment, called from
+`DatabaseSeeder`. `DatabaseSeeder` additionally creates a staff account and
+assigns it `administrator`, but only outside production
+(`! app()->isProduction()`) — see the next entry for why that guard matters.
 
 **Why it recurs.** It is invisible to anyone whose database predates the
 problem, which is everyone who has been working on the project.
@@ -233,6 +237,170 @@ problem, which is everyone who has been working on the project.
 **Prevention.** Reference data the application needs in order to work at all
 belongs in `DatabaseSeeder`, not in a developer's database. Test setup changes
 against a genuinely fresh database rather than an existing one.
+
+---
+
+## A seeded admin account becomes a default production credential
+
+**Symptom.** Not yet observed here — a risk caught during review of the
+`RoleSeeder`/`DatabaseSeeder` change above, not a bug that happened.
+
+**Cause.** ADR-0003 states that `DatabaseSeeder` runs in production, for
+reference data the application needs to function — roles, carriers, VAT
+rates. It does not list staff accounts as reference data. A seeder that
+unconditionally creates `admin@example.com` with a factory-default password
+would create that exact account, with that exact password, on every
+production deploy that runs the seeder.
+
+**Fix.** The admin-account block in `DatabaseSeeder` is wrapped in
+`! app()->isProduction()`. The `RoleSeeder` call above it is not — role rows
+are safe everywhere, a known password is not.
+
+**Why it recurs.** "Seed a working login for local dev" and "seed reference
+data" read as the same instruction, and only one of them is safe to run
+unconditionally.
+
+**Prevention.** Before adding anything to `DatabaseSeeder`, check whether it
+is reference data (needed everywhere, ADR-0003) or a development convenience
+(needed only outside production). When in doubt, gate it.
+
+---
+
+## A Filament resource generated with `--generate` accepts duplicate slugs
+
+**Symptom.** Saving a second record with a slug that already exists throws
+an uncaught `QueryException` / 500 page instead of a validation message,
+despite the column having a database-level unique constraint.
+
+**Cause.** `make:filament-resource --generate` infers a field's presence,
+type, and nullability from the schema, but not its indexes. A `unique()`
+column in the migration does not become a `->unique()` rule on the
+generated form field.
+
+**Fix.** Add `->unique(ignoreRecord: true)` by hand to match a single-column
+unique index. For a composite index — `attribute_values`'
+`UNIQUE(attribute_id, slug)` is the one instance in this schema — a plain
+`->unique()` on `slug` alone is not just missing, it is *wrong*: it rejects
+combinations the database would accept. Scope it with `modifyRuleUsing`:
+
+```php
+TextInput::make('slug')
+    ->required()
+    ->unique(
+        ignoreRecord: true,
+        modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('attribute_id', $get('attribute_id')),
+    ),
+```
+
+**Why it recurs.** The generated form passes Pint and Larastan and looks
+complete — the gap is only visible against the migration, which nothing
+forces a reviewer to open.
+
+**Prevention.** After generating any resource, diff its unique/composite
+indexes (`docs/reference/schema.md`, "Constraints that carry a rule") against
+the form's validation rules before treating the resource as done.
+
+---
+
+## A Filament v4 form field fails only when it's actually used
+
+**Symptom.** `Class "Filament\Forms\Get" not found`, or the equivalent for
+`Set` — but only inside a closure (`modifyRuleUsing`, `->live()`, and
+similar), and only when that closure actually runs. Pint passes. The IDE's
+red squiggle is indistinguishable from the vendor-not-on-host noise below,
+so it's easy to dismiss as the same false alarm.
+
+**Cause.** Filament v3 code (and most AI training data, most tutorials)
+imports `Filament\Forms\Get` and `Filament\Forms\Set`. Filament v4 moved both
+under the shared Schemas namespace:
+`Filament\Schemas\Components\Utilities\Get` /
+`...\Utilities\Set`. The old class no longer exists. PHP does not resolve a
+parameter type hint until the function carrying it is actually called, so a
+wrong import here compiles, passes `php -l`, and only throws when the
+closure executes — typically the first time a user submits the form.
+
+**Fix.** Import from `Filament\Schemas\Components\Utilities\Get` (or
+`Set`). Confirm the real location if in doubt:
+
+```bash
+docker compose exec app sh -c "find vendor/filament -iname 'Get.php'"
+```
+
+**Why it recurs.** The old namespace still compiles and still looks correct
+to Pint, the IDE, and a casual read — nothing about it announces that it's
+stale.
+
+**Prevention.** Larastan catches this (`class.notFound`) even though Pint
+and the IDE do not. Run `docker compose exec app ./vendor/bin/phpstan
+analyse` on any new Filament schema/form code before treating it as done,
+not just the mechanical formatters.
+
+---
+
+## The admin panel logs in, then crashes rendering the topbar
+
+**Symptom.** `TypeError: Filament\FilamentManager::getUserName(): Return
+value must be of type string, null returned`, on the first authenticated
+page after a successful login. The query log shows the user and their role
+were already fetched correctly.
+
+**Cause.** `FilamentManager::getUserName()` calls `$user->getFilamentName()`
+if the user model implements `Filament\Models\Contracts\HasName`, otherwise
+falls back to `$user->getAttributeValue('name')`. A `User` model that
+implements `FilamentUser` (for panel access) but not `HasName` hits the
+fallback — and this schema has no `name` column, only `first_name` /
+`last_name`, so the fallback returns `null` into a `: string` return type.
+
+**Fix.** Implement `HasName` alongside `FilamentUser`:
+
+```php
+public function getFilamentName(): string
+{
+    return "{$this->first_name} {$this->last_name}";
+}
+```
+
+**Why it recurs.** `FilamentUser` is the interface every setup guide
+mentions, because it's required for login to work at all. `HasName` is only
+required to render the panel afterwards, so it's easy to add the first and
+stop, and the schema deciding on `first_name`/`last_name` instead of `name`
+is what turns the omission into a crash rather than a blank label.
+
+**Prevention.** Any model used as a Filament panel guard on a schema without
+a `name` column needs `HasName` implemented from the start, not discovered
+by hitting the crash.
+
+---
+
+## The admin panel loads but renders with no styling
+
+**Symptom.** `/admin` returns `200` and the page structure is there, but
+none of Filament's CSS applies — no theme colour, no layout, plain HTML.
+Network tab shows `404` for `/css/filament/filament/app.css` and similar
+paths, with a `text/html` content type (Laravel's 404 page, not a missing
+static file from nginx).
+
+**Cause.** `public/css/filament`, `public/js/filament`, and
+`public/fonts/filament` existed as directories but were empty — the
+compiled assets were never copied in. Composer's `post-install-cmd` runs
+`php artisan filament:upgrade`, which is supposed to publish them
+automatically, but if it runs before the panel and its dependencies are
+fully in place, the directories get created with nothing inside.
+
+**Fix.**
+
+```bash
+docker compose exec app php artisan filament:assets
+```
+
+**Why it recurs.** nginx is configured correctly and nothing in the request
+path looks broken — nginx's `root` correctly points at `public/`, so this
+reads like a routing or config problem rather than "the files were never
+written," which is easy to rule out last instead of first.
+
+**Prevention.** `filament:assets` now runs as an explicit step in
+`README.md`'s setup instructions rather than relying on the Composer hook
+alone.
 
 ---
 
@@ -336,8 +504,10 @@ in about forty seconds.
 error.
 
 **Cause.** Eloquent discards attributes that are not mass-assignable, or that do
-not exist, without complaint. `DatabaseSeeder` passes `name` to a users table
-whose columns are `first_name` and `last_name`.
+not exist, without complaint. `DatabaseSeeder` passed `name` to a users table
+whose columns are `first_name` and `last_name` — fixed when the seeder was
+rewritten to add the staff account (see the changelog), but the general
+failure mode remains unguarded against for the next seeder that hits it.
 
 **Why it recurs.** The seeder succeeds. Nothing distinguishes a discarded
 attribute from an accepted one.
