@@ -100,9 +100,15 @@ when the work happened, not when it was committed — nothing in
 - `Gate::before` in `AppServiceProvider` grants `administrator` every
   ability. Returns `null` rather than `false` when the role is absent, so
   other users still reach spatie's callback and then their policy.
-- Seven Policy classes over the seven Filament Resources. Each method is one
+- Twenty Policy classes — one per resource the permission catalogue names,
+  not one per Filament Resource built, since a missing policy fails open the
+  moment a resource is scaffolded. Most methods are one
   `$user->can('{ability}_{resource}')`, checking permissions rather than role
-  names because §3.5 requires permissions editable at runtime.
+  names because §3.5 requires permissions editable at runtime. `Order` and
+  `Payment` refuse creation outright; `Order`, `ProductReview`, and `User`
+  add ownership branches; `User` refuses self-deletion. `RolePolicy` is
+  registered by hand in `AppServiceProvider` because spatie's `Role` sits
+  outside `App\Models` and convention does not find it.
 - `tests/Feature/RolePermissionTest.php` — 32 tests over the §37 criterion 18
   matrix, weighted toward the denials, including that every model with a
   Resource resolves a policy at all.

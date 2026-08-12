@@ -95,6 +95,23 @@ policy is reachable by anyone who passes `canAccessPanel()` — authorization
 fails *open*, silently, which is why the test suite asserts policy existence
 separately from policy behaviour.
 
+Because the failure is silent, policies are written for every resource the
+catalogue names rather than for every resource that exists. A policy written
+after the Filament resource has a window in which the resource is live and
+ungated; a policy written before it has none.
+
+Two abilities are refused outright rather than being made permissions:
+creating an order and creating a payment. An order exists because a customer
+completed checkout and a payment because Stripe reported one, so a panel
+form for either would be a way to author history rather than record it.
+`Gate::before` does not reach these, because the policy is what returns
+false and the administrator bypass never consults a permission that does not
+exist.
+
+One policy is registered by hand. `Spatie\Permission\Models\Role` lives in
+the package's namespace, so convention finds nothing for it — and it is the
+model that decides what every other role may do.
+
 ### 4. The administrator exemption is one Gate::before
 
 `AppServiceProvider` registers a single callback returning `true` for the

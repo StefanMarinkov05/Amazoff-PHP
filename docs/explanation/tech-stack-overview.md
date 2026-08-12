@@ -47,15 +47,30 @@ permissions are added. The cost is that a policy can no longer deny an
 administrator anything, which pushes "nobody may do X" rules into the
 Actions as domain invariants.
 
-Seven Policy classes gate the seven Resources, one per model, each method a
-single `$user->can('{ability}_{resource}')`. They check permissions rather
-than role names because §3.5 requires permissions editable at runtime — a
-`hasRole()` check would go stale the moment an administrator edits a role.
-Laravel resolves them by convention, so nothing registers them.
+Twenty Policy classes exist — one per resource the permission catalogue
+names, rather than one per Resource that happens to be built, since a
+missing policy fails open the moment someone scaffolds the resource. Most
+methods are a single `$user->can('{ability}_{resource}')`; they check
+permissions rather than role names because §3.5 requires permissions
+editable at runtime, and a `hasRole()` check would go stale the moment an
+administrator edits a role.
+
+Five carry more than that. `OrderPolicy` and `PaymentPolicy` refuse creation
+outright — an order exists because a customer checked out, a payment because
+Stripe said so — and `OrderPolicy::view`, `ProductReviewPolicy::view`, and
+`UserPolicy::view` add ownership branches, the per-record half §34 calls
+preventing unauthorized resource access. `UserPolicy::delete` refuses
+self-deletion, since removing the last administrator locks the panel against
+everyone.
+
+Laravel resolves policies by convention, with one exception:
+`Spatie\Permission\Models\Role` is outside `App\Models`, so
+`AppServiceProvider` registers `RolePolicy` by hand. Without it the model
+that controls what every role may do would be the one ungated model in the
+system.
+
 `tests/Feature/RolePermissionTest.php` covers the matrix, weighted toward
-the denials, and asserts that every model with a Resource resolves a policy
-at all: Filament reads authorization off the policy, so a missing one fails
-open.
+the denials, and asserts that all twenty models resolve a policy at all.
 
 ADR-0006 records why the four layers are separate and what the arrangement
 costs — chiefly that `Gate::before` makes a policy unable to deny an
