@@ -32,7 +32,17 @@ docker compose exec app composer install
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
 docker compose exec app php artisan storage:link
+docker compose exec app php artisan filament:assets
 ```
+
+The last line publishes Filament's compiled CSS/JS/fonts into `public/`.
+Composer's `post-install-cmd` runs `filament:upgrade`, which is meant to do
+this automatically — but if it fires before the panel is fully installed, or
+`public/` was created by an earlier partial install, you're left with empty
+`public/css/filament` and `public/fonts/filament` directories and an unstyled
+`/admin` that 404s every asset request. Running the command directly is
+idempotent, so it's safe to include in setup unconditionally rather than
+diagnosing it after the fact.
 
 The app is then available at:
 
