@@ -132,6 +132,9 @@ when the work happened, not when it was committed — nothing in
   what each holds, and which check answers which question.
 - `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
   are not equivalent, and what the screen deliberately refuses to do.
+- `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
+  the reasoning for each instruction so it can be edited rather than copied
+  once and left to go stale.
 
 ### Changed
 
