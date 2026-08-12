@@ -57,6 +57,11 @@ the denials, and asserts that every model with a Resource resolves a policy
 at all: Filament reads authorization off the policy, so a missing one fails
 open.
 
+ADR-0006 records why the four layers are separate and what the arrangement
+costs — chiefly that `Gate::before` makes a policy unable to deny an
+administrator anything, which pushes "nobody may do X" rules into the
+Actions.
+
 Blueprint has generated the schema from `online-store/draft.yaml`: 40
 migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
 every factory persists a row, which `tests/Feature/FactoryTest.php` now

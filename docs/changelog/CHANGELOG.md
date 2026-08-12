@@ -103,9 +103,15 @@ when the work happened, not when it was committed — nothing in
 - Seven Policy classes over the seven Filament Resources. Each method is one
   `$user->can('{ability}_{resource}')`, checking permissions rather than role
   names because §3.5 requires permissions editable at runtime.
-- `tests/Feature/RolePermissionTest.php` — 27 tests over the §37 criterion 18
+- `tests/Feature/RolePermissionTest.php` — 32 tests over the §37 criterion 18
   matrix, weighted toward the denials, including that every model with a
   Resource resolves a policy at all.
+- `docs/adr/0006-authorization-layers.md` — why panel access, permissions,
+  policies, and the administrator exemption are four separate mechanisms, and
+  what the arrangement costs.
+- `docs/how-to/run-the-tests.md` — running one file or one test, the flags
+  worth knowing, why the suite needs MySQL, and how to check that a test can
+  actually fail.
 
 ### Changed
 

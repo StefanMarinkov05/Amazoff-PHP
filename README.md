@@ -71,6 +71,9 @@ php artisan demo:race              # concurrency check on stock reservation
 ./vendor/bin/pest
 ```
 
+Running a single file, filtering by test name, and the flags worth knowing are
+in [`docs/how-to/run-the-tests.md`](docs/how-to/run-the-tests.md).
+
 Stop the stack with `docker compose down`; add `-v` to also drop the database
 volume.
 
