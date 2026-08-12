@@ -227,9 +227,12 @@ panel on holding one.
 
 **Fix.** `database/seeders/RoleSeeder.php` creates the three
 `User::STAFF_ROLES` rows and runs in every environment, called from
-`DatabaseSeeder`. `DatabaseSeeder` additionally creates a staff account and
-assigns it `administrator`, but only outside production
+`DatabaseSeeder` after `PermissionSeeder`. `UserSeeder` then creates one
+account per role plus a plain customer, but only outside production
 (`! app()->isProduction()`) — see the next entry for why that guard matters.
+
+Credentials are in `reference/permissions.md`; all four use the password
+`password`.
 
 **Why it recurs.** It is invisible to anyone whose database predates the
 problem, which is everyone who has been working on the project.
@@ -237,6 +240,50 @@ problem, which is everyone who has been working on the project.
 **Prevention.** Reference data the application needs in order to work at all
 belongs in `DatabaseSeeder`, not in a developer's database. Test setup changes
 against a genuinely fresh database rather than an existing one.
+
+---
+
+## A permission change saves and does not take effect
+
+**Symptom.** A role is edited — through the panel, a seeder, or tinker — the
+change is visibly in the database, and `$user->can(...)` keeps returning the
+old answer. Reloading the edit form shows the new state, because the form
+reads the database directly. In tests, the second test in a run fails on
+permissions the first test's `beforeEach` seeded.
+
+**Cause.** `spatie/laravel-permission` caches the entire permission table for
+24 hours through `PermissionRegistrar`. Authorization answers from that cache;
+the form answers from the database. When they disagree, everything visible
+says the change worked.
+
+The package clears the cache itself when permissions change through its own
+model methods (`givePermissionTo`, `syncPermissions`, `revokePermissionTo`).
+It cannot know about a direct pivot write, a raw query, or `RefreshDatabase`
+truncating the tables underneath it.
+
+**Fix.**
+
+```php
+app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+```
+
+Already in three places: `PermissionSeeder::run()` before writing, so
+`RoleSeeder` does not read a pre-seed cache; `EditRole::afterSave()`, so a
+panel edit is live on the next request; and the `beforeEach` of both
+permission test files, because `RefreshDatabase` truncates without clearing.
+
+**Why it recurs.** Every symptom points somewhere else. The database is
+correct, the form is correct, the seeder reported success — the only wrong
+answer comes from the one component nobody is looking at. It is also
+invisible locally when the cache happens to be cold and appears in CI when it
+is not, or the reverse.
+
+**Prevention.** Any code path that writes to `role_has_permissions`,
+`model_has_roles`, or `model_has_permissions` without going through a spatie
+model method has to clear the cache afterwards. Prefer the model methods,
+which handle it. When adding a test that seeds permissions, copy the
+`beforeEach` from `tests/Feature/RolePermissionTest.php` rather than writing a
+new one.
 
 ---
 
