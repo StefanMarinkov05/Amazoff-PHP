@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Order matters: RoleSeeder attaches permissions, so they have to
+        // exist first.
+        $this->call(PermissionSeeder::class);
         $this->call(RoleSeeder::class);
 
         // A seeded credential is only safe outside production — see
