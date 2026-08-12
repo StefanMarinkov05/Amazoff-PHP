@@ -73,11 +73,40 @@ class PermissionSeeder extends Seeder
         // Administration
         'user',
         'role',
+    ];
+
+    /**
+     * Resources nobody creates by hand, so `create` is never granted and a
+     * `create_payment` permission would only ever be a mistake waiting to be
+     * ticked in the roles UI.
+     *
+     * A payment row is written by Stripe's webhook (§13), a review by a
+     * customer who bought the product (§24), a contact message and a
+     * newsletter subscription by a public form (§26). Administration means
+     * moderating and correcting these, not authoring them.
+     *
+     * `delete` is granted because §24 requires administrators to be able to
+     * remove inappropriate reviews, and GDPR erasure needs the same for
+     * contact messages and subscribers — see `explanation/gdpr.md`. Payment
+     * keeps `update` for manual correction (a COD remittance marked paid by
+     * hand) but has `refund_payment` as a separate ability below, since
+     * refunding money is not editing a row.
+     *
+     * @var list<string>
+     */
+    private const NON_AUTHORED_RESOURCES = [
+        'payment',
+        'product_review',
         'contact_message',
         'newsletter_subscriber',
-        'product_review',
-        'payment',
     ];
+
+    /**
+     * The abilities NON_AUTHORED_RESOURCES get: everything except `create`.
+     *
+     * @var list<string>
+     */
+    private const NON_AUTHORED_ABILITIES = ['viewAny', 'view', 'update', 'delete'];
 
     /**
      * Abilities that are domain verbs rather than CRUD, and the resource
@@ -137,6 +166,12 @@ class PermissionSeeder extends Seeder
 
         foreach (self::CRUD_RESOURCES as $resource) {
             foreach (self::CRUD_ABILITIES as $ability) {
+                $names[] = "{$ability}_{$resource}";
+            }
+        }
+
+        foreach (self::NON_AUTHORED_RESOURCES as $resource) {
+            foreach (self::NON_AUTHORED_ABILITIES as $ability) {
                 $names[] = "{$ability}_{$resource}";
             }
         }

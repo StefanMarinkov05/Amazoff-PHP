@@ -13,6 +13,7 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Database\Seeders\UserSeeder;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
@@ -63,6 +64,29 @@ it('lets staff reach the admin panel and keeps a customer out', function (): voi
         ->and(userByEmail('warehouse@example.com')->canAccessPanel($panel))->toBeTrue()
         ->and(userByEmail('customer@example.com')->canAccessPanel($panel))->toBeFalse();
 });
+
+it('keeps a deactivated staff account out of the panel', function (): void {
+    $editor = userByEmail('editor@example.com');
+    $editor->update(['is_active' => false]);
+
+    // The role is untouched — deactivation alone has to be enough, because a
+    // session outlives the row it authenticated against.
+    expect($editor->fresh()->hasRole('content_editor'))->toBeTrue()
+        ->and($editor->fresh()->canAccessPanel(filament()->getPanel('admin')))->toBeFalse();
+});
+
+it('does not create a create_ permission for system-authored resources', function (string $permission): void {
+    // A payment row comes from Stripe's webhook, a review from a verified
+    // purchaser, a contact message and a subscription from a public form.
+    // A create_ permission for any of them could only ever be ticked by
+    // mistake in the roles UI.
+    expect(Permission::where('name', $permission)->exists())->toBeFalse();
+})->with([
+    'create_payment',
+    'create_product_review',
+    'create_contact_message',
+    'create_newsletter_subscriber',
+]);
 
 it('returns 403 from /admin for a customer', function (): void {
     $this->actingAs(userByEmail('customer@example.com'))
