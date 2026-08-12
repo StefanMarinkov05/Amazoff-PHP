@@ -25,7 +25,7 @@ Who built what, and where AI assistance was used. Separate from
 - Modelled the first prototype of the schema
 - Six Filament resources over the catalogue's lookup entities — `Brand`,
   `Tag`, `ProductCategory`, `ArticleCategory`, `Attribute`,
-  `AttributeValue` — scaffolded with an LLM and corrected by hand where the
+  `AttributeValue` — scaffolded and corrected by hand where the
   generator missed unique-index validation and a self-referencing category
   cycle
 - `RoleSeeder`, the `DatabaseSeeder` staff account, and the `User` model
