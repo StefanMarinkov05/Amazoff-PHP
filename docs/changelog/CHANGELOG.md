@@ -82,7 +82,7 @@ when the work happened, not when it was committed — nothing in
   app user access to it on first container initialization, matching what
   CI's MySQL service already provisions — local `pest` runs against a fresh
   clone without a manual `CREATE DATABASE` step.
-- `database/seeders/PermissionSeeder.php` — 108 permissions named
+- `database/seeders/PermissionSeeder.php` — 104 permissions named
   `{ability}_{resource}`, the ability half matching the Laravel policy method
   that checks it. Seeded in full rather than per built resource: §3.3 and
   §3.4 describe what a role may do, not what happens to be built, and
