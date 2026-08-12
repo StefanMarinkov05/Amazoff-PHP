@@ -15,9 +15,9 @@ Filament is installed and its panel provider registered.
 catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
 `ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
 `make:filament-resource --generate` and corrected by hand where the
-generator didn't infer unique-index validation from the schema. Nothing
-exists yet for `Product` or `Order`, or anything else that touches money or
-stock.
+generator didn't infer unique-index validation from the schema. An eighth,
+over spatie's `Role`, is described under authorization below. Nothing exists
+yet for `Product` or `Order`, or anything else that touches money or stock.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
@@ -33,7 +33,7 @@ The three staff role rows (`administrator`, `content_editor`,
 `warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
 called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
 them in every environment. `PermissionSeeder` runs before it with a
-catalogue of 108 permissions named `{ability}_{resource}`, where the ability
+catalogue of 104 permissions named `{ability}_{resource}`, where the ability
 half matches the Laravel policy method that checks it — which is what keeps
 a policy method to one line. `UserSeeder` then creates one account per role
 plus a plain customer, gated to non-production; see ADR-0003 on why seeded

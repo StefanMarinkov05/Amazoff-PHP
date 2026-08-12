@@ -17,9 +17,14 @@ For the list of permissions and what each role currently holds, see
 The change is live on the next request. No deploy, no re-seed, no cache clear
 by hand — `EditRole::afterSave()` clears the permission cache.
 
-Editing `administrator` does nothing. It holds no permissions; a `Gate::before`
-callback grants it every ability, so ticking boxes there has no effect. The
-form says so.
+Editing `administrator` has no effect on what it may do. It holds no
+permissions, and a `Gate::before` callback grants it every ability regardless
+of the pivot table, so ticked boxes are saved and then never consulted. The
+edit form shows a note to that effect above the checkboxes.
+
+Nothing prevents the save — the boxes are not disabled and there is no
+validation rule. The note is the only thing standing between an administrator
+and a pointless edit.
 
 ## What the screen deliberately does not do
 
