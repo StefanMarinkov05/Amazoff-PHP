@@ -2,29 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\ProductCategories\Tables;
+namespace App\Filament\Resources\Carriers\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
-class ProductCategoriesTable
+class CarriersTable
 {
     public static function configure(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('parent.name')
-                    ->searchable(),
                 TextColumn::make('name')
                     ->searchable(),
-                TextColumn::make('slug')
+                TextColumn::make('code')
                     ->searchable(),
-                TextColumn::make('description')
-                    ->searchable(),
+                IconColumn::make('is_active')
+                    ->boolean(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -39,16 +37,6 @@ class ProductCategoriesTable
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make()
-                    ->visible(fn ($record) =>
-                        // $record->children()->count() === 0 &&
-                        $record->products()->count() === 0
-                    )
-                    ->disabled(fn ($record) =>
-                        // $record->children()->count() > 0 ||
-                        $record->products()->count() > 0
-                    )
-                    ->tooltip('Cannot delete a category that has subcategories or products'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
