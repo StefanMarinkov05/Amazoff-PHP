@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,7 +20,7 @@ use Spatie\Permission\Traits\HasRoles;
  * overwritten with a plain Eloquent model missing the auth, Filament, and
  * role wiring below.
  */
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasName
 {
     use HasFactory, HasRoles, Notifiable, SoftDeletes;
 
@@ -84,6 +85,11 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->hasAnyRole(self::STAFF_ROLES);
+    }
+
+    public function getFilamentName(): string
+    {
+        return "{$this->first_name} {$this->last_name}";
     }
 
     /** @return HasMany<Order, $this> */

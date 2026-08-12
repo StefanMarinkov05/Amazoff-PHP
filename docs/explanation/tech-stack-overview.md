@@ -11,8 +11,18 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. No Filament Resources exist
-yet — the admin panel has no content in it.
+`canAccessPanel()` on `User` gates it by role. Six Resources exist over the
+catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
+`ArticleCategory`, `Attribute`, `AttributeValue` — scaffolded with
+`make:filament-resource --generate` and corrected by hand where the
+generator didn't infer unique-index validation from the schema. Nothing
+exists yet for `Product`, `Order`, or anything else that touches money,
+stock, or a Policy.
+
+`User` also implements `Filament\Models\Contracts\HasName`
+(`getFilamentName()`), required because `FilamentManager` falls back to a
+`name` attribute this schema doesn't have — see `troubleshooting.md` for
+the crash this produced before it was added.
 
 Roles come from `spatie/laravel-permission`. `User` uses the `HasRoles`
 trait; `canAccessPanel()` checks `hasAnyRole(User::STAFF_ROLES)`. Verified
@@ -20,9 +30,12 @@ working — staff reach the panel, a customer does not, and a user can hold
 two roles at once.
 
 The three staff role rows (`administrator`, `content_editor`,
-`warehouse_employee`) exist in the local database but **there is no seeder
-for them**, so a fresh `migrate:fresh --seed` produces none. No permissions
-are defined either — only roles.
+`warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
+called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
+them in every environment. `DatabaseSeeder` also creates a staff account and
+assigns it `administrator`, gated to non-production — see ADR-0003 on why
+seeded credentials and seeded reference data get different treatment. No
+permissions are defined either — only roles.
 
 No Policy classes exist yet, so `canAccessPanel()` is currently the only
 authorization check in the codebase. "All checks go through Policies" is the
