@@ -680,11 +680,23 @@ because nothing failed on it — nothing ran. And a red final check does not
 by itself stop the merge button; it only stops it if branch protection is
 configured to require that check.
 
-**Prevention.** Two independent fixes, both still open:
+**Prevention.** The first half is fixed, the second cannot be.
 
-1. Run `./vendor/bin/pint` locally before pushing to *any* branch, not just
-   before the PR into `main` — don't rely on CI in a chain to catch it
-   first, since most links in the chain don't run CI at all.
-2. Enable a branch protection rule on `main` requiring the `test` check to
-   pass before merging. Until that exists, a red run is advisory, not a
-   gate, no matter what the workflow file says.
+1. **Fixed.** `ci.yml` now triggers on every pull request rather than only
+   those targeting `main`, so an intermediate PR in a chain is checked
+   rather than reporting "no checks reported".
+2. **Not available on this repository.** Requiring a green check before
+   merging needs branch protection or a ruleset, and GitHub offers neither
+   for a private repository on a free organisation plan — the API answers
+   `Upgrade to GitHub Pro or make this repository public`. Both developers
+   also hold `write` rather than `admin`, so it is not ours to set even if
+   the plan allowed it.
+
+   Until the organisation upgrades or the repository goes public, a red
+   check is advisory. Run the gate locally before pushing:
+
+   ```bash
+   docker compose exec app ./vendor/bin/pint --test
+   docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
+   docker compose exec app ./vendor/bin/pest
+   ```

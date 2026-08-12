@@ -1,10 +1,19 @@
 name: CI
 
+# Every pull request, not only those targeting main. A chain of feature
+# branches merging into each other — lookup-resources into feature into
+# development into main — previously ran CI on the last hop alone, so the
+# earlier PRs reported "no checks reported", which reads as clean and means
+# untested. A Pint failure reached main that way.
+#
+# This is also the only enforcement available: the repository is private on a
+# free organisation plan, where GitHub offers neither branch protection nor
+# rulesets, so a red check cannot block a merge. See
+# docs/how-to/use-ci.md.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 defaults:
   run:
