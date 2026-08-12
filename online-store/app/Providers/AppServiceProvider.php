@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
+use App\Policies\RolePolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -38,5 +40,11 @@ class AppServiceProvider extends ServiceProvider
         // domain invariant, which is where ADR-0004 already puts the question
         // of whether a transition is legal at all.
         Gate::before(fn (User $user, string $ability): ?bool => $user->hasRole('administrator') ? true : null);
+
+        // Every other policy is found by convention — App\Policies\XPolicy for
+        // App\Models\X. Role lives in the package's namespace, so convention
+        // finds nothing and the model would be ungated: authorization fails
+        // open, and this is the model that controls what every role may do.
+        Gate::policy(Role::class, RolePolicy::class);
     }
 }
