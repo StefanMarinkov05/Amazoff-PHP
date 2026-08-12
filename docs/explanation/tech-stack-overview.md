@@ -11,13 +11,13 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. Six Resources exist over the
+`canAccessPanel()` on `User` gates it by role. Seven Resources exist over the
 catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
-`ArticleCategory`, `Attribute`, `AttributeValue` — scaffolded with
+`ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
 `make:filament-resource --generate` and corrected by hand where the
 generator didn't infer unique-index validation from the schema. Nothing
-exists yet for `Product`, `Order`, or anything else that touches money,
-stock, or a Policy.
+exists yet for `Product` or `Order`, or anything else that touches money or
+stock.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
@@ -32,14 +32,30 @@ two roles at once.
 The three staff role rows (`administrator`, `content_editor`,
 `warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
 called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
-them in every environment. `DatabaseSeeder` also creates a staff account and
-assigns it `administrator`, gated to non-production — see ADR-0003 on why
-seeded credentials and seeded reference data get different treatment. No
-permissions are defined either — only roles.
+them in every environment. `PermissionSeeder` runs before it with a
+catalogue of 108 permissions named `{ability}_{resource}`, where the ability
+half matches the Laravel policy method that checks it — which is what keeps
+a policy method to one line. `UserSeeder` then creates one account per role
+plus a plain customer, gated to non-production; see ADR-0003 on why seeded
+credentials and seeded reference data get different treatment.
 
-No Policy classes exist yet, so `canAccessPanel()` is currently the only
-authorization check in the codebase. "All checks go through Policies" is the
-target from ADR-0001, not the current state.
+`content_editor` holds 20 permissions and `warehouse_employee` 12, from §3.3
+and §3.4. `administrator` holds none: a `Gate::before` callback in
+`AppServiceProvider` returns `true` for that role and short-circuits every
+check, so the role does not drift out of step with the catalogue as
+permissions are added. The cost is that a policy can no longer deny an
+administrator anything, which pushes "nobody may do X" rules into the
+Actions as domain invariants.
+
+Seven Policy classes gate the seven Resources, one per model, each method a
+single `$user->can('{ability}_{resource}')`. They check permissions rather
+than role names because §3.5 requires permissions editable at runtime — a
+`hasRole()` check would go stale the moment an administrator edits a role.
+Laravel resolves them by convention, so nothing registers them.
+`tests/Feature/RolePermissionTest.php` covers the matrix, weighted toward
+the denials, and asserts that every model with a Resource resolves a policy
+at all: Filament reads authorization off the policy, so a missing one fails
+open.
 
 Blueprint has generated the schema from `online-store/draft.yaml`: 40
 migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
@@ -53,7 +69,7 @@ The 12 models with such columns cast them, and the factories draw from
 `ArticleStatus` — carry a transition matrix; see ADR-0004 for where the rest of
 the state machine is meant to live.
 Beyond enum casts and relations the models remain data structures — no
-Actions, no Policies, and nothing yet calls `canTransitionTo()`.
+Actions, and nothing yet calls `canTransitionTo()`.
 
 Larastan and Pest are configured and passing against what exists so far.
 

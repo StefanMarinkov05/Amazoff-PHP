@@ -82,6 +82,30 @@ when the work happened, not when it was committed — nothing in
   app user access to it on first container initialization, matching what
   CI's MySQL service already provisions — local `pest` runs against a fresh
   clone without a manual `CREATE DATABASE` step.
+- `database/seeders/PermissionSeeder.php` — 108 permissions named
+  `{ability}_{resource}`, the ability half matching the Laravel policy method
+  that checks it. Seeded in full rather than per built resource: §3.3 and
+  §3.4 describe what a role may do, not what happens to be built, and
+  `content_editor`'s deny-list is only meaningful if the permissions it
+  excludes exist.
+- `RoleSeeder` now attaches those permissions — 20 to `content_editor`, 12 to
+  `warehouse_employee`, none to `administrator`. `syncPermissions()` rather
+  than `givePermissionTo()`, so a permission removed from the seeder is
+  actually revoked on the next run; the tradeoff is that a re-seed discards
+  runtime edits made through the panel.
+- `database/seeders/UserSeeder.php` — one account per role plus a plain
+  customer, gated to non-production. §37 criterion 18 is only demonstrable
+  with an account per role, and the customer is what proves
+  `canAccessPanel()` denies someone holding no role at all.
+- `Gate::before` in `AppServiceProvider` grants `administrator` every
+  ability. Returns `null` rather than `false` when the role is absent, so
+  other users still reach spatie's callback and then their policy.
+- Seven Policy classes over the seven Filament Resources. Each method is one
+  `$user->can('{ability}_{resource}')`, checking permissions rather than role
+  names because §3.5 requires permissions editable at runtime.
+- `tests/Feature/RolePermissionTest.php` — 27 tests over the §37 criterion 18
+  matrix, weighted toward the denials, including that every model with a
+  Resource resolves a policy at all.
 
 ### Changed
 
