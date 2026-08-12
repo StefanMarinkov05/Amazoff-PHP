@@ -123,6 +123,25 @@ The alternative — attaching all ~100 permissions to the role — was rejected
 because the catalogue grows at runtime under §3.5, so the role would drift out
 of step with it permanently and silently.
 
+### The roles screen edits permissions, not roles
+
+§3.5 is only satisfied if someone can exercise it, so a Filament resource over
+spatie's `Role` model provides the checkbox grid. It offers edit and nothing
+else.
+
+Creating a role in the UI would produce a role that grants no panel access,
+because `canAccessPanel()` gates on `User::STAFF_ROLES` — a PHP constant. The
+control would appear to work while doing nothing, which is worse than its
+absence. Renaming is refused for the same reason in reverse: the name is what
+`RoleSeeder` and `STAFF_ROLES` match on, so a rename silently strips access
+from everyone holding the role. Adding a staff role stays a code change.
+
+This leaves two paths to the same outcome that are deliberately not
+equivalent. The panel is immediate and local; `RoleSeeder` is authoritative
+and survives `migrate:fresh --seed`, because it syncs. A panel change that
+should be permanent has to be made in the seeder too, which
+`how-to/edit-a-role.md` states plainly.
+
 ## Consequences
 
 + A permission revoked through the panel takes effect on the next request,

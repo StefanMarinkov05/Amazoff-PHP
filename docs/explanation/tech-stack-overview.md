@@ -72,10 +72,19 @@ system.
 `tests/Feature/RolePermissionTest.php` covers the matrix, weighted toward
 the denials, and asserts that all twenty models resolve a policy at all.
 
+A Filament resource over spatie's `Role` model makes §3.5 true rather than
+architectural: an administrator changes what a role may do from
+**Roles & permissions**, and the change is live on the next request. Edit
+only — no create or delete, because `canAccessPanel()` gates on the
+`User::STAFF_ROLES` constant and a role created in the UI would grant no
+panel access until someone edited that constant and deployed.
+
 ADR-0006 records why the four layers are separate and what the arrangement
 costs — chiefly that `Gate::before` makes a policy unable to deny an
 administrator anything, which pushes "nobody may do X" rules into the
-Actions.
+Actions. `reference/permissions.md` lists the catalogue;
+`how-to/edit-a-role.md` covers the panel and seeder paths and why they are
+not equivalent.
 
 Blueprint has generated the schema from `online-store/draft.yaml`: 40
 migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and

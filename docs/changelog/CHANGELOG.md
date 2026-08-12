@@ -118,6 +118,20 @@ when the work happened, not when it was committed — nothing in
 - `docs/how-to/run-the-tests.md` — running one file or one test, the flags
   worth knowing, why the suite needs MySQL, and how to check that a test can
   actually fail.
+- Filament resource over spatie's `Role`, satisfying §3.5 — permissions
+  editable without a deploy, which until now described an arrangement nobody
+  could exercise. Edit only: no create or delete, since `canAccessPanel()`
+  gates on the `User::STAFF_ROLES` constant and a role created in the UI
+  would grant no panel access until that constant changed. Permissions render
+  as one checkbox list per resource, each scoped to its own names so several
+  lists can edit the same relation without clearing each other.
+- `App\Support\PermissionCatalogue` — the catalogue's shape, read by both
+  `PermissionSeeder` and the roles form. Previously private constants on the
+  seeder; the UI needed the same groupings.
+- `docs/reference/permissions.md` — the 104 permissions, the three roles and
+  what each holds, and which check answers which question.
+- `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
+  are not equivalent, and what the screen deliberately refuses to do.
 
 ### Changed
 
