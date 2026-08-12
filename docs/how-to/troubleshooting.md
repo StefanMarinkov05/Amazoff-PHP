@@ -603,3 +603,41 @@ attribute from an accepted one.
 **Prevention.** `Model::preventSilentlyDiscardingAttributes()` in
 `AppServiceProvider::boot()`, guarded to non-production, turns this into an
 exception. Not yet enabled.
+
+---
+
+## A failing Pint check reaches `main` anyway
+
+**Symptom.** `./vendor/bin/pint --test` fails in CI on `main` itself —
+`ordered_imports` on a file nobody touched recently, e.g. one `use`
+statement in `ProductCategoriesTable.php` out of alphabetical order. The PR
+that introduced it shows the `test` check as failed, not pending, and is
+already merged.
+
+**Cause.** Two separate gaps, not one. First, `.github/workflows/ci.yml`
+triggers `pull_request` only for PRs targeting `branches: [main]`. A chain
+of feature branches merging into each other before finally reaching
+`main` (`lookup-resources` → `feature` → `development` → `main`) only runs
+CI on that last hop — `gh pr checks` on the earlier PRs in the chain
+reports "no checks reported," which reads as clean but means untested, not
+passing. Second, `main` has no branch protection rule
+(`gh api repos/.../branches/main/protection` returns `404`), so nothing
+stops a merge when the one check that did run comes back red.
+
+**Fix.** Run `./vendor/bin/pint` (not `--test`) on the offending file,
+confirm the full suite with `--test`, and land the fix as its own small PR
+rather than amending history on `main`.
+
+**Why it recurs.** Every intermediate branch in a merge chain looks safe
+because nothing failed on it — nothing ran. And a red final check does not
+by itself stop the merge button; it only stops it if branch protection is
+configured to require that check.
+
+**Prevention.** Two independent fixes, both still open:
+
+1. Run `./vendor/bin/pint` locally before pushing to *any* branch, not just
+   before the PR into `main` — don't rely on CI in a chain to catch it
+   first, since most links in the chain don't run CI at all.
+2. Enable a branch protection rule on `main` requiring the `test` check to
+   pass before merging. Until that exists, a red run is advisory, not a
+   gate, no matter what the workflow file says.
