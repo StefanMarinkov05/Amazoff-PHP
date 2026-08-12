@@ -1,0 +1,359 @@
+models:
+  User:
+    first_name: string:50
+    last_name: string:50
+    email: string:100 unique
+    email_verified_at: timestamp nullable
+    password: string:255
+    remember_token: string:100 nullable
+    phone: string:30 nullable
+    avatar_path: string:255 nullable
+    is_active: boolean default:true
+    softdeletes: true
+    relationships:
+      hasMany: Order, ProductReview, Address, WishlistItem
+
+  Address:
+    user_id: id:User
+    label: string:50 nullable
+    first_name: string:50
+    last_name: string:50
+    phone: string:30
+    country: char:2
+    city: string:50
+    postcode: string:20
+    street: string:150
+    is_default_billing: boolean default:false
+    is_default_shipping: boolean default:false
+
+  ProductCategory:
+    parent_id: id:ProductCategory nullable
+    name: string:50
+    slug: string:100 unique
+    description: string:255 nullable
+    relationships:
+      hasMany: Product
+      belongsToMany: Coupon
+
+  Brand:
+    name: string:50
+    slug: string:100 unique
+    relationships:
+      hasMany: Product
+
+  Product:
+    product_category_id: id:ProductCategory
+    brand_id: id:Brand nullable
+    name: string:100
+    slug: string:100 unique
+    sku: string:64 unique
+    short_description: string:255 nullable
+    description: text nullable
+    regular_price: decimal:10,2
+    discount_price: decimal:10,2 nullable
+    discount_starts_at: timestamp nullable
+    discount_ends_at: timestamp nullable
+    vat_rate: decimal:5,2 default:20.00
+    min_order_quantity: integer default:1
+    weight: decimal:8,2 nullable
+    dimensions: string:100 nullable
+    is_available: boolean default:true
+    is_featured: boolean default:false
+    seo_title: string:100 nullable
+    seo_description: string:255 nullable
+    softdeletes: true
+    relationships:
+      hasMany: ProductImage, ProductVariation, ProductSpecification, ProductReview, WishlistItem
+      belongsToMany: Attribute, Coupon
+
+  ProductImage:
+    product_id: id:Product
+    path: string:255
+    alt_text: string:255 nullable
+    is_main: boolean default:false
+    sort_order: integer default:0
+
+  ProductVariation:
+    product_id: id:Product
+    image_id: id:ProductImage nullable
+    sku: string:64 unique
+    price: decimal:10,2 nullable
+    discount_price: decimal:10,2 nullable
+    weight: decimal:8,2 nullable
+    is_available: boolean default:true
+    softdeletes: true
+    relationships:
+      hasOne: Inventory
+      belongsToMany: AttributeValue
+
+  Attribute:
+    name: string:50
+    slug: string:60 unique
+    input_type: enum:select,color,text
+    is_filterable: boolean default:true
+    sort_order: integer default:0
+    relationships:
+      hasMany: AttributeValue
+      belongsToMany: Product
+
+  AttributeValue:
+    attribute_id: id:Attribute
+    value: string:100
+    slug: string:120
+    color_hex: char:7 nullable
+    sort_order: integer default:0
+    relationships:
+      belongsToMany: ProductVariation
+    indexes:
+      - unique: attribute_id, slug
+
+  ProductSpecification:
+    product_id: id:Product
+    name: string:50
+    value: string:100
+    sort_order: integer default:0
+
+  Inventory:
+    product_variation_id: id:ProductVariation
+    current_quantity: integer default:0
+    reserved_quantity: integer default:0
+    sold_quantity: integer default:0
+    returned_quantity: integer default:0
+    damaged_quantity: integer default:0
+    relationships:
+      hasMany: InventoryMovement
+    indexes:
+      - unique: product_variation_id
+
+  InventoryMovement:
+    inventory_id: id:Inventory
+    created_by_id: id:User nullable
+    movement_type: enum:initial_stock,new_delivery,order_reservation,completed_sale,reservation_release,customer_return,damaged_product,manual_correction
+    quantity: integer
+    note: string:255 nullable
+
+  Coupon:
+    code: string:50 unique
+    name: string:100
+    description: string:255 nullable
+    type: enum:percentage,fixed
+    scope: enum:entire_order,products,categories
+    value: decimal:10,2
+    max_discount_amount: decimal:10,2 nullable
+    minimum_order_value: decimal:10,2 nullable
+    starts_at: timestamp nullable
+    ends_at: timestamp nullable
+    total_usage_limit: integer nullable
+    usage_limit_per_customer: integer nullable
+    times_used: integer default:0
+    is_active: boolean default:true
+    relationships:
+      hasMany: CouponRedemption
+      belongsToMany: Product, ProductCategory
+
+  CouponRedemption:
+    coupon_id: id:Coupon
+    order_id: id:Order
+    user_id: id:User nullable
+    email_hash: char:64
+    discount_amount: decimal:10,2
+    indexes:
+      - unique: coupon_id, order_id
+      - index: coupon_id, email_hash
+
+  WishlistItem:
+    user_id: id:User
+    product_id: id:Product
+    indexes:
+      - unique: user_id, product_id
+
+  Cart:
+    user_id: id:User nullable
+    coupon_id: id:Coupon nullable
+    session_id: string:100 nullable
+    expires_at: timestamp nullable
+    relationships:
+      hasMany: CartItem
+    indexes:
+      - index: session_id
+
+  CartItem:
+    cart_id: id:Cart
+    product_variation_id: id:ProductVariation
+    quantity: integer default:1
+    indexes:
+      - unique: cart_id, product_variation_id
+
+  Order:
+    user_id: id:User nullable
+    serial_number: string:50 unique
+    email: string:100
+    phone: string:30
+    first_name: string:50
+    last_name: string:50
+    status: enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded
+    payment_status: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    payment_method: enum:stripe,cash_on_delivery
+    currency: char:3 default:'EUR'
+    subtotal_amount: decimal:10,2
+    discount_amount: decimal:10,2 default:0
+    shipping_amount: decimal:10,2 default:0
+    vat_amount: decimal:10,2 default:0
+    total_amount: decimal:10,2
+    customer_note: text nullable
+    internal_note: text nullable
+    invoice_required: boolean default:false
+    invoice_company: string:150 nullable
+    invoice_vat_number: string:30 nullable
+    invoice_eik: string:20 nullable
+    anonymized_at: timestamp nullable
+    relationships:
+      hasMany: OrderItem, OrderStatusHistory, OrderAddress, CouponRedemption
+      hasOne: Shipment, Payment
+    indexes:
+      - index: email
+
+  OrderAddress:
+    order_id: id:Order
+    source_address_id: id:Address nullable
+    type: enum:billing,delivery
+    delivery_type: enum:address,office
+    first_name: string:50
+    last_name: string:50
+    phone: string:30
+    country: char:2
+    city: string:50
+    postcode: string:20
+    street: string:150 nullable
+    courier_office_code: string:50 nullable
+    courier_office_name: string:150 nullable
+    indexes:
+      - unique: order_id, type
+
+  OrderItem:
+    order_id: id:Order
+    product_id: id:Product nullable
+    product_variation_id: id:ProductVariation nullable
+    product_name: string:100
+    product_sku: string:64
+    variation_name: string:150 nullable
+    quantity: integer default:1
+    unit_price: decimal:10,2
+    line_total: decimal:10,2
+    discount_amount: decimal:10,2 default:0
+    vat_rate: decimal:5,2
+    vat_amount: decimal:10,2
+
+  OrderStatusHistory:
+    order_id: id:Order
+    user_id: id:User nullable
+    previous_status: enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded nullable
+    new_status: enum:new,awaiting_payment,paid,confirmed,preparing,ready_for_shipment,shipped,delivered,cancelled,returned,refunded
+    reason: string:255 nullable
+    note: text nullable
+
+  Payment:
+    order_id: id:Order
+    method: enum:stripe,cash_on_delivery
+    status: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    currency: char:3 default:'EUR'
+    amount: decimal:10,2
+    refunded_amount: decimal:10,2 default:0
+    stripe_payment_intent_id: string:255 nullable unique
+    stripe_checkout_session_id: string:255 nullable
+    paid_at: timestamp nullable
+    relationships:
+      hasMany: PaymentEvent
+
+  PaymentEvent:
+    payment_id: id:Payment
+    stripe_event_id: string:255 unique
+    event_type: string:50
+    status_before: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded nullable
+    status_after: enum:pending,processing,paid,failed,cancelled,refunded,partially_refunded
+    payload: json nullable
+    processed_at: timestamp
+    note: string:255 nullable
+
+  Carrier:
+    name: string:50
+    code: string:20 unique
+    is_active: boolean default:true
+    relationships:
+      hasMany: Shipment
+
+  Shipment:
+    order_id: id:Order
+    carrier_id: id:Carrier
+    shipment_number: string:100 nullable
+    tracking_number: string:100 nullable unique
+    status: enum:pending,shipped,in_transit,delivered,returned,cancelled
+    raw_status: string:100 nullable
+    label_path: string:255 nullable
+    courier_tracking_url: string:255 nullable
+    cod_amount: decimal:10,2 nullable
+    weight: decimal:8,2 nullable
+    shipped_at: timestamp nullable
+    delivered_at: timestamp nullable
+    relationships:
+      hasMany: ShipmentTrackingEvent
+
+  ShipmentTrackingEvent:
+    shipment_id: id:Shipment
+    status: enum:pending,shipped,in_transit,delivered,returned,cancelled
+    raw_status: string:100 nullable
+    description: string:255 nullable
+    event_time: timestamp
+
+  ArticleCategory:
+    name: string:50
+    slug: string:100 unique
+    description: string:255 nullable
+    relationships:
+      hasMany: Article
+
+  Article:
+    author_id: id:User
+    article_category_id: id:ArticleCategory nullable
+    title: string:100
+    slug: string:100 unique
+    summary: string:255 nullable
+    content: text
+    main_image_path: string:255 nullable
+    status: enum:draft,published,scheduled,archived
+    featured: boolean default:false
+    seo_title: string:100 nullable
+    seo_description: string:255 nullable
+    published_at: timestamp nullable
+    relationships:
+      belongsToMany: Tag, Product
+
+  Tag:
+    name: string:30
+    slug: string:60 unique
+    relationships:
+      belongsToMany: Article
+
+  ProductReview:
+    user_id: id:User nullable
+    product_id: id:Product
+    order_item_id: id:OrderItem nullable
+    author_name: string:100
+    rating: tinyInteger
+    body: text
+    approved: boolean default:false
+    indexes:
+      - unique: user_id, product_id
+
+  NewsletterSubscriber:
+    user_id: id:User nullable
+    email: string:100 unique
+    status: enum:subscribed,unsubscribed
+    subscribed_at: timestamp
+
+  ContactMessage:
+    user_id: id:User nullable
+    name: string:50
+    email: string:100
+    subject: string:100 nullable
+    message: text

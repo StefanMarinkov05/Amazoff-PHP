@@ -1,35 +1,40 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<User>
+ * Hand-written, not Blueprint-generated — see the note on App\Models\User.
  */
 class UserFactory extends Factory
 {
     /**
-     * The current password being used by the factory.
+     * Hashed once per process rather than per user. Bcrypt at the configured
+     * cost is slow enough that a factory calling Hash::make() per row is a
+     * measurable share of a test run.
      */
-    protected static ?string $password;
+    protected static ?string $password = null;
 
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'phone' => fake()->phoneNumber(),
+            'avatar_path' => null,
+            'is_active' => true,
         ];
     }
 
@@ -38,7 +43,7 @@ class UserFactory extends Factory
      */
     public function unverified(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn (array $attributes): array => [
             'email_verified_at' => null,
         ]);
     }

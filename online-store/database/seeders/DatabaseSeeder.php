@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
 use App\Models\User;
@@ -15,11 +17,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(RoleSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // A seeded credential is only safe outside production — see
+        // docs/adr/0003-seeding-data.md, which lists roles but not staff
+        // accounts as production reference data.
+        if (! app()->isProduction()) {
+            $admin = User::factory()->create([
+                'first_name' => 'Admin',
+                'last_name' => 'User',
+                'email' => 'admin@example.com',
+            ]);
+
+            $admin->assignRole('administrator');
+        }
     }
 }
