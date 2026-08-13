@@ -88,6 +88,8 @@ written is covered under AI assistance below.
 | `docs/explanation/tech-stack-overview.md` | What is built versus merely installed |
 | `docs/explanation/db-schema-design.md` | The parts of the schema the diagram cannot show |
 | `docs/explanation/gdpr.md` | Soft versus hard delete, order anonymization |
+| `docs/explanation/inventory.md` | What the stock counters mean and why availability is derived |
+| `docs/explanation/concurrency-and-locking.md` | Contested state, what the row lock prevents, and what a race test can prove |
 | `docs/how-to/regenerate-with-blueprint.md` | Safe regeneration and the files Blueprint must not own |
 | `docs/how-to/use-ci.md` | What the workflow runs and what a green check does not cover |
 | `docs/how-to/run-the-tests.md` | Running one file or one test, and checking that a test can fail |

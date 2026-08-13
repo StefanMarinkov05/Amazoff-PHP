@@ -243,6 +243,80 @@ against a genuinely fresh database rather than an existing one.
 
 ---
 
+## A concurrency test times out on its own first connection
+
+**Symptom.** A test that opens a second database connection to exercise row
+locking fails with `SQLSTATE[HY000]: General error: 1205 Lock wait timeout
+exceeded` — and the timeout is raised by the *first* session, before the
+second one has done anything worth blocking on.
+
+**Cause.** `RefreshDatabase` wraps each test in a transaction and rolls it
+back instead of committing. Rows the test inserted were therefore never
+committed, so a second connection cannot see them — and when that connection
+asks for one, it queues behind the test's own uncommitted write.
+
+The failure looks like a locking bug in the code under test. It is the test
+harness locking against itself.
+
+**Fix.** Keep concurrency tests out of `RefreshDatabase`. `tests/Concurrency/`
+is registered as its own suite in `phpunit.xml` and is excluded from the
+`->use(RefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
+their fixtures and truncate in `afterEach`, with
+`Schema::disableForeignKeyConstraints()` around the truncation so the order of
+tables does not have to track whatever the factories currently create.
+
+**Why it recurs.** `RefreshDatabase` is correct and invisible for every other
+test in the suite, and nothing about a lock-wait timeout points at it. The
+same trap is waiting for the coupon-redemption concurrency test, which is the
+next piece of contested state after stock.
+
+**Prevention.** Any test that needs a second connection to observe committed
+state belongs in `tests/Concurrency/`. `explanation/concurrency-and-locking.md`
+covers what those tests can and cannot prove.
+
+---
+
+## A concurrency test passes whether or not the lock is there
+
+**Symptom.** A race test is green. Deleting `lockForUpdate()` from the code it
+covers leaves it green.
+
+**Cause.** Three variants of the same mistake, all of which look correct:
+
+1. Taking the lock in the test with a raw `SELECT ... FOR UPDATE` and watching
+   a second connection block. That exercises InnoDB, not the Action.
+2. Holding the row elsewhere and asserting the Action raises 1205. The
+   Action's `UPDATE` and its ledger `INSERT` block on the holder regardless of
+   whether its `SELECT` took a lock, so the timeout arrives either way.
+3. Asserting that exactly one of two racing requests succeeds. Both the locked
+   and unlocked versions produce one winner — `chk_inventories_reserved_not_
+   above_current` rejects the second write when the lock is absent.
+
+There is also a timing failure underneath all three: Laravel takes a few
+hundred milliseconds to boot and the window between the read and the write is
+microseconds wide, so two sequentially started processes never overlap.
+
+**Fix.** Assert the *kind* of failure rather than the fact of one. With the
+lock the loser reads fresh state and raises the domain exception; without it
+the loser reads stale state, passes the check, and is stopped by the database
+constraint. `InsufficientStockException` against `QueryException` is the
+signal.
+
+Give the racing processes a barrier — a shared wall-clock instant both
+spin-wait on after booting and warming their connection — so they enter the
+critical section together. `tests/Concurrency/ReserveStockConcurrencyTest.php`
+does this without any test-only branch in production code.
+
+**Why it recurs.** Every one of the three variants produces a green test that
+appears to be about locking, and a green test is not usually re-examined.
+
+**Prevention.** A concurrency test is not finished until it has been observed
+failing with the lock removed. Deleting the call, running the suite, and
+restoring it takes a minute and is the only thing that distinguishes a guard
+from a decoration.
+
+---
+
 ## A permission change saves and does not take effect
 
 **Symptom.** A role is edited — through the panel, a seeder, or tinker — the
