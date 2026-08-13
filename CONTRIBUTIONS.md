@@ -19,21 +19,20 @@ needed to touch.
 ### Stefan Marinkov
 
 - CI workflow
-- `App\Enums` — twelve backed enums, their casts, and four status transition
-  matrices. Drafted with an LLM, reviewed before acceptance
+- `App\Enums` — 12 backed enums, their casts, and 4 status transition matrices
 - `tests/Feature/FactoryTest.php` — persists one row from every factory. The
   only check in the suite that catches a factory writing a value its column
   cannot hold
 - Database-level validation — composite primary keys on all six pivot tables,
   45 `CHECK` constraints across 11 tables. Holds for seeders and queued jobs,
   not only Form Requests
-- Moved the test suite from SQLite in memory to MySQL. SQLite ignores most of
-  those constraints, so the suite had been green while guaranteeing nothing
-- Authorization — 104 permissions, three roles, twenty policies, and the
-  `Gate::before` administrator bypass. Test matrix weighted toward the
-  denials, which is what §37 criterion 18 is graded on
-- Roles and permissions admin screen. Without it §3.5's "editable without a
-  deploy" was a claim nobody could exercise
+- Moved the test suite from SQLite in memory to MySQL, without which none of
+  those constraints were exercised
+- Authorization — 104 permissions, 3 roles, 20 policies, and the
+  `Gate::before` administrator bypass. Test matrix weighted toward the denials
+- Roles and permissions admin screen
+- `app/Actions` — the inventory slice, with row locking for contested state
+  and a concurrency suite that runs two processes against a shared barrier
 - Documentation for the above
 
 ### Aleksandar Stanchev
@@ -84,6 +83,7 @@ written is covered under AI assistance below.
 | `docs/adr/0004-state-transitions.md` | Where the order state machine lives |
 | `docs/adr/0005-database-level-validation.md` | Which invariants the database enforces, and which cannot be expressed as constraints |
 | `docs/adr/0006-authorization-layers.md` | Panel gate, permission, policy, and administrator bypass as four separate mechanisms |
+| `docs/adr/0007-action-conventions.md` | How an Action is written: the nullable actor, events after commit, when one is required |
 | `docs/explanation/documentation-design.md` | Diátaxis layout, ADR vs explanation |
 | `docs/explanation/tech-stack-overview.md` | What is built versus merely installed |
 | `docs/explanation/db-schema-design.md` | The parts of the schema the diagram cannot show |
@@ -120,6 +120,8 @@ been through a review pass before it reaches the repository.
   finished text
 - Schema-shaped code where the content is mechanical: enums, model casts,
   factories, scaffolding
+- Reasoning about concurrency safety, where a test can show a race is
+  unlikely but not that it is impossible
 
 Architectural options come from the developers and the model; the decision is
 the developer's. Generated output is a first draft and is read before it is

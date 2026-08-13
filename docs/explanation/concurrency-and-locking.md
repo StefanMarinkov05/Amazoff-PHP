@@ -77,38 +77,45 @@ alternative, optimistic concurrency — a version column, retry on mismatch — 
 not used here. Reservation conflicts are common on exactly the products worth
 stocking, and a retry loop under contention is more machinery than a lock.
 
-## Two different failures, depending on how the write is expressed
+## Why the write is an increment
 
-The Actions use `increment()`, which compiles to
-`SET reserved_quantity = reserved_quantity + 1`. That is not a stylistic
-choice, and the difference is larger than it looks.
+`increment()` is atomic; arithmetic in PHP is not.
 
-An `UPDATE` re-reads the row at write time under its own exclusive lock, so
-`reserved + 1` is computed from committed state rather than from what the
-request read earlier. With the lock removed, the consequence is:
+```php
+$inventory->increment('reserved_quantity', 1);
+// UPDATE inventories SET reserved_quantity = reserved_quantity + 1 WHERE id = ?
+
+$inventory->reserved_quantity += 1; $inventory->save();
+// UPDATE inventories SET reserved_quantity = 1 WHERE id = ?
+```
+
+The first sends the *operation* to the database, which evaluates it against
+committed state under its own exclusive lock — the value the request read
+earlier never enters the arithmetic. The second sends a *literal* computed
+from that earlier read, which may already be stale.
+
+This does not replace the lock. The lock makes the availability decision
+correct; the increment makes the write correct. What the increment buys is the
+failure mode when the lock is absent:
 
 ```
-increment()          B computes 1 + 1 = 2 at write time
+increment()          B evaluates 1 + 1 = 2 at write time
                      chk_inventories_reserved_not_above_current rejects it
                      → QueryException, a 500 page. Nothing is oversold.
-```
 
-Had the arithmetic been done in PHP — read 0, add 1, write the literal 1 —
-both requests would write the same value:
-
-```
 read-modify-write    A writes reserved = 1
-                     B writes reserved = 1
+                     B writes reserved = 1, from its own stale read of 0
                      → reserved = 1 for two orders. The constraint is
                        satisfied. The oversell is silent.
 ```
 
-Verified against the running database. The `CHECK` constraint from ADR-0005
-catches the first and cannot catch the second, because the second produces a
-value that is internally consistent and simply wrong.
+Both measured against the running database. The `CHECK` constraint from
+ADR-0005 catches the first and cannot catch the second, because the second
+produces a value that is internally consistent and simply wrong.
 
-So the lock is what produces a *good* failure, and `increment()` is what keeps
-the bad case loud rather than silent. Neither substitutes for the other.
+The counter-intuitive part is worth stating plainly: atomicity does not hide
+the bug, it makes the bug trip a guard. A lost update writes a plausible
+number; an atomic increment writes an impossible one.
 
 ## The layers, and what each is worth
 

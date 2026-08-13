@@ -65,6 +65,19 @@ final class ReserveStock
                 );
             }
 
+            // increment(), never `$inventory->reserved_quantity += $quantity`
+            // followed by save(). It compiles to
+            // `SET reserved_quantity = reserved_quantity + n`, which MySQL
+            // evaluates against committed state under its own exclusive lock —
+            // the value read above does not enter the arithmetic.
+            //
+            // This does not replace the lock: the lock makes the decision
+            // above correct, increment() only makes the write correct. What it
+            // buys is the failure mode if the lock is ever removed. Computing
+            // in PHP would write a literal from a stale read, so two racing
+            // requests would both write the same number, satisfy
+            // chk_inventories_reserved_not_above_current, and oversell
+            // silently. Incrementing writes a value the constraint rejects.
             $inventory->increment('reserved_quantity', $quantity);
 
             $this->recordMovement->handle(
