@@ -22,9 +22,15 @@ rather than silently diverging.
   `handle()`.
 - Controllers and Livewire components are thin: validate → call Action →
   respond.
-- Filament resources call the same Actions as the storefront. Never Eloquent
-  directly — this is what keeps two developers from building two subtly
-  different versions of the same business rule.
+- Filament resources call the same Actions as the storefront wherever a rule
+  exists — this is what keeps two developers from building two subtly
+  different versions of the same business rule. A rule exists when a write
+  spans more than one table or enforces an invariant: a product needs a
+  variation and an inventory row, an order needs items and addresses, a
+  status change needs a history row. Plain lookup tables (`Brand`, `Tag`,
+  `Attribute`, `AttributeValue`, `ProductCategory`, `ArticleCategory`,
+  `Carrier`) keep Filament's default CRUD, because wrapping a single-table
+  save in an Action buys nothing and costs a class. See ADR-0007.
 - No repository pattern. Eloquent is the repository.
 - Every fixed value set is a backed enum in `App\Enums`, with behaviour on
   it. Never the same list twice. Display goes through Filament's `HasLabel`
