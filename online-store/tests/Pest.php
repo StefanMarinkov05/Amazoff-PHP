@@ -21,6 +21,20 @@ pest()->extend(TestCase::class)
     ->in('Feature');
 
 /*
+| Concurrency tests are the exception, and must not use RefreshDatabase.
+|
+| It wraps each test in a transaction that is rolled back rather than
+| committed, so rows the test creates are invisible to every other database
+| connection — and a second connection asking for them blocks on the test's
+| own uncommitted write. A test for row locking then times out on its own
+| first session and proves nothing about the code under test.
+|
+| These tests commit their fixtures and clean up after themselves.
+*/
+pest()->extend(TestCase::class)
+    ->in('Concurrency');
+
+/*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
