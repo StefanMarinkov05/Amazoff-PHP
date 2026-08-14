@@ -19,10 +19,15 @@ class CouponForm
         return $schema
             ->components([
                 TextInput::make('code')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50)
+                    ->unique(ignoreRecord: true),
                 TextInput::make('name')
-                    ->required(),
-                TextInput::make('description'),
+                    ->required()
+                    ->maxLength(100),
+                TextInput::make('description')
+                    ->maxLength(255)
+                    ->nullable(),
                 Select::make('type')
                     ->options(CouponType::class)
                     ->required(),
@@ -31,23 +36,44 @@ class CouponForm
                     ->required(),
                 TextInput::make('value')
                     ->required()
-                    ->numeric(),
+                    ->numeric()
+                    ->step('0.01')
+                    ->minValue(0)
+                    ->rules(['decimal:0,2', 'max:99999999.99']),
                 TextInput::make('max_discount_amount')
-                    ->numeric(),
+                    ->numeric()
+                    ->step('0.01')
+                    ->minValue(0)
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->prefix('EUR')
+                    ->nullable(),
                 TextInput::make('minimum_order_value')
-                    ->numeric(),
-                DateTimePicker::make('starts_at'),
-                DateTimePicker::make('ends_at'),
+                    ->numeric()
+                    ->step('0.01')
+                    ->minValue(0)
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->prefix('EUR')
+                    ->nullable(),
+                DateTimePicker::make('starts_at')
+                    ->nullable(),
+                DateTimePicker::make('ends_at')
+                    ->after('starts_at')
+                    ->nullable(),
                 TextInput::make('total_usage_limit')
-                    ->numeric(),
+                    ->integer()
+                    ->minValue(1)
+                    ->nullable(),
                 TextInput::make('usage_limit_per_customer')
-                    ->numeric(),
+                    ->integer()
+                    ->minValue(1)
+                    ->nullable(),
                 TextInput::make('times_used')
                     ->required()
                     ->numeric()
                     ->default(0),
                 Toggle::make('is_active')
-                    ->required(),
+                    ->required()
+                    ->default(true),
             ]);
     }
 }
