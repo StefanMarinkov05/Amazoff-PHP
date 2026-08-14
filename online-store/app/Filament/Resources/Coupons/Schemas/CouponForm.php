@@ -30,7 +30,8 @@ class CouponForm
                     ->nullable(),
                 Select::make('type')
                     ->options(CouponType::class)
-                    ->required(),
+                    ->required()
+                    ->live(),
                 Select::make('scope')
                     ->options(CouponScope::class)
                     ->required(),
