@@ -9,7 +9,7 @@ use App\Models\User;
 
 /**
  * Reuses ProductPolicy's permissions rather
- * than inventing product_image ones, because managing a product's images is
+ * than inventing product_specification ones, because managing a product's specifications is
  * editing that product, not a separate capability anyone would grant on its
  * own. See BrandPolicy for the general pattern this deviates from.
  */
