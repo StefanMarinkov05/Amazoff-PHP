@@ -49,6 +49,20 @@ needed to touch.
 - Diagnosed the local app running against SQLite rather than the project's
   MySQL container, and added `docker/mysql/init/` so the test database
   provisions itself on a fresh clone
+- `Product` resource, with variations, images, and specifications as relation
+  managers rather than resources of their own. Mirrored the schema's
+  constraints onto the forms — unique SKUs, string lengths, `discount_price`
+  below `regular_price` — each of which had been reaching the database as a
+  500 instead of a field error
+- `ProductImagePolicy` and `ProductSpecificationPolicy`, reusing the product's
+  permissions rather than inventing their own. Without them Filament's
+  authorization falls open: no policy means allowed, not denied
+- Removed the scaffolded associate/dissociate actions from the product
+  relation managers, which offered reassigning another product's image or
+  variation and bypassed policies entirely
+- `Coupon` resource, including the reactive fields — `value` reading as a
+  percentage or an amount depending on `type`, the pickers following `scope`,
+  and `times_used` shown without being writable
 - Documentation for the above
 
 ## Documentation
