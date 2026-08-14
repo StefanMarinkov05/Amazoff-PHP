@@ -82,7 +82,7 @@ when the work happened, not when it was committed — nothing in
   app user access to it on first container initialization, matching what
   CI's MySQL service already provisions — local `pest` runs against a fresh
   clone without a manual `CREATE DATABASE` step.
-- `database/seeders/PermissionSeeder.php` — 108 permissions named
+- `database/seeders/PermissionSeeder.php` — 104 permissions named
   `{ability}_{resource}`, the ability half matching the Laravel policy method
   that checks it. Seeded in full rather than per built resource: §3.3 and
   §3.4 describe what a role may do, not what happens to be built, and
@@ -132,6 +132,27 @@ when the work happened, not when it was committed — nothing in
   what each holds, and which check answers which question.
 - `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
   are not equivalent, and what the screen deliberately refuses to do.
+- `app/Actions/Inventory/` — `RecordInventoryMovement`, `ReserveStock`, and
+  `ReleaseStock`, the first Actions in the codebase, plus
+  `Inventory::available()` and `InsufficientStockException`. Both writing
+  Actions take `DB::transaction` and `lockForUpdate`; the ledger writer
+  deliberately opens no transaction, since a movement without the quantity
+  change it describes is a lie and the caller owns the boundary.
+- `tests/Concurrency/`, a testsuite of its own, because `RefreshDatabase`
+  rolls back rather than commits and a second connection cannot see rows that
+  were never committed. The race test runs two OS processes against a shared
+  wall-clock barrier and asserts the *type* of the loser's exception — both
+  the locked and unlocked versions produce one winner, and only the locked one
+  fails cleanly.
+- `docs/adr/0007-action-conventions.md` — the actor is a nullable last
+  parameter and null means the system; events dispatch after commit; an Action
+  is required where a rule spans tables rather than everywhere; composition
+  nests via savepoints.
+- `docs/explanation/inventory.md` and
+  `docs/explanation/concurrency-and-locking.md` — the stock counters and the
+  locking that protects them, including why `increment()` rather than
+  arithmetic in PHP is load-bearing: the constraint catches the first case as
+  a 500 and cannot catch the second at all.
 - `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
   the reasoning for each instruction so it can be edited rather than copied
   once and left to go stale.
