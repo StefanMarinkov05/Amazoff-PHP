@@ -10,6 +10,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class CouponForm
@@ -34,19 +35,34 @@ class CouponForm
                     ->live(),
                 Select::make('scope')
                     ->options(CouponScope::class)
-                    ->required(),
+                    ->required()
+                    ->live(),
+                Select::make('products')
+                    ->relationship('products', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->visible(fn (Get $get) => $get('scope') === CouponScope::Products->value),
+                Select::make('productCategories')
+                    ->relationship('productCategories', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->visible(fn (Get $get) => $get('scope') === CouponScope::Categories->value),
                 TextInput::make('value')
                     ->required()
                     ->numeric()
                     ->step('0.01')
                     ->minValue(0)
-                    ->rules(['decimal:0,2', 'max:99999999.99']),
+                    ->maxValue(fn (Get $get) => $get('type') === CouponType::Percentage->value ? 100 : 99999999.99)
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->suffix(fn (Get $get) => $get('type') === CouponType::Percentage->value ? '%' : null)
+                    ->prefix(fn (Get $get) => $get('type') === CouponType::Fixed->value ? 'EUR' : null),
                 TextInput::make('max_discount_amount')
                     ->numeric()
                     ->step('0.01')
                     ->minValue(0)
                     ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR')
+                    ->visible(fn (Get $get) => $get('type') === CouponType::Percentage->value)
                     ->nullable(),
                 TextInput::make('minimum_order_value')
                     ->numeric()
@@ -69,9 +85,10 @@ class CouponForm
                     ->minValue(1)
                     ->nullable(),
                 TextInput::make('times_used')
-                    ->required()
                     ->numeric()
-                    ->default(0),
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->hiddenOn('create'),
                 Toggle::make('is_active')
                     ->required()
                     ->default(true),

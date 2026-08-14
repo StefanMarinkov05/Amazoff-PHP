@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Coupons\Tables;
 
+use App\Enums\CouponScope;
+use App\Enums\CouponType;
+use App\Models\Coupon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Number;
 
 class CouponsTable
 {
@@ -28,13 +34,15 @@ class CouponsTable
                 TextColumn::make('scope')
                     ->badge(),
                 TextColumn::make('value')
-                    ->numeric()
+                    ->formatStateUsing(fn (string $state, Coupon $record): string => $record->getAttribute('type') === CouponType::Percentage
+                        ? "{$state}%"
+                        : Number::currency((float) $state, 'eur'))
                     ->sortable(),
                 TextColumn::make('max_discount_amount')
-                    ->numeric()
+                    ->money()
                     ->sortable(),
                 TextColumn::make('minimum_order_value')
-                    ->numeric()
+                    ->money()
                     ->sortable(),
                 TextColumn::make('starts_at')
                     ->dateTime()
@@ -63,7 +71,9 @@ class CouponsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('type')->options(CouponType::class),
+                SelectFilter::make('scope')->options(CouponScope::class),
+                TernaryFilter::make('is_active'),
             ])
             ->recordActions([
                 EditAction::make(),
