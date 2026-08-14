@@ -384,6 +384,55 @@ not just the mechanical formatters.
 
 ---
 
+## A reactive Filament field never reacts, and a CHECK constraint 500s
+
+**Symptom.** A field whose `visible()`, `maxValue()`, `prefix()`, or
+`suffix()` depends on another field's value behaves as though the condition
+is always false: an adornment never appears, a conditional field is never
+shown, a conditional bound never applies. The bound one is the dangerous
+half — validation passes and the database rejects the row:
+
+```
+SQLSTATE[HY000]: General error: 3819 Check constraint
+'chk_coupons_percentage_within_bounds' is violated.
+```
+
+**Cause.** The field being read is a `Select` with `->options(SomeEnum::class)`.
+That registers an enum on the component, which installs `EnumStateCast`, and
+`Get::__invoke()` returns `$component->getState()` — cast state. So
+`$get('type')` is a `CouponType` instance, never the string `'percentage'`.
+Comparing it against `CouponType::Percentage->value` compares an object to a
+string: always false, silently.
+
+The failure is invisible in the obvious places. A conditional field that
+never renders looks like a field that was never added, so a form can look
+correct while several of its fields are unreachable.
+
+**Fix.** `Get::enum()`, which accepts either representation:
+
+```php
+->visible(fn (Get $get) => $get->enum('scope', CouponScope::class, isNullable: true) === CouponScope::Products)
+```
+
+`isNullable: true` matters on a create page, where the field starts empty and
+the helper would otherwise pass null into `tryFrom()`.
+
+**Why it recurs.** Both sides of the comparison are legal types, so no tool
+objects. Pint passes, Larastan passes, and they pass identically on the
+broken and the fixed version — the difference is a runtime value, not a type.
+Every enum-backed `Select` that anything reacts to can reintroduce it.
+
+**Prevention.** Treat any closure reading `$get()` on an enum-backed `Select`
+as needing `Get::enum()` rather than a raw comparison. Verify in the running
+app: change the driving field and watch the dependent one, then submit a
+value the CHECK constraint forbids and confirm a field error rather than a
+500. A Livewire test asserting `assertHasFormErrors()` and
+`assertFormFieldVisible()` pins it down mechanically if one is wanted — check
+that it fails against the broken comparison before trusting it, since a test
+written against the working version can pass for the wrong reason.
+
+---
+
 ## The admin panel logs in, then crashes rendering the topbar
 
 **Symptom.** `TypeError: Filament\FilamentManager::getUserName(): Return
