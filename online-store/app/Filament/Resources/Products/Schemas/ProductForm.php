@@ -23,6 +23,11 @@ class ProductForm
                 Select::make('brand_id')
                     ->relationship('brand', 'name')
                     ->nullable(),
+                Select::make('attributes')
+                    ->relationship('attributes', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->label('Variation axes'),
                 TextInput::make('name')
                     ->required()
                     ->maxLength(100),
@@ -43,13 +48,14 @@ class ProductForm
                     ->required()
                     ->numeric()
                     ->step('0.01')
-                    ->rules(['decimal:2', 'max:99999999.99'])
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR'),
                 TextInput::make('discount_price')
                     ->numeric()
                     ->step('0.01')
-                    ->rules(['decimal:2', 'max:99999999.99'])
-                    ->prefix('EUR'),
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->prefix('EUR')
+                    ->lt('regular_price'),
                 DateTimePicker::make('discount_starts_at')
                     ->nullable(),
                 DateTimePicker::make('discount_ends_at')
@@ -57,16 +63,17 @@ class ProductForm
                 TextInput::make('vat_rate')
                     ->numeric()
                     ->step('0.01')
-                    ->rules(['decimal:2', 'between:0,100'])
+                    ->rules(['decimal:0,2', 'between:0,100'])
                     ->default(20.00),
                 TextInput::make('min_order_quantity')
                     ->required()
-                    ->numeric()
+                    ->integer()
+                    ->minValue(1)
                     ->default(1),
                 TextInput::make('weight')
                     ->numeric()
                     ->step('0.01')
-                    ->rules(['decimal:2', 'max:999999.99'])
+                    ->rules(['decimal:0,2', 'max:999999.99'])
                     ->nullable(),
                 TextInput::make('dimensions')
                     ->maxLength(100)

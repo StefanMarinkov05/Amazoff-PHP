@@ -29,10 +29,14 @@ class ProductImagesRelationManager extends RelationManager
         return $schema
             ->components([
                 TextInput::make('path')
-                    ->required(),
-                TextInput::make('alt_text'),
+                    ->required()
+                    ->maxLength(255),
+                TextInput::make('alt_text')
+                    ->maxLength(255)
+                    ->nullable(),
                 Toggle::make('is_main')
-                    ->required(),
+                    ->required()
+                    ->default(false),
                 TextInput::make('sort_order')
                     ->required()
                     ->numeric()

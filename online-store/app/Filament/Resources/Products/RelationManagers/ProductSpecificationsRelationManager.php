@@ -27,9 +27,11 @@ class ProductSpecificationsRelationManager extends RelationManager
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50),
                 TextInput::make('value')
-                    ->required(),
+                    ->required()
+                    ->maxLength(100),
                 TextInput::make('sort_order')
                     ->required()
                     ->numeric()
