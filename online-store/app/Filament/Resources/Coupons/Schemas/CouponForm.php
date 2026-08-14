@@ -41,28 +41,28 @@ class CouponForm
                     ->relationship('products', 'name')
                     ->multiple()
                     ->preload()
-                    ->visible(fn (Get $get) => $get('scope') === CouponScope::Products->value),
+                    ->visible(fn (Get $get) => $get->enum('scope', CouponScope::class, isNullable: true) === CouponScope::Products),
                 Select::make('productCategories')
                     ->relationship('productCategories', 'name')
                     ->multiple()
                     ->preload()
-                    ->visible(fn (Get $get) => $get('scope') === CouponScope::Categories->value),
+                    ->visible(fn (Get $get) => $get->enum('scope', CouponScope::class, isNullable: true) === CouponScope::Categories),
                 TextInput::make('value')
                     ->required()
                     ->numeric()
                     ->step('0.01')
                     ->minValue(0)
-                    ->maxValue(fn (Get $get) => $get('type') === CouponType::Percentage->value ? 100 : 99999999.99)
+                    ->maxValue(fn (Get $get) => $get->enum('type', CouponType::class, isNullable: true) === CouponType::Percentage ? 100 : 99999999.99)
                     ->rules(['decimal:0,2', 'max:99999999.99'])
-                    ->suffix(fn (Get $get) => $get('type') === CouponType::Percentage->value ? '%' : null)
-                    ->prefix(fn (Get $get) => $get('type') === CouponType::Fixed->value ? 'EUR' : null),
+                    ->suffix(fn (Get $get) => $get->enum('type', CouponType::class, isNullable: true) === CouponType::Percentage ? '%' : null)
+                    ->prefix(fn (Get $get) => $get->enum('type', CouponType::class, isNullable: true) === CouponType::Fixed ? 'EUR' : null),
                 TextInput::make('max_discount_amount')
                     ->numeric()
                     ->step('0.01')
                     ->minValue(0)
                     ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR')
-                    ->visible(fn (Get $get) => $get('type') === CouponType::Percentage->value)
+                    ->visible(fn (Get $get) => $get->enum('type', CouponType::class, isNullable: true) === CouponType::Percentage)
                     ->nullable(),
                 TextInput::make('minimum_order_value')
                     ->numeric()
