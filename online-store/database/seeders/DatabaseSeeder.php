@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -17,19 +16,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Order matters: RoleSeeder attaches permissions, so they have to
+        // exist first, and UserSeeder assigns roles, so those have to exist
+        // before it.
+        $this->call(PermissionSeeder::class);
         $this->call(RoleSeeder::class);
 
-        // A seeded credential is only safe outside production — see
-        // docs/adr/0003-seeding-data.md, which lists roles but not staff
-        // accounts as production reference data.
-        if (! app()->isProduction()) {
-            $admin = User::factory()->create([
-                'first_name' => 'Admin',
-                'last_name' => 'User',
-                'email' => 'admin@example.com',
-            ]);
-
-            $admin->assignRole('administrator');
-        }
+        // Gates itself to non-production — see the note on UserSeeder for why
+        // roles seed everywhere and accounts do not.
+        $this->call(UserSeeder::class);
     }
 }
