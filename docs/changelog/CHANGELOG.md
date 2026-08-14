@@ -135,6 +135,29 @@ when the work happened, not when it was committed — nothing in
 - `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
   the reasoning for each instruction so it can be edited rather than copied
   once and left to go stale.
+- Filament resource over `Product`, with `ProductVariation`, `ProductImage`,
+  and `ProductSpecification` as relation managers rather than resources of
+  their own. None is browsed independently of its product, and a standalone
+  resource would let a variation be created without one. Relation managers
+  only render on the Edit page — a child row needs its parent's id, which
+  does not exist while the create form is open.
+- `ProductImagePolicy` and `ProductSpecificationPolicy`, checking
+  `view_product` and `update_product` rather than permissions of their own.
+  Managing a product's images or specifications is editing that product, and
+  §3 describes no role that draws a line between them. A distinct class is
+  still required: `ProductPolicy::update()` is type-hinted to `Product` and
+  cannot receive a `ProductImage`. `ProductVariation` keeps its own
+  permission set, because §3.4 gives the warehouse a reason to read SKU and
+  stock without holding the catalogue's descriptive content.
+- Filament resource over `Coupon`, satisfying §11's discount codes. Fields
+  react to each other: `value` renders as `%` or `EUR` and caps at 100 or the
+  column ceiling depending on `type`, `max_discount_amount` appears only for
+  percentage coupons, and the product and category pickers appear only under
+  the matching `scope`. `times_used` is displayed but never submitted —
+  `disabled()` plus `dehydrated(false)`, since an editable counter would let
+  an exhausted coupon be reopened by typing a smaller number.
+- Table filters, the first in any resource: `type`, `scope`, and `is_active`
+  on coupons.
 
 ### Changed
 
@@ -147,6 +170,17 @@ when the work happened, not when it was committed — nothing in
   `default-mysql-client`, which is MariaDB's and rejects the flags Laravel
   passes to `mysqldump`. `schema:dump` now works, which lets `migrate:fresh`
   load a schema dump instead of replaying every migration.
+- `Table::configureUsing()` in `AppServiceProvider` sets `defaultCurrency`
+  to EUR. Filament's `money()` columns fall back to `usd` when given no
+  argument, so this is set once rather than passed to every money column,
+  where a new table would silently render dollars.
+- `AssociateAction` and `DissociateAction` removed from all three product
+  relation managers. `--generate` scaffolds them, but `product_id` is NOT
+  NULL on all three child tables, so no row is ever unattached and
+  "associate" could only mean reassigning another product's image, spec, or
+  variation to this one. Nothing in §6–7 asks for that. They also bypass
+  policies entirely — Filament checks only `isReadOnly()` for them — so
+  gating rather than removing would have needed a second mechanism.
 
 ### Fixed
 
@@ -189,6 +223,26 @@ when the work happened, not when it was committed — nothing in
   `name` column — silently discarded by Eloquent rather than erroring (see
   the seeded-column entry in `troubleshooting.md`). Replaced with a seeder
   that sets `first_name`/`last_name`, matching the actual schema.
+- Every reactive field in `CouponForm` compared `$get('field')` against an
+  enum's `->value`. Filament casts an enum-backed `Select`'s state to a
+  `BackedEnum`, so each comparison was an object against a string and never
+  matched: the percentage cap never applied and 105 reached the database as
+  a `CHECK` violation, and `max_discount_amount` and both scope pickers were
+  permanently invisible. `Get::enum()` reads either representation. See
+  `troubleshooting.md` — Pint and Larastan pass on both versions.
+- `decimal:2` on every money field in `ProductForm` and the variations
+  relation manager. With one parameter Laravel's rule means *exactly* that
+  many decimal places, so a round `20` was rejected. Now `decimal:0,2`.
+- `ProductForm` accepted a `discount_price` above `regular_price`, which the
+  `CHECK` constraint then rejected as a 500. Now `->lt('regular_price')`.
+  The same rule is deliberately absent on variations: a null variation price
+  inherits the product's, and the constraint permits a discount alongside it,
+  so a naive comparison would reject rows the database accepts. Resolving the
+  effective price belongs in an Action.
+- Product forms and the three relation managers had no `maxLength` on any
+  string field. The database rejects the overflow with the truncation error
+  described at the top of `troubleshooting.md`; nothing client-side stopped
+  it.
 - `public/css/filament` and `public/fonts/filament` existed as empty
   directories — the compiled assets were never published, so every asset
   request 404'd and the panel rendered unstyled. `php artisan
