@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\RelationManagers;
 
-use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DissociateAction;
-use Filament\Actions\DissociateBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\ForceDeleteBulkAction;
@@ -37,20 +34,32 @@ class ProductVariationsRelationManager extends RelationManager
         return $schema
             ->components([
                 Select::make('image_id')
-                    ->relationship('image', 'id'),
+                    ->relationship('image', 'path')
+                    ->nullable(),
                 TextInput::make('sku')
                     ->label('SKU')
-                    ->required(),
+                    ->required()
+                    ->maxLength(64)
+                    ->unique(ignoreRecord: true),
                 TextInput::make('price')
                     ->numeric()
-                    ->prefix('$'),
+                    ->step('0.01')
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->prefix('EUR')
+                    ->nullable(),
                 TextInput::make('discount_price')
                     ->numeric()
-                    ->prefix('$'),
+                    ->step('0.01')
+                    ->rules(['decimal:0,2', 'max:99999999.99'])
+                    ->prefix('EUR'),
                 TextInput::make('weight')
-                    ->numeric(),
+                    ->numeric()
+                    ->step('0.01')
+                    ->rules(['decimal:0,2', 'max:999999.99'])
+                    ->nullable(),
                 Toggle::make('is_available')
-                    ->required(),
+                    ->required()
+                    ->default(true),
             ]);
     }
 
@@ -59,7 +68,8 @@ class ProductVariationsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('sku')
             ->columns([
-                TextColumn::make('image.id')
+                TextColumn::make('image.path')
+                    ->label('Image')
                     ->searchable(),
                 TextColumn::make('sku')
                     ->label('SKU')
@@ -93,18 +103,15 @@ class ProductVariationsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make(),
-                AssociateAction::make(),
             ])
             ->recordActions([
                 EditAction::make(),
-                DissociateAction::make(),
                 DeleteAction::make(),
                 ForceDeleteAction::make(),
                 RestoreAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DissociateBulkAction::make(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\RelationManagers;
 
-use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DissociateAction;
-use Filament\Actions\DissociateBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -29,10 +26,14 @@ class ProductImagesRelationManager extends RelationManager
         return $schema
             ->components([
                 TextInput::make('path')
-                    ->required(),
-                TextInput::make('alt_text'),
+                    ->required()
+                    ->maxLength(255),
+                TextInput::make('alt_text')
+                    ->maxLength(255)
+                    ->nullable(),
                 Toggle::make('is_main')
-                    ->required(),
+                    ->required()
+                    ->default(false),
                 TextInput::make('sort_order')
                     ->required()
                     ->numeric()
@@ -68,16 +69,13 @@ class ProductImagesRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make(),
-                AssociateAction::make(),
             ])
             ->recordActions([
                 EditAction::make(),
-                DissociateAction::make(),
                 DeleteAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DissociateBulkAction::make(),
                     DeleteBulkAction::make(),
                 ]),
             ]);

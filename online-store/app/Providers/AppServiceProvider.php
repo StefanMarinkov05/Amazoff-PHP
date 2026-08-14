@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Policies\RolePolicy;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Role;
@@ -46,5 +47,7 @@ class AppServiceProvider extends ServiceProvider
         // finds nothing and the model would be ungated: authorization fails
         // open, and this is the model that controls what every role may do.
         Gate::policy(Role::class, RolePolicy::class);
+
+        Table::configureUsing(fn (Table $table): Table => $table->defaultCurrency('eur'));
     }
 }
