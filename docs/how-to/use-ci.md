@@ -4,9 +4,15 @@
 
 ## When it runs
 
-Any push to `main`, and any pull request targeting `main`. Pushing to a
-feature branch on its own does not trigger it; opening a PR from that
-branch does.
+Any push to `main`, and **any** pull request regardless of its target
+branch. Pushing to a feature branch on its own does not trigger it; opening
+a PR from that branch does.
+
+The trigger was previously scoped to PRs targeting `main`, which left a gap:
+a chain of branches merging into each other — `lookup-resources` into
+`feature` into `development` into `main` — only ran CI on the final hop. The
+earlier PRs showed "no checks reported", which reads as clean and means
+untested. A formatting failure reached `main` that way.
 
 ## Where to see it
 
@@ -66,10 +72,25 @@ then re-run `--test` to confirm.
 
 Green means Pint, Larastan, and Pest all passed.
 
-It does **not** block a merge by itself. That requires a branch protection
-rule on `main` (GitHub → Settings → Branches → require this status check),
-a separate admin-level setting not controlled by this file. Until that rule
-exists, a red check is visible but not enforced.
+It does **not** block a merge, and on this repository it cannot.
+
+Blocking a merge on a status check requires a branch protection rule or a
+ruleset. GitHub offers neither for a **private repository on a free
+organisation plan** — the API answers
+`Upgrade to GitHub Pro or make this repository public to enable this feature`
+for both. It is also an admin-level setting, and both developers hold
+`write` rather than `admin`.
+
+So a red check here is visible and advisory. Nothing stops a merge on top of
+it, which is how PR #22 landed a formatting failure on `main`. Three ways
+out, none of them a code change:
+
+- The organisation upgrades to GitHub Team or higher
+- The repository becomes public, which makes protection free
+- Convention: do not merge on red, and run the gate locally before pushing
+
+Until one of the first two happens, the third is the whole enforcement
+mechanism. `docs/how-to/run-the-tests.md` has the commands.
 
 It also does **not** mean the model layer works. Nothing in the suite
 creates a row from a factory, so a factory writing a value its column cannot

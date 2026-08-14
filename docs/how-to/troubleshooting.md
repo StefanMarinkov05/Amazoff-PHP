@@ -227,9 +227,12 @@ panel on holding one.
 
 **Fix.** `database/seeders/RoleSeeder.php` creates the three
 `User::STAFF_ROLES` rows and runs in every environment, called from
-`DatabaseSeeder`. `DatabaseSeeder` additionally creates a staff account and
-assigns it `administrator`, but only outside production
+`DatabaseSeeder` after `PermissionSeeder`. `UserSeeder` then creates one
+account per role plus a plain customer, but only outside production
 (`! app()->isProduction()`) — see the next entry for why that guard matters.
+
+Credentials are in `reference/permissions.md`; all four use the password
+`password`.
 
 **Why it recurs.** It is invisible to anyone whose database predates the
 problem, which is everyone who has been working on the project.
@@ -237,6 +240,50 @@ problem, which is everyone who has been working on the project.
 **Prevention.** Reference data the application needs in order to work at all
 belongs in `DatabaseSeeder`, not in a developer's database. Test setup changes
 against a genuinely fresh database rather than an existing one.
+
+---
+
+## A permission change saves and does not take effect
+
+**Symptom.** A role is edited — through the panel, a seeder, or tinker — the
+change is visibly in the database, and `$user->can(...)` keeps returning the
+old answer. Reloading the edit form shows the new state, because the form
+reads the database directly. In tests, the second test in a run fails on
+permissions the first test's `beforeEach` seeded.
+
+**Cause.** `spatie/laravel-permission` caches the entire permission table for
+24 hours through `PermissionRegistrar`. Authorization answers from that cache;
+the form answers from the database. When they disagree, everything visible
+says the change worked.
+
+The package clears the cache itself when permissions change through its own
+model methods (`givePermissionTo`, `syncPermissions`, `revokePermissionTo`).
+It cannot know about a direct pivot write, a raw query, or `RefreshDatabase`
+truncating the tables underneath it.
+
+**Fix.**
+
+```php
+app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+```
+
+Already in three places: `PermissionSeeder::run()` before writing, so
+`RoleSeeder` does not read a pre-seed cache; `EditRole::afterSave()`, so a
+panel edit is live on the next request; and the `beforeEach` of both
+permission test files, because `RefreshDatabase` truncates without clearing.
+
+**Why it recurs.** Every symptom points somewhere else. The database is
+correct, the form is correct, the seeder reported success — the only wrong
+answer comes from the one component nobody is looking at. It is also
+invisible locally when the cache happens to be cold and appears in CI when it
+is not, or the reverse.
+
+**Prevention.** Any code path that writes to `role_has_permissions`,
+`model_has_roles`, or `model_has_permissions` without going through a spatie
+model method has to clear the cache afterwards. Prefer the model methods,
+which handle it. When adding a test that seeds permissions, copy the
+`beforeEach` from `tests/Feature/RolePermissionTest.php` rather than writing a
+new one.
 
 ---
 
@@ -603,3 +650,53 @@ attribute from an accepted one.
 **Prevention.** `Model::preventSilentlyDiscardingAttributes()` in
 `AppServiceProvider::boot()`, guarded to non-production, turns this into an
 exception. Not yet enabled.
+
+---
+
+## A failing Pint check reaches `main` anyway
+
+**Symptom.** `./vendor/bin/pint --test` fails in CI on `main` itself —
+`ordered_imports` on a file nobody touched recently, e.g. one `use`
+statement in `ProductCategoriesTable.php` out of alphabetical order. The PR
+that introduced it shows the `test` check as failed, not pending, and is
+already merged.
+
+**Cause.** Two separate gaps, not one. First, `.github/workflows/ci.yml`
+triggers `pull_request` only for PRs targeting `branches: [main]`. A chain
+of feature branches merging into each other before finally reaching
+`main` (`lookup-resources` → `feature` → `development` → `main`) only runs
+CI on that last hop — `gh pr checks` on the earlier PRs in the chain
+reports "no checks reported," which reads as clean but means untested, not
+passing. Second, `main` has no branch protection rule
+(`gh api repos/.../branches/main/protection` returns `404`), so nothing
+stops a merge when the one check that did run comes back red.
+
+**Fix.** Run `./vendor/bin/pint` (not `--test`) on the offending file,
+confirm the full suite with `--test`, and land the fix as its own small PR
+rather than amending history on `main`.
+
+**Why it recurs.** Every intermediate branch in a merge chain looks safe
+because nothing failed on it — nothing ran. And a red final check does not
+by itself stop the merge button; it only stops it if branch protection is
+configured to require that check.
+
+**Prevention.** The first half is fixed, the second cannot be.
+
+1. **Fixed.** `ci.yml` now triggers on every pull request rather than only
+   those targeting `main`, so an intermediate PR in a chain is checked
+   rather than reporting "no checks reported".
+2. **Not available on this repository.** Requiring a green check before
+   merging needs branch protection or a ruleset, and GitHub offers neither
+   for a private repository on a free organisation plan — the API answers
+   `Upgrade to GitHub Pro or make this repository public`. Both developers
+   also hold `write` rather than `admin`, so it is not ours to set even if
+   the plan allowed it.
+
+   Until the organisation upgrades or the repository goes public, a red
+   check is advisory. Run the gate locally before pushing:
+
+   ```bash
+   docker compose exec app ./vendor/bin/pint --test
+   docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
+   docker compose exec app ./vendor/bin/pest
+   ```

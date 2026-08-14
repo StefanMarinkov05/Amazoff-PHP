@@ -82,6 +82,59 @@ when the work happened, not when it was committed — nothing in
   app user access to it on first container initialization, matching what
   CI's MySQL service already provisions — local `pest` runs against a fresh
   clone without a manual `CREATE DATABASE` step.
+- `database/seeders/PermissionSeeder.php` — 108 permissions named
+  `{ability}_{resource}`, the ability half matching the Laravel policy method
+  that checks it. Seeded in full rather than per built resource: §3.3 and
+  §3.4 describe what a role may do, not what happens to be built, and
+  `content_editor`'s deny-list is only meaningful if the permissions it
+  excludes exist.
+- `RoleSeeder` now attaches those permissions — 20 to `content_editor`, 12 to
+  `warehouse_employee`, none to `administrator`. `syncPermissions()` rather
+  than `givePermissionTo()`, so a permission removed from the seeder is
+  actually revoked on the next run; the tradeoff is that a re-seed discards
+  runtime edits made through the panel.
+- `database/seeders/UserSeeder.php` — one account per role plus a plain
+  customer, gated to non-production. §37 criterion 18 is only demonstrable
+  with an account per role, and the customer is what proves
+  `canAccessPanel()` denies someone holding no role at all.
+- `Gate::before` in `AppServiceProvider` grants `administrator` every
+  ability. Returns `null` rather than `false` when the role is absent, so
+  other users still reach spatie's callback and then their policy.
+- Twenty Policy classes — one per resource the permission catalogue names,
+  not one per Filament Resource built, since a missing policy fails open the
+  moment a resource is scaffolded. Most methods are one
+  `$user->can('{ability}_{resource}')`, checking permissions rather than role
+  names because §3.5 requires permissions editable at runtime. `Order` and
+  `Payment` refuse creation outright; `Order`, `ProductReview`, and `User`
+  add ownership branches; `User` refuses self-deletion. `RolePolicy` is
+  registered by hand in `AppServiceProvider` because spatie's `Role` sits
+  outside `App\Models` and convention does not find it.
+- `tests/Feature/RolePermissionTest.php` — 32 tests over the §37 criterion 18
+  matrix, weighted toward the denials, including that every model with a
+  Resource resolves a policy at all.
+- `docs/adr/0006-authorization-layers.md` — why panel access, permissions,
+  policies, and the administrator exemption are four separate mechanisms, and
+  what the arrangement costs.
+- `docs/how-to/run-the-tests.md` — running one file or one test, the flags
+  worth knowing, why the suite needs MySQL, and how to check that a test can
+  actually fail.
+- Filament resource over spatie's `Role`, satisfying §3.5 — permissions
+  editable without a deploy, which until now described an arrangement nobody
+  could exercise. Edit only: no create or delete, since `canAccessPanel()`
+  gates on the `User::STAFF_ROLES` constant and a role created in the UI
+  would grant no panel access until that constant changed. Permissions render
+  as one checkbox list per resource, each scoped to its own names so several
+  lists can edit the same relation without clearing each other.
+- `App\Support\PermissionCatalogue` — the catalogue's shape, read by both
+  `PermissionSeeder` and the roles form. Previously private constants on the
+  seeder; the UI needed the same groupings.
+- `docs/reference/permissions.md` — the 104 permissions, the three roles and
+  what each holds, and which check answers which question.
+- `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
+  are not equivalent, and what the screen deliberately refuses to do.
+- `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
+  the reasoning for each instruction so it can be edited rather than copied
+  once and left to go stale.
 
 ### Changed
 
