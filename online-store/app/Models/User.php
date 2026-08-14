@@ -84,7 +84,14 @@ class User extends Authenticatable implements FilamentUser, HasName
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(self::STAFF_ROLES);
+        // An allow-list, not a deny-list: a role added later reaches the panel
+        // only once it is named in STAFF_ROLES, rather than by default.
+        //
+        // is_active is checked here rather than left to the login form because
+        // a session outlives the row it authenticated against — deactivating
+        // an employee has to end their panel access on the next request, not
+        // at their next login.
+        return $this->is_active && $this->hasAnyRole(self::STAFF_ROLES);
     }
 
     public function getFilamentName(): string
