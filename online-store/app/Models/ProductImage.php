@@ -10,6 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductImage extends Model
 {
+    /**
+     * Uploads live on the `public` disk, served through the `storage` symlink.
+     * Named here so the Filament upload field and RemoveProductImage cannot
+     * drift onto different disks. Production swaps this for object storage.
+     */
+    public const DISK = 'public';
+
+    /** Directory within the disk. */
+    public const DIRECTORY = 'product-images';
+
     use HasFactory;
 
     /**

@@ -4,7 +4,7 @@ What exists in `app/Actions` today. Why they are written this way is
 ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
 two of them run at once is `reference/product-write-rules.md`.
 
-Eight Actions across two areas, five domain exceptions.
+Eleven Actions across two areas, seven domain exceptions.
 
 ## Naming
 
@@ -38,6 +38,19 @@ boundary.
 | `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product_variation` | `InvalidArgumentException` |
 | `RemoveProductVariation` | `product_variations` (soft delete) | optional, checked against `delete_product_variation` | `ProductRequiresVariationException`, `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
+| `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
+| `SetMainProductImage` | `product_images` | optional, `update_product` | — |
+| `RemoveProductImage` | `product_images`, and the file on disk | optional, `update_product` | `ProductImageInUseException` |
+
+A product with images has exactly one main image, which MySQL cannot express —
+no partial unique index, and ADR-0004 rejected triggers. `SetMainProductImage`
+owns that rule in a single `UPDATE` (`is_main = (id = N)`), so it holds by
+construction rather than by a lock; `AddProductImage` and `RemoveProductImage`
+compose it. Images are not soft-deleted, and `RemoveProductImage` deletes the
+file only after the transaction commits.
+
+`ProductSpecification` has no Action: one table, no invariant, so ADR-0007
+leaves it as default Filament CRUD.
 
 `ForceDeleteProductVariation` deletes the stock row **before** the variation.
 `inventories.product_variation_id` is a `NO ACTION` foreign key, so the
@@ -119,8 +132,9 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct` | the record that was removed |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage` | the record that was removed |
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
+| `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -138,7 +152,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-All seven extend `RuntimeException`. `InvalidArgumentException` is used where
+All eight extend `RuntimeException`. `InvalidArgumentException` is used where
 the condition is a caller bug rather than something a customer could act on —
 a negative quantity, a release larger than the reservation.
 

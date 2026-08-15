@@ -21,6 +21,7 @@ listed as unverified, because a test that has never failed is not evidence.
 | a catalogue row soft-deleted after a model was loaded | stale in-memory model | re-read inside the transaction | `ReserveStock`, `AddProductVariation` |
 | `inventories` outliving an erased variation | FK `NO ACTION` | child deleted before parent, plus four refusals | `ForceDeleteProductVariation` |
 | `products.sku`, `products.slug`, `product_variations.sku` | duplicate insert | `UNIQUE` constraint (ADR-0005) | schema |
+| one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
 
 ### Lock order
 
@@ -62,6 +63,20 @@ whether or not the lock is present; only the *kind* of failure changes.
 express "an available product has at least one live variation" across two
 tables and ADR-0004 rejected triggers, so there is no backstop: without the
 lock both writes commit and both processes report success.
+
+### Pinned by construction, not by a deleted mechanism
+
+`tests/Concurrency/MainProductImageConcurrencyTest.php` asserts that two
+concurrent promotions both succeed and leave exactly one main image. It cannot
+be made red by deleting a mechanism, and that is the finding rather than a
+gap: `SetMainProductImage` reads nothing to decide anything, so there is no
+check-then-act window, and one `UPDATE` cannot interleave with itself.
+
+An earlier two-statement version took a `products` lock. Removing that lock
+left the test green — correctly, because the two-statement form is also safe
+against a lost invariant; what it risks is two promotions acquiring the same
+rows in opposite order and deadlocking, which is error 1213 and a 500. One
+statement rules that out, so the lock went rather than the test.
 
 ### Known broken, asserted as such
 

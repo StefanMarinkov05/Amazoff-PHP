@@ -167,6 +167,35 @@ Nothing is oversold either way; only the failure mode differs.
 including variations and stock rows already written for it. The loser sees a
 500 rather than a validation message.
 
+## Images
+
+A product with images has **exactly one main image**. The database does not
+enforce it — verified: it accepts two `is_main = 1` rows for one product — so
+the rule lives in `SetMainProductImage`, expressed as one `UPDATE`.
+
+| Operation | Outcome |
+|---|---|
+| First image added | becomes main, whether or not it was asked for |
+| Later image added | not main, unless asked |
+| Later image added as main | the previous main is demoted |
+| Promotion | siblings demoted in the same statement |
+| Main image removed, others remain | the lowest `sort_order` succeeds it |
+| Last image removed | the product has no main image, which is legal |
+| Removing an image a variation points at | refused — `ProductImageInUseException` |
+| Two promotions at once | both succeed; the later one wins; one flag survives |
+
+A soft-deleted variation still counts as pointing at an image: it keeps the
+foreign key, so it still causes error 1451.
+
+Images are not soft-deleted. The file on disk is deleted after the transaction
+commits, so a refused removal leaves both the row and the file.
+
+## Specifications
+
+No Action, deliberately. One table, no invariant, no second writer — ADR-0007's
+threshold is not met and CLAUDE.md's rule applies: wrapping a single-table save
+in an Action buys no consistency and costs a class. Default Filament CRUD.
+
 ## Lock order
 
 `products` before `inventories`, always. `ReserveStock` and `ReleaseStock`
