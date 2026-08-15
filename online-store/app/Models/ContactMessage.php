@@ -23,6 +23,8 @@ class ContactMessage extends Model
         'email',
         'subject',
         'message',
+        'handled_at',
+        'internal_note',
     ];
 
     /**
@@ -35,6 +37,7 @@ class ContactMessage extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'handled_at' => 'timestamp',
         ];
     }
 
