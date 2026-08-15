@@ -141,8 +141,22 @@ it('fails the loser of a race cleanly rather than at the database', function ():
 
     file_put_contents(base_path('race-worker.php'), $script);
 
-    // Generous enough for two Laravel boots on a cold container.
-    $startAt = microtime(true) + 3.0;
+    // Generous enough for two Laravel boots on a *loaded* container, which is
+    // the case that matters: CI is precisely where something else is running.
+    //
+    // Three seconds was enough on an idle machine and not always enough beside
+    // a concurrent Larastan run, which pushed each test from ~10s to ~17s and
+    // failed the whole suite at once. See troubleshooting.md — the tell is
+    // that exactly the suite size fails together.
+    //
+    // This widens the window rather than removing the guess. The real fix is a
+    // readiness handshake: each worker signals after booting and warming its
+    // connection, and the parent derives the instant once both are up. That is
+    // deliberately not done blind, because a barrier that silently stops
+    // aligning makes the workers run sequentially — and sequential execution
+    // still yields exactly one winner, so the publish test would pass for the
+    // wrong reason. Changing it requires watching it fail with the lock removed.
+    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 
     try {
         $processes = collect(range(1, 2))->map(function () use ($variation, $startAt): Process {

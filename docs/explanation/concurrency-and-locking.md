@@ -130,6 +130,74 @@ The ordering matters when judging a change. A test that stops reproducing the
 race is a weaker signal than a constraint that is still in place, and the
 constraint is why overselling is impossible rather than merely unlikely.
 
+## Two other kinds of contention, which need different mechanisms
+
+Stock is row contention inside a single request, and the lock above is the
+right tool for it. Two other shapes appear in the catalogue, and applying the
+same tool to either produces something wrong. ADR-0008 records the choice.
+
+### An invariant spanning two tables
+
+§6–7 requires every sellable product to have at least one variation.
+`UpdateProduct` publishes a product after counting its variations;
+`RemoveProductVariation` deletes a variation after checking the product is not
+available. Both are check-then-act, and run concurrently they both read the
+pre-state, both pass their own check, and both commit — leaving an available
+product with nothing to sell.
+
+This differs from stock in the layer that catches it: nothing does. Stock has
+`chk_inventories_reserved_not_above_current`, so an unlocked race still fails,
+merely as a 500 rather than a handled message. Here the rule spans `products`
+and `product_variations`, which MySQL cannot express as a constraint, and
+ADR-0004 rejected triggers. The unlocked race succeeds twice and the invariant
+is simply gone.
+
+The lock therefore goes on the **aggregate root** — the `products` row — taken
+by both Actions, rather than on the rows each writes. Locking what each writes
+would have them contend on different rows, waiting for nothing.
+
+That difference shows up in what the two race tests can assert.
+`ReserveStockConcurrencyTest` cannot count winners, because the `CHECK`
+constraint produces exactly one either way; it asserts the *kind* of failure.
+`PublishProductConcurrencyTest` counts winners, because with no constraint
+underneath, two winners is precisely what the missing lock produces.
+
+### A lost update across two requests
+
+Two employees open a product's edit form. Each changes one field and saves.
+The second silently reverts the first's change to a field the second never
+touched.
+
+The mechanism is Eloquent's dirty checking measuring against a baseline that
+moved. Livewire re-resolves the record from the database when the request
+hydrates, so at save time the model's originals are current while the
+submitted payload still carries everything the form loaded. An untouched field
+now differs from its original, counts as dirty, and lands in the `UPDATE`.
+
+Two plain Eloquent instances both read before either wrote do *not* show this
+— there the stale value matches its own original and is never dirty. The bug
+therefore appears through the panel and not in the obvious test, which is why
+it is worth stating as mechanism rather than as advice.
+
+No lock closes it. The window is the time a human spends looking at a form,
+and a PHP request ends when that form is rendered, so no transaction survives
+to the submission. It needs optimistic concurrency: a version or `updated_at`
+carried through the form and checked in the `UPDATE`'s `WHERE` clause.
+
+### The rule that separates them
+
+The mechanism follows the length of the critical section, not the importance
+of the data.
+
+| Window | Mechanism |
+|---|---|
+| Microseconds, one request | pessimistic lock |
+| Microseconds, one request, invariant across tables | pessimistic lock on the aggregate root |
+| Human attention, across requests | optimistic — version check, refuse, re-read |
+
+A lock held across a user's think time is not a lock, it is an outage. That is
+the same reason stock is not held from the moment a customer opens checkout.
+
 ## Deadlock, once an order holds more than one line
 
 Nothing in the codebase reserves two variations yet. `CreateOrder` will, and
@@ -162,3 +230,13 @@ locked version lets the loser find out by reading rather than by having the
 database reject its write. Deleting `lockForUpdate()` turns
 `InsufficientStockException` into `QueryException`, and that is what the test
 detects.
+
+Single-process fault injection is not a substitute for the second process. A
+row lock places no constraint on the transaction that holds it, so a test that
+injects a conflicting write on its own connection passes with the lock and
+without it. It can demonstrate that a window exists between a read and a
+write; it cannot demonstrate that anything closes the window.
+
+`reference/concurrency-coverage.md` lists every contested resource, the
+mechanism protecting it, and the test that has been observed failing without
+that mechanism.
