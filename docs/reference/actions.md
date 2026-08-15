@@ -192,10 +192,6 @@ cart, and last-live-variation refusals.
 
 `reference/concurrency-coverage.md` records which specific test covers each.
 
-Two tests passed with their mechanism removed and were replaced. The actor in
-`denies an actor without create_product` held neither catalogue permission, so
-`AddProductVariation` was raising the exception the test attributed to
-`CreateProduct`. A fault-injection test for the `products` lock injected its
-conflicting write on the same connection, where a row lock is not supposed to
-stop it — replaced by `tests/Concurrency/PublishProductConcurrencyTest.php`.
-Both failure modes are written up in `how-to/troubleshooting.md`.
+The two failure modes that make a guard test pass while proving nothing — an
+exception raised by a nested Action, and fault injection on the connection
+holding the lock — are written up in `how-to/troubleshooting.md`.

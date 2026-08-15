@@ -126,10 +126,9 @@ it('rolls the whole product back when one variation fails', function (): void {
 });
 
 it('denies an actor without create_product', function (): void {
-    // Holds create_product_variation deliberately. An actor with neither
-    // permission is denied by AddProductVariation's gate instead, which makes
-    // this test pass with CreateProduct's own gate deleted — it did, until
-    // the mechanism was removed and the test stayed green.
+    // Holds create_product_variation deliberately: an actor with neither is
+    // denied by AddProductVariation's gate instead, which would pass this
+    // test with CreateProduct's own gate deleted.
     $actor = catalogueActor('create_product_variation');
 
     expect(fn () => app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], $actor))

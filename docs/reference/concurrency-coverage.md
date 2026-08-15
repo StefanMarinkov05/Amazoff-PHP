@@ -67,16 +67,15 @@ lock both writes commit and both processes report success.
 ### Pinned by construction, not by a deleted mechanism
 
 `tests/Concurrency/MainProductImageConcurrencyTest.php` asserts that two
-concurrent promotions both succeed and leave exactly one main image. It cannot
-be made red by deleting a mechanism, and that is the finding rather than a
+concurrent promotions both succeed and leave exactly one main image. No
+mechanism can be deleted to turn it red, and that is a property rather than a
 gap: `SetMainProductImage` reads nothing to decide anything, so there is no
 check-then-act window, and one `UPDATE` cannot interleave with itself.
 
-An earlier two-statement version took a `products` lock. Removing that lock
-left the test green — correctly, because the two-statement form is also safe
-against a lost invariant; what it risks is two promotions acquiring the same
-rows in opposite order and deadlocking, which is error 1213 and a 500. One
-statement rules that out, so the lock went rather than the test.
+A demote-then-promote pair would also be safe against a lost invariant, since
+InnoDB row-locks both rows until commit. What it risks is two promotions
+acquiring those rows in opposite order and deadlocking — error 1213, a 500.
+One statement rules that out without a lock.
 
 ### Known broken, asserted as such
 

@@ -1,6 +1,6 @@
 # ADR-0008: Choosing a concurrency mechanism per contested resource
 
-Status: Proposed
+Status: Accepted
 Date: 2026-08-15 · Deciders: Stefan Marinkov
 
 ## Context

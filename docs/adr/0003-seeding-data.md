@@ -1,6 +1,6 @@
 # ADR-0003: Seeding the database
 
-Status: Proposed
+Status: Accepted
 Date: 2026-08-10 · Deciders: Stefan Marinkov
 
 ## Context

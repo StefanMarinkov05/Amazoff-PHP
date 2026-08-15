@@ -19,12 +19,11 @@ use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
- * The panel reaching the Actions. ADR-0007 requires it and §37 criterion 1
- * depends on it; until this existed the resource wrote Eloquent directly and
- * every variation it created had no `inventories` row.
+ * The panel reaching the Actions, which ADR-0007 requires and §37 criterion 1
+ * depends on.
  *
- * These assert through Livewire rather than by calling Actions, because what
- * is under test is the wiring — an Action tested directly passes whether or
+ * These assert through Livewire rather than by calling Actions, because the
+ * wiring is what is under test — an Action tested directly passes whether or
  * not anything calls it.
  */
 
@@ -64,9 +63,7 @@ it('creates a product with a stock row through the panel', function (): void {
 
     $variation = ProductVariation::where('sku', $sku)->sole();
 
-    // The defect this wiring closes: Filament's default create wrote the
-    // variation alone, and every inventory Action reads this row with
-    // firstOrFail().
+    // Every inventory Action reads this row with firstOrFail().
     expect($variation->inventory()->exists())->toBeTrue()
         ->and($variation->inventory()->sole()->current_quantity)->toBe(5)
         ->and($variation->inventory()->sole()->inventoryMovements()->count())->toBe(1);

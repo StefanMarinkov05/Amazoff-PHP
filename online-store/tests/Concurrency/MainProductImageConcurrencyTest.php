@@ -16,19 +16,12 @@ use Symfony\Component\Process\Process;
  *
  * Unlike the other two race tests, this one does not guard a *lock*.
  * SetMainProductImage is a blind single-statement write, so the invariant
- * holds by construction and no interleaving can leave two rows set. Deleting
- * a mechanism therefore does not turn it red — verified, after an earlier
- * two-statement version whose lock this test could not distinguish either
- * way.
+ * holds by construction and no interleaving can leave two rows set — no
+ * mechanism can be deleted to turn this red.
  *
- * It is kept because the property is worth pinning and the cost is one test:
- * two concurrent promotions both succeed and exactly one flag survives. It
- * would go red if the single statement were ever split into demote-then-
- * promote *and* that split deadlocked, which is the failure the one-statement
- * form exists to rule out.
- *
- * Both operations are legitimate, so both should report success — the
- * assertion is the final state, not a winner count.
+ * It is kept because the property is worth pinning and costs one test. Both
+ * operations are legitimate, so both should report success; the assertion is
+ * the final state, not a winner count.
  */
 
 afterEach(function (): void {

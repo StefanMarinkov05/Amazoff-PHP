@@ -1,8 +1,6 @@
 # GDPR: deletion, retention, and erasure
 
-Status: design. Describes the schema in `misc/draft.yaml`, which has not
-been generated yet. The only part currently in the codebase is soft deletes
-on `User`.
+Status: design. Describes the schema `draft.yaml`. The only part currently in the codebase is soft deletes on `User`.
 
 ## Two different deletions
 

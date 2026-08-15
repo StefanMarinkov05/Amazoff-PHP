@@ -23,10 +23,8 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
- * Closes gaps 2-4 of `reference/product-write-rules.md`: UpdateProduct
- * answering a soft-deleted product with ModelNotFoundException, a deleted
- * product leaving its variations reservable, and force-delete always hitting
- * error 1451.
+ * Deleting and erasing a product. Outcome table in
+ * `reference/product-write-rules.md`.
  */
 
 beforeEach(function (): void {
@@ -46,10 +44,6 @@ function productWithVariations(int $count = 2, int $stock = 0): Product
     return $product;
 }
 
-/*
- * Gap 3 — the cascade.
- */
-
 it('takes the variations with the product', function (): void {
     $product = productWithVariations();
 
@@ -68,8 +62,8 @@ it('makes the variations of a deleted product unreservable', function (): void {
 
     app(DeleteProduct::class)->handle($product);
 
-    // Gap 3: ReserveStock checks the variation, which used to be untouched
-    // when its product was deleted.
+    // ReserveStock checks the variation, not the product, so the cascade is
+    // what makes a deleted product's stock unreachable.
     expect(fn () => app(ReserveStock::class)->handle($variation, 1))
         ->toThrow(RemovedFromCatalogueException::class);
 
@@ -111,23 +105,13 @@ it('denies an actor without delete_product', function (): void {
         ->and($product->productVariations()->count())->toBe(2);
 });
 
-/*
- * Gap 2 — an explicit rule instead of an incidental one.
- */
-
 it('refuses to update a product that has been deleted', function (): void {
     $product = productWithVariations();
     app(DeleteProduct::class)->handle($product);
 
-    // Gap 2: was ModelNotFoundException from firstOrFail running through the
-    // SoftDeletes scope — a correct answer reached by accident.
     expect(fn () => app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']))
         ->toThrow(RemovedFromCatalogueException::class);
 });
-
-/*
- * Gap 4 — erasing in an order the schema accepts.
- */
 
 it('erases a product with its variations and stock rows', function (): void {
     $product = productWithVariations();
