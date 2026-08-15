@@ -317,6 +317,71 @@ from a decoration.
 
 ---
 
+## An authorization test passes with the authorization check deleted
+
+**Symptom.** A test asserting that a denied actor cannot perform an Action is
+green. Deleting the `Gate::forUser($actor)->authorize(...)` call from that
+Action leaves it green.
+
+**Cause.** The Action composes another Action, and the *inner* one raised the
+`AuthorizationException` the test attributed to the outer one. In this
+codebase `CreateProduct` calls `AddProductVariation`, and ADR-0007 requires
+the actor to be passed down, so both check a policy. A test actor holding
+neither `create_product` nor `create_product_variation` is denied twice, and
+the assertion cannot tell which check did it.
+
+**Fix.** Give the actor every permission the composed Actions need *except*
+the one under test:
+
+```php
+// Tests CreateProduct's own gate, because AddProductVariation's will pass.
+$actor = catalogueActor('create_product_variation');
+```
+
+**Why it recurs.** `expect(...)->toThrow(AuthorizationException::class)` is the
+natural assertion and it is correct — the exception type is right, the write
+really was prevented, and the test description matches what happened. Only the
+attribution is wrong, and nothing in the output distinguishes the two sources.
+Every composed Action that passes an actor down can reintroduce it, and
+ADR-0007 requires them all to.
+
+**Prevention.** Delete the check under test and confirm the test goes red.
+Grant the actor exactly one permission short of success rather than granting
+none — an actor with no permissions at all is denied by whichever check runs
+first, which is rarely the one being tested.
+
+---
+
+## A concurrency test cannot be written in one process
+
+**Symptom.** A test proving a `lockForUpdate()` works passes. Deleting the
+lock leaves it passing. The test looks like it exercises the right window —
+it deliberately interleaves a conflicting write between the Action's read and
+its write, using a model event such as `saving` or `creating`.
+
+**Cause.** A row lock constrains *other* transactions, never the one holding
+it. Injecting the conflicting write on the same connection means it runs
+inside the locking transaction, where the lock is not supposed to stop it and
+does not. The test therefore behaves identically with the lock and without it.
+
+**Fix.** Two real OS processes with a barrier, in `tests/Concurrency/`.
+`ReserveStockConcurrencyTest` and `PublishProductConcurrencyTest` are the two
+worked examples; the second differs in asserting the winner *count*, which is
+possible only because no `CHECK` constraint backs that invariant up.
+
+**Why it recurs.** Fault injection is the right technique for the neighbouring
+problem — proving a `DB::transaction` rolls back — and it works there for the
+same reason it fails here: it runs inside the transaction under test.
+`AddProductVariationTest` uses it correctly to prove a rollback. Copying that
+pattern to a locking test is a natural and invisible mistake.
+
+**Prevention.** Single-process fault injection proves a *boundary* exists. It
+cannot prove a *lock* exists. If the mechanism under test is `lockForUpdate`,
+the test needs a second connection, which means it needs a second process,
+which means it belongs outside `tests/Feature`.
+
+---
+
 ## A permission change saves and does not take effect
 
 **Symptom.** A role is edited — through the panel, a seeder, or tinker — the
