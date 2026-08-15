@@ -90,14 +90,32 @@ it('refuses a variation with stock reserved against it', function (): void {
         ->toThrow(VariationHasReservedStockException::class);
 });
 
-it('refuses a variation that is in a cart', function (): void {
+it('drops the cart lines rather than refusing', function (): void {
     $variation = erasableVariation();
     CartItem::factory()->create(['product_variation_id' => $variation->getKey(), 'quantity' => 1]);
 
-    // cart_items.product_variation_id is NO ACTION, so without this the
-    // database refuses with 1451 — a 500 rather than a message.
+    // A cart is transient state, not referential integrity. Refusing would let
+    // a customer pin a variation indefinitely by leaving a tab open, and the
+    // line was going to die at checkout anyway. cart_items is NO ACTION, so
+    // the row must go before the variation regardless.
+    app(ForceDeleteProductVariation::class)->handle($variation);
+
+    expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse()
+        ->and(CartItem::where('product_variation_id', $variation->getKey())->count())->toBe(0);
+});
+
+it('still refuses a variation whose cart reached checkout', function (): void {
+    $variation = erasableVariation(stock: 10);
+    CartItem::factory()->create(['product_variation_id' => $variation->getKey(), 'quantity' => 1]);
+    app(ReserveStock::class)->handle($variation, 1);
+
+    // The case dropping the cart check might look like it opened: a cart that
+    // got as far as checkout holds a reservation, and reserved stock is still
+    // a refusal.
     expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
-        ->toThrow(VariationCannotBeErasedException::class);
+        ->toThrow(VariationHasReservedStockException::class);
+
+    expect(CartItem::where('product_variation_id', $variation->getKey())->count())->toBe(1);
 });
 
 it('refuses the last live variation of an available product', function (): void {

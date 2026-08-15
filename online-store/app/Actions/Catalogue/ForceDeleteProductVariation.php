@@ -24,10 +24,11 @@ use Illuminate\Support\Facades\Gate;
  * so the reverse order is error 1451 — what Filament's default
  * `ForceDeleteAction` does today.
  *
- * Legal only where there is nothing to destroy. `order_items` is
- * `ON DELETE SET NULL`, so the database would accept the erase and quietly
- * null the reference, which §19 forbids. Full outcome table in
- * `reference/product-write-rules.md`.
+ * Legal only where nothing has to outlive it: a stock ledger (§20), an order
+ * line, or held stock. `order_items` is `ON DELETE SET NULL`, so the database
+ * would accept the erase and quietly null the reference, which §19 forbids.
+ * Cart lines are deleted rather than refused — see below. Full outcome table
+ * in `reference/product-write-rules.md`.
  *
  * Locks `products` then `inventories`, the same order as every Action that can
  * move §6–7's invariant. ADR-0008.
@@ -82,13 +83,21 @@ final class ForceDeleteProductVariation
                 throw VariationCannotBeErasedException::isOrdered($variation, $orderItems);
             }
 
-            $cartItems = CartItem::query()
+            // Cart lines are dropped, not refused. A cart is transient
+            // self-repairing state — it has an expires_at and no historical
+            // value — so blocking a catalogue operation on one would let any
+            // customer pin a row indefinitely by leaving a tab open. The
+            // customer would have lost the line at checkout anyway; deleting
+            // it here resolves that instead of moving the failure onto the
+            // administrator. cart_items is NO ACTION, so the row has to go
+            // before the variation regardless.
+            //
+            // The dangerous case is still covered: a cart that reached
+            // checkout holds a *reservation*, and reserved stock is refused
+            // above.
+            CartItem::query()
                 ->where('product_variation_id', $variation->getKey())
-                ->count();
-
-            if ($cartItems > 0) {
-                throw VariationCannotBeErasedException::isInCart($variation, $cartItems);
-            }
+                ->delete();
 
             // Count the *others*, not all-minus-one: productVariations() runs
             // through the SoftDeletes scope, so comparing the total to 1 would

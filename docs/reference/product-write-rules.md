@@ -25,6 +25,13 @@ current behaviour is Filament's defaults, not this page.
 sellability: *every sellable product has at least one variation*. A draft with
 nothing in it yet is a half-entered record, not a broken one.
 
+Cart lines are never a reason to refuse an erase. A cart is transient,
+self-repairing state with no historical value, so both erase Actions delete
+those rows instead — refusing would let a customer pin a catalogue row
+indefinitely by leaving a tab open, and the line was going to die at checkout
+anyway. A cart that got as far as checkout holds a *reservation*, and reserved
+stock is still refused.
+
 `DeleteProduct` soft-deletes the variations with the product, so a deleted
 product's variations are unreservable and its stock rows and ledger survive.
 `ForceDeleteProduct` erases children before the parent, refusing wherever
@@ -57,11 +64,11 @@ deliberate. The storefront never renders it because it is unavailable, and
 | | product is soft-deleted | `RemovedFromCatalogueException` |
 | `DeleteProduct` | — never refuses; reserved stock is allowed | — |
 | `ForceDeleteProduct` | product is on an order line, review, or wishlist | `ProductCannotBeErasedException` |
-| | any variation has a ledger, order line, or cart line | `VariationCannotBeErasedException` |
+| | any variation has a ledger or an order line | `VariationCannotBeErasedException` |
 | `RemoveProductVariation` | last live variation of an available product | `ProductRequiresVariationException` |
 | | stock is reserved against it | `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | it has any stock movement | `VariationCannotBeErasedException` |
-| | it is on an order line or in a cart | `VariationCannotBeErasedException` |
+| | it is on an order line | `VariationCannotBeErasedException` |
 | | stock is reserved against it | `VariationHasReservedStockException` |
 | | it is the last live variation of an available product | `ProductRequiresVariationException` |
 | `ReserveStock` | variation is soft-deleted, including via its product | `RemovedFromCatalogueException` |

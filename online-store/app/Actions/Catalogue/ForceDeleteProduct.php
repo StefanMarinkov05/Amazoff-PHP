@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Catalogue;
 
 use App\Exceptions\ProductCannotBeErasedException;
+use App\Models\CartItem;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
@@ -67,6 +68,15 @@ final class ForceDeleteProduct
             if ($wishlisted > 0) {
                 throw ProductCannotBeErasedException::isWishlisted($product, $wishlisted);
             }
+
+            // Cart lines go with the variations, for the reason given in
+            // ForceDeleteProductVariation: a cart is transient state, not
+            // referential integrity.
+            CartItem::query()
+                ->whereIn('product_variation_id', ProductVariation::withTrashed()
+                    ->where('product_id', $product->getKey())
+                    ->select('id'))
+                ->delete();
 
             // Soft-delete the product first: ForceDeleteProductVariation
             // refuses to erase the last variation of an *available* product,

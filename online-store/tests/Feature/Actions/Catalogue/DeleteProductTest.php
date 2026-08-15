@@ -10,6 +10,7 @@ use App\Actions\Inventory\ReserveStock;
 use App\Exceptions\ProductCannotBeErasedException;
 use App\Exceptions\RemovedFromCatalogueException;
 use App\Exceptions\VariationCannotBeErasedException;
+use App\Models\CartItem;
 use App\Models\Inventory;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -177,6 +178,19 @@ it('refuses to erase a product that has been ordered', function (): void {
         ->toThrow(ProductCannotBeErasedException::class);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue();
+});
+
+it('drops cart lines when erasing a product', function (): void {
+    $product = productWithVariations();
+    CartItem::factory()->create([
+        'product_variation_id' => $product->productVariations()->first()->getKey(),
+        'quantity' => 1,
+    ]);
+
+    app(ForceDeleteProduct::class)->handle($product);
+
+    expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeFalse()
+        ->and(CartItem::count())->toBe(0);
 });
 
 it('refuses to erase a product that is on a wishlist', function (): void {
