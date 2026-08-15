@@ -1,9 +1,10 @@
 # Actions
 
 What exists in `app/Actions` today. Why they are written this way is
-ADR-0007; how to add one is `how-to/add-an-action.md`.
+ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
+two of them run at once is `reference/product-write-rules.md`.
 
-Eight Actions across two areas, five domain exceptions.
+Eleven Actions across two areas, seven domain exceptions.
 
 ## Naming
 
@@ -37,6 +38,19 @@ boundary.
 | `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product_variation` | `InvalidArgumentException` |
 | `RemoveProductVariation` | `product_variations` (soft delete) | optional, checked against `delete_product_variation` | `ProductRequiresVariationException`, `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
+| `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
+| `SetMainProductImage` | `product_images` | optional, `update_product` | — |
+| `RemoveProductImage` | `product_images`, and the file on disk | optional, `update_product` | `ProductImageInUseException` |
+
+A product with images has exactly one main image, which MySQL cannot express —
+no partial unique index, and ADR-0004 rejected triggers. `SetMainProductImage`
+owns that rule in a single `UPDATE` (`is_main = (id = N)`), so it holds by
+construction rather than by a lock; `AddProductImage` and `RemoveProductImage`
+compose it. Images are not soft-deleted, and `RemoveProductImage` deletes the
+file only after the transaction commits.
+
+`ProductSpecification` has no Action: one table, no invariant, so ADR-0007
+leaves it as default Filament CRUD.
 
 `ForceDeleteProductVariation` deletes the stock row **before** the variation.
 `inventories.product_variation_id` is a `NO ACTION` foreign key, so the
@@ -118,7 +132,9 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation` | — |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage` | the record that was removed |
+| `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
+| `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -131,7 +147,12 @@ the in-memory model.
 invariant can be broken through — `atCreation`, `whenMadeAvailable`,
 `whenLastVariationRemoved`.
 
-All five extend `RuntimeException`. `InvalidArgumentException` is used where
+Every exception carries the record it concerns, so a caller can render a
+message without parsing one. Where several named constructors raise one class,
+tests assert the payload rather than the class alone — asserting the class
+passes when the wrong branch fires.
+
+All eight extend `RuntimeException`. `InvalidArgumentException` is used where
 the condition is a caller bug rather than something a customer could act on —
 a negative quantity, a release larger than the reservation.
 
@@ -139,13 +160,22 @@ a negative quantity, a release larger than the reservation.
 
 | Action | Called from |
 |---|---|
-| all eight | tests |
+| `CreateProduct`, `UpdateProduct` | `CreateProduct` / `EditProduct` pages, tests |
+| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
+| `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
+| `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 
-No storefront and no panel code calls any of them yet. ADR-0007 requires a
-Filament resource to call the Action from `handleRecordCreation()` and
-`handleRecordUpdate()` where a rule exists; `ProductResource` still writes
-Eloquent directly, so §37 criterion 1 is not met and a variation created
-through the variations relation manager has no `inventories` row.
+`ProductResource` routes every write through its Action, per ADR-0007. §37
+criterion 1 is met for the panel; no storefront exists yet.
+
+Domain exceptions become notifications rather than 500s, via
+`App\Filament\Concerns\ReportsDomainFailures`. Only `App\Exceptions` are
+caught — a `QueryException` is a defect, not a refusal, and swallowing one
+into a toast would hide the failures that should be loud.
+
+The variations relation manager has **no delete or force-delete bulk action**.
+Both write Eloquent directly, which is the bypass the wiring exists to close.
+Restoring cannot break the invariant, so it stays.
 
 ## Test obligations
 
@@ -162,10 +192,6 @@ cart, and last-live-variation refusals.
 
 `reference/concurrency-coverage.md` records which specific test covers each.
 
-Two tests passed with their mechanism removed and were replaced. The actor in
-`denies an actor without create_product` held neither catalogue permission, so
-`AddProductVariation` was raising the exception the test attributed to
-`CreateProduct`. A fault-injection test for the `products` lock injected its
-conflicting write on the same connection, where a row lock is not supposed to
-stop it — replaced by `tests/Concurrency/PublishProductConcurrencyTest.php`.
-Both failure modes are written up in `how-to/troubleshooting.md`.
+The two failure modes that make a guard test pass while proving nothing — an
+exception raised by a nested Action, and fault injection on the connection
+holding the lock — are written up in `how-to/troubleshooting.md`.

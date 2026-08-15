@@ -126,10 +126,9 @@ it('rolls the whole product back when one variation fails', function (): void {
 });
 
 it('denies an actor without create_product', function (): void {
-    // Holds create_product_variation deliberately. An actor with neither
-    // permission is denied by AddProductVariation's gate instead, which makes
-    // this test pass with CreateProduct's own gate deleted — it did, until
-    // the mechanism was removed and the test stayed green.
+    // Holds create_product_variation deliberately: an actor with neither is
+    // denied by AddProductVariation's gate instead, which would pass this
+    // test with CreateProduct's own gate deleted.
     $actor = catalogueActor('create_product_variation');
 
     expect(fn () => app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], $actor))
@@ -172,6 +171,33 @@ it('updates a product that has a variation', function (): void {
 
     expect($updated->fresh()->name)->toBe('Renamed')
         ->and($updated->fresh()->regular_price)->toBe('99.00');
+});
+
+it('leaves columns absent from the payload alone', function (): void {
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['name' => 'Original', 'regular_price' => '189.90', 'is_featured' => true]),
+        [variationAttributes()],
+    );
+
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']);
+
+    // Partial payloads are the shape that makes concurrent edits survivable,
+    // so an Action quietly widening a write would matter — see
+    // ConcurrentProductEditTest.
+    $fresh = $product->fresh();
+
+    expect($fresh->name)->toBe('Renamed')
+        ->and($fresh->regular_price)->toBe('189.90')
+        ->and($fresh->is_featured)->toBeTrue();
+});
+
+it('ignores a key that is not a product column', function (): void {
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'not_a_column' => 'x']);
+
+    expect($product->fresh()->name)->toBe('Renamed')
+        ->and($product->fresh()->getAttributes())->not->toHaveKey('not_a_column');
 });
 
 it('refuses to make a product available with no variation', function (): void {

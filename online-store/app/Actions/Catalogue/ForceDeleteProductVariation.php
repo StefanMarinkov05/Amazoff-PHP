@@ -17,54 +17,55 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Erases a variation permanently, together with the stock row that exists only
- * for it — and refuses whenever something still depends on either.
+ * Erases a variation and the stock row that exists only for it, refusing
+ * whenever something still depends on either.
  *
- * `inventories.product_variation_id` is a `NO ACTION` foreign key and every
- * variation created through `AddProductVariation` has a row, so deleting the
- * variation first is always error 1451. That is not a hypothetical: it is what
- * Filament's default `ForceDeleteAction` does, verified against the running
- * database. Ordering the two deletes correctly is the whole mechanical part of
- * this Action; the rest is deciding when it is allowed at all.
+ * The stock row goes first: `inventories.product_variation_id` is `NO ACTION`,
+ * so the reverse order is error 1451 — what Filament's default
+ * `ForceDeleteAction` does today.
  *
- * ## Erasing is not deleting
+ * Legal only where nothing has to outlive it: a stock ledger (§20), an order
+ * line, or held stock. `order_items` is `ON DELETE SET NULL`, so the database
+ * would accept the erase and quietly null the reference, which §19 forbids.
+ * Cart lines are deleted rather than refused — see below. Full outcome table
+ * in `reference/product-write-rules.md`.
  *
- * `RemoveProductVariation` soft-deletes: the variation leaves the catalogue and
- * every row explaining it survives, which is what §19 and §20 require. This
- * destroys them, so it is legal only where there is nothing to destroy — a
- * variation created by mistake, never stocked, never ordered, never carted.
+ * Locks `products` then `inventories`, the same order as every Action that can
+ * move §6–7's invariant. ADR-0008.
  *
- * The order-line check is the one worth reading twice.
- * `order_items.product_variation_id` is `ON DELETE SET NULL`, so the database
- * would *allow* this and quietly null the reference. A refusal is better than
- * a success nobody is told about.
- *
- * ## Locking
- *
- * Same aggregate root and same order as `RemoveProductVariation` — `products`,
- * then `inventories` — so the three Actions that can break §6–7's invariant
- * all serialise against each other.
+ * Authorizes `delete_product_variation` — no `forceDelete` ability exists, per
+ * `reference/permissions.md`. Locks `products`, then `inventories`. See
+ * ADR-0008 and `reference/product-write-rules.md`.
  */
 final class ForceDeleteProductVariation
 {
     /**
-     * There is no `forceDelete_product_variation` permission — see
-     * `reference/permissions.md`, which records that `restore` and
-     * `forceDelete` abilities do not exist. Erasing is authorized as `delete`,
-     * the destructive ability that does exist.
+     * Authorized as `delete`: no `forceDelete` ability exists, per
+     * `reference/permissions.md`.
+     *
+     * @param  bool  $productIsBeingErased  Set only by `ForceDeleteProduct`.
+     *                                      Waives the last-variation refusal,
+     *                                      which protects a sellable product
+     *                                      that is not about to stop existing.
      *
      * @throws VariationCannotBeErasedException
      * @throws VariationHasReservedStockException
      * @throws ProductRequiresVariationException
      */
-    public function handle(ProductVariation $variation, ?User $actor = null): void
-    {
+    public function handle(
+        ProductVariation $variation,
+        ?User $actor = null,
+        bool $productIsBeingErased = false,
+    ): void {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $variation);
         }
 
-        DB::transaction(function () use ($variation): void {
-            $product = Product::query()
+        DB::transaction(function () use ($variation, $productIsBeingErased): void {
+            // withTrashed(): ForceDeleteProduct erases variations after the
+            // product is soft-deleted, and firstOrFail() through the
+            // SoftDeletes scope would raise ModelNotFoundException there.
+            $product = Product::withTrashed()
                 ->whereKey($variation->product_id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -94,29 +95,23 @@ final class ForceDeleteProductVariation
                 throw VariationCannotBeErasedException::isOrdered($variation, $orderItems);
             }
 
-            $cartItems = CartItem::query()
+            // Dropped, not refused: a cart is transient state, not
+            // referential integrity. cart_items is NO ACTION, so the row must
+            // go before the variation either way.
+            CartItem::query()
                 ->where('product_variation_id', $variation->getKey())
-                ->count();
+                ->delete();
 
-            if ($cartItems > 0) {
-                throw VariationCannotBeErasedException::isInCart($variation, $cartItems);
-            }
-
-            // The §6–7 invariant applies to erasing as it does to removing,
-            // but the question is not "how many variations are there" — it is
-            // "how many will still be sellable afterwards".
-            //
-            // Counting all of them and comparing to 1 gets this wrong in both
-            // directions, because `productVariations()` runs through the
-            // SoftDeletes scope. Erasing an already-trashed variation does not
-            // change the live count at all and would be refused for no reason;
-            // erasing a live one reduces it by one. Counting the *others* is
-            // the same question for both cases.
+            // Count the *others*, not all-minus-one: productVariations() runs
+            // through the SoftDeletes scope, so comparing the total to 1 would
+            // wrongly refuse erasing an already-trashed variation.
             $otherLiveVariations = $product->productVariations()
                 ->whereKeyNot($variation->getKey())
                 ->count();
 
-            if ($product->is_available && $otherLiveVariations === 0) {
+            // §6–7's invariant, unless the product is going too — then there
+            // is no sellable product left for it to protect.
+            if (! $productIsBeingErased && $product->is_available && $otherLiveVariations === 0) {
                 throw ProductRequiresVariationException::whenLastVariationRemoved($product);
             }
 

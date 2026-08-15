@@ -20,8 +20,10 @@ use RuntimeException;
  *   so an erase would succeed and silently null the link — §19 requires the
  *   history to survive, and a nulled reference is worse than a refusal
  *   because nothing reports it.
- * - Cart lines. `cart_items.product_variation_id` is `NO ACTION`, so the
- *   database refuses with error 1451 — a 500 rather than a message.
+ * Cart lines are *not* a reason to refuse. A cart is transient, self-repairing
+ * state with no historical value, so `ForceDeleteProductVariation` deletes
+ * those rows instead — blocking an administrator on one would let a customer
+ * pin a variation indefinitely by leaving a tab open.
  *
  * The narrow case that remains legal is the one this exists to allow: a
  * variation created by mistake, with an untouched stock row and no history.
@@ -49,15 +51,6 @@ class VariationCannotBeErasedException extends RuntimeException
             'Variation %s appears on %d order line(s) and cannot be permanently deleted.',
             $variation->sku,
             $orderItems,
-        ), $variation);
-    }
-
-    public static function isInCart(ProductVariation $variation, int $cartItems): self
-    {
-        return new self(sprintf(
-            'Variation %s is in %d active cart(s) and cannot be permanently deleted.',
-            $variation->sku,
-            $cartItems,
         ), $variation);
     }
 }

@@ -12,54 +12,15 @@ use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 /*
- * Concurrency tests for stock reservation.
+ * Concurrency tests for stock reservation. Why every race test is shaped this
+ * way — two processes, a barrier, outside RefreshDatabase — and how to pick
+ * the assertion are in `explanation/concurrency-and-locking.md`.
  *
- * Two real OS processes, because the race is between two connections and one
- * PHP process holding one connection cannot produce it.
- *
- * ## What the lock actually changes
- *
- * Not whether stock is oversold — that is impossible either way, because
- * `chk_inventories_reserved_not_above_current` (ADR-0005) rejects it in the
- * database, and because `increment()` compiles to
- * `SET reserved_quantity = reserved_quantity + 1`, which re-reads at write
- * time rather than writing a value computed in PHP.
- *
- * What the lock changes is *how the loser fails*:
- *
- *   with lockForUpdate     the second SELECT waits for the first commit,
- *                          reads available = 0, and throws
- *                          InsufficientStockException — a handled "out of
- *                          stock" the storefront can render
- *
- *   without it             the second SELECT reads stale state, the
- *                          availability check passes, and the UPDATE is
- *                          rejected by the CHECK constraint as error 3819 —
- *                          a QueryException, which is a 500 page
- *
- * So the assertion that distinguishes them is the exception *type*, not the
- * winner count. Both designs produce exactly one winner.
- *
- * ## Why a barrier
- *
- * Booting Laravel takes a few hundred milliseconds and varies between
- * processes; the window between the read and the write is microseconds wide.
- * Started sequentially, the second process reliably arrives after the first
- * has committed, and then behaves identically with or without the lock.
- *
- * Both workers therefore boot, warm their connection, and spin-wait on a
- * shared wall-clock instant before touching the Action. The barrier is
- * entirely inside the test — no flag, no sleep, and no test-only branch in
- * production code.
- *
- * Three earlier designs failed, all worth recording because all looked right:
- * taking the lock with a raw `DB::select ... FOR UPDATE` tests MySQL rather
- * than this Action; asserting a 1205 timeout passes either way because the
- * `increment` and the ledger insert block on the holder regardless; and
- * counting winners passes either way for the reason above.
- *
- * This file lives outside tests/Feature because RefreshDatabase wraps each
- * test in an uncommitted transaction whose rows no other connection can see.
+ * Here the assertion is the exception *type*. The lock does not decide whether
+ * stock is oversold: `chk_inventories_reserved_not_above_current` and
+ * `increment()` make that impossible either way, so both versions produce
+ * exactly one winner. It decides how the loser fails — a handled
+ * `InsufficientStockException` rather than a `QueryException` and a 500.
  */
 
 afterEach(function (): void {
@@ -104,13 +65,9 @@ function stockedVariation(int $quantity): ProductVariation
 it('fails the loser of a race cleanly rather than at the database', function (): void {
     $variation = stockedVariation(1);
 
-    // Booted by hand rather than through `artisan tinker <file>`, which stays
-    // interactive and never exits — the workers then produce no output at all
-    // and the test fails for a reason unrelated to locking.
-    //
-    // The spin-wait is the barrier. usleep would overshoot by milliseconds,
-    // which is far wider than the window being tested, so it sleeps to just
-    // before the instant and busy-waits the rest.
+    // Booted by hand: `artisan tinker <file>` never exits. usleep alone
+    // overshoots by milliseconds, so the worker sleeps to just before the
+    // instant and busy-waits the rest.
     $script = <<<'PHP'
         <?php
         require __DIR__.'/vendor/autoload.php';
@@ -141,21 +98,6 @@ it('fails the loser of a race cleanly rather than at the database', function ():
 
     file_put_contents(base_path('race-worker.php'), $script);
 
-    // Generous enough for two Laravel boots on a *loaded* container, which is
-    // the case that matters: CI is precisely where something else is running.
-    //
-    // Three seconds was enough on an idle machine and not always enough beside
-    // a concurrent Larastan run, which pushed each test from ~10s to ~17s and
-    // failed the whole suite at once. See troubleshooting.md — the tell is
-    // that exactly the suite size fails together.
-    //
-    // This widens the window rather than removing the guess. The real fix is a
-    // readiness handshake: each worker signals after booting and warming its
-    // connection, and the parent derives the instant once both are up. That is
-    // deliberately not done blind, because a barrier that silently stops
-    // aligning makes the workers run sequentially — and sequential execution
-    // still yields exactly one winner, so the publish test would pass for the
-    // wrong reason. Changing it requires watching it fail with the lock removed.
     $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 
     try {

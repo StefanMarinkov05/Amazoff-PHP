@@ -2,7 +2,9 @@
 
 Facts as of 2026-08-15. Why the mechanisms differ is
 `explanation/concurrency-and-locking.md`; the locking decision for
-cross-table invariants is ADR-0008.
+cross-table invariants is ADR-0008. What a given pair of concurrent writes
+actually produces is `reference/product-write-rules.md` — this page is the
+mechanisms, that one is the outcomes.
 
 A row here counts as *verified* only if the test has been observed failing
 with its mechanism deleted and passing with it restored. Anything else is
@@ -19,6 +21,7 @@ listed as unverified, because a test that has never failed is not evidence.
 | a catalogue row soft-deleted after a model was loaded | stale in-memory model | re-read inside the transaction | `ReserveStock`, `AddProductVariation` |
 | `inventories` outliving an erased variation | FK `NO ACTION` | child deleted before parent, plus four refusals | `ForceDeleteProductVariation` |
 | `products.sku`, `products.slug`, `product_variations.sku` | duplicate insert | `UNIQUE` constraint (ADR-0005) | schema |
+| one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
 
 ### Lock order
 
@@ -60,6 +63,19 @@ whether or not the lock is present; only the *kind* of failure changes.
 express "an available product has at least one live variation" across two
 tables and ADR-0004 rejected triggers, so there is no backstop: without the
 lock both writes commit and both processes report success.
+
+### Pinned by construction, not by a deleted mechanism
+
+`tests/Concurrency/MainProductImageConcurrencyTest.php` asserts that two
+concurrent promotions both succeed and leave exactly one main image. No
+mechanism can be deleted to turn it red, and that is a property rather than a
+gap: `SetMainProductImage` reads nothing to decide anything, so there is no
+check-then-act window, and one `UPDATE` cannot interleave with itself.
+
+A demote-then-promote pair would also be safe against a lost invariant, since
+InnoDB row-locks both rows until commit. What it risks is two promotions
+acquiring those rows in opposite order and deadlocking — error 1213, a 500.
+One statement rules that out without a lock.
 
 ### Known broken, asserted as such
 

@@ -17,10 +17,12 @@ use App\Models\User;
  * same transaction. The ledger is what makes a wrong total explainable after
  * the fact — without it, a drifting count has no history to read.
  *
- * This Action does not open a transaction of its own. It is never the whole
- * operation: a movement without the quantity change it describes is a lie,
- * so the caller owns the boundary and this joins it. Calling it directly is
- * a mistake outside `ManualCorrection`.
+ * A movement without the quantity change it describes is a lie, so calling
+ * this outside an Action that makes that change is a mistake.
+ *
+ * Authorizes nothing — the caller has already authorized what this records.
+ * Locks nothing, and opens no transaction of its own: it joins the caller's.
+ * See `explanation/inventory.md`.
  */
 final class RecordInventoryMovement
 {
@@ -37,9 +39,6 @@ final class RecordInventoryMovement
         ?User $actor = null,
         ?string $note = null,
     ): InventoryMovement {
-        // No policy check: the caller has already authorized the operation
-        // this movement records, and a ledger row on its own is not
-        // separately reachable by any actor.
         return $inventory->inventoryMovements()->create([
             'movement_type' => $type,
             'quantity' => $quantity,

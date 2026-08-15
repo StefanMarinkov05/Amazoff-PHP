@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -60,7 +61,37 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/*
+ * Shared by the catalogue Action tests. Defined here rather than in whichever
+ * test file happened to need them first: Pest exposes a test file's functions
+ * globally only once that file is loaded, so a helper living in a sibling is
+ * undefined when its consumer is run on its own with a path or --filter.
+ */
+
+/**
+ * Grants real permission names from the real catalogue. givePermissionTo()
+ * throws on a name that does not exist, so a typo fails loudly instead of
+ * granting nothing and letting a denial test pass for the wrong reason.
+ *
+ * Grant everything the operation needs *except* the permission under test —
+ * an actor holding none is denied by whichever check runs first, which for a
+ * composed Action is rarely the one being tested. See troubleshooting.md,
+ * "An authorization test passes with the authorization check deleted".
+ */
+function catalogueActor(string ...$permissions): User
 {
-    // ..
+    $user = User::factory()->create();
+    $user->givePermissionTo($permissions);
+
+    return $user;
+}
+
+/** @return array<string, mixed> */
+function variationAttributes(array $overrides = []): array
+{
+    return array_merge([
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{16}'),
+        'price' => '19.99',
+        'is_available' => true,
+    ], $overrides);
 }

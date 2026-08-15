@@ -33,6 +33,10 @@ use Illuminate\Support\Facades\DB;
  * wrong, but it does so as a QueryException — a 500, not a handled "out of
  * stock". Tests distinguish the two: hitting the constraint means the lock
  * failed.
+ *
+ * Authorizes nothing — a customer reserving their own cart holds no inventory
+ * permission. Locks `inventories`. See
+ * `explanation/concurrency-and-locking.md`.
  */
 final class ReserveStock
 {
@@ -58,17 +62,10 @@ final class ReserveStock
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // The stock row outlives the variation on purpose — §20's ledger
-            // has to survive a removal — so finding it proves nothing about
-            // whether the variation is still sellable. A cart holds a
-            // variation from minutes ago and an administrator can remove it in
-            // between; without this check the reservation succeeds against
-            // something no longer in the catalogue, and the held quantity is
-            // subtracted from availability on a row nothing lists.
-            //
-            // Re-read rather than $variation->trashed(): the in-memory model
-            // says nothing about a `deleted_at` written after it was loaded.
-            // The SoftDeletes global scope makes a trashed row return null.
+            // The stock row outlives the variation (§20's ledger), so finding
+            // it proves nothing about whether the variation is still sellable.
+            // Re-read rather than $variation->trashed(): an in-memory model
+            // says nothing about a deleted_at written after it was loaded.
             $live = ProductVariation::query()->whereKey($variation->getKey())->first();
 
             if ($live === null) {
@@ -83,19 +80,11 @@ final class ReserveStock
                 );
             }
 
-            // increment(), never `$inventory->reserved_quantity += $quantity`
-            // followed by save(). It compiles to
-            // `SET reserved_quantity = reserved_quantity + n`, which MySQL
-            // evaluates against committed state under its own exclusive lock —
-            // the value read above does not enter the arithmetic.
-            //
-            // This does not replace the lock: the lock makes the decision
-            // above correct, increment() only makes the write correct. What it
-            // buys is the failure mode if the lock is ever removed. Computing
-            // in PHP would write a literal from a stale read, so two racing
-            // requests would both write the same number, satisfy
-            // chk_inventories_reserved_not_above_current, and oversell
-            // silently. Incrementing writes a value the constraint rejects.
+            // increment(), never read-modify-write in PHP. If the lock above
+            // is ever lost, this writes a value the CHECK constraint rejects
+            // instead of a plausible one it accepts — a loud failure rather
+            // than a silent oversell. See
+            // explanation/concurrency-and-locking.md.
             $inventory->increment('reserved_quantity', $quantity);
 
             $this->recordMovement->handle(

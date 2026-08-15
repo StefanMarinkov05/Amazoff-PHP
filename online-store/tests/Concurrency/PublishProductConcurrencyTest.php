@@ -12,42 +12,18 @@ use Symfony\Component\Process\Process;
 /*
  * Publishing a product while its last variation is being removed.
  *
- * §6–7: every sellable product has at least one variation. Two Actions can
- * break that between them — `UpdateProduct` setting `is_available`, and
- * `RemoveProductVariation` deleting the only variation. Each checks the other's
- * side, and each check is check-then-act:
+ * §6–7: every sellable product has at least one variation. `UpdateProduct`
+ * and `RemoveProductVariation` each guard the other's side, and each check is
+ * check-then-act, so unlocked they both read the pre-state and both commit —
+ * leaving an available product with nothing to sell.
  *
- *   UpdateProduct            count variations → 1, proceed → save available
- *   RemoveProductVariation   product unavailable, proceed → delete
+ * **The winner count is the discriminator here**, unlike the stock race: no
+ * CHECK constraint can span two tables, so without the lock both processes
+ * genuinely succeed. Both Actions lock `products`, the aggregate root, because
+ * locking the rows they each write would leave them contending on different
+ * rows and waiting for nothing. ADR-0008.
  *
- * Run concurrently with no lock, both read the pre-state, both decide they are
- * fine, and both commit. The result is an available product with no variation:
- * the invariant is gone and neither Action did anything individually wrong.
- *
- * ## Why this differs from the stock race
- *
- * `ReserveStockConcurrencyTest` cannot assert the winner count, because
- * `chk_inventories_reserved_not_above_current` produces exactly one winner
- * with or without the lock — only the *kind* of failure differs.
- *
- * Here there is no constraint to fall back on. MySQL cannot express "an
- * available product has at least one live variation" across two tables, and
- * ADR-0004 rejected triggers. So the unlocked version really does commit both
- * writes, and **the winner count is the discriminator**: two winners means the
- * lock is gone.
- *
- * ## Why the lock is on `products`
- *
- * Both Actions take `lockForUpdate()` on the product row — the aggregate root
- * — rather than on the rows they modify. Locking `product_variations` would
- * leave the two contending on different rows, and neither would ever wait for
- * the other.
- *
- * Order is `products` before `inventories`, globally. `ReserveStock` takes
- * `inventories` alone and never reaches for a product, so there is no cycle.
- *
- * Outside tests/Feature because RefreshDatabase rolls back rather than
- * commits, and a second connection cannot see uncommitted rows.
+ * Harness and assertion choice: `explanation/concurrency-and-locking.md`.
  */
 
 afterEach(function (): void {
@@ -77,9 +53,6 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
         'price' => '19.99',
     ]);
 
-    // Same harness as ReserveStockConcurrencyTest: booted by hand because
-    // `artisan tinker <file>` never exits, and spin-waiting on a shared
-    // instant because Laravel's boot time dwarfs the window under test.
     $script = <<<'PHP'
         <?php
         require __DIR__.'/vendor/autoload.php';
@@ -118,14 +91,8 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
 
     file_put_contents(base_path('publish-race-worker.php'), $script);
 
-    // Generous enough for two Laravel boots on a *loaded* container. See the
-    // matching comment in ReserveStockConcurrencyTest for why three seconds
-    // was not, and why the readiness handshake that would remove the guess is
-    // deliberately not done without a test run to confirm it.
-    //
-    // This test is the one that guess hurts most. A barrier that stops
-    // aligning makes the workers run sequentially, and sequential execution
-    // produces exactly one winner — the assertion below would pass while
+    // This test is the one a too-small barrier hurts most: sequential workers
+    // produce exactly one winner, so the assertion below would pass while
     // proving nothing about the lock.
     $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 

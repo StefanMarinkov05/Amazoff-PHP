@@ -26,10 +26,9 @@ use Spatie\Permission\PermissionRegistrar;
  * reasoned about: these tests assert measured behaviour, including the
  * behaviour that is wrong.
  *
- * UpdateProduct takes no lock, and a lock would not help — the two requests
- * are separated by human think time, which no transaction can span. See the
- * class docblock for the reasoning and `explanation/concurrency-and-locking.md`
- * for the other, genuinely lock-shaped kind of contested state.
+ * No lock would help: the two requests are separated by human think time,
+ * which no transaction can span. `reference/product-write-rules.md` has the
+ * outcome table.
  */
 
 function contestedProduct(): Product
@@ -54,10 +53,9 @@ it('survives two full-payload edits when both actors loaded the row first', func
     app(UpdateProduct::class)->handle($seenByA, ['name' => 'new', 'regular_price' => '100.00']);
     app(UpdateProduct::class)->handle($seenByB, ['name' => 'original', 'regular_price' => '200.00']);
 
-    // Both edits land. Eloquent sends only dirty columns, and B's stale name
-    // matches B's *own* original, so it is not dirty and never reaches the
-    // UPDATE. Nothing here was designed to make this work — it is a property
-    // of dirty checking that happens to fall the right way.
+    // Eloquent sends only dirty columns, and B's stale name matches B's *own*
+    // original, so it never reaches the UPDATE. A property of dirty checking
+    // falling the right way, not a guarantee to rely on.
     expect($product->fresh()->name)->toBe('new')
         ->and($product->fresh()->regular_price)->toBe('200.00');
 });

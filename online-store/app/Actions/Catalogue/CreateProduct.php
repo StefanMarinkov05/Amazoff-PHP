@@ -12,25 +12,20 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Creates a product with the variations and stock rows it cannot exist
- * without.
+ * Creates a product with the variations and stock rows it cannot exist without.
  *
- * Three tables in one operation — `products`, `product_variations`,
- * `inventories` — which is ADR-0007's threshold for an Action. The invariant
- * is §6–7's: every sellable product has at least one variation, because stock
- * hangs off the variation. Requiring it here rather than warning about it
- * later is what stops a product reaching the catalogue with nothing to sell.
+ * Three tables in one operation, which is ADR-0007's threshold for an Action.
+ * At least one variation is required unconditionally here, while
+ * `UpdateProduct` enforces §6–7's invariant only for an available product —
+ * see `reference/product-write-rules.md`.
  *
- * The requirement is unconditional at creation, while `UpdateProduct` only
- * enforces it for a product that is available. Nothing is gained by allowing a
- * product to be authored without a variation, and a draft product with no way
- * to hold stock is a half-entered record rather than a state worth supporting.
+ * Composes `AddProductVariation` rather than inlining it, so both creation
+ * paths produce identical rows. Its transaction nests as a savepoint, so a
+ * variation failing on its unique SKU rolls back the product too.
  *
- * `AddProductVariation` is called per variation rather than inlined, so the
- * panel's "add a variation to an existing product" path and this one create
- * identical rows. Its transaction nests into this one as a savepoint
- * (ADR-0007), so a variation failing on its unique SKU rolls back the product
- * too rather than leaving an empty one behind.
+ * Authorizes `create_product`, and `create_product_variation` through the
+ * nested Action. Locks nothing — no other request can reach a product that has
+ * not committed. See `reference/product-write-rules.md`.
  */
 final class CreateProduct
 {
@@ -47,9 +42,6 @@ final class CreateProduct
      */
     public function handle(array $attributes, array $variations, ?User $actor = null): Product
     {
-        // Authorization first, domain validation second. An actor who may not
-        // create products at all should not learn which of their arguments was
-        // wrong, and every other Action in this namespace orders it this way.
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', Product::class);
         }
@@ -62,12 +54,9 @@ final class CreateProduct
             $product = Product::create($attributes);
 
             foreach ($variations as $variation) {
-                // The actor is passed on rather than dropped. AddProductVariation
-                // then authorizes create_product_variation as well, so a role
-                // holding create_product alone cannot create variations through
-                // this door that it could not create through the relation
-                // manager. Passing null here would be the exact failure
-                // ADR-0007 warns about: a caller silently skipping a check.
+                // Actor passed on, not dropped: AddProductVariation authorizes
+                // create_product_variation too. Passing null here is the
+                // silent-check-skip ADR-0007 warns about.
                 $this->addVariation->handle(
                     $product,
                     Arr::except($variation, ['initial_quantity']),

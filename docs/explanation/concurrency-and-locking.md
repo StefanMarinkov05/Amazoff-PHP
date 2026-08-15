@@ -215,28 +215,60 @@ sequence. Retrying a deadlocked transaction is the fallback, not the fix.
 
 ## How this is tested
 
-`tests/Concurrency/` is a separate suite because `RefreshDatabase` wraps each
-test in a transaction that is rolled back rather than committed, and rows that
-were never committed are invisible to a second connection.
+Every race test in `tests/Concurrency/` is built the same way, and the shape is
+forced by three facts.
 
-The race test runs two real OS processes. Both boot, warm a database
-connection, and spin-wait on a shared wall-clock instant, because Laravel takes
-a few hundred milliseconds to start and the window under test is microseconds
-wide — sequentially started processes never overlap.
+**Two real OS processes.** The race is between two *connections*. One PHP
+process holds one connection, so it cannot produce the interleaving no matter
+how the test is written — a second connection means a second process.
 
-The assertion is the *type* of the loser's exception, not the winner count.
-Both the locked and unlocked versions produce exactly one winner; only the
-locked version lets the loser find out by reading rather than by having the
-database reject its write. Deleting `lockForUpdate()` turns
-`InsufficientStockException` into `QueryException`, and that is what the test
-detects.
+**A barrier.** Booting Laravel takes a few hundred milliseconds and varies run
+to run; the window under test is microseconds wide. Started sequentially the
+second worker reliably arrives after the first has committed, and the test then
+behaves identically with and without the mechanism. So both workers boot, warm
+their connection, and spin-wait on a shared wall-clock instant. The barrier
+lives entirely in the test: no flag, no sleep, and no test-only branch in
+production code. It must be generous enough for two boots on a *loaded*
+machine, because a barrier that stops aligning makes the workers sequential —
+which is the failure mode that passes.
 
-Single-process fault injection is not a substitute for the second process. A
-row lock places no constraint on the transaction that holds it, so a test that
-injects a conflicting write on its own connection passes with the lock and
-without it. It can demonstrate that a window exists between a read and a
-write; it cannot demonstrate that anything closes the window.
+**Outside `RefreshDatabase`.** It wraps each test in a transaction that is
+rolled back rather than committed, so rows the test created are invisible to
+the second connection — and asking for one makes that connection queue behind
+the test's own uncommitted write. These tests commit their fixtures and
+truncate afterwards.
 
-`reference/concurrency-coverage.md` lists every contested resource, the
-mechanism protecting it, and the test that has been observed failing without
-that mechanism.
+### Choosing the assertion
+
+This is the step that decides whether the test is worth anything, and it
+differs per mechanism. Ask what catches the failure if the mechanism is gone:
+
+| What backs the invariant | Unlocked outcome | Assert |
+|---|---|---|
+| A `CHECK` or `UNIQUE` constraint | still exactly one winner; only the failure differs | the *type* of the loser's exception |
+| Nothing — the rule spans tables | both writes commit | the winner *count*, and the invariant on final state |
+| Nothing to delete — a blind single-statement write | unchanged | the final state, as a property rather than a guard |
+
+Stock is the first row: `chk_inventories_reserved_not_above_current` produces
+one winner either way, so counting winners proves nothing and
+`InsufficientStockException` against `QueryException` is the signal. The
+product invariant is the second: MySQL cannot express it across two tables, so
+without the lock both processes genuinely succeed. Promoting a main image is
+the third: it reads nothing to decide anything, so there is no window and no
+mechanism to remove.
+
+Getting this backwards produces a green test that survives deleting the lock.
+
+### What cannot substitute for a second process
+
+Single-process fault injection. A row lock places no constraint on the
+transaction that holds it, so a test that injects a conflicting write on its
+own connection passes with the lock and without it. It can demonstrate that a
+window exists between a read and a write; it cannot demonstrate that anything
+closes the window — that is the right technique for proving a transaction
+rolls back, and the wrong one for proving a lock exists.
+
+`how-to/troubleshooting.md` records the designs that look correct and prove
+nothing, and why the suite fails as a block under load.
+`reference/concurrency-coverage.md` lists every contested resource, its
+mechanism, and the test that has been observed failing without it.

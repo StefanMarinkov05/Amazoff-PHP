@@ -1,6 +1,6 @@
 # ADR-0001: Tech stack selection
 
-Status: Proposed
+Status: Accepted
 Date: 2026-08-08 · Deciders: team
 
 ## Context
