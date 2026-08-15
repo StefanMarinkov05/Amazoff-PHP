@@ -1,7 +1,8 @@
 # Actions
 
 What exists in `app/Actions` today. Why they are written this way is
-ADR-0007; how to add one is `how-to/add-an-action.md`.
+ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
+two of them run at once is `reference/product-write-rules.md`.
 
 Eight Actions across two areas, five domain exceptions.
 

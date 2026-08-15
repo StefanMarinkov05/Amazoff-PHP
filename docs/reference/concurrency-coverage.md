@@ -2,7 +2,9 @@
 
 Facts as of 2026-08-15. Why the mechanisms differ is
 `explanation/concurrency-and-locking.md`; the locking decision for
-cross-table invariants is ADR-0008.
+cross-table invariants is ADR-0008. What a given pair of concurrent writes
+actually produces is `reference/product-write-rules.md` — this page is the
+mechanisms, that one is the outcomes.
 
 A row here counts as *verified* only if the test has been observed failing
 with its mechanism deleted and passing with it restored. Anything else is
