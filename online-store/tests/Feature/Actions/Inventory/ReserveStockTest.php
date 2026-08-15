@@ -6,6 +6,7 @@ use App\Actions\Inventory\ReleaseStock;
 use App\Actions\Inventory\ReserveStock;
 use App\Enums\InventoryMovementType;
 use App\Exceptions\InsufficientStockException;
+use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Inventory;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -91,6 +92,24 @@ it('reserves exactly up to the available quantity', function (): void {
 
     expect($inventory->available())->toBe(0)
         ->and($inventory->reserved_quantity)->toBe(5);
+});
+
+it('refuses to reserve against a variation removed from the catalogue', function (): void {
+    $variation = variationWithStock(10);
+    $variation->delete();
+
+    // The stock row deliberately outlives the variation so §20's ledger
+    // survives a removal, which means finding it proves nothing about whether
+    // the variation is still sellable. A cart holds a variation from minutes
+    // ago and an administrator can remove it in between.
+    expect(fn () => app(ReserveStock::class)->handle($variation, 1))
+        ->toThrow(RemovedFromCatalogueException::class);
+
+    // Nothing held against a row nothing lists, and no ledger entry claiming
+    // otherwise.
+    $inventory = Inventory::where('product_variation_id', $variation->getKey())->sole();
+    expect($inventory->reserved_quantity)->toBe(0)
+        ->and($inventory->inventoryMovements()->count())->toBe(0);
 });
 
 it('rejects a non-positive quantity', function (int $quantity): void {

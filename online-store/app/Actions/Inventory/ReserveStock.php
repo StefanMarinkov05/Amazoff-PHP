@@ -6,6 +6,7 @@ namespace App\Actions\Inventory;
 
 use App\Enums\InventoryMovementType;
 use App\Exceptions\InsufficientStockException;
+use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Inventory;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -56,6 +57,23 @@ final class ReserveStock
                 ->where('product_variation_id', $variation->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            // The stock row outlives the variation on purpose — §20's ledger
+            // has to survive a removal — so finding it proves nothing about
+            // whether the variation is still sellable. A cart holds a
+            // variation from minutes ago and an administrator can remove it in
+            // between; without this check the reservation succeeds against
+            // something no longer in the catalogue, and the held quantity is
+            // subtracted from availability on a row nothing lists.
+            //
+            // Re-read rather than $variation->trashed(): the in-memory model
+            // says nothing about a `deleted_at` written after it was loaded.
+            // The SoftDeletes global scope makes a trashed row return null.
+            $live = ProductVariation::query()->whereKey($variation->getKey())->first();
+
+            if ($live === null) {
+                throw RemovedFromCatalogueException::variation($variation);
+            }
 
             if ($inventory->available() < $quantity) {
                 throw new InsufficientStockException(
