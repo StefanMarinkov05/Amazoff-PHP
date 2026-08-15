@@ -43,17 +43,25 @@ final class ForceDeleteProductVariation
      * Authorized as `delete`: no `forceDelete` ability exists, per
      * `reference/permissions.md`.
      *
+     * @param  bool  $productIsBeingErased  Set only by `ForceDeleteProduct`.
+     *                                      Waives the last-variation refusal,
+     *                                      which protects a sellable product
+     *                                      that is not about to stop existing.
+     *
      * @throws VariationCannotBeErasedException
      * @throws VariationHasReservedStockException
      * @throws ProductRequiresVariationException
      */
-    public function handle(ProductVariation $variation, ?User $actor = null): void
-    {
+    public function handle(
+        ProductVariation $variation,
+        ?User $actor = null,
+        bool $productIsBeingErased = false,
+    ): void {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $variation);
         }
 
-        DB::transaction(function () use ($variation): void {
+        DB::transaction(function () use ($variation, $productIsBeingErased): void {
             // withTrashed(): ForceDeleteProduct erases variations after the
             // product is soft-deleted, and firstOrFail() through the
             // SoftDeletes scope would raise ModelNotFoundException there.
@@ -110,10 +118,9 @@ final class ForceDeleteProductVariation
                 ->whereKeyNot($variation->getKey())
                 ->count();
 
-            // A trashed product is not sellable whatever its is_available flag
-            // still says, so the invariant is moot — this is the wholesale
-            // erase path in ForceDeleteProduct.
-            if (! $product->trashed() && $product->is_available && $otherLiveVariations === 0) {
+            // §6–7's invariant, unless the product is going too — then there
+            // is no sellable product left for it to protect.
+            if (! $productIsBeingErased && $product->is_available && $otherLiveVariations === 0) {
                 throw ProductRequiresVariationException::whenLastVariationRemoved($product);
             }
 

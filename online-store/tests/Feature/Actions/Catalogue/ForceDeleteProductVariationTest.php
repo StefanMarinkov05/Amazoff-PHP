@@ -118,6 +118,28 @@ it('still refuses a variation whose cart reached checkout', function (): void {
     expect(CartItem::where('product_variation_id', $variation->getKey())->count())->toBe(1);
 });
 
+it('still refuses the last variation of a soft-deleted but available product', function (): void {
+    $product = Product::factory()->create(['is_available' => true]);
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $product->delete();
+
+    // The guard keys off the caller's intent, not the product's trashed flag.
+    // A soft-deleted product can be restored, so erasing its only variation
+    // would leave a restorable product with nothing to sell. Only
+    // ForceDeleteProduct waives this, because there the product is going too.
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+        ->toThrow(ProductRequiresVariationException::class);
+});
+
+it('waives the last-variation rule when the product is being erased too', function (): void {
+    $product = Product::factory()->create(['is_available' => true]);
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+
+    app(ForceDeleteProductVariation::class)->handle($variation, null, productIsBeingErased: true);
+
+    expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse();
+});
+
 it('refuses the last live variation of an available product', function (): void {
     $product = Product::factory()->create(['is_available' => true]);
     $variation = app(AddProductVariation::class)->handle($product, variationAttributes());

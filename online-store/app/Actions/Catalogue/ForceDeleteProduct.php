@@ -26,10 +26,6 @@ use Illuminate\Support\Facades\Gate;
  * `order_items.product_id` is `ON DELETE SET NULL`, so the database would
  * accept the erase and silently null the reference, which §19 forbids.
  *
- * Soft-deletes the product before erasing its variations, because
- * `ForceDeleteProductVariation` refuses to erase the last variation of an
- * *available* product — a rule that is moot when the whole product is going.
- *
  * Authorizes `delete_product`. Locks `products`, then `inventories` through
  * the variation Action. See `reference/product-write-rules.md`.
  */
@@ -79,18 +75,17 @@ final class ForceDeleteProduct
                     ->select('id'))
                 ->delete();
 
-            // Soft-delete the product first: ForceDeleteProductVariation
-            // refuses to erase the last variation of an *available* product,
-            // and that rule is moot when the whole product is going.
-            $product->delete();
-
             // withTrashed(): a soft-deleted variation still holds the foreign
             // key, so the SoftDeletes scope would hide exactly the rows that
             // cause 1451. Delegated so the ledger refusal lives in one place.
             ProductVariation::withTrashed()
                 ->where('product_id', $product->getKey())
                 ->get()
-                ->each(fn (ProductVariation $variation) => $this->eraseVariation->handle($variation, $actor));
+                ->each(fn (ProductVariation $variation) => $this->eraseVariation->handle(
+                    $variation,
+                    $actor,
+                    productIsBeingErased: true,
+                ));
 
             // Images last of the two: product_variations.image_id references
             // them, so they can only go once every variation has.

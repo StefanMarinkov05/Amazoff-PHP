@@ -70,7 +70,7 @@ deliberate. The storefront never renders it because it is unavailable, and
 | `ForceDeleteProductVariation` | it has any stock movement | `VariationCannotBeErasedException` |
 | | it is on an order line | `VariationCannotBeErasedException` |
 | | stock is reserved against it | `VariationHasReservedStockException` |
-| | it is the last live variation of an available product | `ProductRequiresVariationException` |
+| | it is the last live variation of an available product, unless `ForceDeleteProduct` is erasing that product too | `ProductRequiresVariationException` |
 | `ReserveStock` | variation is soft-deleted, including via its product | `RemovedFromCatalogueException` |
 | | `current − reserved` is below the request | `InsufficientStockException` |
 
