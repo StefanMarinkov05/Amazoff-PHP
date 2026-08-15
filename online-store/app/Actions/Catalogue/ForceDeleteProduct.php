@@ -18,16 +18,18 @@ use Illuminate\Support\Facades\Gate;
  * Erases a product permanently, children before parent.
  *
  * Every data-carrying child of `products` is a `NO ACTION` foreign key, so
- * deleting the product first is always error 1451 — which is what Filament's
- * default `ForceDeleteAction` does on the product edit page today. Same defect
- * and same fix as `ForceDeleteProductVariation`, one level up.
+ * deleting the product first is always error 1451.
  *
- * Refuses wherever something must outlive the record. Order lines are the trap:
+ * Refused where something must outlive it. Order lines are the trap:
  * `order_items.product_id` is `ON DELETE SET NULL`, so the database would
  * accept the erase and silently null the reference, which §19 forbids.
  *
- * Authorizes `delete_product`. Locks `products`, then `inventories` through
- * the variation Action. See `reference/product-write-rules.md`.
+ * Soft-deletes the product before erasing its variations, because
+ * `ForceDeleteProductVariation` refuses to erase the last variation of an
+ * available product — moot when the whole product is going.
+ *
+ * Authorizes `delete_product`. Locks `products`, then `inventories`.
+ * reference/product-write-rules.md
  */
 final class ForceDeleteProduct
 {
