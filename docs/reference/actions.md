@@ -146,13 +146,22 @@ a negative quantity, a release larger than the reservation.
 
 | Action | Called from |
 |---|---|
-| all eight | tests |
+| `CreateProduct`, `UpdateProduct` | `CreateProduct` / `EditProduct` pages, tests |
+| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
+| `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
+| `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 
-No storefront and no panel code calls any of them yet. ADR-0007 requires a
-Filament resource to call the Action from `handleRecordCreation()` and
-`handleRecordUpdate()` where a rule exists; `ProductResource` still writes
-Eloquent directly, so §37 criterion 1 is not met and a variation created
-through the variations relation manager has no `inventories` row.
+`ProductResource` routes every write through its Action, per ADR-0007. §37
+criterion 1 is met for the panel; no storefront exists yet.
+
+Domain exceptions become notifications rather than 500s, via
+`App\Filament\Concerns\ReportsDomainFailures`. Only `App\Exceptions` are
+caught — a `QueryException` is a defect, not a refusal, and swallowing one
+into a toast would hide the failures that should be loud.
+
+The variations relation manager has **no delete or force-delete bulk action**.
+Both write Eloquent directly, which is the bypass the wiring exists to close.
+Restoring cannot break the invariant, so it stays.
 
 ## Test obligations
 
