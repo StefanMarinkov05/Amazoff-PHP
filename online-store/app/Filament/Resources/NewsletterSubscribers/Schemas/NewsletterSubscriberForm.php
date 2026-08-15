@@ -17,11 +17,15 @@ class NewsletterSubscriberForm
         return $schema
             ->components([
                 Select::make('user_id')
-                    ->relationship('user', 'id'),
+                    ->relationship('user', 'email')
+                    ->placeholder('Guest')
+                    ->nullable(),
                 TextInput::make('email')
                     ->label('Email address')
                     ->email()
-                    ->required(),
+                    ->required()
+                    ->maxLength(100)
+                    ->unique(ignoreRecord: true),
                 Select::make('status')
                     ->options(NewsletterStatus::class)
                     ->required(),

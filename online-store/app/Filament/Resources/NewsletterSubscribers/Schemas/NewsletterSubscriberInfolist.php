@@ -13,9 +13,9 @@ class NewsletterSubscriberInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('user.id')
-                    ->label('User')
-                    ->placeholder('-'),
+                TextEntry::make('user.email')
+                    ->label('Account')
+                    ->placeholder('Guest'),
                 TextEntry::make('email')
                     ->label('Email address'),
                 TextEntry::make('status')

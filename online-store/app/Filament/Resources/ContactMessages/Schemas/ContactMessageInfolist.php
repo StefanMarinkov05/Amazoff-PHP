@@ -13,9 +13,9 @@ class ContactMessageInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('user.id')
-                    ->label('User')
-                    ->placeholder('-'),
+                TextEntry::make('user.email')
+                    ->label('Account')
+                    ->placeholder('Guest'),
                 TextEntry::make('name'),
                 TextEntry::make('email')
                     ->label('Email address'),

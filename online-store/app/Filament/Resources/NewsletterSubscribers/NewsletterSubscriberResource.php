@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\NewsletterSubscribers;
 
-use App\Filament\Resources\NewsletterSubscribers\Pages\CreateNewsletterSubscriber;
 use App\Filament\Resources\NewsletterSubscribers\Pages\EditNewsletterSubscriber;
 use App\Filament\Resources\NewsletterSubscribers\Pages\ListNewsletterSubscribers;
 use App\Filament\Resources\NewsletterSubscribers\Pages\ViewNewsletterSubscriber;
@@ -50,7 +49,6 @@ class NewsletterSubscriberResource extends Resource
     {
         return [
             'index' => ListNewsletterSubscribers::route('/'),
-            'create' => CreateNewsletterSubscriber::route('/create'),
             'view' => ViewNewsletterSubscriber::route('/{record}'),
             'edit' => EditNewsletterSubscriber::route('/{record}/edit'),
         ];

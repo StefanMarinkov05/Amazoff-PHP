@@ -17,7 +17,9 @@ class ContactMessagesTable
     {
         return $table
             ->columns([
-                TextColumn::make('user.id')
+                TextColumn::make('user.email')
+                    ->label('Account')
+                    ->placeholder('Guest')
                     ->searchable(),
                 TextColumn::make('name')
                     ->searchable(),
@@ -25,16 +27,22 @@ class ContactMessagesTable
                     ->label('Email address')
                     ->searchable(),
                 TextColumn::make('subject')
+                    ->placeholder('—')
                     ->searchable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
+                TextColumn::make('message')
+                    ->limit(50)
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('created_at')
+                    ->label('Received')
+                    ->dateTime()
+                    ->sortable(),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 //
             ])

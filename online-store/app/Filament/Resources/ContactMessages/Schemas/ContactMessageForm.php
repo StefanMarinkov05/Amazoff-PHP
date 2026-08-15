@@ -16,14 +16,20 @@ class ContactMessageForm
         return $schema
             ->components([
                 Select::make('user_id')
-                    ->relationship('user', 'id'),
+                    ->relationship('user', 'email')
+                    ->placeholder('Guest')
+                    ->nullable(),
                 TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50),
                 TextInput::make('email')
                     ->label('Email address')
                     ->email()
-                    ->required(),
-                TextInput::make('subject'),
+                    ->required()
+                    ->maxLength(100),
+                TextInput::make('subject')
+                    ->maxLength(100)
+                    ->nullable(),
                 Textarea::make('message')
                     ->required()
                     ->columnSpanFull(),
