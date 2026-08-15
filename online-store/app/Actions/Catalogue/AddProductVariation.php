@@ -48,8 +48,6 @@ final class AddProductVariation
         int $initialQuantity = 0,
         ?User $actor = null,
     ): ProductVariation {
-        // Authorization first, domain validation second. An actor who may not
-        // do this at all should not learn which of their arguments was wrong.
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', ProductVariation::class);
         }
@@ -71,9 +69,6 @@ final class AddProductVariation
             /** @var ProductVariation $variation */
             $variation = $product->productVariations()->create($attributes);
 
-            // Both relations are declared without generics on their models, so
-            // Larastan sees Model rather than the concrete class. Annotated
-            // here rather than on the models, which are shared.
             /** @var Inventory $inventory */
             $inventory = $variation->inventory()->create([
                 'current_quantity' => $initialQuantity,

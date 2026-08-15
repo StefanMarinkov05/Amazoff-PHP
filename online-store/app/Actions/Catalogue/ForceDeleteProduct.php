@@ -76,8 +76,7 @@ final class ForceDeleteProduct
                 ->delete();
 
             // withTrashed(): a soft-deleted variation still holds the foreign
-            // key, so the SoftDeletes scope would hide exactly the rows that
-            // cause 1451. Delegated so the ledger refusal lives in one place.
+            // key, so the scope would hide exactly the rows that cause 1451.
             ProductVariation::withTrashed()
                 ->where('product_id', $product->getKey())
                 ->get()

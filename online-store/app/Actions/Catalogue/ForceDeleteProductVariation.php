@@ -95,18 +95,9 @@ final class ForceDeleteProductVariation
                 throw VariationCannotBeErasedException::isOrdered($variation, $orderItems);
             }
 
-            // Cart lines are dropped, not refused. A cart is transient
-            // self-repairing state — it has an expires_at and no historical
-            // value — so blocking a catalogue operation on one would let any
-            // customer pin a row indefinitely by leaving a tab open. The
-            // customer would have lost the line at checkout anyway; deleting
-            // it here resolves that instead of moving the failure onto the
-            // administrator. cart_items is NO ACTION, so the row has to go
-            // before the variation regardless.
-            //
-            // The dangerous case is still covered: a cart that reached
-            // checkout holds a *reservation*, and reserved stock is refused
-            // above.
+            // Dropped, not refused: a cart is transient state, not
+            // referential integrity. cart_items is NO ACTION, so the row must
+            // go before the variation either way.
             CartItem::query()
                 ->where('product_variation_id', $variation->getKey())
                 ->delete();

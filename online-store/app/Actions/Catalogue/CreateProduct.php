@@ -42,9 +42,6 @@ final class CreateProduct
      */
     public function handle(array $attributes, array $variations, ?User $actor = null): Product
     {
-        // Authorization first, domain validation second. An actor who may not
-        // create products at all should not learn which of their arguments was
-        // wrong.
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', Product::class);
         }

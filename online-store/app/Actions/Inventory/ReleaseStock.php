@@ -60,10 +60,7 @@ final class ReleaseStock
                 ));
             }
 
-            // decrement() for the same reason ReserveStock uses increment():
-            // `SET reserved_quantity = reserved_quantity - n` is evaluated by
-            // MySQL against committed state, so two concurrent releases cannot
-            // lose one another the way two PHP-side subtractions would.
+            // decrement() for the reason ReserveStock uses increment().
             $inventory->decrement('reserved_quantity', $quantity);
 
             // Negative, because the movement records the direction of the
