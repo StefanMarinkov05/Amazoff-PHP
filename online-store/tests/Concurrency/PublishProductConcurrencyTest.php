@@ -118,7 +118,16 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
 
     file_put_contents(base_path('publish-race-worker.php'), $script);
 
-    $startAt = microtime(true) + 3.0;
+    // Generous enough for two Laravel boots on a *loaded* container. See the
+    // matching comment in ReserveStockConcurrencyTest for why three seconds
+    // was not, and why the readiness handshake that would remove the guess is
+    // deliberately not done without a test run to confirm it.
+    //
+    // This test is the one that guess hurts most. A barrier that stops
+    // aligning makes the workers run sequentially, and sequential execution
+    // produces exactly one winner — the assertion below would pass while
+    // proving nothing about the lock.
+    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 
     $env = [
         'DB_CONNECTION' => 'mysql',
