@@ -22,8 +22,10 @@ use RuntimeException;
  */
 class RemovedFromCatalogueException extends RuntimeException
 {
-    public function __construct(string $message)
-    {
+    public function __construct(
+        string $message,
+        public readonly Product|ProductVariation $record,
+    ) {
         parent::__construct($message);
     }
 
@@ -32,7 +34,7 @@ class RemovedFromCatalogueException extends RuntimeException
         return new self(sprintf(
             'Variation %s has been removed from the catalogue.',
             $variation->sku,
-        ));
+        ), $variation);
     }
 
     public static function product(Product $product): self
@@ -40,6 +42,6 @@ class RemovedFromCatalogueException extends RuntimeException
         return new self(sprintf(
             'Product %s has been removed from the catalogue.',
             $product->sku,
-        ));
+        ), $product);
     }
 }

@@ -201,6 +201,47 @@ it('refuses to erase a product that is on a wishlist', function (): void {
         ->toThrow(ProductCannotBeErasedException::class);
 });
 
+it('names the reason it refused, not just the class', function (): void {
+    // All three refusals raise one class, so asserting the class alone passes
+    // when the wrong branch fires. The counts and the record are what the
+    // panel renders.
+    $ordered = productWithVariations();
+    OrderItem::factory()->count(2)->create(['product_id' => $ordered->getKey()]);
+
+    try {
+        app(ForceDeleteProduct::class)->handle($ordered);
+        $this->fail('Expected the erase to be refused.');
+    } catch (ProductCannotBeErasedException $e) {
+        expect($e->product->is($ordered))->toBeTrue()
+            ->and($e->getMessage())->toContain('2 order line(s)')
+            ->and($e->getMessage())->toContain($ordered->sku);
+    }
+
+    $wishlisted = productWithVariations();
+    WishlistItem::factory()->create(['product_id' => $wishlisted->getKey()]);
+
+    try {
+        app(ForceDeleteProduct::class)->handle($wishlisted);
+        $this->fail('Expected the erase to be refused.');
+    } catch (ProductCannotBeErasedException $e) {
+        expect($e->getMessage())->toContain('wishlist');
+    }
+});
+
+it('carries the record that was removed from the catalogue', function (): void {
+    $product = productWithVariations();
+    app(DeleteProduct::class)->handle($product);
+
+    try {
+        app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']);
+        $this->fail('Expected the update to be refused.');
+    } catch (RemovedFromCatalogueException $e) {
+        // A caller has to be able to say *which* record went without parsing
+        // the message.
+        expect($e->record->is($product))->toBeTrue();
+    }
+});
+
 it('refuses to erase a product whose variation has stock history', function (): void {
     $product = productWithVariations(count: 1, stock: 5);
 

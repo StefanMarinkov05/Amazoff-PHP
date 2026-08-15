@@ -174,6 +174,33 @@ it('updates a product that has a variation', function (): void {
         ->and($updated->fresh()->regular_price)->toBe('99.00');
 });
 
+it('leaves columns absent from the payload alone', function (): void {
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['name' => 'Original', 'regular_price' => '189.90', 'is_featured' => true]),
+        [variationAttributes()],
+    );
+
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']);
+
+    // Partial payloads are the shape that makes concurrent edits survivable,
+    // so an Action quietly widening a write would matter — see
+    // ConcurrentProductEditTest.
+    $fresh = $product->fresh();
+
+    expect($fresh->name)->toBe('Renamed')
+        ->and($fresh->regular_price)->toBe('189.90')
+        ->and($fresh->is_featured)->toBeTrue();
+});
+
+it('ignores a key that is not a product column', function (): void {
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'not_a_column' => 'x']);
+
+    expect($product->fresh()->name)->toBe('Renamed')
+        ->and($product->fresh()->getAttributes())->not->toHaveKey('not_a_column');
+});
+
 it('refuses to make a product available with no variation', function (): void {
     $product = Product::factory()->create(['is_available' => false, 'name' => 'Unchanged']);
 

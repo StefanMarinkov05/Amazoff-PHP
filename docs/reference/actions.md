@@ -119,7 +119,8 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation` | — |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct` | the record that was removed |
+| `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -132,7 +133,12 @@ the in-memory model.
 invariant can be broken through — `atCreation`, `whenMadeAvailable`,
 `whenLastVariationRemoved`.
 
-All five extend `RuntimeException`. `InvalidArgumentException` is used where
+Every exception carries the record it concerns, so a caller can render a
+message without parsing one. Where several named constructors raise one class,
+tests assert the payload rather than the class alone — asserting the class
+passes when the wrong branch fires.
+
+All seven extend `RuntimeException`. `InvalidArgumentException` is used where
 the condition is a caller bug rather than something a customer could act on —
 a negative quantity, a release larger than the reservation.
 

@@ -11,6 +11,7 @@ use App\Exceptions\VariationCannotBeErasedException;
 use App\Exceptions\VariationHasReservedStockException;
 use App\Models\CartItem;
 use App\Models\Inventory;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use Database\Seeders\PermissionSeeder;
@@ -80,6 +81,43 @@ it('refuses a variation with stock history', function (): void {
         ->toThrow(VariationCannotBeErasedException::class);
 
     expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeTrue();
+});
+
+it('names the reason a variation could not be erased', function (): void {
+    // hasLedger and isOrdered raise the same class; only the payload
+    // distinguishes a wrong branch from the right one.
+    $withLedger = erasableVariation(stock: 3);
+
+    try {
+        app(ForceDeleteProductVariation::class)->handle($withLedger);
+        $this->fail('Expected the erase to be refused.');
+    } catch (VariationCannotBeErasedException $e) {
+        expect($e->variation->is($withLedger))->toBeTrue()
+            ->and($e->getMessage())->toContain('1 stock movement(s)');
+    }
+
+    $ordered = erasableVariation();
+    OrderItem::factory()->create(['product_variation_id' => $ordered->getKey()]);
+
+    try {
+        app(ForceDeleteProductVariation::class)->handle($ordered);
+        $this->fail('Expected the erase to be refused.');
+    } catch (VariationCannotBeErasedException $e) {
+        expect($e->getMessage())->toContain('order line(s)');
+    }
+});
+
+it('carries the held quantity when stock blocks the erase', function (): void {
+    $variation = erasableVariation(stock: 10);
+    app(ReserveStock::class)->handle($variation, 4);
+
+    try {
+        app(ForceDeleteProductVariation::class)->handle($variation);
+        $this->fail('Expected the erase to be refused.');
+    } catch (VariationHasReservedStockException $e) {
+        expect($e->reserved)->toBe(4)
+            ->and($e->variation->is($variation))->toBeTrue();
+    }
 });
 
 it('refuses a variation with stock reserved against it', function (): void {
