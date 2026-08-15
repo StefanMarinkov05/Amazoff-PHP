@@ -12,25 +12,15 @@ use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 /*
- * Concurrency tests for stock reservation.
+ * Concurrency tests for stock reservation. Why every race test is shaped this
+ * way — two processes, a barrier, outside RefreshDatabase — and how to pick
+ * the assertion are in `explanation/concurrency-and-locking.md`.
  *
- * Two real OS processes, because the race is between two connections and one
- * PHP process holding one connection cannot produce it.
- *
- * The lock does not decide whether stock is oversold — the CHECK constraint
- * and `increment()` make that impossible either way. It decides *how the
- * loser fails*: with the lock it reads fresh state and throws
- * `InsufficientStockException`; without it the CHECK rejects its write as a
- * `QueryException`, a 500. Both produce exactly one winner, so the exception
- * *type* is the only assertion that distinguishes them.
- *
- * The barrier exists because Laravel's boot dwarfs the window under test, so
- * sequentially started processes never overlap. It lives entirely in the test
- * — no flag, no sleep, no test-only branch in production code.
- *
- * Outside tests/Feature because RefreshDatabase wraps each test in an
- * uncommitted transaction whose rows no other connection can see. The designs
- * that look right and prove nothing are in `how-to/troubleshooting.md`.
+ * Here the assertion is the exception *type*. The lock does not decide whether
+ * stock is oversold: `chk_inventories_reserved_not_above_current` and
+ * `increment()` make that impossible either way, so both versions produce
+ * exactly one winner. It decides how the loser fails — a handled
+ * `InsufficientStockException` rather than a `QueryException` and a 500.
  */
 
 afterEach(function (): void {
@@ -75,13 +65,9 @@ function stockedVariation(int $quantity): ProductVariation
 it('fails the loser of a race cleanly rather than at the database', function (): void {
     $variation = stockedVariation(1);
 
-    // Booted by hand rather than through `artisan tinker <file>`, which stays
-    // interactive and never exits — the workers then produce no output at all
-    // and the test fails for a reason unrelated to locking.
-    //
-    // The spin-wait is the barrier. usleep would overshoot by milliseconds,
-    // which is far wider than the window being tested, so it sleeps to just
-    // before the instant and busy-waits the rest.
+    // Booted by hand: `artisan tinker <file>` never exits. usleep alone
+    // overshoots by milliseconds, so the worker sleeps to just before the
+    // instant and busy-waits the rest.
     $script = <<<'PHP'
         <?php
         require __DIR__.'/vendor/autoload.php';
@@ -112,10 +98,6 @@ it('fails the loser of a race cleanly rather than at the database', function ():
 
     file_put_contents(base_path('race-worker.php'), $script);
 
-    // Must cover two Laravel boots on a *loaded* container: CI is precisely
-    // where something else is running. A barrier that stops aligning makes
-    // the workers sequential, which still yields one winner — so a too-small
-    // value makes these tests pass for the wrong reason.
     $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 
     try {

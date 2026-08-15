@@ -23,8 +23,7 @@ use Symfony\Component\Process\Process;
  * locking the rows they each write would leave them contending on different
  * rows and waiting for nothing. ADR-0008.
  *
- * Outside tests/Feature because RefreshDatabase rolls back rather than
- * commits, and a second connection cannot see uncommitted rows.
+ * Harness and assertion choice: `explanation/concurrency-and-locking.md`.
  */
 
 afterEach(function (): void {
@@ -54,9 +53,6 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
         'price' => '19.99',
     ]);
 
-    // Same harness as ReserveStockConcurrencyTest: booted by hand because
-    // `artisan tinker <file>` never exits, and spin-waiting on a shared
-    // instant because Laravel's boot time dwarfs the window under test.
     $script = <<<'PHP'
         <?php
         require __DIR__.'/vendor/autoload.php';
@@ -95,9 +91,9 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
 
     file_put_contents(base_path('publish-race-worker.php'), $script);
 
-    // See ReserveStockConcurrencyTest. This test is the one a too-small value
-    // hurts most: sequential workers produce exactly one winner, so the
-    // assertion below would pass while proving nothing about the lock.
+    // This test is the one a too-small barrier hurts most: sequential workers
+    // produce exactly one winner, so the assertion below would pass while
+    // proving nothing about the lock.
     $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
 
     $env = [

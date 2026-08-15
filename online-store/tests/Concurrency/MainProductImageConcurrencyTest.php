@@ -12,16 +12,11 @@ use Symfony\Component\Process\Process;
 /*
  * Two administrators promoting different images of one product.
  *
- * ## What this pins, and what it cannot
- *
- * Unlike the other two race tests, this one does not guard a *lock*.
- * SetMainProductImage is a blind single-statement write, so the invariant
- * holds by construction and no interleaving can leave two rows set — no
- * mechanism can be deleted to turn this red.
- *
- * It is kept because the property is worth pinning and costs one test. Both
- * operations are legitimate, so both should report success; the assertion is
- * the final state, not a winner count.
+ * The third assertion shape in `explanation/concurrency-and-locking.md`:
+ * `SetMainProductImage` is a blind single-statement write, so there is no
+ * mechanism to delete and no interleaving that can leave two rows set. The
+ * assertion is the final state as a property, not a guard. Both operations
+ * are legitimate, so both should report success.
  */
 
 afterEach(function (): void {
