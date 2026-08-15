@@ -23,9 +23,17 @@ class ContactMessageInfolist
                     ->placeholder('-'),
                 TextEntry::make('message')
                     ->columnSpanFull(),
-                TextEntry::make('created_at')
+                TextEntry::make('handled_at')
+                    ->label('Handled at')
                     ->dateTime()
-                    ->placeholder('-'),
+                    ->placeholder('Not yet handled'),
+                TextEntry::make('internal_note')
+                    ->label('Internal note')
+                    ->placeholder('—')
+                    ->columnSpanFull(),
+                TextEntry::make('created_at')
+                    ->label('Received')
+                    ->dateTime(),
                 TextEntry::make('updated_at')
                     ->dateTime()
                     ->placeholder('-'),

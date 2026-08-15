@@ -8,7 +8,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class ContactMessagesTable
@@ -33,6 +35,10 @@ class ContactMessagesTable
                     ->limit(50)
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('handled_at')
+                    ->label('Handled')
+                    ->boolean()
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Received')
                     ->dateTime()
@@ -44,7 +50,12 @@ class ContactMessagesTable
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                TernaryFilter::make('handled_at')
+                    ->label('Handled')
+                    ->nullable()
+                    ->placeholder('All messages')
+                    ->trueLabel('Handled')
+                    ->falseLabel('Outstanding'),
             ])
             ->recordActions([
                 ViewAction::make(),
