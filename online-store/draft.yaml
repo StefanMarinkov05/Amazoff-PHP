@@ -357,3 +357,5 @@ models:
     email: string:100
     subject: string:100 nullable
     message: text
+    handled_at: timestamp nullable
+    internal_note: text nullable
