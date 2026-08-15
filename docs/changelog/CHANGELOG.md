@@ -179,6 +179,19 @@ when the work happened, not when it was committed — nothing in
   an exhausted coupon be reopened by typing a smaller number.
 - Table filters, the first in any resource: `type`, `scope`, and `is_active`
   on coupons.
+- Filament resources over `ContactMessage` and `NewsletterSubscriber`, the
+  first read-mostly ones: no create page, no create action, and a View page
+  with an infolist — also the first infolists in the panel. Both arrive from
+  public forms (§5, §26), so creating one by hand would fabricate a record
+  the sender never submitted.
+- `contact_messages.handled_at` and `internal_note`, in a new migration.
+  `ContactMessagePolicy::update()` already described "marking handled or
+  attaching an internal note", but the columns it assumed did not exist, so
+  the edit screen's only effect was rewriting the sender's own words. The
+  customer's fields are now `disabled()` and `dehydrated(false)`; only the
+  two staff columns are writable. `handled_at` is a nullable timestamp
+  rather than a boolean — when a message was dealt with is worth more than
+  that it was, and null already means outstanding.
 
 ### Changed
 
@@ -260,6 +273,13 @@ when the work happened, not when it was committed — nothing in
   inherits the product's, and the constraint permits a discount alongside it,
   so a naive comparison would reject rows the database accepts. Resolving the
   effective price belongs in an Action.
+- `ContactMessage` and `NewsletterSubscriber` still offered a create button
+  after their create pages and routes were removed. `CreateAction` lives on
+  the `ListRecords` page, not in `getPages()`, and with no route to link to
+  Filament rendered it as a modal — which then failed on insert. Both
+  policies already refused `create()`, but `Gate::before` grants an
+  administrator every ability before any policy runs, so removing the action
+  is the only thing that actually holds.
 - Product forms and the three relation managers had no `maxLength` on any
   string field. The database rejects the overflow with the truncation error
   described at the top of `troubleshooting.md`; nothing client-side stopped

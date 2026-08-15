@@ -62,6 +62,13 @@ needed to touch.
 - `Coupon` resource, including the reactive fields — `value` reading as a
   percentage or an amount depending on `type`, the pickers following `scope`,
   and `times_used` shown without being writable
+- `ContactMessage` and `NewsletterSubscriber` resources, the first read-mostly
+  ones and the first with infolists. Neither can be created from the panel,
+  which had to be enforced by removing the actions rather than by policy —
+  `Gate::before` means a policy cannot refuse an administrator anything
+- `handled_at` and `internal_note` on `contact_messages`, so the edit screen
+  records what staff did with a message instead of editing what the sender
+  wrote
 - Documentation for the above
 
 ## Documentation

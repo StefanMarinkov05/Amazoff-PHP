@@ -558,6 +558,54 @@ not just the mechanical formatters.
 
 ---
 
+## A removed Filament action is still on the screen
+
+**Symptom.** A create or delete button an administrator should not have is
+still rendered after the page class and its `getPages()` entry were removed.
+Pressing it opens a modal rather than 404ing, and saving fails on insert:
+
+```
+SQLSTATE[HY000]: General error: 1364 Field 'name' doesn't have a default value
+```
+
+**Cause.** Two separate things, both required.
+
+A capability lives in three independent places, and removing one leaves the
+others: the **route** (`getPages()` plus the page class), the **header
+button** (`getHeaderActions()` on the `ListRecords` page), and the **row
+button** (`recordActions()` in the table). With the route gone but the action
+still registered, Filament falls back to rendering it as a modal.
+
+The policy does not save you. `ContactMessagePolicy::create()` returns a hard
+`false`, but `Gate::before` in `AppServiceProvider` grants an administrator
+every ability before any policy is consulted — verified: the same call
+returns `false` for `content_editor` and `true` for `administrator`.
+
+**Fix.** Remove the action, do not rely on the policy:
+
+```php
+protected function getHeaderActions(): array
+{
+    return [];
+}
+```
+
+**Why it recurs.** Every resource in `PermissionCatalogue::NON_AUTHORED_RESOURCES`
+— `payment`, `product_review`, `contact_message`, `newsletter_subscriber` —
+has this shape, and `--generate` scaffolds a `CreateAction` into all of them.
+The button also looks correctly gated to anyone testing as an administrator,
+because it *is* correctly gated for everybody else.
+
+**Prevention.** ADR-0006 states the tradeoff: a policy cannot deny an
+administrator anything, so "nobody may do this" has to be structural. After
+removing a capability, grep rather than trusting the diff:
+
+```bash
+grep -rn "CreateAction\|DeleteAction" online-store/app/Filament/Resources/<Resource>/
+```
+
+---
+
 ## A reactive Filament field never reacts, and a CHECK constraint 500s
 
 **Symptom.** A field whose `visible()`, `maxValue()`, `prefix()`, or
