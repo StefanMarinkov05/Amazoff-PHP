@@ -352,6 +352,41 @@ first, which is rarely the one being tested.
 
 ---
 
+## Every concurrency test fails at once, then passes on re-run
+
+**Symptom.** The whole `tests/Concurrency/` suite fails together — currently
+four tests — while every other test passes. Re-running the suite unchanged is
+green. The failure message is the winner-count assertion, usually with
+*neither* worker reporting success.
+
+**Cause.** The barrier is a fixed wall-clock offset: `microtime(true) + 3.0`,
+chosen to be generous for two cold Laravel boots. Under load the workers do
+not finish booting and warming their connection before that instant passes, so
+they never meet at the critical section — and a worker that arrives late
+produces no output rather than a wrong one.
+
+Observed while running Pint, Larastan and Pest against successive commits: a
+`phpstan` run in the same container pushed the concurrency tests from ~10s to
+~17s each, and one run failed all four. The count is the tell — *exactly* the
+number of tests in the suite, all at once, is a harness problem, not a locking
+one. A real regression fails one test with a specific wrong outcome.
+
+**Fix.** Re-run without other work in the container. Nothing to change in the
+code under test.
+
+**Why it recurs.** The gap between "generous on an idle machine" and "enough
+on a busy one" is invisible until something else is running, and CI is exactly
+where something else is running. It will get worse as the suite grows, because
+the barrier is per-test and the container is shared.
+
+**Prevention.** Read the failure message before assuming a lock broke: the
+assertions carry a hint distinguishing "neither won" (workers failed to boot)
+from "both won" (the lock is genuinely gone). If this starts happening
+regularly, raise the offset or derive it from a measured boot — do not delete
+the barrier, which is what makes the interleaving happen at all.
+
+---
+
 ## A concurrency test cannot be written in one process
 
 **Symptom.** A test proving a `lockForUpdate()` works passes. Deleting the
