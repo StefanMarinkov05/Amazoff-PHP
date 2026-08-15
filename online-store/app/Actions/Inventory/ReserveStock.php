@@ -58,17 +58,10 @@ final class ReserveStock
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // The stock row outlives the variation on purpose — §20's ledger
-            // has to survive a removal — so finding it proves nothing about
-            // whether the variation is still sellable. A cart holds a
-            // variation from minutes ago and an administrator can remove it in
-            // between; without this check the reservation succeeds against
-            // something no longer in the catalogue, and the held quantity is
-            // subtracted from availability on a row nothing lists.
-            //
-            // Re-read rather than $variation->trashed(): the in-memory model
-            // says nothing about a `deleted_at` written after it was loaded.
-            // The SoftDeletes global scope makes a trashed row return null.
+            // The stock row outlives the variation (§20's ledger), so finding
+            // it proves nothing about whether the variation is still sellable.
+            // Re-read rather than $variation->trashed(): an in-memory model
+            // says nothing about a deleted_at written after it was loaded.
             $live = ProductVariation::query()->whereKey($variation->getKey())->first();
 
             if ($live === null) {

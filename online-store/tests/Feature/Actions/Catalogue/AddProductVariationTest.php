@@ -32,29 +32,6 @@ beforeEach(function (): void {
     $this->seed(PermissionSeeder::class);
 });
 
-/**
- * Real permission names from the real catalogue. givePermissionTo() throws on
- * a name that does not exist, so a typo here fails loudly instead of granting
- * nothing and letting a denial test pass for the wrong reason.
- */
-function catalogueActor(string ...$permissions): User
-{
-    $user = User::factory()->create();
-    $user->givePermissionTo($permissions);
-
-    return $user;
-}
-
-/** @return array<string, mixed> */
-function variationAttributes(array $overrides = []): array
-{
-    return array_merge([
-        'sku' => fake()->unique()->regexify('[A-Z0-9]{16}'),
-        'price' => '19.99',
-        'is_available' => true,
-    ], $overrides);
-}
-
 it('creates the variation and the stock row together', function (): void {
     $product = Product::factory()->create();
 

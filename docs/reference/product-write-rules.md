@@ -25,6 +25,11 @@ current behaviour is Filament's defaults, not this page.
 sellability: *every sellable product has at least one variation*. A draft with
 nothing in it yet is a half-entered record, not a broken one.
 
+`DeleteProduct` soft-deletes the variations with the product, so a deleted
+product's variations are unreservable and its stock rows and ledger survive.
+`ForceDeleteProduct` erases children before the parent, refusing wherever
+something must outlive the record.
+
 | Path | Zero variations possible? |
 |---|---|
 | `CreateProduct` | **No.** An empty `$variations` throws before anything is written |
@@ -49,14 +54,17 @@ deliberate. The storefront never renders it because it is unavailable, and
 | `AddProductVariation` | product is soft-deleted | `RemovedFromCatalogueException` |
 | | opening stock is negative | `InvalidArgumentException` |
 | `UpdateProduct` | `is_available = true` and zero live variations | `ProductRequiresVariationException` |
-| | product is soft-deleted | `ModelNotFoundException` — see gap 2 |
+| | product is soft-deleted | `RemovedFromCatalogueException` |
+| `DeleteProduct` | — never refuses; reserved stock is allowed | — |
+| `ForceDeleteProduct` | product is on an order line, review, or wishlist | `ProductCannotBeErasedException` |
+| | any variation has a ledger, order line, or cart line | `VariationCannotBeErasedException` |
 | `RemoveProductVariation` | last live variation of an available product | `ProductRequiresVariationException` |
 | | stock is reserved against it | `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | it has any stock movement | `VariationCannotBeErasedException` |
 | | it is on an order line or in a cart | `VariationCannotBeErasedException` |
 | | stock is reserved against it | `VariationHasReservedStockException` |
 | | it is the last live variation of an available product | `ProductRequiresVariationException` |
-| `ReserveStock` | variation is soft-deleted | `RemovedFromCatalogueException` |
+| `ReserveStock` | variation is soft-deleted, including via its product | `RemovedFromCatalogueException` |
 | | `current − reserved` is below the request | `InsufficientStockException` |
 
 Authorization is checked **before** domain validation everywhere, so an actor
@@ -161,32 +169,11 @@ must sort them by primary key.
 
 ## Known gaps
 
-Behaviour that is currently wrong, stated so nobody rediscovers it.
-
 **1. Lost update on product edits.** The middle row of the disjoint-fields
 table. Live on every full-payload Filament form in the codebase, not only
 products. Closing it needs optimistic concurrency, which ADR-0008 defers with
 reasons. Pinned by tests that assert the defect, so they flip red when it is
 fixed.
 
-**2. `UpdateProduct` on a soft-deleted product raises
-`ModelNotFoundException`.** The lock query runs through the `SoftDeletes`
-global scope, so `firstOrFail()` throws before any domain check. The guard is
-correct but incidental, and the exception type is wrong for a condition an
-administrator can reach — `ProductResource` drops the scope from its route
-binding, so the panel opens a deleted product's edit page.
-
-**3. A variation whose *product* is soft-deleted is still reservable.**
-Measured: `ReserveStock` re-reads the *variation*, which is untouched when the
-product is deleted, so a cart holding it can still hold stock against a
-product that has left the catalogue. Deleting a product does not cascade to
-its variations.
-
-**4. Force-deleting a product with variations is error 1451.** Measured.
-`product_variations.product_id` is a `NO ACTION` foreign key, so
-`ForceDeleteAction` on the product edit page always fails. The same defect the
-variation-level `ForceDeleteAction` has, one level up, and no Action addresses
-it yet.
-
-**5. Nothing enforces any of this outside the Actions,** and no panel or
+**2. Nothing enforces any of this outside the Actions,** and no panel or
 storefront code calls them yet.
