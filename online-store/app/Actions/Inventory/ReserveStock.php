@@ -33,6 +33,10 @@ use Illuminate\Support\Facades\DB;
  * wrong, but it does so as a QueryException — a 500, not a handled "out of
  * stock". Tests distinguish the two: hitting the constraint means the lock
  * failed.
+ *
+ * Authorizes nothing — a customer reserving their own cart holds no inventory
+ * permission. Locks `inventories`. See
+ * `explanation/concurrency-and-locking.md`.
  */
 final class ReserveStock
 {

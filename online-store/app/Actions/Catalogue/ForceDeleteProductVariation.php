@@ -32,6 +32,10 @@ use Illuminate\Support\Facades\Gate;
  *
  * Locks `products` then `inventories`, the same order as every Action that can
  * move §6–7's invariant. ADR-0008.
+ *
+ * Authorizes `delete_product_variation` — no `forceDelete` ability exists, per
+ * `reference/permissions.md`. Locks `products`, then `inventories`. See
+ * ADR-0008 and `reference/product-write-rules.md`.
  */
 final class ForceDeleteProductVariation
 {

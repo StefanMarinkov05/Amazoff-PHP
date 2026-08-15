@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Gate;
  * Does **not** protect against two employees overwriting each other's fields
  * across two requests. That window is human think time, which no lock can
  * span. See `reference/product-write-rules.md` for the outcomes.
+ *
+ * Authorizes `update_product`. Locks `products`. See ADR-0008 and
+ * `reference/product-write-rules.md`.
  */
 final class UpdateProduct
 {

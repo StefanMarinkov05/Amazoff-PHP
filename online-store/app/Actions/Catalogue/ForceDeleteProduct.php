@@ -30,7 +30,8 @@ use Illuminate\Support\Facades\Gate;
  * `ForceDeleteProductVariation` refuses to erase the last variation of an
  * *available* product — a rule that is moot when the whole product is going.
  *
- * `reference/product-write-rules.md` has the full outcome table.
+ * Authorizes `delete_product`. Locks `products`, then `inventories` through
+ * the variation Action. See `reference/product-write-rules.md`.
  */
 final class ForceDeleteProduct
 {

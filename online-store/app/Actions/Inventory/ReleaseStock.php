@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\DB;
  * domain exception. There is no message a customer could act on, and
  * `chk_inventories_reserved_quantity_non_negative` would otherwise reject it
  * as a 500 further down.
+ *
+ * Authorizes nothing, for the same reason as `ReserveStock`. Locks
+ * `inventories`. See `explanation/concurrency-and-locking.md`.
  */
 final class ReleaseStock
 {

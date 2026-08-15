@@ -19,8 +19,12 @@ use App\Models\User;
  *
  * This Action does not open a transaction of its own. It is never the whole
  * operation: a movement without the quantity change it describes is a lie,
- * so the caller owns the boundary and this joins it. Calling it directly is
- * a mistake outside `ManualCorrection`.
+ * so the caller owns the boundary and this joins it. Calling it directly,
+ * outside an Action that changes the quantity it describes, is a mistake.
+ *
+ * Authorizes nothing — the caller has already authorized the operation this
+ * records. Locks nothing; it joins the caller's transaction. See
+ * `explanation/inventory.md`.
  */
 final class RecordInventoryMovement
 {

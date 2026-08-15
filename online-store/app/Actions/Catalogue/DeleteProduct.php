@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Gate;
  * Restoring is not the inverse. Laravel does not record which children a
  * cascade trashed, so a restore leaves variations trashed and `UpdateProduct`
  * refuses to publish the product until one is restored explicitly.
+ *
+ * Authorizes `delete_product`. Locks `products`. See
+ * `reference/product-write-rules.md`.
  */
 final class DeleteProduct
 {

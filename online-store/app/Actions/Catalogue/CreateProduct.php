@@ -22,6 +22,10 @@ use Illuminate\Support\Facades\Gate;
  * Composes `AddProductVariation` rather than inlining it, so both creation
  * paths produce identical rows. Its transaction nests as a savepoint, so a
  * variation failing on its unique SKU rolls back the product too.
+ *
+ * Authorizes `create_product`, and `create_product_variation` through the
+ * nested Action. Locks nothing — no other request can reach a product that has
+ * not committed. See `reference/product-write-rules.md`.
  */
 final class CreateProduct
 {
@@ -40,7 +44,7 @@ final class CreateProduct
     {
         // Authorization first, domain validation second. An actor who may not
         // create products at all should not learn which of their arguments was
-        // wrong, and every other Action in this namespace orders it this way.
+        // wrong.
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', Product::class);
         }

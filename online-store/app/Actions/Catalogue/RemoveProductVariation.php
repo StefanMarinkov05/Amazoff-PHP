@@ -26,6 +26,9 @@ use Illuminate\Support\Facades\Gate;
  *
  * The inventory row is left behind on purpose: `inventory_movements` hangs off
  * it and §20's ledger has to survive a removal.
+ *
+ * Authorizes `delete_product_variation`. Locks `products`, then `inventories`.
+ * See ADR-0008 and `reference/product-write-rules.md`.
  */
 final class RemoveProductVariation
 {

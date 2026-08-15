@@ -25,6 +25,10 @@ use Illuminate\Support\Facades\Gate;
  * Opening stock arrives as an `InitialStock` movement, because §20 forbids
  * writing a quantity behind the ledger's back. Zero writes no movement —
  * `chk_inventory_movements_quantity_non_zero` rejects one anyway.
+ *
+ * Authorizes `create_product_variation`. Locks nothing — adding can only move
+ * §6–7's invariant in the safe direction. See
+ * `reference/product-write-rules.md`.
  */
 final class AddProductVariation
 {
