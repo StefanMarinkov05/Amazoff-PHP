@@ -36,7 +36,7 @@ class Cart extends Model
             'id' => 'integer',
             'user_id' => 'integer',
             'coupon_id' => 'integer',
-            'expires_at' => 'timestamp',
+            'expires_at' => 'datetime',
         ];
     }
 

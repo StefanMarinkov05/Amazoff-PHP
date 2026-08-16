@@ -47,7 +47,7 @@ class Article extends Model
             'article_category_id' => 'integer',
             'status' => ArticleStatus::class,
             'featured' => 'boolean',
-            'published_at' => 'timestamp',
+            'published_at' => 'datetime',
         ];
     }
 
