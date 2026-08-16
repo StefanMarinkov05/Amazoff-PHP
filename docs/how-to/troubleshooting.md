@@ -243,6 +243,180 @@ against a genuinely fresh database rather than an existing one.
 
 ---
 
+## A concurrency test times out on its own first connection
+
+**Symptom.** A test that opens a second database connection to exercise row
+locking fails with `SQLSTATE[HY000]: General error: 1205 Lock wait timeout
+exceeded` — and the timeout is raised by the *first* session, before the
+second one has done anything worth blocking on.
+
+**Cause.** `RefreshDatabase` wraps each test in a transaction and rolls it
+back instead of committing. Rows the test inserted were therefore never
+committed, so a second connection cannot see them — and when that connection
+asks for one, it queues behind the test's own uncommitted write.
+
+The failure looks like a locking bug in the code under test. It is the test
+harness locking against itself.
+
+**Fix.** Keep concurrency tests out of `RefreshDatabase`. `tests/Concurrency/`
+is registered as its own suite in `phpunit.xml` and is excluded from the
+`->use(RefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
+their fixtures and truncate in `afterEach`, with
+`Schema::disableForeignKeyConstraints()` around the truncation so the order of
+tables does not have to track whatever the factories currently create.
+
+**Why it recurs.** `RefreshDatabase` is correct and invisible for every other
+test in the suite, and nothing about a lock-wait timeout points at it. The
+same trap is waiting for the coupon-redemption concurrency test, which is the
+next piece of contested state after stock.
+
+**Prevention.** Any test that needs a second connection to observe committed
+state belongs in `tests/Concurrency/`. `explanation/concurrency-and-locking.md`
+covers what those tests can and cannot prove.
+
+---
+
+## A concurrency test passes whether or not the lock is there
+
+**Symptom.** A race test is green. Deleting `lockForUpdate()` from the code it
+covers leaves it green.
+
+**Cause.** Three variants of the same mistake, all of which look correct:
+
+1. Taking the lock in the test with a raw `SELECT ... FOR UPDATE` and watching
+   a second connection block. That exercises InnoDB, not the Action.
+2. Holding the row elsewhere and asserting the Action raises 1205. The
+   Action's `UPDATE` and its ledger `INSERT` block on the holder regardless of
+   whether its `SELECT` took a lock, so the timeout arrives either way.
+3. Asserting that exactly one of two racing requests succeeds. Both the locked
+   and unlocked versions produce one winner — `chk_inventories_reserved_not_
+   above_current` rejects the second write when the lock is absent.
+
+There is also a timing failure underneath all three: Laravel takes a few
+hundred milliseconds to boot and the window between the read and the write is
+microseconds wide, so two sequentially started processes never overlap.
+
+**Fix.** Assert the *kind* of failure rather than the fact of one. With the
+lock the loser reads fresh state and raises the domain exception; without it
+the loser reads stale state, passes the check, and is stopped by the database
+constraint. `InsufficientStockException` against `QueryException` is the
+signal.
+
+Give the racing processes a barrier — a shared wall-clock instant both
+spin-wait on after booting and warming their connection — so they enter the
+critical section together. `tests/Concurrency/ReserveStockConcurrencyTest.php`
+does this without any test-only branch in production code.
+
+**Why it recurs.** Every one of the three variants produces a green test that
+appears to be about locking, and a green test is not usually re-examined.
+
+**Prevention.** A concurrency test is not finished until it has been observed
+failing with the lock removed. Deleting the call, running the suite, and
+restoring it takes a minute and is the only thing that distinguishes a guard
+from a decoration.
+
+---
+
+## An authorization test passes with the authorization check deleted
+
+**Symptom.** A test asserting that a denied actor cannot perform an Action is
+green. Deleting the `Gate::forUser($actor)->authorize(...)` call from that
+Action leaves it green.
+
+**Cause.** The Action composes another Action, and the *inner* one raised the
+`AuthorizationException` the test attributed to the outer one. In this
+codebase `CreateProduct` calls `AddProductVariation`, and ADR-0007 requires
+the actor to be passed down, so both check a policy. A test actor holding
+neither `create_product` nor `create_product_variation` is denied twice, and
+the assertion cannot tell which check did it.
+
+**Fix.** Give the actor every permission the composed Actions need *except*
+the one under test:
+
+```php
+// Tests CreateProduct's own gate, because AddProductVariation's will pass.
+$actor = catalogueActor('create_product_variation');
+```
+
+**Why it recurs.** `expect(...)->toThrow(AuthorizationException::class)` is the
+natural assertion and it is correct — the exception type is right, the write
+really was prevented, and the test description matches what happened. Only the
+attribution is wrong, and nothing in the output distinguishes the two sources.
+Every composed Action that passes an actor down can reintroduce it, and
+ADR-0007 requires them all to.
+
+**Prevention.** Delete the check under test and confirm the test goes red.
+Grant the actor exactly one permission short of success rather than granting
+none — an actor with no permissions at all is denied by whichever check runs
+first, which is rarely the one being tested.
+
+---
+
+## Every concurrency test fails at once, then passes on re-run
+
+**Symptom.** The whole `tests/Concurrency/` suite fails together — currently
+four tests — while every other test passes. Re-running the suite unchanged is
+green. The failure message is the winner-count assertion, usually with
+*neither* worker reporting success.
+
+**Cause.** The barrier is a fixed wall-clock offset: `microtime(true) + 3.0`,
+chosen to be generous for two cold Laravel boots. Under load the workers do
+not finish booting and warming their connection before that instant passes, so
+they never meet at the critical section — and a worker that arrives late
+produces no output rather than a wrong one.
+
+Observed while running Pint, Larastan and Pest against successive commits: a
+`phpstan` run in the same container pushed the concurrency tests from ~10s to
+~17s each, and one run failed all four. The count is the tell — *exactly* the
+number of tests in the suite, all at once, is a harness problem, not a locking
+one. A real regression fails one test with a specific wrong outcome.
+
+**Fix.** Re-run without other work in the container. Nothing to change in the
+code under test.
+
+**Why it recurs.** The gap between "generous on an idle machine" and "enough
+on a busy one" is invisible until something else is running, and CI is exactly
+where something else is running. It will get worse as the suite grows, because
+the barrier is per-test and the container is shared.
+
+**Prevention.** Read the failure message before assuming a lock broke: the
+assertions carry a hint distinguishing "neither won" (workers failed to boot)
+from "both won" (the lock is genuinely gone). If this starts happening
+regularly, raise the offset or derive it from a measured boot — do not delete
+the barrier, which is what makes the interleaving happen at all.
+
+---
+
+## A concurrency test cannot be written in one process
+
+**Symptom.** A test proving a `lockForUpdate()` works passes. Deleting the
+lock leaves it passing. The test looks like it exercises the right window —
+it deliberately interleaves a conflicting write between the Action's read and
+its write, using a model event such as `saving` or `creating`.
+
+**Cause.** A row lock constrains *other* transactions, never the one holding
+it. Injecting the conflicting write on the same connection means it runs
+inside the locking transaction, where the lock is not supposed to stop it and
+does not. The test therefore behaves identically with the lock and without it.
+
+**Fix.** Two real OS processes with a barrier, in `tests/Concurrency/`.
+`ReserveStockConcurrencyTest` and `PublishProductConcurrencyTest` are the two
+worked examples; the second differs in asserting the winner *count*, which is
+possible only because no `CHECK` constraint backs that invariant up.
+
+**Why it recurs.** Fault injection is the right technique for the neighbouring
+problem — proving a `DB::transaction` rolls back — and it works there for the
+same reason it fails here: it runs inside the transaction under test.
+`AddProductVariationTest` uses it correctly to prove a rollback. Copying that
+pattern to a locking test is a natural and invisible mistake.
+
+**Prevention.** Single-process fault injection proves a *boundary* exists. It
+cannot prove a *lock* exists. If the mechanism under test is `lockForUpdate`,
+the test needs a second connection, which means it needs a second process,
+which means it belongs outside `tests/Feature`.
+
+---
+
 ## A permission change saves and does not take effect
 
 **Symptom.** A role is edited — through the panel, a seeder, or tinker — the

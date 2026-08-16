@@ -11,6 +11,14 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!--
+            Concurrency tests open real second connections and must see
+            committed rows, so they run without RefreshDatabase and clean up
+            after themselves. See tests/Pest.php.
+        -->
+        <testsuite name="Concurrency">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
