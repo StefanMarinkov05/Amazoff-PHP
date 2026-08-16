@@ -51,7 +51,6 @@ class ProductReviewResource extends Resource
         return [
             'index' => ListProductReviews::route('/'),
             'view' => ViewProductReview::route('/{record}'),
-            'edit' => EditProductReview::route('/{record}/edit'),
         ];
     }
 }
