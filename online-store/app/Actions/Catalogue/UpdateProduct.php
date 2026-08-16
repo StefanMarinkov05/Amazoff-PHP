@@ -15,17 +15,16 @@ use Illuminate\Support\Facades\Gate;
  * Updates a product's own columns, refusing an edit that would leave it
  * sellable with nothing to sell (§6–7).
  *
- * Locks the `products` row — the aggregate root — because the check is
- * check-then-act and `RemoveProductVariation` guards the other side of the
- * same invariant. A transaction alone would not close it; the count would come
- * from the MVCC snapshot and the UPDATE would commit anyway. ADR-0008.
+ * The check is check-then-act and `RemoveProductVariation` guards the other
+ * side, so both lock the `products` row — the aggregate root. A transaction
+ * alone would not close it: the count comes from the MVCC snapshot and the
+ * UPDATE commits anyway.
  *
  * Does **not** protect against two employees overwriting each other's fields
- * across two requests. That window is human think time, which no lock can
- * span. See `reference/product-write-rules.md` for the outcomes.
+ * across two requests. That window is human think time, which no lock spans.
  *
- * Authorizes `update_product`. Locks `products`. See ADR-0008 and
- * `reference/product-write-rules.md`.
+ * Authorizes `update_product`. Locks `products`.
+ * ADR-0008 · reference/product-write-rules.md
  */
 final class UpdateProduct
 {

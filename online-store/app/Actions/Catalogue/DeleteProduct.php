@@ -12,20 +12,17 @@ use Illuminate\Support\Facades\Gate;
 /**
  * Soft-deletes a product and its variations.
  *
- * The cascade lives here rather than in the schema on purpose: `CASCADE` in
- * this database is reserved for pure join tables, and a database-level cascade
- * could not stop at variations — it would reach `inventory_movements` and
- * destroy §20's ledger. See `reference/product-write-rules.md`.
+ * The cascade lives here rather than in the schema because a database-level
+ * one could not stop at variations — it would reach `inventory_movements` and
+ * destroy §20's ledger. Trashing the variations is what makes them
+ * unreservable, since `ReserveStock` checks the variation, not the product.
  *
- * Trashing the variations is what makes them unreservable; `ReserveStock`
- * checks the variation, not the product.
+ * Restoring is not the inverse: Laravel does not record which children a
+ * cascade trashed, so a restored product keeps trashed variations and
+ * `UpdateProduct` refuses to publish it until one is restored.
  *
- * Restoring is not the inverse. Laravel does not record which children a
- * cascade trashed, so a restore leaves variations trashed and `UpdateProduct`
- * refuses to publish the product until one is restored explicitly.
- *
- * Authorizes `delete_product`. Locks `products`. See
- * `reference/product-write-rules.md`.
+ * Authorizes `delete_product`. Locks `products`.
+ * reference/product-write-rules.md
  */
 final class DeleteProduct
 {

@@ -19,16 +19,15 @@ use Illuminate\Support\Facades\Gate;
  * The third door on §6–7's invariant, alongside `CreateProduct` and
  * `UpdateProduct`. Guarding only some of the doors is not guarding it.
  *
- * Locks the `products` row — the aggregate root — so this and `UpdateProduct`
- * serialise; locking the variation would leave them contending on different
- * rows and waiting for nothing. Lock order is `products` then `inventories`,
- * globally. ADR-0008, and `reference/product-write-rules.md` for outcomes.
+ * Locks the aggregate root rather than the variation, so this and
+ * `UpdateProduct` serialise; locking each Action's own target would leave them
+ * contending on different rows and waiting for nothing.
  *
- * The inventory row is left behind on purpose: `inventory_movements` hangs off
- * it and §20's ledger has to survive a removal.
+ * The inventory row is left behind: `inventory_movements` hangs off it and
+ * §20's ledger has to survive a removal.
  *
  * Authorizes `delete_product_variation`. Locks `products`, then `inventories`.
- * See ADR-0008 and `reference/product-write-rules.md`.
+ * ADR-0008 · reference/product-write-rules.md
  */
 final class RemoveProductVariation
 {

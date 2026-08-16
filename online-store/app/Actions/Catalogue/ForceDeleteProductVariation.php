@@ -17,25 +17,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Erases a variation and the stock row that exists only for it, refusing
- * whenever something still depends on either.
+ * Erases a variation and the stock row that exists only for it.
  *
  * The stock row goes first: `inventories.product_variation_id` is `NO ACTION`,
- * so the reverse order is error 1451 — what Filament's default
- * `ForceDeleteAction` does today.
+ * so the reverse order is error 1451 — which is what Filament's default
+ * `ForceDeleteAction` still does elsewhere.
  *
- * Legal only where nothing has to outlive it: a stock ledger (§20), an order
- * line, or held stock. `order_items` is `ON DELETE SET NULL`, so the database
- * would accept the erase and quietly null the reference, which §19 forbids.
- * Cart lines are deleted rather than refused — see below. Full outcome table
- * in `reference/product-write-rules.md`.
+ * Refused whenever something must outlive it: a §20 ledger, an order line, or
+ * held stock. Cart lines are deleted instead, not refused.
  *
- * Locks `products` then `inventories`, the same order as every Action that can
- * move §6–7's invariant. ADR-0008.
- *
- * Authorizes `delete_product_variation` — no `forceDelete` ability exists, per
- * `reference/permissions.md`. Locks `products`, then `inventories`. See
- * ADR-0008 and `reference/product-write-rules.md`.
+ * Authorizes `delete_product_variation` (no `forceDelete` ability exists).
+ * Locks `products`, then `inventories`.
+ * ADR-0008 · reference/product-write-rules.md · reference/permissions.md
  */
 final class ForceDeleteProductVariation
 {
