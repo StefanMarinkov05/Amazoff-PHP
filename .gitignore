@@ -18,5 +18,9 @@ Thumbs.db
 .vscode/
 *.swp
 
+# Personal Claude Code skill config — Windows directory junctions into a
+# per-machine archive, not project source. Wouldn't survive a clone anyway.
+.claude/
+
 # Laravel's own .gitignore is added when the app is scaffolded and merges
 # with this file.
