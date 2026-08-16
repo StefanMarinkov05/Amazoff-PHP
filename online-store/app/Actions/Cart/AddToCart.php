@@ -12,6 +12,7 @@ use App\Models\CartItem;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,15 +22,30 @@ use Illuminate\Support\Facades\DB;
  *
  * Validates against the variation's *current* state on every call: current
  * price (§11 — the cart never stores a price, so there is nothing to go
- * stale), current availability, the product's `min_order_quantity`, and
- * current stock. None of that is re-validated at checkout by this Action —
- * `CreateOrder` (slice 5) re-validates independently, because a cart line
- * can go stale between this call and checkout.
+ * stale), current availability on both the product and the variation, the
+ * product's `min_order_quantity`, and current stock. None of this is
+ * re-validated at checkout by this Action — `CreateOrder` (slice 5)
+ * re-validates independently, because a cart line can go stale between this
+ * call and checkout.
  *
- * Locks nothing. A cart is single-owner state — one session or one
- * `user_id` — so no second request can race this one for the same cart. The
- * stock check reads without a lock because it is advisory here: it stops an
- * obviously-doomed add early, but the number that matters is re-checked
+ * Deactivation is treated the same as soft-deletion: `RemovedFromCatalogueException`,
+ * refusing the write. An existing line on a product deactivated after it was
+ * added is left alone — this Action only guards what it writes, not what is
+ * already in the cart. `RemoveFromCart` is how a customer clears a dead line,
+ * same as for a soft-deleted product.
+ *
+ * Locks nothing. One owner is not one request — two tabs, a double-clicked
+ * button — so the read-then-insert around
+ * `UNIQUE(cart_id, product_variation_id)` is a real check-then-act window
+ * whenever both sides start from "no existing line": per CLAUDE.md's rule for
+ * idempotency, the fix is catching the violation and retrying as an update,
+ * not a lock on a row that may not exist yet. The retry re-reads the
+ * quantity, so it re-applies the same minimum and stock checks against the
+ * row the loser actually collided with rather than the one it read.
+ * Measured in `tests/Concurrency/AddToCartConcurrencyTest.php`.
+ *
+ * The stock check reads without a lock because it is advisory here: it stops
+ * an obviously-doomed add early, but the number that matters is re-checked
  * under `lockForUpdate()` by `ReserveStock` at checkout, which is what
  * actually enforces it. reference/product-write-rules.md
  */
@@ -54,10 +70,27 @@ final class AddToCart
             throw RemovedFromCatalogueException::variation($variation);
         }
 
+        if (! $product->is_available || ! $live->is_available) {
+            throw RemovedFromCatalogueException::variation($live);
+        }
+
         if ($quantity < 1) {
             throw InvalidCartQuantityException::notPositive($product, $quantity);
         }
 
+        try {
+            return $this->addOrIncrement($cart, $live, $product, $quantity);
+        } catch (UniqueConstraintViolationException) {
+            // The loser of the race: another request inserted the line between
+            // this one's read and its write. Retrying re-reads the row that
+            // now exists and folds into it, the same outcome a sequential
+            // second call produces.
+            return $this->addOrIncrement($cart, $live, $product, $quantity);
+        }
+    }
+
+    private function addOrIncrement(Cart $cart, ProductVariation $live, Product $product, int $quantity): CartItem
+    {
         return DB::transaction(function () use ($cart, $live, $product, $quantity): CartItem {
             /** @var CartItem|null $existing */
             $existing = $cart->cartItems()

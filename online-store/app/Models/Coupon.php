@@ -51,8 +51,8 @@ class Coupon extends Model
             'value' => 'decimal:2',
             'max_discount_amount' => 'decimal:2',
             'minimum_order_value' => 'decimal:2',
-            'starts_at' => 'timestamp',
-            'ends_at' => 'timestamp',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
             'is_active' => 'boolean',
         ];
     }

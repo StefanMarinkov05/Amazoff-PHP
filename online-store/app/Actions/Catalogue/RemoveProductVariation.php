@@ -35,7 +35,7 @@ final class RemoveProductVariation
      * @throws ProductRequiresVariationException
      * @throws VariationHasReservedStockException
      */
-    public function handle(ProductVariation $variation, ?User $actor = null): ProductVariation
+    public function handle(ProductVariation $variation, ?User $actor): ProductVariation
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $variation);

@@ -29,7 +29,7 @@ final class ReserveStock
 {
     public function __construct(private readonly RecordInventoryMovement $recordMovement) {}
 
-    public function handle(ProductVariation $variation, int $quantity, ?User $actor = null): Inventory
+    public function handle(ProductVariation $variation, int $quantity, ?User $actor): Inventory
     {
         // ...
     }
@@ -43,9 +43,9 @@ validates domain state.
 
 ## 4. Decide on the actor
 
-`?User $actor = null`, **last**. Null means the system — a webhook, the
-scheduler, a queued job — and skips the policy check. A non-null actor is
-authorized before anything is written:
+`?User $actor`, **last, and with no default**. Null means the system — a
+webhook, the scheduler, a queued job, a seeder — and skips the policy check. A
+non-null actor is authorized before anything is written:
 
 ```php
 if ($actor !== null) {
@@ -53,12 +53,28 @@ if ($actor !== null) {
 }
 ```
 
-Omit the parameter entirely if the Action has no non-human caller. Last rather
-than first, so that leaving it out looks like an omission in review.
+No default is the point: every caller states the actor, and a caller that
+means "system" writes `null` where a reader can see it. Omitting it is an
+`ArgumentCountError`, not a silent unauthorized write. See ADR-0007's
+amendment.
 
-When one Action calls another, pass the actor on. Passing `null` from a
-caller that has one is the single place in this codebase where forgetting a
-parameter weakens a security check rather than raising an error.
+If the Action already has a defaulted parameter, that parameter has to become
+required too — PHP deprecates an optional parameter declared before a required
+one, and `php -l` reports it.
+
+Omit the parameter entirely if the Action has no non-human caller.
+
+When one Action calls another, pass the actor on. Passing `null` from a caller
+that has a real actor is now the only way to weaken a security check by
+accident — forgetting the parameter no longer compiles, but writing `null`
+where `$actor` belonged still grants system privileges, and only review
+catches that.
+
+An Action that takes an actor gets three tests: a denied actor throws, a
+permitted one succeeds, and a null one writes without a policy check. The
+third pins a deliberate absence rather than a guarantee — see the note in
+`ProductImageTest.php` — so that a change which starts refusing null fails a
+test instead of a seeder.
 
 ## 5. Decide on the transaction
 

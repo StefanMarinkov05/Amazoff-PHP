@@ -48,7 +48,7 @@ final class ReserveStock
     public function handle(
         ProductVariation $variation,
         int $quantity,
-        ?User $actor = null,
+        ?User $actor,
     ): Inventory {
         if ($quantity < 1) {
             throw new \InvalidArgumentException('Reserved quantity must be at least 1.');

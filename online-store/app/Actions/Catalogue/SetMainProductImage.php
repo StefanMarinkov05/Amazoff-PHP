@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Gate;
  */
 final class SetMainProductImage
 {
-    public function handle(ProductImage $image, ?User $actor = null): ProductImage
+    public function handle(ProductImage $image, ?User $actor): ProductImage
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('update', $image);

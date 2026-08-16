@@ -51,7 +51,7 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
     $variation = app(AddProductVariation::class)->handle($product, [
         'sku' => 'RACE-'.bin2hex(random_bytes(8)),
         'price' => '19.99',
-    ]);
+    ], 0, null);
 
     $script = <<<'PHP'
         <?php
@@ -77,10 +77,12 @@ it('refuses one of publish and remove-last-variation rather than losing the inva
                 app(App\Actions\Catalogue\UpdateProduct::class)->handle(
                     App\Models\Product::findOrFail($id),
                     ['is_available' => true],
+                    null,
                 );
             } else {
                 app(App\Actions\Catalogue\RemoveProductVariation::class)->handle(
                     App\Models\ProductVariation::findOrFail($id),
+                    null,
                 );
             }
             echo 'OK';

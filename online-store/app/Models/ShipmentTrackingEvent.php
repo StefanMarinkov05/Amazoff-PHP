@@ -37,7 +37,7 @@ class ShipmentTrackingEvent extends Model
             'id' => 'integer',
             'shipment_id' => 'integer',
             'status' => ShipmentStatus::class,
-            'event_time' => 'timestamp',
+            'event_time' => 'datetime',
         ];
     }
 

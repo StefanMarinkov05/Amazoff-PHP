@@ -36,7 +36,7 @@ class NewsletterSubscriber extends Model
             'id' => 'integer',
             'user_id' => 'integer',
             'status' => NewsletterStatus::class,
-            'subscribed_at' => 'timestamp',
+            'subscribed_at' => 'datetime',
         ];
     }
 

@@ -40,7 +40,7 @@ final class CreateProduct
      *
      * @throws ProductRequiresVariationException
      */
-    public function handle(array $attributes, array $variations, ?User $actor = null): Product
+    public function handle(array $attributes, array $variations, ?User $actor): Product
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', Product::class);

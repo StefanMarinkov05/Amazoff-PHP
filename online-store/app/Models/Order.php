@@ -66,7 +66,7 @@ class Order extends Model
             'vat_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'invoice_required' => 'boolean',
-            'anonymized_at' => 'timestamp',
+            'anonymized_at' => 'datetime',
         ];
     }
 

@@ -49,7 +49,7 @@ Grouped by area: `app/Actions/Orders/CreateOrder.php`.
 ### The actor is a nullable parameter, and null means the system
 
 ```php
-public function handle(Order $order, OrderStatus $to, ?User $actor = null): void
+public function handle(Order $order, OrderStatus $to, ?User $actor): void
 ```
 
 A null actor is the application acting on its own behalf — a webhook, the
@@ -57,12 +57,37 @@ scheduler, a queued job — and skips the policy check. A non-null actor is
 authorized against the policy before anything is written.
 
 This keeps ADR-0004's guarantee that the check cannot be bypassed by a caller
-who forgets it, while leaving the webhook path able to run at all. The risk it
-introduces is a controller that passes null and silently skips authorization;
-that is a review question, and the reason `$actor` is the last parameter
-rather than the first is that omitting it has to look like an omission.
+who forgets it, while leaving the webhook path able to run at all.
+
+**The parameter carries no default** (amended 2026-08-16; it was
+`?User $actor = null` as first accepted). Nullable, still last, but required:
+omitting it is an `ArgumentCountError` rather than a silent grant of system
+privileges. The original text named the risk as "a controller that passes null
+and silently skips authorization" and left it to review, on the grounds that
+`$actor` being last made an omission look like one. That is a convention, and
+a convention does not fail a build. Removing the default makes every
+system-privilege call site an affirmative `null` at the call site — greppable,
+visible in a diff, and impossible to reach by forgetting.
+
+The semantics are unchanged: null still means the system and still skips the
+policy. What changed is that reaching null now has to be written down.
+
+One consequence worth recording: PHP deprecates an optional parameter declared
+before a required one, so an Action that had a defaulted parameter ahead of
+`$actor` had to make it required too. `AddProductVariation::handle()`'s
+`$initialQuantity` is the only such case.
 
 Actions with no non-human caller do not take the parameter.
+
+**What this does not do.** It is not a security boundary. An Action with a
+null actor is a fully privileged write primitive, and authorization is a
+property of the call site rather than of the Action. Nothing here defends
+against an attacker who can already execute PHP, and nothing here helps if an
+unauthenticated external caller can steer a call site — which is exactly what
+the Stripe webhook will be. There the protection is signature verification in
+middleware, per CLAUDE.md, and it has to be tested by removing it. The full
+picture — what the null-actor mechanism protects against, what it does not,
+and where the real perimeter sits — is `explanation/security-model.md`.
 
 ### Events dispatch after commit, always
 
@@ -113,9 +138,13 @@ which is the property that makes composition possible at all.
 
 − Around thirty-five classes where a service-per-aggregate would have had
   five. The directory is large and shallow by design.
-− A null `$actor` skips authorization. It is the one place in the codebase
-  where forgetting a parameter weakens a security check rather than raising an
-  error, and only review catches it.
+− A null `$actor` skips authorization. Since the amendment above it can no
+  longer be reached by *forgetting* the parameter — that is an
+  `ArgumentCountError` — but a caller that writes `null` deliberately still
+  gets an unauthorized write, and only review catches that.
+− Every call site states the actor, including the many test calls that mean
+  "system". That is more noise per line in exchange for the omission being
+  impossible.
 − The boundary between "has a rule" and "plain lookup" is a judgement call.
   `Coupon` is the awkward case: single-table today, but usage limits make it
   contested state the moment redemption is built.

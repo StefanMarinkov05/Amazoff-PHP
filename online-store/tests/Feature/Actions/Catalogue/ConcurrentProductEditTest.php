@@ -50,8 +50,8 @@ it('survives two full-payload edits when both actors loaded the row first', func
     $seenByA = Product::findOrFail($product->getKey());
     $seenByB = Product::findOrFail($product->getKey());
 
-    app(UpdateProduct::class)->handle($seenByA, ['name' => 'new', 'regular_price' => '100.00']);
-    app(UpdateProduct::class)->handle($seenByB, ['name' => 'original', 'regular_price' => '200.00']);
+    app(UpdateProduct::class)->handle($seenByA, ['name' => 'new', 'regular_price' => '100.00'], null);
+    app(UpdateProduct::class)->handle($seenByB, ['name' => 'original', 'regular_price' => '200.00'], null);
 
     // Eloquent sends only dirty columns, and B's stale name matches B's *own*
     // original, so it never reaches the UPDATE. A property of dirty checking
@@ -66,6 +66,7 @@ it('loses the first edit when the second actor re-reads the row before saving', 
     app(UpdateProduct::class)->handle(
         Product::findOrFail($product->getKey()),
         ['name' => 'new', 'regular_price' => '100.00'],
+        null,
     );
 
     // B's instance is re-read after A committed, so its originals are current
@@ -73,6 +74,7 @@ it('loses the first edit when the second actor re-reads the row before saving', 
     app(UpdateProduct::class)->handle(
         Product::findOrFail($product->getKey()),
         ['name' => 'original', 'regular_price' => '200.00'],
+        null,
     );
 
     // A's rename is gone. Same dirty checking, opposite outcome: measured
@@ -93,8 +95,8 @@ it('loses the first edit when the second actor re-reads the row before saving', 
 it('keeps both edits when each actor submits only the field they changed', function (): void {
     $product = contestedProduct();
 
-    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['name' => 'new']);
-    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '200.00']);
+    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['name' => 'new'], null);
+    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '200.00'], null);
 
     // Both survive, even though B re-read the row — the panel case that loses
     // the edit above. A column absent from the payload is never filled, so it
@@ -106,8 +108,8 @@ it('keeps both edits when each actor submits only the field they changed', funct
 it('still loses an edit when both actors change the same field', function (): void {
     $product = contestedProduct();
 
-    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '250.00']);
-    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '200.00']);
+    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '250.00'], null);
+    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '200.00'], null);
 
     // Partial updates make *disjoint* edits safe and do nothing for
     // overlapping ones. A's 250.00 is gone and neither actor is told.
@@ -118,13 +120,14 @@ it('can break a cross-field invariant that a full payload would have satisfied',
     $product = contestedProduct();
 
     // A drops the list price. B loaded the page while it was still 100.00.
-    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '50.00']);
+    app(UpdateProduct::class)->handle(Product::findOrFail($product->getKey()), ['regular_price' => '50.00'], null);
 
     // B sets a discount that was below the price B saw and is above the price
     // that is now stored. chk_products_discount_below_regular rejects it.
     expect(fn () => app(UpdateProduct::class)->handle(
         Product::findOrFail($product->getKey()),
         ['discount_price' => '80.00'],
+        null,
     ))->toThrow(QueryException::class);
 
     // Partial updates move the failure rather than removing it: a full

@@ -47,7 +47,7 @@ final class ForceDeleteProductVariation
      */
     public function handle(
         ProductVariation $variation,
-        ?User $actor = null,
+        ?User $actor,
         bool $productIsBeingErased = false,
     ): void {
         if ($actor !== null) {

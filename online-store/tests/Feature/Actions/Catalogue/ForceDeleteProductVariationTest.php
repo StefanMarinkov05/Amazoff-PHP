@@ -44,16 +44,16 @@ beforeEach(function (): void {
 function erasableVariation(bool $available = false, int $stock = 0): ProductVariation
 {
     $product = Product::factory()->create(['is_available' => $available]);
-    app(AddProductVariation::class)->handle($product, variationAttributes());
+    app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    return app(AddProductVariation::class)->handle($product, variationAttributes(), $stock);
+    return app(AddProductVariation::class)->handle($product, variationAttributes(), $stock, null);
 }
 
 it('erases the variation and its stock row in the order the schema allows', function (): void {
     $variation = erasableVariation();
     $inventoryId = $variation->inventory()->sole()->getKey();
 
-    app(ForceDeleteProductVariation::class)->handle($variation);
+    app(ForceDeleteProductVariation::class)->handle($variation, null);
 
     // The child goes first. The reverse order is error 1451, which is the
     // whole reason this Action exists rather than a plain forceDelete().
@@ -63,12 +63,12 @@ it('erases the variation and its stock row in the order the schema allows', func
 
 it('erases a variation that was already soft-deleted', function (): void {
     $variation = erasableVariation();
-    app(RemoveProductVariation::class)->handle($variation);
+    app(RemoveProductVariation::class)->handle($variation, null);
 
     // The common path: remove, then empty the trash. Counting live variations
     // and comparing to one would wrongly refuse this, because a trashed
     // variation is not in that count to begin with.
-    app(ForceDeleteProductVariation::class)->handle($variation);
+    app(ForceDeleteProductVariation::class)->handle($variation, null);
 
     expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse();
 });
@@ -77,7 +77,7 @@ it('refuses a variation with stock history', function (): void {
     $variation = erasableVariation(stock: 5);
 
     // §20's ledger is the only record of how a quantity got where it is.
-    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation, null))
         ->toThrow(VariationCannotBeErasedException::class);
 
     expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeTrue();
@@ -89,7 +89,7 @@ it('names the reason a variation could not be erased', function (): void {
     $withLedger = erasableVariation(stock: 3);
 
     try {
-        app(ForceDeleteProductVariation::class)->handle($withLedger);
+        app(ForceDeleteProductVariation::class)->handle($withLedger, null);
         $this->fail('Expected the erase to be refused.');
     } catch (VariationCannotBeErasedException $e) {
         expect($e->variation->is($withLedger))->toBeTrue()
@@ -100,7 +100,7 @@ it('names the reason a variation could not be erased', function (): void {
     OrderItem::factory()->create(['product_variation_id' => $ordered->getKey()]);
 
     try {
-        app(ForceDeleteProductVariation::class)->handle($ordered);
+        app(ForceDeleteProductVariation::class)->handle($ordered, null);
         $this->fail('Expected the erase to be refused.');
     } catch (VariationCannotBeErasedException $e) {
         expect($e->getMessage())->toContain('order line(s)');
@@ -109,10 +109,10 @@ it('names the reason a variation could not be erased', function (): void {
 
 it('carries the held quantity when stock blocks the erase', function (): void {
     $variation = erasableVariation(stock: 10);
-    app(ReserveStock::class)->handle($variation, 4);
+    app(ReserveStock::class)->handle($variation, 4, null);
 
     try {
-        app(ForceDeleteProductVariation::class)->handle($variation);
+        app(ForceDeleteProductVariation::class)->handle($variation, null);
         $this->fail('Expected the erase to be refused.');
     } catch (VariationHasReservedStockException $e) {
         expect($e->reserved)->toBe(4)
@@ -122,9 +122,9 @@ it('carries the held quantity when stock blocks the erase', function (): void {
 
 it('refuses a variation with stock reserved against it', function (): void {
     $variation = erasableVariation(stock: 10);
-    app(ReserveStock::class)->handle($variation, 2);
+    app(ReserveStock::class)->handle($variation, 2, null);
 
-    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation, null))
         ->toThrow(VariationHasReservedStockException::class);
 });
 
@@ -136,7 +136,7 @@ it('drops the cart lines rather than refusing', function (): void {
     // a customer pin a variation indefinitely by leaving a tab open, and the
     // line was going to die at checkout anyway. cart_items is NO ACTION, so
     // the row must go before the variation regardless.
-    app(ForceDeleteProductVariation::class)->handle($variation);
+    app(ForceDeleteProductVariation::class)->handle($variation, null);
 
     expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse()
         ->and(CartItem::where('product_variation_id', $variation->getKey())->count())->toBe(0);
@@ -145,12 +145,12 @@ it('drops the cart lines rather than refusing', function (): void {
 it('still refuses a variation whose cart reached checkout', function (): void {
     $variation = erasableVariation(stock: 10);
     CartItem::factory()->create(['product_variation_id' => $variation->getKey(), 'quantity' => 1]);
-    app(ReserveStock::class)->handle($variation, 1);
+    app(ReserveStock::class)->handle($variation, 1, null);
 
     // The case dropping the cart check might look like it opened: a cart that
     // got as far as checkout holds a reservation, and reserved stock is still
     // a refusal.
-    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation, null))
         ->toThrow(VariationHasReservedStockException::class);
 
     expect(CartItem::where('product_variation_id', $variation->getKey())->count())->toBe(1);
@@ -158,20 +158,20 @@ it('still refuses a variation whose cart reached checkout', function (): void {
 
 it('still refuses the last variation of a soft-deleted but available product', function (): void {
     $product = Product::factory()->create(['is_available' => true]);
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
     $product->delete();
 
     // The guard keys off the caller's intent, not the product's trashed flag.
     // A soft-deleted product can be restored, so erasing its only variation
     // would leave a restorable product with nothing to sell. Only
     // ForceDeleteProduct waives this, because there the product is going too.
-    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation, null))
         ->toThrow(ProductRequiresVariationException::class);
 });
 
 it('waives the last-variation rule when the product is being erased too', function (): void {
     $product = Product::factory()->create(['is_available' => true]);
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
     app(ForceDeleteProductVariation::class)->handle($variation, null, productIsBeingErased: true);
 
@@ -180,17 +180,17 @@ it('waives the last-variation rule when the product is being erased too', functi
 
 it('refuses the last live variation of an available product', function (): void {
     $product = Product::factory()->create(['is_available' => true]);
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation))
+    expect(fn () => app(ForceDeleteProductVariation::class)->handle($variation, null))
         ->toThrow(ProductRequiresVariationException::class);
 });
 
 it('allows erasing the last variation of an unavailable product', function (): void {
     $product = Product::factory()->create(['is_available' => false]);
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    app(ForceDeleteProductVariation::class)->handle($variation);
+    app(ForceDeleteProductVariation::class)->handle($variation, null);
 
     expect($product->fresh()->productVariations()->count())->toBe(0);
 });
@@ -210,6 +210,17 @@ it('allows an actor holding delete_product_variation', function (): void {
     $actor = catalogueActor('delete_product_variation');
 
     app(ForceDeleteProductVariation::class)->handle($variation, $actor);
+
+    expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse();
+});
+
+it('skips the policy for a null actor', function (): void {
+    $variation = erasableVariation();
+
+    // ADR-0007: null is the application acting on its own behalf and skips the
+    // policy check. ForceDeleteProduct reaches this Action with whatever actor
+    // it was given, so a null there arrives here.
+    app(ForceDeleteProductVariation::class)->handle($variation, null);
 
     expect(ProductVariation::withTrashed()->whereKey($variation->getKey())->exists())->toBeFalse();
 });

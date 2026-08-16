@@ -34,7 +34,7 @@ final class UpdateProduct
      * @throws ProductRequiresVariationException
      * @throws RemovedFromCatalogueException
      */
-    public function handle(Product $product, array $attributes, ?User $actor = null): Product
+    public function handle(Product $product, array $attributes, ?User $actor): Product
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('update', $product);
