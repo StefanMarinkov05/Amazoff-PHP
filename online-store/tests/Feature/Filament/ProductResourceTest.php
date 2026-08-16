@@ -104,8 +104,8 @@ it('reports a refusal as a notification rather than a 500', function (): void {
     $product = Product::factory()->create(['is_available' => true]);
     $variation = app(AddProductVariation::class)->handle($product, [
         'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
-    ], 10);
-    app(ReserveStock::class)->handle($variation, 2);
+    ], 10, null);
+    app(ReserveStock::class)->handle($variation, 2, null);
 
     // Reserved stock blocks removal. Without the domain-failure trait this is
     // an uncaught exception; with it the administrator gets a message naming
@@ -135,7 +135,7 @@ it('deletes a product and its variations through the panel', function (): void {
     $product = Product::factory()->create(['is_available' => false]);
     app(AddProductVariation::class)->handle($product, [
         'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
-    ]);
+    ], 0, null);
 
     Livewire::test(EditProduct::class, ['record' => $product->getKey()])
         ->callAction('delete');

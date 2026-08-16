@@ -32,7 +32,7 @@ final class AddProductImage
      *
      * @throws RemovedFromCatalogueException
      */
-    public function handle(Product $product, array $attributes, ?User $actor = null): ProductImage
+    public function handle(Product $product, array $attributes, ?User $actor): ProductImage
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', ProductImage::class);

@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Gate;
  */
 final class DeleteProduct
 {
-    public function handle(Product $product, ?User $actor = null): Product
+    public function handle(Product $product, ?User $actor): Product
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $product);

@@ -39,13 +39,16 @@ final class AddProductVariation
      *                                            ignored if present.
      * @param  int  $initialQuantity  Opening stock on hand. Zero is normal:
      *                                stock usually arrives after the catalogue
-     *                                entry does.
+     *                                entry does. Required rather than
+     *                                defaulted, because `$actor` follows it
+     *                                and PHP deprecates an optional parameter
+     *                                declared before a required one.
      */
     public function handle(
         Product $product,
         array $attributes,
-        int $initialQuantity = 0,
-        ?User $actor = null,
+        int $initialQuantity,
+        ?User $actor,
     ): ProductVariation {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', ProductVariation::class);

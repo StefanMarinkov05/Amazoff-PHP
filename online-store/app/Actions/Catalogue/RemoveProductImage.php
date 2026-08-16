@@ -32,7 +32,7 @@ final class RemoveProductImage
     /**
      * @throws ProductImageInUseException
      */
-    public function handle(ProductImage $image, ?User $actor = null): void
+    public function handle(ProductImage $image, ?User $actor): void
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $image);

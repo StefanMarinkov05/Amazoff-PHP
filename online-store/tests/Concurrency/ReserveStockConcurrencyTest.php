@@ -89,7 +89,7 @@ it('fails the loser of a race cleanly rather than at the database', function ():
         }
 
         try {
-            app(App\Actions\Inventory\ReserveStock::class)->handle($variation, 1);
+            app(App\Actions\Inventory\ReserveStock::class)->handle($variation, 1, null);
             echo 'OK';
         } catch (Throwable $e) {
             echo 'FAILED:'.get_class($e);
@@ -159,9 +159,9 @@ it('lets the second reservation see the first once it commits', function (): voi
 
     // Sequential rather than racing: asserts the outcome the lock produces,
     // where the test above asserts the lock is doing the producing.
-    app(ReserveStock::class)->handle($variation, 1);
+    app(ReserveStock::class)->handle($variation, 1, null);
 
-    expect(fn () => app(ReserveStock::class)->handle($variation, 1))
+    expect(fn () => app(ReserveStock::class)->handle($variation, 1, null))
         ->toThrow(InsufficientStockException::class);
 
     $inventory = Inventory::where('product_variation_id', $variation->getKey())->sole();

@@ -38,7 +38,7 @@ final class ReleaseStock
     public function handle(
         ProductVariation $variation,
         int $quantity,
-        ?User $actor = null,
+        ?User $actor,
         ?string $reason = null,
     ): Inventory {
         if ($quantity < 1) {

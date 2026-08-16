@@ -38,7 +38,7 @@ final class ForceDeleteProduct
     /**
      * @throws ProductCannotBeErasedException
      */
-    public function handle(Product $product, ?User $actor = null): void
+    public function handle(Product $product, ?User $actor): void
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $product);

@@ -36,7 +36,7 @@ final class RecordInventoryMovement
         Inventory $inventory,
         InventoryMovementType $type,
         int $quantity,
-        ?User $actor = null,
+        ?User $actor,
         ?string $note = null,
     ): InventoryMovement {
         return $inventory->inventoryMovements()->create([

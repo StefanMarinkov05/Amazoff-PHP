@@ -35,7 +35,7 @@ beforeEach(function (): void {
 it('creates the variation and the stock row together', function (): void {
     $product = Product::factory()->create();
 
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
     expect($variation->product_id)->toBe($product->getKey())
         ->and($variation->inventory()->exists())->toBeTrue();
@@ -44,7 +44,7 @@ it('creates the variation and the stock row together', function (): void {
 it('starts every stock counter at zero when no opening stock is given', function (): void {
     $product = Product::factory()->create();
 
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
     $inventory = $variation->inventory()->sole();
 
     expect($inventory->current_quantity)->toBe(0)
@@ -58,7 +58,7 @@ it('starts every stock counter at zero when no opening stock is given', function
 it('writes no ledger row when nothing arrived', function (): void {
     $product = Product::factory()->create();
 
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
     // A movement recording that zero units arrived says nothing, and the
     // ledger is summed.
@@ -84,7 +84,7 @@ it('records opening stock as an initial stock movement', function (): void {
 it('rejects negative opening stock', function (): void {
     $product = Product::factory()->create();
 
-    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes(), -1))
+    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes(), -1, null))
         ->toThrow(InvalidArgumentException::class);
 
     // A caller bug, not a customer-facing condition — but it must still leave
@@ -109,7 +109,7 @@ it('leaves no variation behind when the stock row cannot be written', function (
         throw new RuntimeException('inventory write failed');
     });
 
-    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes()))
+    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null))
         ->toThrow(RuntimeException::class);
 
     expect(ProductVariation::count())->toBe(0)
@@ -124,7 +124,7 @@ it('refuses to add a variation to a removed product', function (): void {
     // the panel can open a deleted product's edit page — and its relation
     // managers with it. The in-memory $product answers every accessor exactly
     // as it did before the delete.
-    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes()))
+    expect(fn () => app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null))
         ->toThrow(RemovedFromCatalogueException::class);
 
     expect(ProductVariation::count())->toBe(0)
@@ -168,7 +168,7 @@ it('skips the policy for a null actor', function (): void {
     // ADR-0007: null is the application acting on its own behalf — a seeder,
     // a fixture loader, a queued job. Gate::allows() with no user denies
     // everything, so those callers could not run at all otherwise.
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
     expect($variation->exists)->toBeTrue()
         ->and($variation->inventory()->sole()->inventoryMovements()->count())->toBe(0);
