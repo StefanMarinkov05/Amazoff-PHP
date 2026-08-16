@@ -15,13 +15,13 @@ use Illuminate\Support\Facades\Gate;
 /**
  * Adds an image to a product, keeping exactly one of them main.
  *
- * The first image of a product becomes main whether or not it was asked for:
- * a product with images and no main image has nothing to show in a listing,
- * and leaving that to whoever ticks the box first is how it stays empty.
+ * The first image becomes main whether or not it was asked for: a product with
+ * images and none marked main has nothing to show in a listing, and leaving
+ * that to whoever ticks the box first is how it stays empty.
  *
- * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`
- * through `SetMainProductImage` when a promotion is needed. See
- * `reference/product-write-rules.md`.
+ * Authorizes `update_product` via `ProductImagePolicy`. Locks nothing; the
+ * promotion goes through `SetMainProductImage`.
+ * reference/product-write-rules.md
  */
 final class AddProductImage
 {

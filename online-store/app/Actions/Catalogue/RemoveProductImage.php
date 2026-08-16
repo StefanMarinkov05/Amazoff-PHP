@@ -17,16 +17,13 @@ use Illuminate\Support\Facades\Storage;
  * Removes an image, refusing while a variation points at it and handing the
  * main flag on if it had it.
  *
- * `product_images` does not soft-delete, so this is a permanent removal and
- * `product_variations.image_id` is `NO ACTION` — deleting a referenced image
- * is error 1451.
+ * `product_images` does not soft-delete, and `product_variations.image_id` is
+ * `NO ACTION`, so removing a referenced image is error 1451. Promoting a
+ * successor keeps the listing intact — a product that still has images must
+ * still have a main one.
  *
- * Promoting a successor is what keeps §6–7's listing intact: a product that
- * still has images must still have a main one, and dropping the flag with the
- * row would leave the set with none.
- *
- * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`. See
- * `reference/product-write-rules.md`.
+ * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`.
+ * reference/product-write-rules.md
  */
 final class RemoveProductImage
 {

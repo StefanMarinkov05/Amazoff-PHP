@@ -22,13 +22,12 @@ use Illuminate\Support\Facades\Gate;
  * incomplete: every inventory Action reads it with `firstOrFail()`, so the
  * failure surfaces at checkout as a 500 on a product that looked sellable.
  *
- * Opening stock arrives as an `InitialStock` movement, because §20 forbids
- * writing a quantity behind the ledger's back. Zero writes no movement —
- * `chk_inventory_movements_quantity_non_zero` rejects one anyway.
+ * Opening stock arrives as an `InitialStock` movement — §20 forbids writing a
+ * quantity behind the ledger's back. Zero writes no movement.
  *
- * Authorizes `create_product_variation`. Locks nothing — adding can only move
- * §6–7's invariant in the safe direction. See
- * `reference/product-write-rules.md`.
+ * Authorizes `create_product_variation`. Locks nothing: adding can only move
+ * §6–7's invariant in the safe direction.
+ * reference/product-write-rules.md
  */
 final class AddProductVariation
 {

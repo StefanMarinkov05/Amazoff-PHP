@@ -16,16 +16,16 @@ use Illuminate\Support\Facades\Gate;
  *
  * Three tables in one operation, which is ADR-0007's threshold for an Action.
  * At least one variation is required unconditionally here, while
- * `UpdateProduct` enforces §6–7's invariant only for an available product —
- * see `reference/product-write-rules.md`.
+ * `UpdateProduct` enforces §6–7's invariant only for an available product.
  *
- * Composes `AddProductVariation` rather than inlining it, so both creation
- * paths produce identical rows. Its transaction nests as a savepoint, so a
- * variation failing on its unique SKU rolls back the product too.
+ * Composes `AddProductVariation` so both creation paths produce identical
+ * rows. Its transaction nests as a savepoint, so a variation failing on its
+ * unique SKU rolls back the product too.
  *
  * Authorizes `create_product`, and `create_product_variation` through the
- * nested Action. Locks nothing — no other request can reach a product that has
- * not committed. See `reference/product-write-rules.md`.
+ * nested Action. Locks nothing — no other request can reach an uncommitted
+ * product.
+ * ADR-0007 · reference/product-write-rules.md
  */
 final class CreateProduct
 {
