@@ -55,8 +55,11 @@ class Product extends Model
             'brand_id' => 'integer',
             'regular_price' => 'decimal:2',
             'discount_price' => 'decimal:2',
-            'discount_starts_at' => 'timestamp',
-            'discount_ends_at' => 'timestamp',
+            // 'datetime', not Blueprint's generated 'timestamp': the latter
+            // casts to a Unix integer, and every comparison against one — here
+            // ResolveVariationPrice's window check — is a TypeError.
+            'discount_starts_at' => 'datetime',
+            'discount_ends_at' => 'datetime',
             'vat_rate' => 'decimal:2',
             'weight' => 'decimal:2',
             'is_available' => 'boolean',

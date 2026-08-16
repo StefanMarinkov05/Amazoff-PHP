@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\Cart;
+use App\Models\Inventory;
+use App\Models\Product;
+use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -94,4 +98,68 @@ function variationAttributes(array $overrides = []): array
         'price' => '19.99',
         'is_available' => true,
     ], $overrides);
+}
+
+/*
+ * Shared by the cart Action tests. Same reason as above: a helper defined in a
+ * sibling test file is undefined when its consumer runs under --filter.
+ */
+
+/**
+ * A variation with a stock row, at prices and limits the test states.
+ *
+ * ProductFactory randomises `regular_price`, `discount_price`, the discount
+ * window, `min_order_quantity`, and `is_available`; ProductVariationFactory
+ * randomises the price overrides and pulls in a ProductImage. Every one of
+ * those is an input to the rules under test, so a cart test built on the
+ * defaults asserts against a different product on each run.
+ *
+ * @param  array<string, mixed>  $product
+ * @param  array<string, mixed>  $variation
+ */
+function cartVariation(int $stock = 10, array $product = [], array $variation = []): ProductVariation
+{
+    $productModel = Product::factory()->create(array_merge([
+        'regular_price' => '100.00',
+        'discount_price' => null,
+        'discount_starts_at' => null,
+        'discount_ends_at' => null,
+        'vat_rate' => 20.00,
+        'min_order_quantity' => 1,
+        'is_available' => true,
+    ], $product));
+
+    $variationModel = ProductVariation::factory()->create(array_merge([
+        'product_id' => $productModel->getKey(),
+        // Null rather than the factory's ProductImage: that image belongs to a
+        // second product the test never names, and this one needs no image.
+        'image_id' => null,
+        'price' => null,
+        'discount_price' => null,
+        'is_available' => true,
+    ], $variation));
+
+    Inventory::factory()->create([
+        'product_variation_id' => $variationModel->getKey(),
+        'current_quantity' => $stock,
+        'reserved_quantity' => 0,
+        'sold_quantity' => 0,
+        'returned_quantity' => 0,
+        'damaged_quantity' => 0,
+    ]);
+
+    return $variationModel;
+}
+
+/**
+ * A cart with neither an owner nor a coupon — both nullable, and the factory
+ * creates a User and a Coupon for every cart otherwise.
+ */
+function emptyCart(?User $owner = null): Cart
+{
+    return Cart::factory()->create([
+        'user_id' => $owner?->getKey(),
+        'coupon_id' => null,
+        'expires_at' => null,
+    ]);
 }
