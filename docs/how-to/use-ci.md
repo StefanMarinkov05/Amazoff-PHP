@@ -16,25 +16,56 @@ untested. A formatting failure reached `main` that way.
 
 ## Where to see it
 
-On a PR, in the checks section near the bottom, listed as "CI / test". The
-repo's **Actions** tab has the full run history.
+On a PR, in the checks section near the bottom, listed as "CI / test" and
+"CI / test-concurrency" — two jobs, running in parallel. The repo's
+**Actions** tab has the full run history.
 
 ## What it does, in order
 
+Two jobs, each with its own MySQL 8 service container (services are not
+shared across jobs), running in parallel rather than one after another.
+
+**`test`** — everything except `tests/Concurrency`:
+
 1. Checks out the code.
 2. Installs PHP 8.4 with the extensions the app needs
-   (`mbstring, pdo_mysql, bcmath, gd, zip, intl, exif`).
+   (`mbstring, pdo_mysql, bcmath, gd, zip, intl, exif`), PCOV enabled.
 3. Installs Node 22.
 4. `composer install`, `npm ci`, `npm run build`.
 5. Copies `.env.example` to `.env`, generates an app key.
-6. Starts a real MySQL 8 service container and runs
-   `php artisan migrate --force` against it.
+6. Runs `php artisan migrate --force`.
 7. Runs `pint --test`.
 8. Runs `phpstan analyse` (Larastan).
-9. Runs `pest`.
+9. Runs `pest tests/Unit tests/Feature --coverage --coverage-clover=coverage.xml`,
+   uploads `coverage.xml` as an artifact.
 
-Any step failing turns the whole check red and stops the run — later steps
-do not execute.
+**`test-concurrency`** — only `tests/Concurrency`:
+
+1. Checks out the code.
+2. Installs PHP 8.4 with the same extensions, no coverage driver.
+3. `composer install` (no npm/build step — these tests call Actions
+   directly, no HTTP or Livewire rendering involved).
+4. Copies `.env.example` to `.env`, generates an app key.
+5. Runs `php artisan migrate --force`.
+6. Runs `pest tests/Concurrency`.
+
+Within a job, any step failing turns that job red and stops it — later
+steps in that job do not execute. The two jobs don't block each other.
+
+### Why concurrency tests run separately
+
+`tests/Concurrency/*` spawns real `php` subprocess pairs synchronized on a
+wall-clock barrier (`explanation/concurrency-and-locking.md`) — each test
+pays several seconds of process-boot and barrier-wait overhead that a
+Feature test doesn't. Measured on a full run: 9 concurrency test files took
+about as long as the other ~30 test files combined (roughly 103s of a
+181s total). Splitting them into a parallel job doesn't reduce that time,
+but it stops it from sitting on the same critical path as everything else,
+cutting wall-clock time on the PR check without cutting test count.
+
+It also has no coverage driver, matching ADR-0009's documented blind spot:
+PCOV cannot see into a separate `php` subprocess, so collecting coverage in
+this job would cost time and prove nothing.
 
 ## Why Pest runs against the MySQL service
 
@@ -56,7 +87,7 @@ seconds.
 
 ## Reproducing a CI failure locally
 
-Same three commands the workflow runs, through Docker:
+Same commands the workflow runs, through Docker:
 
 ```bash
 docker compose exec app ./vendor/bin/pint --test
@@ -64,13 +95,17 @@ docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
 docker compose exec app ./vendor/bin/pest
 ```
 
+`pest` with no path runs everything, `test` and `test-concurrency` combined.
+To reproduce one job exactly: `pest tests/Unit tests/Feature` or
+`pest tests/Concurrency`.
+
 `pint --test` only checks formatting and reports violations — it does not
 fix them. Run `./vendor/bin/pint` (no `--test`) to actually apply the fixes,
 then re-run `--test` to confirm.
 
 ## What a green check does and does not mean
 
-Green means Pint, Larastan, and Pest all passed.
+Green means Pint, Larastan, and Pest (both jobs) all passed.
 
 It does **not** block a merge, and on this repository it cannot.
 

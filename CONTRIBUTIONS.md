@@ -22,7 +22,7 @@ needed to touch.
 
 | Area | Work |
 |---|---|
-| CI | Pipeline setup |
+| CI | Pipeline setup; split into parallel jobs so concurrency tests' wall-clock cost stops sitting on the critical path |
 | Enums | Backed enums, casts, status transition matrices |
 | Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV), benchmarked against Xdebug rather than assumed</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |

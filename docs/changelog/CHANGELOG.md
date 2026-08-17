@@ -233,6 +233,18 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- CI split into two parallel jobs: `test` (Pint, Larastan, `tests/Unit` and
+  `tests/Feature` with PCOV coverage) and `test-concurrency`
+  (`tests/Concurrency` only, no coverage driver — PCOV cannot see inside
+  its subprocesses per ADR-0009). Measured on a full run: the 9 concurrency
+  test files took as long as the other ~30 test files combined (~103s of
+  181s total), all of it process-boot and barrier-wait overhead rather than
+  test logic. Running them alongside the fast suite instead of after it
+  removes that time from the critical path without cutting test count.
+  `pest --coverage` also dropped `--coverage-html`: rendering the HTML
+  report was most of the coverage step's own time for an artifact nothing
+  in CI reads. The Clover XML upload is unaffected; regenerate HTML locally
+  when a per-class table is needed (`docs/reference/coverage.md`).
 - Local database container runs with relaxed durability
   (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).
   Production is unaffected — it runs on Forge with MySQL's defaults. A single

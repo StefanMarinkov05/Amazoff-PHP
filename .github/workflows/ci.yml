@@ -102,18 +102,91 @@ jobs:
       # Coverage is collected, not gated — no --min threshold. ADR-0009: a
       # number this project already distrusts as proof (reference/write-rules/concurrency.md)
       # shouldn't be able to block a merge on its own.
+      #
+      # Clover only, no --coverage-html: rendering the HTML report (walking
+      # and formatting every source file, not just the ones under test) was
+      # most of this step's time. Nothing in CI reads the HTML; regenerate
+      # it locally with the command in reference/coverage.md when a
+      # per-class table is actually needed.
+      #
+      # tests/Concurrency excluded: it runs in the parallel test-concurrency
+      # job below. PCOV can't see inside its subprocesses anyway (ADR-0009),
+      # so nothing is lost by collecting coverage only here.
       - name: Pest (tests, with coverage)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: ./vendor/bin/pest --coverage --coverage-clover=coverage.xml --coverage-html=coverage-html
+        run: ./vendor/bin/pest tests/Unit tests/Feature --coverage --coverage-clover=coverage.xml
 
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-html
-          path: online-store/coverage-html
+          name: coverage-clover
+          path: online-store/coverage.xml
           retention-days: 14
+
+  test-concurrency:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: online_shop_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: online-store/vendor
+          key: composer-${{ hashFiles('online-store/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: online_shop_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      # No frontend build, no coverage driver: this job only runs
+      # tests/Concurrency, which spawns its own php subprocesses per
+      # ADR-0008/explanation/concurrency-and-locking.md and never touches
+      # a browser or an instrumented line PCOV can see.
+      - name: Pest (concurrency tests)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest tests/Concurrency
