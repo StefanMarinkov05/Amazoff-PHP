@@ -22,11 +22,11 @@ needed to touch.
 
 | Area | Work |
 |---|---|
-| CI | Pipeline setup; split into parallel jobs so concurrency tests' wall-clock cost stops sitting on the critical path |
+| CI | Pipeline setup |
 | Enums | Backed enums, casts, status transition matrices |
 | Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV), benchmarked against Xdebug rather than assumed</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |
-| Optimization | Database engine, packages, and container tuning — migrations and tests from 8m to 30s |
+| Optimization | <ul><li>Database engine, packages, and container tuning — migrations and tests from 8m to 30s</li><li>CI split into parallel jobs and dropped the HTML coverage report — concurrency tests' wall-clock cost (103s of a 181s run) no longer sits on the critical path</li></ul> |
 | Authorization | Permissions, roles, policies, administrator bypass |
 | Admin panel | Roles and permissions screen |
 | Actions | Inventory and cart business logic, locking for contested state |
