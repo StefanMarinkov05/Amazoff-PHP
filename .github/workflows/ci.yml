@@ -41,6 +41,7 @@ jobs:
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
   test:
+    name: test (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
 
     # Shards, not one job. ADR-0010 has the timing behind the split; a new
@@ -65,7 +66,9 @@ jobs:
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
+              tests/Feature/Actions/Coupon
               tests/Feature/Actions/Inventory
+              tests/Feature/Actions/Order
               tests/Feature/ExampleTest.php
               tests/Feature/FactoryTest.php
               tests/Feature/Filament
@@ -128,6 +131,7 @@ jobs:
         run: ./vendor/bin/pest ${{ matrix.shard.paths }}
 
   test-concurrency:
+    name: test-concurrency (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
 
     # Shards, not one job. ADR-0010 has the timing behind the split; adding
@@ -144,11 +148,13 @@ jobs:
               tests/Concurrency/MergeGuestCartConcurrencyTest.php
               tests/Concurrency/ReleaseStockConcurrencyTest.php
               tests/Concurrency/ReserveStockConcurrencyTest.php
+              tests/Concurrency/RedeemCouponConcurrencyTest.php
           - name: c
             paths: >-
               tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php
               tests/Concurrency/MainProductImageConcurrencyTest.php
               tests/Concurrency/PublishProductConcurrencyTest.php
+              tests/Concurrency/CreateOrderConcurrencyTest.php
 
     services:
       mysql:

@@ -49,21 +49,19 @@ accepted ADR, say so explicitly rather than silently diverging.
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
   `run-the-tests.md`, `start-a-session.md`, `use-ci.md`,
   `write-docs-and-comments.md`. Short recipes; read the relevant one
-  before improvising the task from scratch.
+  before improvising the task from scratch. Definetely read `start-a-session.md`
+  and the prompt in it in case anything is missing from here
 
 ---
 
 ## Architecture — non-negotiable
 
 - Business logic lives in `app/Actions/{Area}/{Verb}{Noun}.php`. One command
-  per class, single `handle()`. Four areas exist today — `Cart`, `Catalogue`,
-  `Coupon`, `Inventory` — grouped by the aggregate the write belongs to, not
-  by the caller. `docs/reference/actions.md` is the current, complete list;
-  don't infer what exists from memory or from this file.
+  per class, single `handle()`, grouped by the aggregate the write belongs
+  to, not by the caller. `docs/reference/actions.md` is the current,
+  complete list; don't infer what exists from memory or from this file.
 - Controllers and Livewire components are thin: validate → call Action →
-  respond. **No storefront exists yet** — every Action so far is reachable
-  only from the Filament admin panel or from tests. Don't assume a public
-  controller or Livewire component exists just because an Action does.
+  respond.
 - Filament resources call the same Actions as the storefront wherever a rule
   exists — this is what keeps two developers from building two subtly
   different versions of the same business rule. A rule exists when a write

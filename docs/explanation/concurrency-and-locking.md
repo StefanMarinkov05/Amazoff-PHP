@@ -271,6 +271,42 @@ the second connection — and asking for one makes that connection queue behind
 the test's own uncommitted write. These tests commit their fixtures and
 truncate afterwards.
 
+### Why the worker is generated, not committed
+
+Every test in `tests/Concurrency/` builds its worker as a PHP nowdoc
+(`<<<'PHP'`, no interpolation — the content is identical on every run of a
+given test), writes it to `base_path()` with `file_put_contents()`, spawns
+it, then `@unlink()`s it. Not a static file committed alongside the test.
+
+Two reasons, one deliberate and one a cost not yet paid off:
+
+- **Colocation.** The worker's exact behaviour — which Action it calls, with
+  what arguments, what it does on failure — sits in the same file as the
+  assertions reading its outcome. Auditing whether a race test proves what
+  it claims (`how-to/run-the-tests.md`'s "checking that a test can fail")
+  means reading one file, not cross-referencing a test against a separate
+  worker it was written to match.
+- **The file is treated as disposable, not as source.** It lands in the
+  project root next to `artisan` and `composer.json` — deliberately outside
+  `tests/`, so it never looks like a permanent part of the suite — and
+  `@unlink()` removes it once the process exits. Nothing gitignores it: if
+  a run aborts before reaching that line (a fatal error mid-spawn, a killed
+  test process), the generated file is left behind, untracked, in the
+  project root. Rare in practice, not impossible.
+
+The cost: since the nowdoc never varies per run, the Laravel-bootstrap
+boilerplate at the top of every worker (`require autoload.php`, boot the
+kernel, `DB::select('SELECT 1')` to warm the connection, the busy-wait
+barrier) is copy-pasted near-verbatim across all ten files rather than
+written once. A static, committed worker file per test would read
+identically and cost nothing at runtime that generating it doesn't already
+cost. Colocation was the reason this wasn't done that way from the start;
+it does not require the bootstrap boilerplate to be duplicated to get that
+benefit. Moving the shared bootstrap into `tests/Concurrency/helpers/` and
+keeping each worker's unique Action-call line inline is an agreed follow-up
+PR, deferred until after the change that prompted this note merges — not
+done here.
+
 ### A cross-Action race needs a fourth thing: a rendezvous
 
 The three facts above are enough when both processes run the *same* Action —

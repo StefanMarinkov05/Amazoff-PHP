@@ -24,13 +24,13 @@ needed to touch.
 |---|---|
 | CI | Pipeline setup |
 | Enums | Backed enums, casts, status transition matrices |
-| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV), benchmarked against Xdebug rather than assumed</li></ul> |
+| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |
-| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li></ul> |
+| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
 | Authorization | Permissions, roles, policies, administrator bypass |
 | Admin panel | Roles and permissions screen |
-| Actions | Inventory and cart business logic, locking for contested state |
-| Security | Actor parameter made required, no silent default |
+| Actions | Full `app/Actions` |
+| Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev

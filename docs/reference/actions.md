@@ -3,9 +3,10 @@
 What exists in `app/Actions` today. Why they are written this way is
 ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
 two of them run at once is `reference/write-rules/product.md`,
-`reference/write-rules/cart.md`, and `reference/write-rules/coupon.md`.
+`reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
+`reference/write-rules/order.md`.
 
-Twenty Actions across four areas, nine domain exceptions.
+Twenty-one Actions across five areas, ten domain exceptions.
 
 ## Naming
 
@@ -110,7 +111,6 @@ own outer transaction and must `lockForUpdate()` specifically on that retry;
 | `RemoveCoupon` | `carts.coupon_id` (null) | — no non-human caller, no parameter | — never refuses |
 | `RedeemCoupon` | `coupon_redemptions` | — no non-human caller, no parameter (decision 4) | `CouponNotApplicableException` |
 
-`misc/coupon-actions-plan.md` is the design record; ten decisions,
 `reference/write-rules/coupon.md` is the outcomes page.
 
 `RedeemCoupon` re-validates everything `ApplyCoupon` checked, under
@@ -128,6 +128,28 @@ cannot express — the window, minimum, and scope checks), while
 itself, since a bare `UPDATE ... SET coupon_id = NULL` has no invariant of
 its own. `CouponResource` stays default Filament CRUD — creating or editing
 a `Coupon` row is single-table with no second writer, decision 10.
+
+## Order
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException` |
+
+`reference/write-rules/order.md` is the outcomes page.
+
+Recomputes `subtotal_amount`/`vat_amount`/`total_amount` from the cart's
+current contents — the signature carries no total input at all, so §28's
+"never trust the browser total" is structural rather than an added check.
+Snapshots product and variation data onto each `order_items` row (§19);
+`discount_amount` there is always `'0.00'`, since the coupon discount is
+an order-level deduction, never a per-line rewrite. `serial_number` is
+derived from the row's own auto-increment id after insert, updated inside
+the same transaction before commit — no dedicated counter, no extra lock.
+No pre-order stock hold either: stock is reserved once, at order creation.
+
+Every order is created at `OrderStatus::New`, `PaymentStatus::Pending`,
+regardless of payment method — `TransitionOrderStatus` does not exist yet,
+so the `New => AwaitingPayment`/`=> Confirmed` move is a later Action's job.
 
 ## Transactions
 
@@ -147,6 +169,7 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `RedeemCoupon` | yes — wraps the lock, both usage-cap counts, and the insert |
 | `ApplyCoupon` | no — a single-row `UPDATE`, no lock to hold open |
 | `RemoveCoupon` | no — a single-row `UPDATE` |
+| `CreateOrder` | yes — wraps the order, items, addresses, `RedeemCoupon`, and every `ReserveStock` call |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.
@@ -156,6 +179,29 @@ whole operation, so the caller owns the boundary and it joins one.
 `UpdateProduct` writes a single row and would not need a transaction for
 atomicity. It opens one because `lockForUpdate()` outside a transaction
 releases immediately and protects nothing.
+
+### Panel-level transactions
+
+`AdminPanelProvider::panel()` calls `->databaseTransactions()` — off by
+default in Filament v4. Without it, a Filament Create/Edit page's record
+save and its relationship sync are separate, individually-committed
+statements: a `Select` field using `->relationship()->multiple()` (`CouponForm`'s
+`products`/`productCategories`, `ProductForm`'s `attributes`, `RoleForm`'s
+permission checklists) saves as a `detach()` of removed rows, then a
+`sync()` of added ones — two statements, not one. A read that isn't inside
+either statement (`CalculateCouponDiscount::forLines()`, called by
+`ApplyCoupon`/`RedeemCoupon`, reads `coupon_product`/
+`coupon_product_category` live and uncached) can land between them and see
+neither the old nor the new eligible-product list. `databaseTransactions()`
+wraps the whole page save in one `DB::transaction()`, closing this for
+every resource at once rather than per-resource.
+
+Writing a new Action needs no special handling for this. Nesting is by
+savepoint (above), so an Action that opens `DB::transaction()` per the
+table above behaves the same whether it's called from the storefront, from
+inside a Filament page's now-open transaction, or from a test — open one
+(or don't) exactly as the table says, and let savepoint nesting decide who
+actually commits.
 
 ## Locking
 
@@ -181,9 +227,18 @@ order.
 usage-cap `COUNT` against `coupon_redemptions` — no `CHECK` can span the
 two tables, so without the lock two concurrent redemptions both read the
 pre-redemption count and both insert. Declared lock order is `products`,
-then `coupons`, then `inventories` (decision 5); no Action today takes more
-than one of the three, so this constrains `CreateOrder` once it composes
-them, not a currently exercised path.
+then `coupons`, then `inventories` (decision 5).
+
+`CreateOrder` is the first Action to actually exercise part of that order:
+it composes `RedeemCoupon` (locks `coupons`) before `ReserveStock` (locks
+`inventories`, one row per line, sorted by `product_variation_id`), but
+takes no `products` lock itself — nothing it writes touches `products`.
+The sort's own correctness is unverified by any test: `cart_items`'s
+`UNIQUE(cart_id, product_variation_id)` index happens to return rows
+already sorted by `product_variation_id` for this query shape on the
+current MySQL version, so removing the explicit sort does not turn any
+test red. Kept anyway rather than relying on that unstated access path.
+`reference/write-rules/order.md`, "Known gaps" has the full reasoning.
 
 Duplicate SKUs and slugs are safe by the `UNIQUE` constraints from ADR-0005
 rather than by anything in the Actions. A losing insert raises
@@ -211,6 +266,7 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
 | `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon` | the coupon; six named constructors, one per refusal reason |
+| `EmptyCartException` | `CreateOrder` | the cart |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -228,7 +284,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Eight of the nine extend `RuntimeException`. `InvalidCartQuantityException`
+Nine of the ten extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -257,15 +313,14 @@ covers both, plus that a non-domain exception of either base class and a
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 | `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
-| `RedeemCoupon` | tests only — `CreateOrder`, its only intended caller, does not exist |
+| `RedeemCoupon` | composed by `CreateOrder`, tests |
+| `CreateOrder` | tests only |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
-criterion 1 is met for the panel; no storefront exists yet. The Cart and
-Coupon Actions have no caller at all outside tests — no storefront
-controller or Livewire component exists yet, same gap `write-rules/cart.md`
-and `write-rules/coupon.md` name. `RedeemCoupon` additionally has no caller
-even in principle yet: it is designed to run inside `CreateOrder`'s
-transaction (`misc/coupon-actions-plan.md`, decision 5), which is slice 5.
+criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have
+no caller outside tests yet. `RedeemCoupon` now has the caller it was
+designed for — `CreateOrder` composes it — even though `CreateOrder`
+itself still has no caller beyond tests.
 
 Domain exceptions become notifications rather than 500s, via
 `App\Filament\Concerns\ReportsDomainFailures`. Only `App\Exceptions` are

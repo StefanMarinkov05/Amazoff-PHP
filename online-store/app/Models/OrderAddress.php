@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property AddressType $type
+ * @property DeliveryType $delivery_type
+ */
 class OrderAddress extends Model
 {
     use HasFactory;
