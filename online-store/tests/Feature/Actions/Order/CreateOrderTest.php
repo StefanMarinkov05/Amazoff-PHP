@@ -15,6 +15,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\EmptyCartException;
 use App\Exceptions\InsufficientStockException;
+use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\CouponRedemption;
 use App\Models\Inventory;
@@ -22,6 +23,7 @@ use App\Models\Order;
 use App\Models\OrderAddress;
 use App\Models\OrderItem;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 
 /*
@@ -410,4 +412,76 @@ it('leaves the cart itself and its items in place afterward', function (): void 
 
     expect($cart->fresh())->not->toBeNull()
         ->and($item->fresh())->not->toBeNull();
+});
+
+it('leaves a placed order intact after its source cart is deleted', function (): void {
+    // Empirical evidence for the "safe by construction" claim in
+    // write-rules/order.md: order_items carries no foreign key back to
+    // carts at all, so nothing here can cascade or corrupt once the order
+    // exists — proven by actually deleting the cart, not just cited from
+    // the schema.
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(), 1);
+
+    $order = app(CreateOrder::class)->handle($cart, checkoutCustomer(), checkoutAddress(), checkoutAddress(), null);
+    $cart->delete();
+
+    expect(Order::find($order->getKey()))->not->toBeNull()
+        ->and(OrderItem::where('order_id', $order->getKey())->count())->toBe(1);
+});
+
+it('accepts a source_address_id that belongs to the checking-out actor', function (): void {
+    $user = User::factory()->create();
+    $address = Address::factory()->for($user)->create();
+    $cart = emptyCart($user);
+    app(AddToCart::class)->handle($cart, cartVariation(), 1);
+
+    $order = app(CreateOrder::class)->handle(
+        $cart,
+        checkoutCustomer(),
+        checkoutAddress(['source_address_id' => $address->getKey()]),
+        checkoutAddress(),
+        $user,
+    );
+
+    $billing = OrderAddress::where('order_id', $order->getKey())->where('type', AddressType::Billing)->firstOrFail();
+    expect($billing->source_address_id)->toBe($address->getKey());
+});
+
+it('refuses a source_address_id that belongs to another user', function (): void {
+    $owner = User::factory()->create();
+    $address = Address::factory()->for($owner)->create();
+    $actor = User::factory()->create();
+    $cart = emptyCart($actor);
+    app(AddToCart::class)->handle($cart, cartVariation(), 1);
+
+    // Same shape as every other "scope to the acting user" rule in CLAUDE.md:
+    // a query that cannot return another customer's row, not a check against
+    // one already loaded — so this fails as a not-found, not a leak.
+    expect(fn () => app(CreateOrder::class)->handle(
+        $cart,
+        checkoutCustomer(),
+        checkoutAddress(['source_address_id' => $address->getKey()]),
+        checkoutAddress(),
+        $actor,
+    ))->toThrow(ModelNotFoundException::class);
+
+    expect(Order::count())->toBe(0);
+});
+
+it('refuses any source_address_id from a guest, who has no saved addresses to own', function (): void {
+    $owner = User::factory()->create();
+    $address = Address::factory()->for($owner)->create();
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(), 1);
+
+    expect(fn () => app(CreateOrder::class)->handle(
+        $cart,
+        checkoutCustomer(),
+        checkoutAddress(),
+        checkoutAddress(['source_address_id' => $address->getKey()]),
+        null,
+    ))->toThrow(ModelNotFoundException::class);
+
+    expect(Order::count())->toBe(0);
 });

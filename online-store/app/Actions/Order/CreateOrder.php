@@ -12,6 +12,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\EmptyCartException;
 use App\Exceptions\InsufficientStockException;
+use App\Models\Address;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
@@ -25,6 +26,7 @@ use App\Support\CalculateCouponDiscount;
 use App\Support\CouponDiscountLine;
 use App\Support\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -138,8 +140,8 @@ final class CreateOrder
                 $this->createOrderItem($order, $line);
             }
 
-            $this->createOrderAddress($order, $billingAddress, AddressType::Billing);
-            $this->createOrderAddress($order, $deliveryAddress, AddressType::Delivery);
+            $this->createOrderAddress($order, $billingAddress, AddressType::Billing, $actor);
+            $this->createOrderAddress($order, $deliveryAddress, AddressType::Delivery, $actor);
 
             if ($coupon !== null) {
                 $this->redeemCoupon->handle($coupon, $order);
@@ -197,10 +199,23 @@ final class CreateOrder
     }
 
     /**
+     * `source_address_id`, if given, is scoped to `$actor` the same way
+     * CLAUDE.md requires everywhere else (`auth()->user()->orders()->
+     * findOrFail($id)`) — a query that cannot return another customer's
+     * row, rather than a check against one already loaded. A guest has no
+     * saved addresses to own, so any `source_address_id` from a guest
+     * fails the same way.
+     *
      * @param  array<string, mixed>  $address
      */
-    private function createOrderAddress(Order $order, array $address, AddressType $type): void
+    private function createOrderAddress(Order $order, array $address, AddressType $type, ?User $actor): void
     {
+        if (isset($address['source_address_id'])) {
+            $address['source_address_id'] = $actor !== null
+                ? $actor->addresses()->findOrFail($address['source_address_id'])->getKey()
+                : throw (new ModelNotFoundException)->setModel(Address::class, [$address['source_address_id']]);
+        }
+
         $model = new OrderAddress($address);
         $model->order_id = $order->getKey();
         $model->type = $type;
