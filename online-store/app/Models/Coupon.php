@@ -11,6 +11,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property CouponType $type
+ * @property CouponScope $scope
+ */
 class Coupon extends Model
 {
     use HasFactory;
@@ -33,7 +37,6 @@ class Coupon extends Model
         'ends_at',
         'total_usage_limit',
         'usage_limit_per_customer',
-        'times_used',
         'is_active',
     ];
 
