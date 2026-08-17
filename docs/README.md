@@ -33,8 +33,9 @@ mark the old one `Superseded by ADR-XXXX`.
 
 ## [Changelog](changelog/)
 
-What actually shipped, in order: added, changed, fixed, removed. One entry
-per release.
+What actually shipped, in order: added, changed, fixed, removed. One file,
+not one per release — see `CONTRIBUTING.md` for the entry format and what
+goes in the `Open` section.
 
 ---
 
