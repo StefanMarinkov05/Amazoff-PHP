@@ -16,30 +16,40 @@ untested. A formatting failure reached `main` that way.
 
 ## Where to see it
 
-On a PR, in the checks section near the bottom, listed as "CI / test" and
-"CI / test-concurrency" — two jobs, running in parallel. The repo's
-**Actions** tab has the full run history.
+On a PR, in the checks section near the bottom, listed as "CI / lint",
+two "CI / test (1/2)" shards, and three "CI / test-concurrency (a/b/c)"
+shards — six jobs, running in parallel. The repo's **Actions** tab has the
+full run history.
 
 ## What it does, in order
 
-Two jobs, each with its own MySQL 8 service container (services are not
-shared across jobs), running in parallel rather than one after another.
+Six jobs. `test` and `test-concurrency` each have their own MySQL 8
+service container per shard (services are not shared across jobs or
+matrix shards); `lint` needs no database. All run in parallel rather than
+one after another.
 
-**`test`** — everything except `tests/Concurrency`:
+**`lint`** — no database needed:
+
+1. Checks out the code.
+2. Installs PHP 8.4, no coverage driver.
+3. `composer install`.
+4. Runs `pint --test`.
+5. Runs `phpstan analyse` (Larastan).
+
+**`test`** — a 2-shard matrix over `tests/Unit` and `tests/Feature`:
 
 1. Checks out the code.
 2. Installs PHP 8.4 with the extensions the app needs
-   (`mbstring, pdo_mysql, bcmath, gd, zip, intl, exif`), PCOV enabled.
-3. Installs Node 22.
-4. `composer install`, `npm ci`, `npm run build`.
-5. Copies `.env.example` to `.env`, generates an app key.
-6. Runs `php artisan migrate --force`.
-7. Runs `pint --test`.
-8. Runs `phpstan analyse` (Larastan).
-9. Runs `pest tests/Unit tests/Feature --coverage --coverage-clover=coverage.xml`,
-   uploads `coverage.xml` as an artifact.
+   (`mbstring, pdo_mysql, bcmath, gd, zip, intl, exif`), no coverage driver.
+3. `composer install` (no npm/build step — nothing under `tests/Unit` or
+   `tests/Feature` touches a compiled asset or calls `@vite`/`Vite::` /
+   `mix()`, verified by grep before removing the step).
+4. Copies `.env.example` to `.env`, generates an app key.
+5. Runs `php artisan migrate --force`.
+6. Runs `pest` against that shard's file list.
 
-**`test-concurrency`** — only `tests/Concurrency`:
+**`test-concurrency`** — a 3-shard matrix, each shard running a fixed
+subset of `tests/Concurrency`:
 
 1. Checks out the code.
 2. Installs PHP 8.4 with the same extensions, no coverage driver.
@@ -47,25 +57,57 @@ shared across jobs), running in parallel rather than one after another.
    directly, no HTTP or Livewire rendering involved).
 4. Copies `.env.example` to `.env`, generates an app key.
 5. Runs `php artisan migrate --force`.
-6. Runs `pest tests/Concurrency`.
+6. Runs `pest` against that shard's file list.
 
-Within a job, any step failing turns that job red and stops it — later
-steps in that job do not execute. The two jobs don't block each other.
+Within a job, any step failing turns that job (or that shard) red and
+stops it — later steps do not execute. Jobs and shards don't block each
+other.
 
-### Why concurrency tests run separately
+### Why `test` and `test-concurrency` are sharded
 
 `tests/Concurrency/*` spawns real `php` subprocess pairs synchronized on a
 wall-clock barrier (`explanation/concurrency-and-locking.md`) — each test
 pays several seconds of process-boot and barrier-wait overhead that a
 Feature test doesn't. Measured on a full run: 9 concurrency test files took
-about as long as the other ~30 test files combined (roughly 103s of a
-181s total). Splitting them into a parallel job doesn't reduce that time,
-but it stops it from sitting on the same critical path as everything else,
-cutting wall-clock time on the PR check without cutting test count.
+about as long as the other ~30 test files combined. Running them in a
+parallel job instead of after the fast suite doesn't reduce that time, but
+takes it off the same critical path.
 
-It also has no coverage driver, matching ADR-0009's documented blind spot:
-PCOV cannot see into a separate `php` subprocess, so collecting coverage in
-this job would cost time and prove nothing.
+Within each suite, time is not evenly spread, and the two suites are
+uneven for different reasons — ADR-0010 has the full measured numbers and
+the false leads ruled out along the way:
+
+- In `tests/Concurrency`, one file (the only one using `->repeat(6)`) is
+  over half the suite's own wall-clock time on its own — a fixed cost of
+  the synchronization mechanism itself, paid per repeat.
+- In `tests/Unit`+`tests/Feature`, one file —
+  `tests/Feature/RolePermissionTest.php` — is over a third of the suite's
+  time on its own, for an unrelated reason: its `beforeEach` reseeds
+  `PermissionSeeder`, `RoleSeeder`, and `UserSeeder` before *every* test
+  rather than once per file (deliberate — the permission registrar caches
+  for 24h, and without forgetting it between tests the second test
+  resolves against the first test's already-truncated rows).
+
+Both suites' shards are hand-partitioned against these measurements, not
+split evenly by file count — an even split would still strand the one
+dominant file alone in whatever shard it landed in.
+
+**Adding a new test file**: for `tests/Concurrency`, add it to shard b or
+c (the two lighter shards) unless you already know it will be slow — a
+`->repeat()` call, several assertions per test, or a workload closer to
+`AddToCartVsMergeGuestCartConcurrencyTest` than a single race. For
+`tests/Unit`/`tests/Feature`, add it to shard 2 unless it shares
+`RolePermissionTest`'s per-test reseeding pattern, in which case shard 1.
+Re-balance (or give a file its own shard) once one shard's
+`gh run view <id> --log` time visibly outruns the others by more than its
+fair share — this is optimizing a number nobody watches per-commit, not
+something to re-measure on every PR.
+
+No job in this workflow collects coverage. It was dropped from CI
+entirely rather than merged across shards or kept on one shard only — see
+ADR-0009 and ADR-0010 for why. Generate it locally with `pest --coverage`
+(`docs/reference/coverage.md` has the commands) when the numbers are
+actually needed.
 
 ## Why Pest runs against the MySQL service
 
@@ -82,8 +124,7 @@ run. A factory writing past a `varchar(60)` passed every time.
 
 The cost that normally argues for SQLite — a slow `migrate:fresh` — turned out
 to be the database container's durability settings rather than MySQL itself.
-See the entry in `troubleshooting.md`; the full suite runs in about forty
-seconds.
+See the entry in `troubleshooting.md`.
 
 ## Reproducing a CI failure locally
 
@@ -95,9 +136,12 @@ docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
 docker compose exec app ./vendor/bin/pest
 ```
 
-`pest` with no path runs everything, `test` and `test-concurrency` combined.
-To reproduce one job exactly: `pest tests/Unit tests/Feature` or
-`pest tests/Concurrency`.
+`pest` with no path runs everything, every shard of `test` and
+`test-concurrency` combined. To reproduce one shard, use its file list
+from `.github/workflows/ci.yml`'s `strategy.matrix.shard`; `pest
+tests/Unit tests/Feature` alone reproduces both `test` shards together,
+and `pest tests/Concurrency` alone reproduces all three
+`test-concurrency` shards together.
 
 `pint --test` only checks formatting and reports violations — it does not
 fix them. Run `./vendor/bin/pint` (no `--test`) to actually apply the fixes,
@@ -105,7 +149,8 @@ then re-run `--test` to confirm.
 
 ## What a green check does and does not mean
 
-Green means Pint, Larastan, and Pest (both jobs) all passed.
+Green means Pint, Larastan, and Pest (all shards of `test` and
+`test-concurrency`) all passed.
 
 It does **not** block a merge, and on this repository it cannot.
 

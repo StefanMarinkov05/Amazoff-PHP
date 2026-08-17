@@ -1,15 +1,7 @@
 name: CI
 
-# Every pull request, not only those targeting main. A chain of feature
-# branches merging into each other — lookup-resources into feature into
-# development into main — previously ran CI on the last hop alone, so the
-# earlier PRs reported "no checks reported", which reads as clean and means
-# untested. A Pint failure reached main that way.
-#
-# This is also the only enforcement available: the repository is private on a
-# free organisation plan, where GitHub offers neither branch protection nor
-# rulesets, so a red check cannot block a merge. See
-# docs/how-to/use-ci.md.
+# See docs/how-to/use-ci.md for the reasoning behind this trigger, the job
+# split, and the concurrency shards below.
 on:
   push:
     branches: [main]
@@ -20,22 +12,8 @@ defaults:
     working-directory: online-store
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_DATABASE: online_shop_test
-          MYSQL_ROOT_PASSWORD: password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - uses: actions/checkout@v4
@@ -43,18 +21,9 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          # Matches composer.lock, which is solved against PHP 8.4-only
-          # symfony/* packages — see docker/php/Dockerfile for the same note.
           php-version: "8.4"
           extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
-          coverage: pcov
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: online-store/package-lock.json
+          coverage: none
 
       - name: Cache Composer packages
         uses: actions/cache@v4
@@ -65,71 +34,42 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-
-      - name: Run migrations
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_DATABASE: online_shop_test
-          DB_USERNAME: root
-          DB_PASSWORD: password
-        run: php artisan migrate --force
-
-      # Deterministic checks block the merge; a human or LLM review advises,
-      # it does not replace this.
       - name: Pint (formatting)
         run: ./vendor/bin/pint --test
 
       - name: PHPStan / Larastan (static analysis)
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
-      # phpunit.xml sets DB_CONNECTION=mysql and DB_DATABASE=online_shop_test;
-      # host, port and credentials come from here. Tests run against the same
-      # engine as production because SQLite enforces neither column lengths nor
-      # the CHECK constraints from ADR-0005 — see docs/how-to/use-ci.md.
-      #
-      # Coverage is collected, not gated — no --min threshold. ADR-0009: a
-      # number this project already distrusts as proof (reference/write-rules/concurrency.md)
-      # shouldn't be able to block a merge on its own.
-      #
-      # Clover only, no --coverage-html: rendering the HTML report (walking
-      # and formatting every source file, not just the ones under test) was
-      # most of this step's time. Nothing in CI reads the HTML; regenerate
-      # it locally with the command in reference/coverage.md when a
-      # per-class table is actually needed.
-      #
-      # tests/Concurrency excluded: it runs in the parallel test-concurrency
-      # job below. PCOV can't see inside its subprocesses anyway (ADR-0009),
-      # so nothing is lost by collecting coverage only here.
-      - name: Pest (tests, with coverage)
-        env:
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_USERNAME: root
-          DB_PASSWORD: password
-        run: ./vendor/bin/pest tests/Unit tests/Feature --coverage --coverage-clover=coverage.xml
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-clover
-          path: online-store/coverage.xml
-          retention-days: 14
-
-  test-concurrency:
+  test:
     runs-on: ubuntu-latest
+
+    # Shards, not one job. ADR-0010 has the timing behind the split; a new
+    # tests/Unit or tests/Feature file goes in shard 2 (the lighter one)
+    # unless it shares RolePermissionTest's per-test reseeding pattern.
+    strategy:
+      matrix:
+        shard:
+          - name: "1"
+            paths: >-
+              tests/Feature/RolePermissionTest.php
+              tests/Feature/RoleResourceTest.php
+              tests/Feature/Actions/Catalogue/ProductImageTest.php
+              tests/Unit/Enums/TransitionMatrixTest.php
+          - name: "2"
+            paths: >-
+              tests/Unit/Enums/EnumCompletenessTest.php
+              tests/Feature/Actions/Cart
+              tests/Feature/Actions/Catalogue/AddProductVariationTest.php
+              tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
+              tests/Feature/Actions/Catalogue/CreateProductTest.php
+              tests/Feature/Actions/Catalogue/DeleteProductTest.php
+              tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
+              tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
+              tests/Feature/Actions/Inventory
+              tests/Feature/ExampleTest.php
+              tests/Feature/FactoryTest.php
+              tests/Feature/Filament
+              tests/Feature/Support
 
     services:
       mysql:
@@ -179,14 +119,89 @@ jobs:
           DB_PASSWORD: password
         run: php artisan migrate --force
 
-      # No frontend build, no coverage driver: this job only runs
-      # tests/Concurrency, which spawns its own php subprocesses per
-      # ADR-0008/explanation/concurrency-and-locking.md and never touches
-      # a browser or an instrumented line PCOV can see.
-      - name: Pest (concurrency tests)
+      - name: Pest (tests, shard ${{ matrix.shard.name }})
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: ./vendor/bin/pest tests/Concurrency
+        run: ./vendor/bin/pest ${{ matrix.shard.paths }}
+
+  test-concurrency:
+    runs-on: ubuntu-latest
+
+    # Shards, not one job. ADR-0010 has the timing behind the split; adding
+    # a new tests/Concurrency file goes in the lightest shard, or earns its
+    # own once shards drift far enough apart to matter again.
+    strategy:
+      matrix:
+        shard:
+          - name: a
+            paths: tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php
+          - name: b
+            paths: >-
+              tests/Concurrency/AddToCartConcurrencyTest.php
+              tests/Concurrency/MergeGuestCartConcurrencyTest.php
+              tests/Concurrency/ReleaseStockConcurrencyTest.php
+              tests/Concurrency/ReserveStockConcurrencyTest.php
+          - name: c
+            paths: >-
+              tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php
+              tests/Concurrency/MainProductImageConcurrencyTest.php
+              tests/Concurrency/PublishProductConcurrencyTest.php
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: online_shop_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: online-store/vendor
+          key: composer-${{ hashFiles('online-store/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: online_shop_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Pest (concurrency tests, shard ${{ matrix.shard.name }})
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest ${{ matrix.shard.paths }}

@@ -56,12 +56,12 @@ then report generation exhausted 128M building `coverage.php`.
 
 ### Reported, not gated
 
-No `--min` threshold, in CI or anywhere else. `pest --coverage` runs and
-produces a Clover XML file, uploaded as a CI artifact, but nothing fails the
-build because a percentage moved. CI does not render the HTML report —
-`--coverage-html` was most of the coverage step's wall-clock time for an
-artifact nothing in CI reads; generate it locally when a per-class table is
-actually needed. `how-to/run-the-tests.md` has the commands.
+No `--min` threshold, in CI or anywhere else. Originally `pest --coverage`
+ran in CI and produced a Clover XML artifact; ADR-0010 removed coverage
+collection from CI entirely once `test` became a 2-shard matrix, rather
+than merge two partial reports for a number nobody was gating on.
+`how-to/run-the-tests.md` and `reference/coverage.md` have the commands to
+generate it locally, on demand.
 
 ## Consequences
 
