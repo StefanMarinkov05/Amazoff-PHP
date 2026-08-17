@@ -25,6 +25,20 @@ not exist. All three are exercised only by tests.
 editing a `Coupon` row never touches `coupon_redemptions`, so none of this
 page's Actions run when staff manage coupons in the admin panel.
 
+Editing a coupon's `products`/`productCategories` eligibility list is a
+Filament relationship-select, not an Action — it saves as a `detach()` of
+removed rows followed by a `sync()` of added ones, two separate
+statements. `CalculateCouponDiscount::forLines()` (called by both
+`ApplyCoupon` and `RedeemCoupon`) reads `coupon_product`/
+`coupon_product_category` live, uncached, so a checkout landing between
+those two statements would see a transiently smaller eligible-product
+list than either the old or new intended state. Closed by
+`AdminPanelProvider::panel()` calling `->databaseTransactions()`, which
+wraps a Filament page's whole record-save-plus-relationship-sync in one
+`DB::transaction()` — not specific to `CouponResource`, and also closes
+the same exposure on `ProductForm`'s `attributes` select and `RoleForm`'s
+permission checklists.
+
 ## One actor at a time
 
 | Action | Refused when | Exception |

@@ -180,6 +180,29 @@ whole operation, so the caller owns the boundary and it joins one.
 atomicity. It opens one because `lockForUpdate()` outside a transaction
 releases immediately and protects nothing.
 
+### Panel-level transactions
+
+`AdminPanelProvider::panel()` calls `->databaseTransactions()` — off by
+default in Filament v4. Without it, a Filament Create/Edit page's record
+save and its relationship sync are separate, individually-committed
+statements: a `Select` field using `->relationship()->multiple()` (`CouponForm`'s
+`products`/`productCategories`, `ProductForm`'s `attributes`, `RoleForm`'s
+permission checklists) saves as a `detach()` of removed rows, then a
+`sync()` of added ones — two statements, not one. A read that isn't inside
+either statement (`CalculateCouponDiscount::forLines()`, called by
+`ApplyCoupon`/`RedeemCoupon`, reads `coupon_product`/
+`coupon_product_category` live and uncached) can land between them and see
+neither the old nor the new eligible-product list. `databaseTransactions()`
+wraps the whole page save in one `DB::transaction()`, closing this for
+every resource at once rather than per-resource.
+
+Writing a new Action needs no special handling for this. Nesting is by
+savepoint (above), so an Action that opens `DB::transaction()` per the
+table above behaves the same whether it's called from the storefront, from
+inside a Filament page's now-open transaction, or from a test — open one
+(or don't) exactly as the table says, and let savepoint nesting decide who
+actually commits.
+
 ## Locking
 
 `ReserveStock` and `ReleaseStock` take `lockForUpdate()` on the inventory row
