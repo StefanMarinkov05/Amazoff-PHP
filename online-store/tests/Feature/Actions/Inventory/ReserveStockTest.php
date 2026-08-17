@@ -149,6 +149,13 @@ it('refuses to release more than is reserved', function (): void {
         ->toThrow(InvalidArgumentException::class);
 });
 
+it('rejects a non-positive quantity to release', function (int $quantity): void {
+    $variation = variationWithStock(10, reserved: 2);
+
+    expect(fn () => app(ReleaseStock::class)->handle($variation, $quantity, null))
+        ->toThrow(InvalidArgumentException::class);
+})->with([0, -1]);
+
 it('round-trips a reservation and a release to the starting state', function (): void {
     $variation = variationWithStock(10);
 

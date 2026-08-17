@@ -15,6 +15,7 @@ use App\Models\Inventory;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductReview;
 use App\Models\ProductSpecification;
 use App\Models\ProductVariation;
 use App\Models\WishlistItem;
@@ -24,7 +25,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 /*
  * Deleting and erasing a product. Outcome table in
- * `reference/product-write-rules.md`.
+ * `reference/write-rules/product.md`.
  */
 
 beforeEach(function (): void {
@@ -183,6 +184,16 @@ it('refuses to erase a product that is on a wishlist', function (): void {
 
     expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
         ->toThrow(ProductCannotBeErasedException::class);
+});
+
+it('refuses to erase a product that has been reviewed', function (): void {
+    $product = productWithVariations();
+    ProductReview::factory()->create(['product_id' => $product->getKey()]);
+
+    expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
+        ->toThrow(ProductCannotBeErasedException::class);
+
+    expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue();
 });
 
 it('names the reason it refused, not just the class', function (): void {

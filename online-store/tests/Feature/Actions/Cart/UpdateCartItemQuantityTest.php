@@ -46,13 +46,10 @@ it('rejects a quantity of zero', function (): void {
     $variation = cartVariation(stock: 10);
     $item = app(AddToCart::class)->handle($cart, $variation, 3);
 
-    // §10: quantity never falls below one. Removing a line is RemoveFromCart's
-    // job, and a zero here is a manual entry, not a delete.
-    //
-    // The message, not just the class: chk_products_min_order_quantity_positive
-    // keeps every minimum at 1 or more, so the minimum check below would also
-    // reject a zero and also raise InvalidCartQuantityException. Asserting the
-    // class alone stays green with this guard deleted.
+    // §10: quantity never falls below one; a zero here is a manual entry, not
+    // a delete. The message matters, not just the class: the minimum check
+    // below would also reject a zero, so the class alone stays green with
+    // this guard deleted.
     expect(fn () => app(UpdateCartItemQuantity::class)->handle($item, 0))
         ->toThrow(InvalidCartQuantityException::class, 'Quantity must be at least 1');
 
@@ -103,6 +100,40 @@ it('accepts exactly the product minimum', function (): void {
     app(UpdateCartItemQuantity::class)->handle($item, 6);
 
     expect($item->fresh()->quantity)->toBe(6);
+});
+
+it('refuses to leave a line at its stored quantity once the minimum rises above it', function (): void {
+    $cart = emptyCart();
+    $variation = cartVariation(stock: 10, product: ['min_order_quantity' => 1]);
+    $item = app(AddToCart::class)->handle($cart, $variation, 3);
+
+    $variation->product->update(['min_order_quantity' => 6]);
+
+    // The stale line is left alone by AddToCart/MergeGuestCart until it is
+    // written to, per reference/write-rules/cart.md — resubmitting the same
+    // 3 is a write, so it is re-checked against the new minimum and refused.
+    expect(fn () => app(UpdateCartItemQuantity::class)->handle($item, 3))
+        ->toThrow(InvalidCartQuantityException::class);
+
+    // Raising it to meet the new minimum is what fixes it.
+    app(UpdateCartItemQuantity::class)->handle($item, 6);
+    expect($item->fresh()->quantity)->toBe(6);
+});
+
+it('refuses to leave a line at its stored quantity once stock drops below it', function (): void {
+    $cart = emptyCart();
+    $variation = cartVariation(stock: 10);
+    $item = app(AddToCart::class)->handle($cart, $variation, 6);
+
+    $variation->inventory->update(['current_quantity' => 5]);
+
+    // Same shape as the minimum case, opposite fix: resubmitting 6 is now a
+    // write against available: 5 and is refused; lowering it is what fixes it.
+    expect(fn () => app(UpdateCartItemQuantity::class)->handle($item, 6))
+        ->toThrow(InsufficientStockException::class);
+
+    app(UpdateCartItemQuantity::class)->handle($item, 5);
+    expect($item->fresh()->quantity)->toBe(5);
 });
 
 it('refuses more than is available', function (): void {
@@ -212,9 +243,6 @@ it('refuses to update a line whose product has been deactivated', function (): v
     $item = app(AddToCart::class)->handle($cart, $variation, 1);
     $variation->product->update(['is_available' => false]);
 
-    // §11 names availability first among what the server validates before any
-    // cart update. Symmetric with AddToCart's refusal — the line stays exactly
-    // as it was, unwritable until the customer removes it.
     expect(fn () => app(UpdateCartItemQuantity::class)->handle($item, 2))
         ->toThrow(RemovedFromCatalogueException::class);
 
