@@ -30,7 +30,7 @@ needed to touch.
 | Authorization | Permissions, roles, policies, administrator bypass |
 | Admin panel | Roles and permissions screen |
 | Actions | Full `app/Actions` |
-| Security | Payment creation barred in `PaymentPolicy` — writable only by the Stripe webhook or COD flow, closing a self-granted "paid" route ahead of the webhook existing |
+| Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev
