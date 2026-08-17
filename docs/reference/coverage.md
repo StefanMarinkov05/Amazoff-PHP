@@ -9,6 +9,13 @@ prove a behaviour; this page is where a line ran at all.
 **Overall: 57.5%.** 429 tests, 1196 assertions, full suite including
 `tests/Concurrency/`.
 
+CI does not collect coverage at all (ADR-0010) — sharding `test` into
+parallel jobs made a single combined number require a merge step for a
+number nobody was gating on anyway. Regenerate locally instead:
+`pest --coverage --coverage-html=coverage-html`, then open
+`coverage-html/index.html` for the file-by-file, line-by-line report this
+page's numbers are read off.
+
 ## Reading a number below 100%
 
 Two different things produce one, and they mean opposite things:

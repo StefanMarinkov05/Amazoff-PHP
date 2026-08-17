@@ -746,6 +746,29 @@ Forge with MySQL's defaults intact. The settings are commented in
 `docker-compose.yml` so nobody restores them thinking they are a safety
 improvement. If migrations start crawling again, check these first.
 
+**Update, 2026-08-17 — a separate slow file, not a process-level cost.**
+While sizing CI shards, a ~30s gap that first looked like a fixed
+per-process bootstrap cost (present regardless of which file ran first)
+turned out, on careful re-reading of the CI log, to belong entirely to
+`tests/Feature/RolePermissionTest.php`. Its `beforeEach` calls
+`forgetCachedPermissions()` and reseeds `PermissionSeeder`, `RoleSeeder`,
+and `UserSeeder` before every single test, not once per file — deliberate,
+per its own comment (the permission registrar caches for 24h; without
+forgetting it, the second test resolves against the first test's
+now-truncated rows), but expensive across the file's many
+dataset-driven tests. Not a bug, not environment-specific: reproduces
+identically in CI and locally once measured correctly. First misattributed
+to whichever file happened to sit near it in a given run's PASS-line
+ordering — a Pest `PASS` line prints after a file's last test finishes, so
+a naive timestamp diff between consecutive `PASS` lines attributes the gap
+to the *next* file rather than the one that just finished, which pointed
+at `ReportsDomainFailuresTest` and later at a phantom "local Docker Desktop
+schema-load cost" before the real cause (this file's `beforeEach`) was
+isolated by checking each test's own self-reported duration inside the
+file, not the gap before its `PASS` line. Logged here so `RolePermissionTest`'s
+cost isn't re-diagnosed as CI flakiness, a schema issue, or attributed to
+whatever file happens to run next to it.
+
 ---
 
 ## A migration with many ALTER TABLE statements takes minutes

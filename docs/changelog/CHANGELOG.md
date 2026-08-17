@@ -233,6 +233,22 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- CI split into three parallel jobs (ADR-0010): `lint` (Pint, Larastan, no
+  database), `test` (`tests/Unit` + `tests/Feature`, 2-shard matrix), and
+  `test-concurrency` (`tests/Concurrency`, 3-shard matrix). Both suites'
+  shards are hand-partitioned by measured wall-clock time, not split
+  evenly by file count — each suite has one file whose cost would
+  otherwise land wherever alphabetical order put it: one
+  `tests/Concurrency` file using `->repeat(6)` is over half that suite's
+  time; `tests/Feature/RolePermissionTest.php`'s `beforeEach` reseeds
+  three seeders before every test (deliberate — the permission registrar
+  caches for 24h) and is over a third of the Feature/Unit suite's time.
+  Coverage collection dropped from CI entirely — sharding `test` means no
+  single shard's report matches `reference/coverage.md`'s numbers, and
+  merging two partial reports is real infrastructure for a number ADR-0009
+  already established nothing gates on. Regenerate locally
+  (`docs/reference/coverage.md` has the command) when the numbers are
+  needed.
 - Local database container runs with relaxed durability
   (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).
   Production is unaffected — it runs on Forge with MySQL's defaults. A single
