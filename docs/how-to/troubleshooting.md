@@ -1164,3 +1164,54 @@ running. Neither process reports that the other exists.
 **Prevention.** One suite run at a time against a given database. If two are
 genuinely needed, they need separate `DB_DATABASE` values, not separate
 terminals.
+
+---
+
+## Larastan reports an enum comparison as always false, on a property that really is that enum
+
+**Symptom.** `phpstan analyse` fails on a `===` comparison against a
+backed-enum-cast property — `Strict comparison ... will always evaluate to
+false` — even though `php artisan tinker` confirms the property really does
+cast to that enum at runtime, and the comparison is correct.
+
+**Cause.** Larastan's model-property inference (`checkModelProperties: true`)
+reads the column's raw database type for a MySQL `enum(...)` column and
+infers a union of string literals (`'percentage'|'fixed'`) for the property,
+rather than reading the `casts()` method. Every model in this codebase types
+`casts()`'s return as `@return array<string, string>`, which is accurate for
+scalar casts but tells Larastan nothing about which enum class a given key
+casts to — so for a property backed by a DB-level `enum` column *and* cast to
+a PHP backed enum, Larastan's two inference paths disagree, and the DB-driven
+one wins. `Coupon::$type`/`$scope` were the first case: no earlier merged
+Action compared a `Coupon`, `Order`, or `Payment` enum-cast property with
+`===` against an enum case, so the mismatch was latent since the schema
+migrations, not introduced by the code that first tripped it.
+
+**Fix.** Add explicit `@property` docblock annotations naming the enum class,
+above the model's class declaration:
+
+```php
+/**
+ * @property CouponType $type
+ * @property CouponScope $scope
+ */
+class Coupon extends Model
+```
+
+This is the standard Laravel/Larastan convention for typing magic properties,
+and it takes priority over both the DB-column inference and `casts()`'s
+generic return type.
+
+**Why it recurs.** Any model with a MySQL `enum(...)` column cast to a PHP
+backed enum is affected the moment code compares that property with `===`
+against an enum case — `Order::$status`/`$payment_status`/`$payment_method`
+are the next likely case, once `TransitionOrderStatus` is built and compares
+against `OrderStatus`.
+
+**Prevention.** When adding the first `===` comparison against a new
+enum-cast property, run Larastan on the touched files before assuming the
+comparison is fine — the runtime cast being correct (confirmed via tinker)
+does not mean Larastan agrees. Add the `@property` annotation to the model at
+the same time, rather than reaching for `treatPhpDocTypesAsCertain: false` in
+`phpstan.neon`, which would silence this class of check project-wide instead
+of fixing the one model's missing type information.

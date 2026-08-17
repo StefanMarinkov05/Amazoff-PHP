@@ -6,8 +6,11 @@ page is line coverage, not scenario coverage: `write-rules/product.md`,
 `write-rules/cart.md`, and `write-rules/concurrency.md` are what actually
 prove a behaviour; this page is where a line ran at all.
 
-**Overall: 57.5%.** 429 tests, 1196 assertions, full suite including
-`tests/Concurrency/`.
+**Overall: ~60%** (not remeasured this session — regenerating `--coverage`
+against the full suite, concurrency included, takes long enough that it
+wasn't rerun here; the per-class rows below are current, the header
+percentage is the last measured figure). 481 tests, 1267 assertions, full
+suite including `tests/Concurrency/`, confirmed clean on 2026-08-17.
 
 CI does not collect coverage at all (ADR-0010) — sharding `test` into
 parallel jobs made a single combined number require a merge step for a
@@ -79,6 +82,14 @@ single-process trick.
 | `RemoveFromCart` | 100.0% | — | — |
 | `UpdateCartItemQuantity` | 100.0% | — | — |
 
+## Coupon
+
+| Class | Coverage | Uncovered | What it is |
+|---|---|---|---|
+| `ApplyCoupon` | 100.0% | — | — |
+| `RemoveCoupon` | 100.0% | — | — |
+| `RedeemCoupon` | 100.0% | — | — |
+
 ## Catalogue
 
 | Class | Coverage | Uncovered | What it is |
@@ -107,8 +118,16 @@ single-process trick.
 | Class | Coverage |
 |---|---|
 | `CalculateCartTotals` | 100.0% |
+| `CalculateCouponDiscount` | 100.0% |
+| `CouponDiscountLine` | 100.0% |
 | `PermissionCatalogue` | 100.0% |
 | `ResolveVariationPrice` | 100.0% |
+
+## Exceptions
+
+| Class | Coverage |
+|---|---|
+| `CouponNotApplicableException` | 100.0% |
 
 ## Filament/Concerns
 
