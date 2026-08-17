@@ -9,19 +9,16 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
 use App\Models\CouponRedemption;
-use App\Models\Product;
-use App\Models\ProductVariation;
 use App\Support\CalculateCartTotals;
 use App\Support\CalculateCouponDiscount;
 use App\Support\CouponDiscountLine;
-use App\Support\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Collection;
 
 /**
  * Attaches a coupon to a cart. Re-applying overwrites silently — last apply
- * wins, no explicit `RemoveCoupon` needed first (`misc/coupon-actions-plan.md`,
- * decision 7).
+ * wins, no explicit `RemoveCoupon` needed first: `carts.coupon_id` has no
+ * uniqueness concern and nothing here reads the previous value to decide
+ * anything.
  *
  * Validates active, window, minimum order value, and scope against the
  * cart's *current* lines and prices — the same status `AddToCart`'s stock
@@ -30,9 +27,10 @@ use Illuminate\Support\Collection;
  * lock this Action does not take.
  *
  * The per-customer usage cap is checked here only for a logged-in customer
- * — a guest cart carries no email yet to check it against. Guests apply a
- * coupon later in checkout, once email collection makes the check possible
- * (decision 6, a deliberate deviation from §10-12 recorded there).
+ * — a guest cart carries no email yet to check it against. A deliberate
+ * deviation from §10-12, which lists discount codes among cart-level
+ * actions: guests apply a coupon later in checkout instead, once email
+ * collection makes the check possible.
  *
  * No `?User $actor`: a customer applying a coupon to their own cart holds
  * no permission to check, same reasoning as `AddToCart`.
@@ -52,7 +50,7 @@ final class ApplyCoupon
         $subtotal = CalculateCartTotals::forCart($cart)['subtotal'];
 
         // Throws on inactive / outside window / below minimum / out of scope.
-        CalculateCouponDiscount::forLines($coupon, $this->linesFrom($items), $subtotal);
+        CalculateCouponDiscount::forLines($coupon, CouponDiscountLine::collectionFromCartItems($items), $subtotal);
 
         if ($cart->user_id !== null) {
             $this->guardPerCustomerLimit($coupon, $cart->user_id);
@@ -61,39 +59,6 @@ final class ApplyCoupon
         $cart->update(['coupon_id' => $coupon->getKey()]);
 
         return $cart->refresh();
-    }
-
-    /**
-     * @param  EloquentCollection<int, CartItem>  $items  With
-     *                                                    `productVariation.product` eager-loaded.
-     * @return Collection<int, CouponDiscountLine>
-     */
-    private function linesFrom(EloquentCollection $items): Collection
-    {
-        return $items
-            ->filter(function (CartItem $item): bool {
-                /** @var ProductVariation|null $variation */
-                $variation = $item->productVariation;
-
-                return $variation !== null && $variation->product !== null;
-            })
-            ->map(function (CartItem $item): CouponDiscountLine {
-                /** @var ProductVariation $variation */
-                $variation = $item->productVariation;
-
-                /** @var Product $product */
-                $product = $variation->product;
-
-                $lineTotal = bcmul(ResolveVariationPrice::current($variation), (string) $item->quantity, 2);
-
-                return new CouponDiscountLine(
-                    productId: $product->getKey(),
-                    productCategoryId: $product->product_category_id,
-                    lineTotal: $lineTotal,
-                    vatRate: (string) $product->vat_rate,
-                );
-            })
-            ->values();
     }
 
     private function guardPerCustomerLimit(Coupon $coupon, int $userId): void
