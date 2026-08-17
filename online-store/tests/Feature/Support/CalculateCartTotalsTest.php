@@ -139,6 +139,35 @@ it('follows a discount window opening between renders', function (): void {
     Carbon::setTestNow();
 });
 
+it('excludes a line whose variation has been soft-deleted rather than throwing', function (): void {
+    $cart = emptyCart();
+    $live = cartVariation(product: ['regular_price' => '19.99']);
+    $dead = cartVariation(product: ['regular_price' => '100.00']);
+    app(AddToCart::class)->handle($cart, $live, 2);
+    app(AddToCart::class)->handle($cart, $dead, 1);
+
+    $dead->delete();
+
+    // The stale line is left in the cart (reference/write-rules/cart.md) for
+    // RemoveFromCart to clear, but it cannot be priced, so it contributes
+    // nothing rather than crashing the total.
+    expect(CalculateCartTotals::forCart($cart)['subtotal'])->toBe('39.98')
+        ->and($cart->cartItems()->count())->toBe(2);
+});
+
+it('excludes a line whose product has been soft-deleted rather than throwing', function (): void {
+    $cart = emptyCart();
+    $live = cartVariation(product: ['regular_price' => '19.99']);
+    $dead = cartVariation(product: ['regular_price' => '100.00']);
+    app(AddToCart::class)->handle($cart, $live, 2);
+    app(AddToCart::class)->handle($cart, $dead, 1);
+
+    $dead->product->delete();
+
+    expect(CalculateCartTotals::forCart($cart)['subtotal'])->toBe('39.98')
+        ->and($cart->cartItems()->count())->toBe(2);
+});
+
 it('returns strings so the result can be fed to bcmath', function (): void {
     $cart = emptyCart();
     app(AddToCart::class)->handle($cart, cartVariation(product: ['regular_price' => '10.00']), 1);
