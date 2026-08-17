@@ -9,7 +9,7 @@ prove a behaviour; this page is where a line ran at all.
 **Overall: ~60%** (not remeasured this session — regenerating `--coverage`
 against the full suite, concurrency included, takes long enough that it
 wasn't rerun here; the per-class rows below are current, the header
-percentage is the last measured figure). 500 tests, 1318 assertions, full
+percentage is the last measured figure). 510 tests, 1337 assertions, full
 suite including `tests/Concurrency/`, confirmed clean on 2026-08-17.
 
 CI does not collect coverage at all (ADR-0010) — sharding `test` into

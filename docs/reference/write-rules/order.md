@@ -20,6 +20,7 @@ factory, a seeder, or a raw query builder all bypass every rule below.
 | Cart has no priceable line — empty, or every line points at a soft-deleted variation/product `CalculateCartTotals` already excludes | `EmptyCartException` |
 | Applied coupon no longer applies — disabled, outside window, below minimum, out of scope, either usage cap reached | `CouponNotApplicableException` |
 | A line's stock is insufficient at reservation time | `InsufficientStockException` |
+| Either address's `source_address_id` does not belong to the checking-out actor (or is given by a guest at all, who has no saved addresses to own) | `ModelNotFoundException` |
 
 Every guard runs inside `CreateOrder`'s own transaction (the coupon and
 stock checks) or before it opens (the empty-cart check, which has nothing
@@ -40,7 +41,7 @@ because a customer completed checkout).
 |---|---|
 | `orders` | One row. `status = New`, `payment_status = Pending`, regardless of payment method. `serial_number` derived from the row's own auto-increment id (`ORD-%06d`), written in a second update inside the same transaction, before commit — no dedicated counter, no extra lock. `subtotal_amount`/`vat_amount`/`total_amount` recomputed from the cart's current contents; nothing from a caller is trusted (§28, obligation 3) — the signature carries no total input at all, so there is no field to bypass through. |
 | `order_items` | One row per priceable cart line. Snapshots `product_name`, `product_sku`, `variation_name` (joined from the variation's attribute values, falling back to the SKU if it has none), `unit_price`, `line_total`, `vat_rate`, `vat_amount` — frozen at creation, immune to a later product edit (§19). `discount_amount` is always `'0.00'`: the coupon discount is an order-level deduction, never a rewrite of line prices. |
-| `order_addresses` | Two rows, `UNIQUE(order_id, type)` — one `billing`, one `delivery`. |
+| `order_addresses` | Two rows, `UNIQUE(order_id, type)` — one `billing`, one `delivery`. A given `source_address_id` is scoped to the actor the same way CLAUDE.md requires everywhere else (`$actor->addresses()->findOrFail($id)`) rather than trusted as-is; a guest has no saved addresses to own, so any `source_address_id` from a guest is refused the same way. Verified: `CreateOrderTest`, "accepts a source_address_id that belongs to the checking-out actor," "refuses a source_address_id that belongs to another user," "refuses any source_address_id from a guest." |
 | `coupon_redemptions` | One row, only if `cart.coupon_id` was set, written by `RedeemCoupon` — re-validated independently, nothing trusted from the cart's provisional state. |
 | `inventories` / `inventory_movements` | Reserved for every line, via `ReserveStock`. |
 
@@ -87,7 +88,7 @@ reads a few lines apart.
 | One of several lines has its variation/product soft-deleted between add-to-cart and checkout | that line is silently dropped; the order proceeds with the surviving lines only — same precedent `CalculateCartTotals` already sets for a rendered subtotal, inherited here unchanged | `CreateOrderTest`, "proceeds with the surviving lines when one of several is soft-deleted mid-checkout" |
 | A variation is force-deleted while a cart line still references it | cannot happen — `ForceDeleteProductVariation` refuses erasure while any `cart_items` row depends on the variation, so this never reaches `CreateOrder` | `reference/actions.md`, Catalogue |
 | The coupon's value is raised after being applied, past what the cart can absorb | the discount is capped at the matched subtotal, same as any other coupon re-validation — the order never goes negative | `CreateOrderTest`, "caps the order discount at the matched subtotal" |
-| The cart row itself is deleted mid-checkout | no effect on an in-flight order — every cart line needed is read into memory before the transaction opens, and `order_items` has no foreign key to `carts` at all, so nothing downstream depends on the cart surviving | safe by construction, not by a guard |
+| The cart row itself is deleted mid-checkout or afterward | no effect — every cart line needed is read into memory before the transaction opens, and `order_items` has no foreign key to `carts` at all, so nothing downstream depends on the cart surviving | safe by construction; `CreateOrderTest`, "leaves a placed order intact after its source cart is deleted" confirms the after-the-fact case empirically |
 | The acting account is soft-deleted moments before or during checkout | the order is still created and correctly attributed — a soft delete is an update, not a row removal, so the `orders.user_id` foreign key is satisfied exactly as an order can reference a since-soft-deleted product | `CreateOrderTest`, "attributes the order to the actor even if that account was soft-deleted moments earlier" |
 | The same person checks out once as a guest and once logged in, in parallel | the per-customer coupon cap unifies them correctly only if both checkouts used the same email — the cap is keyed by a hash of the order's own email, not by `user_id`, so identity here is whatever email was typed, not the account | mechanism shared with the per-customer race below; not separately tested, since the guard is blind to `user_id` by construction |
 
@@ -133,20 +134,21 @@ equivalent. Not fixed here — closing it is a design decision (a schema
 column plus a guard, or a caller-supplied idempotency key once a checkout
 endpoint exists to receive one), not a mechanical correction.
 
-**2. Inserting `order_addresses.source_address_id` or `orders.user_id`
-against a row that no longer exists reaches the database uncaught.**
-Both columns are `nullOnDelete()`, which governs an *existing* child row
+**2. Inserting `orders.user_id` against a row that no longer exists reaches
+the database uncaught.** `nullOnDelete()` governs an *existing* child row
 when its parent is removed — it does not stop a *new* insert from
 referencing an id that is already gone. A hard-deleted `User` between
-reading `$actor` and the `orders` insert, or a hard-deleted `Address`
-between a customer selecting it and submitting checkout, surfaces as an
-uncaught `QueryException` rather than a handled refusal. Confirmed by
-test for the `user_id` case: `CreateOrderTest`, "surfaces an uncaught
-QueryException when the actor account no longer exists at all." The
-`Address` case is the same mechanism, unverified by a test of its own.
-Both are narrow — `User` defaults to soft deletes, and a hard-delete path
-for either model may not exist in the admin panel yet — but the gap is
-real independent of how reachable it currently is.
+reading `$actor` and the `orders` insert surfaces as an uncaught
+`QueryException` rather than a handled refusal. Confirmed by test:
+`CreateOrderTest`, "surfaces an uncaught QueryException when the actor
+account no longer exists at all." Narrow — `User` defaults to soft
+deletes, and a hard-delete path may not exist in the admin panel yet —
+but the gap is real independent of how reachable it currently is.
+`order_addresses.source_address_id` does not share this gap: it is
+looked up through `$actor->addresses()->findOrFail()` rather than
+inserted as given, so a hard-deleted or reassigned `Address` id fails the
+same clean `ModelNotFoundException` as any other unowned id, not a raw
+`QueryException`.
 
 **3. The deadlock-prevention sort is unverified by any test — deliberately,
 not by oversight.** `cart_items`'s own `UNIQUE(cart_id,
