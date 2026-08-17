@@ -6,6 +6,7 @@ namespace App\Filament\Concerns;
 
 use Filament\Notifications\Notification;
 use Filament\Support\Exceptions\Halt;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -19,7 +20,12 @@ use Throwable;
  *
  * Only `App\Exceptions` are caught. A `QueryException` or a `TypeError` is a
  * defect rather than a refusal, and swallowing those into a toast would hide
- * exactly the failures that should be loud.
+ * exactly the failures that should be loud. The namespace check is what does
+ * that filtering — the catch type below only needs to name every base class
+ * a domain exception actually uses, which is both `RuntimeException` (seven
+ * of eight) and `InvalidArgumentException` (`InvalidCartQuantityException`,
+ * deliberately, per its own docblock). Widen this list, not the check, if a
+ * future domain exception picks a third base class.
  *
  * `Halt` stops Filament's action pipeline without rolling the page back into
  * an error state, which is what leaves the notification visible.
@@ -38,7 +44,7 @@ trait ReportsDomainFailures
     {
         try {
             return $operation();
-        } catch (RuntimeException $e) {
+        } catch (RuntimeException|InvalidArgumentException $e) {
             if (! str_starts_with($e::class, 'App\\Exceptions\\')) {
                 throw $e;
             }

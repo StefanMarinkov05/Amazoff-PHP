@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Gate;
  * across two requests. That window is human think time, which no lock spans.
  *
  * Authorizes `update_product`. Locks `products`.
- * ADR-0008 · reference/product-write-rules.md
+ * ADR-0008 · reference/write-rules/product.md
  */
 final class UpdateProduct
 {

@@ -16,20 +16,13 @@ use App\Models\ProductVariation;
  * Sets a cart line's quantity to an absolute value, re-validated the same
  * way `AddToCart` validates an add: §11's minimum and current stock.
  *
- * A separate Action from `AddToCart` rather than a shared "set quantity to
- * N" path, because the two have different failure semantics on the amount
- * requested — adding 3 to an existing 2 asks "is 5 legal", changing to 3
- * asks a question about 3 alone, and merging that distinction into one
- * signature is what `AddToCart`'s merge-by-summing exists to keep out of
- * this one.
+ * A separate Action from `AddToCart`, not a shared "set to N" path: adding 3
+ * to an existing 2 asks whether 5 is legal; setting to 3 asks only about 3.
  *
- * Both the variation and its product are read including trashed rows, so a
- * line pointing at a deleted one raises the same domain exception `AddToCart`
- * raises rather than a 404 from `firstOrFail()` or a null dereference on the
- * product. Deactivation is refused the same way, symmetric with `AddToCart` —
- * a line cannot be *changed* once its product or variation goes unavailable,
- * even though the line itself is left alone until the customer removes it.
- * reference/product-write-rules.md
+ * Reads the variation and product `withTrashed()` so a line pointing at a
+ * deleted one raises the same domain exception `AddToCart` raises, not a
+ * 404. Deactivation is refused the same way — the line itself stays until
+ * the customer removes it; only a change to it is refused.
  */
 final class UpdateCartItemQuantity
 {

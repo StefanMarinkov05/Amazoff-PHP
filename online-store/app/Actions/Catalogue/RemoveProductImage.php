@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Storage;
  * still have a main one.
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class RemoveProductImage
 {

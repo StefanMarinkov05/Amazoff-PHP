@@ -190,6 +190,27 @@ it('allows an actor holding update_product', function (): void {
     expect($image->exists)->toBeTrue();
 });
 
+it('denies an actor without update_product removing an image', function (): void {
+    $product = Product::factory()->create();
+    $image = app(AddProductImage::class)->handle($product, imageAttributes(), null);
+    $actor = catalogueActor('view_product');
+
+    expect(fn () => app(RemoveProductImage::class)->handle($image, $actor))
+        ->toThrow(AuthorizationException::class);
+
+    expect(ProductImage::whereKey($image->getKey())->exists())->toBeTrue();
+});
+
+it('allows an actor holding update_product to remove an image', function (): void {
+    $product = Product::factory()->create();
+    $image = app(AddProductImage::class)->handle($product, imageAttributes(), null);
+    $actor = catalogueActor('update_product');
+
+    app(RemoveProductImage::class)->handle($image, $actor);
+
+    expect(ProductImage::whereKey($image->getKey())->exists())->toBeFalse();
+});
+
 /*
  * ADR-0007: null is the application acting on its own behalf — a seeder, a
  * fixture loader, a queued job — and skips the policy check, because

@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks nothing; the
  * promotion goes through `SetMainProductImage`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class AddProductImage
 {

@@ -6,7 +6,7 @@ the running stack rather than read off the code.
 
 Why the mechanisms differ is `explanation/concurrency-and-locking.md` and
 ADR-0008. What protects each contested row and which test proves it is
-`reference/concurrency-coverage.md`. This page is the outcomes.
+`reference/write-rules/concurrency.md`. This page is the outcomes.
 
 ## What enforces any of this
 
@@ -80,6 +80,11 @@ who may not perform the operation never learns which argument was wrong.
 A null actor is the system — a seeder, a webhook, a queued job — and skips the
 policy check only. Every domain rule above still applies.
 
+`ForceDeleteProductVariation` deletes the stock row before the variation row.
+`inventories.product_variation_id` is a `NO ACTION` foreign key, so the
+reverse order is error 1451 — which is what Filament's default
+`ForceDeleteAction` still does for every variation that has one.
+
 ## Two actors at once
 
 ### Editing different fields of one product
@@ -125,7 +130,10 @@ submission moves the failure rather than removing it.
 ### Publishing while the last variation is removed
 
 Serialised: both Actions take `lockForUpdate()` on the `products` row.
-**Exactly one wins, in either order.**
+**Exactly one wins, in either order.** True whether the removal is
+`RemoveProductVariation` (soft delete) or `ForceDeleteProductVariation`
+(permanent) — both lock the same row for the same reason and share the same
+outcome.
 
 | First to commit | Second gets |
 |---|---|
@@ -134,7 +142,9 @@ Serialised: both Actions take `lockForUpdate()` on the `products` row.
 
 Without the lock **both commit**, because no `CHECK` constraint can span two
 tables — that is why `tests/Concurrency/PublishProductConcurrencyTest.php`
-asserts the winner count where the stock race test asserts the failure type.
+(soft delete) and `tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php`
+(permanent) assert the winner count where the stock race test asserts the
+failure type.
 
 ### Adding a variation while another is removed
 
@@ -159,6 +169,15 @@ One succeeds; the loser gets `InsufficientStockException` — a handled "out of
 stock", not a 500. Without the lock the loser instead hits
 `chk_inventories_reserved_not_above_current` and gets a `QueryException`.
 Nothing is oversold either way; only the failure mode differs.
+`tests/Concurrency/ReserveStockConcurrencyTest.php`.
+
+### Two releases of the same reservation
+
+Same shape, opposite direction. One succeeds; the loser gets
+`InvalidArgumentException` rather than driving `reserved_quantity` negative.
+Without the lock the loser instead hits
+`chk_inventories_reserved_quantity_non_negative` and gets a `QueryException`.
+`tests/Concurrency/ReleaseStockConcurrencyTest.php`.
 
 ### Two products created with the same SKU or slug
 

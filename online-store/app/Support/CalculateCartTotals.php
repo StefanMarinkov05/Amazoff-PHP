@@ -20,7 +20,13 @@ use Illuminate\Database\Eloquent\Collection;
  * `CalculateDeliveryPrice` (slice 8, needs an address), the second needs
  * `RedeemCoupon`'s validation (slice 4). Both compose on top of this rather
  * than in it, so the cart page can show a subtotal before either exists.
- * `reference/product-write-rules.md`
+ *
+ * Skips a line whose variation or product is gone — soft-deleted after the
+ * line was added — rather than throwing. A stale line is left in the cart
+ * for the customer to notice and remove (`reference/write-rules/cart.md`);
+ * a total that crashes the page is worse than one that quietly excludes a
+ * line nothing can be charged for yet.
+ * `reference/write-rules/cart.md`
  */
 final class CalculateCartTotals
 {
@@ -36,11 +42,15 @@ final class CalculateCartTotals
         $vat = '0.00';
 
         foreach ($items as $item) {
-            /** @var ProductVariation $variation */
+            /** @var ProductVariation|null $variation */
             $variation = $item->productVariation;
 
-            /** @var Product $product */
-            $product = $variation->product;
+            /** @var Product|null $product */
+            $product = $variation?->product;
+
+            if ($variation === null || $product === null) {
+                continue;
+            }
 
             $price = ResolveVariationPrice::current($variation);
             $lineTotal = bcmul($price, (string) $item->quantity, 2);
