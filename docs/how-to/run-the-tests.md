@@ -107,6 +107,44 @@ This matters most for authorization tests. An assertion that a role *can* do
 something passes just as happily against a system with no authorization at
 all, so the assertions carrying information are the denials.
 
+## Coverage
+
+```bash
+docker compose exec app ./vendor/bin/pest --coverage
+docker compose exec app ./vendor/bin/pest --coverage-html=coverage-html
+```
+
+PCOV — coverage collection only, chosen against a suite that
+already pays real process-boot overhead in `tests/Concurrency/`. ADR-0009 has
+the full reasoning, including why this is a report rather than a CI gate: no
+`--min` threshold anywhere, nothing fails the build over a percentage.
+
+**A race contributes nothing to this number, whatever the class's overall
+percentage says.** `tests/Concurrency/*` spawns real `php` subprocesses to
+run the Action under test, and that code executes in a process PCOV never
+instruments — verified: isolating just the race in
+`PublishProductConcurrencyTest.php` measures `UpdateProduct` and
+`RemoveProductVariation` at 0.0%. But a class's own file often *also*
+carries a same-process test (a sequential companion, or a separate feature
+test file), so the overall percentage can still read high — isolating
+`ReserveStockConcurrencyTest.php`'s sequential companion test alone measures
+`ReserveStock` at 92.3%. Read the number as silent about the race
+specifically, not as evidence either way about whether the interleaving
+itself was exercised — `reference/write-rules/concurrency.md` is what actually
+proves that, by deletion. ADR-0009 has the full reasoning.
+
+`coverage-html/` is gitignored; open `coverage-html/index.html` after
+generating it.
+
+The full suite needs more than PHP's default 128M `memory_limit` to assemble
+the report — measured: it exhausted 128M building `coverage.php` after all
+418 tests had already passed. `docker/php/conf.d/cli-memory.ini` raises it to
+1G; nothing extra to pass on the command line.
+
+**57.5%** overall, full suite, measured 2026-08-17. `reference/coverage.md`
+has the per-class breakdown, including which uncovered lines are proven by a
+concurrency test PCOV can't see and which are genuinely untested.
+
 ## What the suite covers today
 
 | File | Covers |

@@ -5,6 +5,8 @@
 .env.production
 .phpactor.json
 .phpunit.result.cache
+/coverage-html
+/coverage.xml
 /.codex
 /.cursor/
 /.idea

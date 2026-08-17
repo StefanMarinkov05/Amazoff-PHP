@@ -47,7 +47,7 @@ jobs:
           # symfony/* packages — see docker/php/Dockerfile for the same note.
           php-version: "8.4"
           extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
-          coverage: none
+          coverage: pcov
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -98,10 +98,22 @@ jobs:
       # host, port and credentials come from here. Tests run against the same
       # engine as production because SQLite enforces neither column lengths nor
       # the CHECK constraints from ADR-0005 — see docs/how-to/use-ci.md.
-      - name: Pest (tests)
+      #
+      # Coverage is collected, not gated — no --min threshold. ADR-0009: a
+      # number this project already distrusts as proof (reference/write-rules/concurrency.md)
+      # shouldn't be able to block a merge on its own.
+      - name: Pest (tests, with coverage)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: ./vendor/bin/pest
+        run: ./vendor/bin/pest --coverage --coverage-clover=coverage.xml --coverage-html=coverage-html
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: online-store/coverage-html
+          retention-days: 14
