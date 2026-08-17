@@ -9,6 +9,11 @@ prove a behaviour; this page is where a line ran at all.
 **Overall: 57.5%.** 429 tests, 1196 assertions, full suite including
 `tests/Concurrency/`.
 
+This page is the numbers; `coverage-html/` (gitignored, not produced by CI —
+`how-to/use-ci.md`) is the file-by-file, line-by-line report they're read
+off. Regenerate it locally with `pest --coverage-html=coverage-html` and
+open `coverage-html/index.html`.
+
 ## Reading a number below 100%
 
 Two different things produce one, and they mean opposite things:
