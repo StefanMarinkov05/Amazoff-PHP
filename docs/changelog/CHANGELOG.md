@@ -193,6 +193,44 @@ when the work happened, not when it was committed — nothing in
   rather than a boolean — when a message was dealt with is worth more than
   that it was, and null already means outstanding.
 
+- `docs/adr/0009-code-coverage.md` — PCOV for `pest --coverage`, chosen over
+  Xdebug by benchmarking both against this suite specifically (+13% on
+  `tests/Concurrency/`, +36% on a fast in-process run) rather than assuming
+  the difference. Reported as a CI artifact, never gated — no `--min`
+  threshold, consistent with this project's existing position that a
+  passing test is not evidence without deletion-proof.
+  `docker/php/conf.d/pcov.ini`, `docker/php/conf.d/cli-memory.ini` (the
+  default 128M `memory_limit` cannot assemble a full-project report).
+- `docs/reference/coverage.md` — per-class PCOV breakdown, distinguishing
+  lines proven by a concurrency test PCOV cannot see from lines genuinely
+  untested.
+- `docs/reference/write-rules/` — `product-write-rules.md`,
+  `cart-write-rules.md`, and `concurrency-coverage.md` moved here as
+  `product.md`, `cart.md`, `concurrency.md`. The three cross-reference each
+  other constantly and shared a naming pattern already; ~25 other files
+  citing the old paths updated.
+- `tests/Concurrency/ReleaseStockConcurrencyTest.php`,
+  `ForceDeleteProductVariationConcurrencyTest.php`,
+  `MergeGuestCartConcurrencyTest.php` — three mechanisms
+  (`lockForUpdate()`, a catch-and-retry) that existed in application code
+  but had never been raced by two real processes. All three verified by
+  deletion.
+- `tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php` — races
+  `AddToCart` against `MergeGuestCart` directly rather than each against
+  itself. Proved the collision is real and `AddToCart`'s retry handles it;
+  could not prove `MergeGuestCart`'s retry in this specific pairing across
+  24 attempts under three synchronization strategies — `MergeGuestCart` has
+  no domain validation before its insert and wins every time in this
+  environment. Recorded as a measured, narrower gap rather than claimed as
+  fully verified. `docs/explanation/concurrency-and-locking.md` gained a
+  section on why a cross-Action race needs a rendezvous beyond the usual
+  wall-clock barrier.
+- Tests closing three branches no test exercised: `ForceDeleteProduct`'s
+  refusal when a product has reviews, `RemoveProductImage`'s authorization
+  check (nothing had ever called it with a non-null actor), `ReleaseStock`'s
+  `quantity < 1` guard (present and tested on `ReserveStock`, missing on its
+  sibling).
+
 ### Changed
 
 - Local database container runs with relaxed durability
@@ -217,6 +255,30 @@ when the work happened, not when it was committed — nothing in
   gating rather than removing would have needed a second mechanism.
 
 ### Fixed
+
+- `MergeGuestCart` had no collision handling at all — unlike `AddToCart`,
+  which it otherwise mirrors, a concurrent merge or an unrelated `AddToCart`
+  landing on the same line surfaced as an uncaught `QueryException`. Now
+  catches and retries as an update, same shape as `AddToCart`. The fix
+  needed one subtlety `AddToCart`'s doesn't: the retry runs as a savepoint
+  inside the merge's own outer transaction, and a savepoint rollback does
+  not refresh the transaction's `REPEATABLE READ` snapshot the way a fresh
+  top-level transaction does, so the retry's read must `lockForUpdate()`
+  rather than read plainly.
+- `CalculateCartTotals` threw an uncaught `TypeError` on any cart line whose
+  variation or product had been soft-deleted after the line was added — a
+  realistic, previously-untested case. Now skips the line rather than
+  crashing the cart total.
+- `ReportsDomainFailures` (turns an Action's domain exception into a
+  Filament notification) caught `RuntimeException` only. Seven of the eight
+  domain exceptions extend it; `InvalidCartQuantityException` deliberately
+  extends `InvalidArgumentException` instead, per its own docblock, written
+  before this trait existed. Would have reached a Filament page as an
+  uncaught exception rather than a notification the moment Cart got a
+  caller that used the trait — silent only because no such caller exists
+  yet. Now catches both.
+- `pest --coverage` failed outright everywhere — CI set `coverage: none`
+  explicitly and no driver was installed locally.
 
 - `app/Models/User.php` was invalid PHP — an unclosed `$hidden` array and an
   unclosed `profile()` method from a merge conflict resolved by hand. It also

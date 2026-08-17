@@ -2,9 +2,9 @@
 
 What exists in `app/Actions` today. Why they are written this way is
 ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
-two of them run at once is `reference/product-write-rules.md`.
+two of them run at once is `reference/write-rules/product.md`.
 
-Eleven Actions across two areas, seven domain exceptions.
+Seventeen Actions across three areas, eight domain exceptions.
 
 ## Naming
 
@@ -34,7 +34,9 @@ boundary.
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
 | `CreateProduct` | `products`, `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product` | `ProductRequiresVariationException` |
-| `UpdateProduct` | `products` | optional, checked against `update_product` | `ProductRequiresVariationException` |
+| `UpdateProduct` | `products` | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException` |
+| `DeleteProduct` | `products` (soft delete, cascaded to its variations) | optional, `delete_product` | — never refuses |
+| `ForceDeleteProduct` | `products`, `product_variations`, `inventories`, `product_images`, `product_specifications` (all erased) | optional, `delete_product` | `ProductCannotBeErasedException`, plus whatever `ForceDeleteProductVariation` raises |
 | `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product_variation` | `InvalidArgumentException` |
 | `RemoveProductVariation` | `product_variations` (soft delete) | optional, checked against `delete_product_variation` | `ProductRequiresVariationException`, `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
@@ -70,6 +72,35 @@ creating a product through `CreateProduct` requires `create_product` **and**
 Opening stock is a parameter of `AddProductVariation` rather than a column on
 the variation. Zero writes no movement row.
 
+## Cart
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `AddToCart` | `cart_items` (insert or increment) | — no non-human caller, no parameter | `RemovedFromCatalogueException`, `InvalidCartQuantityException`, `InsufficientStockException` |
+| `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same three |
+| `MergeGuestCart` | `cart_items`, deletes the guest `carts` row | — no non-human caller, no parameter | — never refuses |
+| `RemoveFromCart` | `cart_items` (hard delete) | — no non-human caller, no parameter | — never refuses |
+
+None of the four take an `?User $actor`. A customer editing their own cart
+holds no permission to check, and nothing here has a non-human caller the
+way `RecordInventoryMovement` or `ReserveStock` do — ADR-0007's stated
+exception, not an oversight.
+
+`AddToCart` and `UpdateCartItemQuantity` re-validate the line they are about
+to write on every call — current price, availability, `min_order_quantity`,
+stock — but never a line they are not touching. `MergeGuestCart` validates
+nothing at all, deliberately: `CreateOrder` is what raises a stale merged
+line, at checkout, not this Action. `reference/write-rules/cart.md`, "A line
+after the catalogue changes underneath it" has the full table.
+
+`AddToCart` and `MergeGuestCart` both lock nothing and instead catch
+`UniqueConstraintViolationException` on `UNIQUE(cart_id,
+product_variation_id)`, retrying as an update — CLAUDE.md's idempotency
+rule, not ADR-0008's locking one, because a row that does not exist yet
+cannot be locked. `MergeGuestCart`'s retry runs as a savepoint inside its
+own outer transaction and must `lockForUpdate()` specifically on that retry;
+`explanation/concurrency-and-locking.md` has why.
+
 ## Transactions
 
 | Action | Opens `DB::transaction` |
@@ -81,6 +112,10 @@ the variation. Zero writes no movement row.
 | `ForceDeleteProductVariation` | yes |
 | `UpdateProduct` | yes |
 | `RemoveProductVariation` | yes |
+| `MergeGuestCart` | yes — plus one nested savepoint per line |
+| `AddToCart` | yes, inside `addOrIncrement()` — not around the retry itself |
+| `UpdateCartItemQuantity` | no — a single-row `UPDATE` needs nothing else |
+| `RemoveFromCart` | no — a single `DELETE` |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.
@@ -122,19 +157,20 @@ renders. Closing it needs optimistic concurrency, which ADR-0008 defers.
 Measured and pinned, including the wrong behaviour, in
 `tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php`.
 
-`reference/concurrency-coverage.md` is the full map.
+`reference/write-rules/concurrency.md` is the full map.
 
 ## Exceptions
 
 | Exception | Raised by | Carries |
 |---|---|---|
-| `InsufficientStockException` | `ReserveStock` | the variation, requested quantity, available quantity |
+| `InsufficientStockException` | `ReserveStock`, `AddToCart`, `UpdateCartItemQuantity` | the variation, requested quantity, available quantity |
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage` | the record that was removed |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
 | `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
+| `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -152,9 +188,24 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-All eight extend `RuntimeException`. `InvalidArgumentException` is used where
-the condition is a caller bug rather than something a customer could act on —
-a negative quantity, a release larger than the reservation.
+Seven of the eight extend `RuntimeException`. `InvalidCartQuantityException`
+extends `InvalidArgumentException` instead — deliberately, per its own
+docblock: a bad cart quantity is "the caller passed a bad argument," not "a
+domain rule a legal argument happened to violate." The same reasoning is why
+a bare `InvalidArgumentException` (no domain subclass) covers a negative
+quantity or an over-large release in `ReserveStock`/`ReleaseStock`.
+
+That reasoning predates `ReportsDomainFailures`, which originally caught
+`RuntimeException` only — `InvalidCartQuantityException` would have reached
+a Filament page as an uncaught exception rather than a notification, unlike
+its seven siblings, the moment a Cart Action got a caller that used the
+trait. Fixed by widening the trait rather than changing the exception's base
+class: `catch (RuntimeException|InvalidArgumentException $e)`, since the
+`App\Exceptions\*` namespace check immediately after is what actually does
+the domain-vs-defect filtering — the catch type only has to name every base
+class a domain exception uses. `tests/Feature/Filament/ReportsDomainFailuresTest.php`
+covers both, plus that a non-domain exception of either base class and a
+`QueryException` still pass through uncaught.
 
 ## Callers
 
@@ -164,9 +215,12 @@ a negative quantity, a release larger than the reservation.
 | `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
+| `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
-criterion 1 is met for the panel; no storefront exists yet.
+criterion 1 is met for the panel; no storefront exists yet. The Cart Actions
+have no caller at all outside tests — no storefront controller or Livewire
+component exists yet, same gap `write-rules/cart.md` names.
 
 Domain exceptions become notifications rather than 500s, via
 `App\Filament\Concerns\ReportsDomainFailures`. Only `App\Exceptions` are
@@ -190,7 +244,7 @@ two quantity guards, the `products` lock shared by `UpdateProduct` and
 `AddProductVariation`, and the erase Action's delete order plus its ledger,
 cart, and last-live-variation refusals.
 
-`reference/concurrency-coverage.md` records which specific test covers each.
+`reference/write-rules/concurrency.md` records which specific test covers each.
 
 The two failure modes that make a guard test pass while proving nothing — an
 exception raised by a nested Action, and fault injection on the connection

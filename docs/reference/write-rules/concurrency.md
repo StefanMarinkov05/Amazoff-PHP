@@ -1,10 +1,15 @@
 # Concurrency — what is contested, what protects it, what proves it
 
-Facts as of 2026-08-15. Why the mechanisms differ is
+Facts as of 2026-08-17. Why the mechanisms differ is
 `explanation/concurrency-and-locking.md`; the locking decision for
 cross-table invariants is ADR-0008. What a given pair of concurrent writes
-actually produces is `reference/product-write-rules.md` — this page is the
-mechanisms, that one is the outcomes.
+actually produces — the specific exception, which side wins, what the row
+looks like after — is `reference/write-rules/product.md` and
+`reference/write-rules/cart.md`, one
+per aggregate. **This page names what is contested and which test proves it;
+it does not restate the outcome.** A scenario belongs here once, as a
+pointer, and in exactly one outcomes page in full — repeating the outcome
+text in both is how the two drift.
 
 A row here counts as *verified* only if the test has been observed failing
 with its mechanism deleted and passing with it restored. Anything else is
@@ -17,11 +22,12 @@ listed as unverified, because a test that has never failed is not evidence.
 | `inventories.reserved_quantity` | row contention inside one request | `lockForUpdate` on `inventories` + `CHECK` + `increment()` | `ReserveStock`, `ReleaseStock` |
 | `products.is_available` vs its variations | cross-table invariant, no constraint possible | `lockForUpdate` on `products` (aggregate root) | `UpdateProduct`, `RemoveProductVariation` |
 | `product_variations` removal vs held stock | cross-table invariant | `lockForUpdate` on `products`, then `inventories` | `RemoveProductVariation` |
-| `products` descriptive columns | lost update across two requests | **none** — see below | `UpdateProduct` |
+| `products` descriptive columns | lost update across two requests | **none** — `reference/write-rules/product.md`, "Two actors at once" and "Known gaps" | `UpdateProduct` |
 | a catalogue row soft-deleted after a model was loaded | stale in-memory model | re-read inside the transaction | `ReserveStock`, `AddProductVariation` |
 | `inventories` outliving an erased variation | FK `NO ACTION` | child deleted before parent, plus four refusals | `ForceDeleteProductVariation` |
 | `products.sku`, `products.slug`, `product_variations.sku` | duplicate insert | `UNIQUE` constraint (ADR-0005) | schema |
 | one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
+| `cart_items` via `UNIQUE(cart_id, product_variation_id)` | insert-vs-insert across two requests | catch `UniqueConstraintViolationException`, retry as `increment()` — no lock, since a row that does not exist yet cannot be locked | `AddToCart`, `MergeGuestCart` |
 
 ### Lock order
 
@@ -34,74 +40,65 @@ than one.
 
 ## What is tested
 
-### Verified by deletion
+Which test proves which scenario is cited directly in
+`reference/write-rules/product.md` and `reference/write-rules/cart.md`, next
+to the outcome it proves — not duplicated here as a second index.
+`MainProductImageConcurrencyTest.php` is pinned by
+construction rather than by a deleted mechanism, and
+`ConcurrentProductEditTest.php` is known broken, asserted as such; both notes
+live with their outcomes too.
 
-| Scenario | Asserts | File |
-|---|---|---|
-| Two processes reserving the last unit | loser gets `InsufficientStockException`, not `QueryException` | `tests/Concurrency/ReserveStockConcurrencyTest.php` |
-| Publish racing removal of the last variation | exactly one winner; loser gets `ProductRequiresVariationException`; the invariant holds either way | `tests/Concurrency/PublishProductConcurrencyTest.php` |
-| Reserved above current rejected at the database | `QueryException` from `chk_inventories_reserved_not_above_current` | `tests/Concurrency/ReserveStockConcurrencyTest.php` |
-| Product rolls back when a variation fails | no product, no variation, no stock row survives | `tests/Feature/Actions/Catalogue/CreateProductTest.php` |
-| Variation rolls back when its stock row cannot be written | neither row survives | `tests/Feature/Actions/Catalogue/AddProductVariationTest.php` |
-| Authorization on all four catalogue Actions | denied actor throws, writes nothing | `tests/Feature/Actions/Catalogue/` |
-| Actor passed down from `CreateProduct` | `create_product` alone is not enough | `tests/Feature/Actions/Catalogue/CreateProductTest.php` |
-| Last variation of an available product | removal refused | `tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php` |
-| Variation with reserved stock | removal refused | `tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php` |
-| Reserving against a soft-deleted variation | refused; nothing held, no ledger row | `tests/Feature/Actions/Inventory/ReserveStockTest.php` |
-| Adding a variation to a soft-deleted product | refused; nothing written | `tests/Feature/Actions/Catalogue/AddProductVariationTest.php` |
-| Erasing a variation before its stock row | stock row deleted first, so no error 1451 | `tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php` |
-| Erasing a variation with a ledger, a cart line, or nothing left to sell | refused | same |
+Single-actor facts — a rollback when one Action's own multi-step write fails
+partway, an authorization denial, an ordering refusal — are not concurrency
+scenarios even when a test happens to prove them alongside a race in the same
+file. They live in each outcomes page's "One actor at a time" table, not
+here.
 
-The two concurrency files differ in what their assertion can be, and the
-difference is worth knowing before writing a third.
+### Choosing the assertion
 
-`ReserveStockConcurrencyTest` **cannot** assert the winner count.
-`chk_inventories_reserved_not_above_current` produces exactly one winner
-whether or not the lock is present; only the *kind* of failure changes.
+The concurrency files split into three assertion shapes, and knowing which
+one applies is the step that decides whether a new test is worth anything —
+worked through in full in `explanation/concurrency-and-locking.md`, "Choosing
+the assertion." In brief, because the shape generalises to any future
+resource:
 
-`PublishProductConcurrencyTest` **must** assert the winner count. MySQL cannot
-express "an available product has at least one live variation" across two
-tables and ADR-0004 rejected triggers, so there is no backstop: without the
-lock both writes commit and both processes report success.
+**A `CHECK` constraint backstops the resource.** The race test cannot assert
+a winner count — the constraint produces exactly one winner whether or not
+the lock is present. Only the *kind* of failure changes: a handled domain
+exception with the lock, `QueryException` without it. `ReserveStock`/
+`ReleaseStock` are the current example.
 
-### Pinned by construction, not by a deleted mechanism
+**Nothing backstops the resource.** The race test *must* assert the winner
+count, because without the lock both writes commit and both processes report
+success — there is no database-level floor under them. The
+publish-vs-variation-removal pairing is the current example.
 
-`tests/Concurrency/MainProductImageConcurrencyTest.php` asserts that two
-concurrent promotions both succeed and leave exactly one main image. No
-mechanism can be deleted to turn it red, and that is a property rather than a
-gap: `SetMainProductImage` reads nothing to decide anything, so there is no
-check-then-act window, and one `UPDATE` cannot interleave with itself.
+**Both attempts are legitimate, and both must win.** Not a mutual-exclusion
+race at all. There is no lock and no winner count to assert; the mechanism
+under test is a catch-and-retry around a `UNIQUE` constraint, and the
+discriminator is whether the loser recovers silently or surfaces the
+collision as an uncaught `QueryException`. `AddToCart`/`MergeGuestCart` are
+the current example — racing itself. Racing a **different** Action is not
+automatically the same test: see "Environment notes" for why, and
+`cart.md`'s "Known gaps" for what that cost in practice.
 
-A demote-then-promote pair would also be safe against a lost invariant, since
-InnoDB row-locks both rows until commit. What it risks is two promotions
-acquiring those rows in opposite order and deadlocking — error 1213, a 500.
-One statement rules that out without a lock.
-
-### Known broken, asserted as such
-
-| Scenario | Current behaviour | File |
-|---|---|---|
-| Two employees saving product forms opened at the same time | the second silently reverts the first's untouched fields | `tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php` |
-| Same, through the admin panel | same — Livewire re-resolves the record on hydration, so the panel is always the losing case | same |
-| Both employees changing the same field | last write wins, no warning | same |
-| Partial-field submission with a cross-field `CHECK` | `QueryException` where a full payload would have silently reverted the other edit | same |
-
-These assert measured behaviour, including behaviour that is wrong. They flip
-red the day optimistic concurrency is added, which is the intended signal to
-update them.
+`SetMainProductImage`'s main-image promotion is a fourth, degenerate case:
+a blind single-statement write with no read to invalidate, so there is no
+mechanism to delete and the test asserts final state as a property rather
+than a guard.
 
 ### Not covered
 
-- Coupon redemption against §21's caps. `RedeemCoupon` does not exist.
+- Coupon redemption against §21's caps. `RedeemCoupon` does not exist —
+  designed in `misc/coupon-actions-plan.md`, not yet built.
 - Two staff transitioning one order. `TransitionOrderStatus` does not exist.
-- Guest cart merge summing into `UNIQUE(cart_id, product_variation_id)`.
 - Duplicate Stripe events against `UNIQUE(stripe_event_id)`.
 - `orders.serial_number` allocation.
 - Deadlock between two orders locking the same variations in opposite order.
 - Two processes creating a product with the same SKU. The `UNIQUE` constraint
   makes the outcome certain, so there is nothing a race test would add.
 
-The first five are slices 4–7 in the working plan.
+The first four are slices 4–7 in the working plan.
 
 ## The enum layer, verified by mutation
 
@@ -159,3 +156,8 @@ Single-process fault injection cannot substitute for a second process when the
 mechanism under test is a lock. A row lock does not constrain the transaction
 that holds it, so a test that injects a conflicting write on the same
 connection passes with the lock and without it.
+
+**A same-Action race is fair by construction; a cross-Action race is not.**
+`explanation/concurrency-and-locking.md`, "A cross-Action race needs a
+fourth thing: a rendezvous" has the mechanism and the measurement;
+`cart.md`'s "Known gaps" has what it cost in practice.

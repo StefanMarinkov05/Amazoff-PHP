@@ -27,7 +27,7 @@ use Spatie\Permission\PermissionRegistrar;
  * behaviour that is wrong.
  *
  * No lock would help: the two requests are separated by human think time,
- * which no transaction can span. `reference/product-write-rules.md` has the
+ * which no transaction can span. `reference/write-rules/product.md` has the
  * outcome table.
  */
 

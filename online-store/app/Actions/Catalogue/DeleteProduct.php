@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Gate;
  * `UpdateProduct` refuses to publish it until one is restored.
  *
  * Authorizes `delete_product`. Locks `products`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class DeleteProduct
 {

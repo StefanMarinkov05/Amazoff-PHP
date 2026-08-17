@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Authorizes `create_product_variation`. Locks nothing: adding can only move
  * §6–7's invariant in the safe direction.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class AddProductVariation
 {

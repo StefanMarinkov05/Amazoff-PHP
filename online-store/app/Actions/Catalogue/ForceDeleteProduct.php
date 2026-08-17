@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Gate;
  * available product — moot when the whole product is going.
  *
  * Authorizes `delete_product`. Locks `products`, then `inventories`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class ForceDeleteProduct
 {
