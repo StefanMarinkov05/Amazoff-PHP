@@ -41,6 +41,7 @@ jobs:
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
   test:
+    name: test (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
 
     # Shards, not one job. ADR-0010 has the timing behind the split; a new
@@ -130,6 +131,7 @@ jobs:
         run: ./vendor/bin/pest ${{ matrix.shard.paths }}
 
   test-concurrency:
+    name: test-concurrency (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
 
     # Shards, not one job. ADR-0010 has the timing behind the split; adding
