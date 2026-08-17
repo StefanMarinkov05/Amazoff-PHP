@@ -2,9 +2,10 @@
 
 What exists in `app/Actions` today. Why they are written this way is
 ADR-0007; how to add one is `how-to/add-an-action.md`; what each one does when
-two of them run at once is `reference/write-rules/product.md`.
+two of them run at once is `reference/write-rules/product.md`,
+`reference/write-rules/cart.md`, and `reference/write-rules/coupon.md`.
 
-Seventeen Actions across three areas, eight domain exceptions.
+Twenty Actions across four areas, nine domain exceptions.
 
 ## Naming
 
@@ -101,6 +102,33 @@ cannot be locked. `MergeGuestCart`'s retry runs as a savepoint inside its
 own outer transaction and must `lockForUpdate()` specifically on that retry;
 `explanation/concurrency-and-locking.md` has why.
 
+## Coupon
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `ApplyCoupon` | `carts.coupon_id` | — no non-human caller, no parameter | `CouponNotApplicableException` |
+| `RemoveCoupon` | `carts.coupon_id` (null) | — no non-human caller, no parameter | — never refuses |
+| `RedeemCoupon` | `coupon_redemptions` | — no non-human caller, no parameter (decision 4) | `CouponNotApplicableException` |
+
+`misc/coupon-actions-plan.md` is the design record; ten decisions,
+`reference/write-rules/coupon.md` is the outcomes page.
+
+`RedeemCoupon` re-validates everything `ApplyCoupon` checked, under
+`lockForUpdate()` on the `coupons` row taken before either usage-cap
+`COUNT` against `coupon_redemptions` — `coupons.times_used` does not exist;
+both caps are counted rather than tracked on a column that would drift out
+of sync with no constraint able to enforce the agreement. Same-order double
+redemption is caught via `UNIQUE(coupon_id, order_id)` rather than checked
+first, per CLAUDE.md's idempotency rule.
+
+`ApplyCoupon` is default CRUD's opposite case from `RemoveCoupon`: it
+qualifies for an Action on ADR-0007's second limb (an invariant the schema
+cannot express — the window, minimum, and scope checks), while
+`RemoveCoupon` rides on `RemoveFromCart`'s precedent rather than the test
+itself, since a bare `UPDATE ... SET coupon_id = NULL` has no invariant of
+its own. `CouponResource` stays default Filament CRUD — creating or editing
+a `Coupon` row is single-table with no second writer, decision 10.
+
 ## Transactions
 
 | Action | Opens `DB::transaction` |
@@ -116,6 +144,9 @@ own outer transaction and must `lockForUpdate()` specifically on that retry;
 | `AddToCart` | yes, inside `addOrIncrement()` — not around the retry itself |
 | `UpdateCartItemQuantity` | no — a single-row `UPDATE` needs nothing else |
 | `RemoveFromCart` | no — a single `DELETE` |
+| `RedeemCoupon` | yes — wraps the lock, both usage-cap counts, and the insert |
+| `ApplyCoupon` | no — a single-row `UPDATE`, no lock to hold open |
+| `RemoveCoupon` | no — a single-row `UPDATE` |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.
@@ -146,6 +177,14 @@ Lock order is `products` before `inventories`. `ReserveStock` and
 `RemoveProductVariation` and `ForceDeleteProductVariation` take both, in that
 order.
 
+`RedeemCoupon` takes `lockForUpdate()` on the `coupons` row before either
+usage-cap `COUNT` against `coupon_redemptions` — no `CHECK` can span the
+two tables, so without the lock two concurrent redemptions both read the
+pre-redemption count and both insert. Declared lock order is `products`,
+then `coupons`, then `inventories` (decision 5); no Action today takes more
+than one of the three, so this constrains `CreateOrder` once it composes
+them, not a currently exercised path.
+
 Duplicate SKUs and slugs are safe by the `UNIQUE` constraints from ADR-0005
 rather than by anything in the Actions. A losing insert raises
 `QueryException` rather than a validation error.
@@ -171,6 +210,7 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
 | `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
+| `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon` | the coupon; six named constructors, one per refusal reason |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -188,7 +228,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Seven of the eight extend `RuntimeException`. `InvalidCartQuantityException`
+Eight of the nine extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -216,11 +256,16 @@ covers both, plus that a non-domain exception of either base class and a
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 | `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
+| `ApplyCoupon`, `RemoveCoupon` | tests only |
+| `RedeemCoupon` | tests only — `CreateOrder`, its only intended caller, does not exist |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
-criterion 1 is met for the panel; no storefront exists yet. The Cart Actions
-have no caller at all outside tests — no storefront controller or Livewire
-component exists yet, same gap `write-rules/cart.md` names.
+criterion 1 is met for the panel; no storefront exists yet. The Cart and
+Coupon Actions have no caller at all outside tests — no storefront
+controller or Livewire component exists yet, same gap `write-rules/cart.md`
+and `write-rules/coupon.md` name. `RedeemCoupon` additionally has no caller
+even in principle yet: it is designed to run inside `CreateOrder`'s
+transaction (`misc/coupon-actions-plan.md`, decision 5), which is slice 5.
 
 Domain exceptions become notifications rather than 500s, via
 `App\Filament\Concerns\ReportsDomainFailures`. Only `App\Exceptions` are

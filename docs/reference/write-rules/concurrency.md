@@ -4,8 +4,8 @@ Facts as of 2026-08-17. Why the mechanisms differ is
 `explanation/concurrency-and-locking.md`; the locking decision for
 cross-table invariants is ADR-0008. What a given pair of concurrent writes
 actually produces — the specific exception, which side wins, what the row
-looks like after — is `reference/write-rules/product.md` and
-`reference/write-rules/cart.md`, one
+looks like after — is `reference/write-rules/product.md`,
+`reference/write-rules/cart.md`, and `reference/write-rules/coupon.md`, one
 per aggregate. **This page names what is contested and which test proves it;
 it does not restate the outcome.** A scenario belongs here once, as a
 pointer, and in exactly one outcomes page in full — repeating the outcome
@@ -28,11 +28,21 @@ listed as unverified, because a test that has never failed is not evidence.
 | `products.sku`, `products.slug`, `product_variations.sku` | duplicate insert | `UNIQUE` constraint (ADR-0005) | schema |
 | one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
 | `cart_items` via `UNIQUE(cart_id, product_variation_id)` | insert-vs-insert across two requests | catch `UniqueConstraintViolationException`, retry as `increment()` — no lock, since a row that does not exist yet cannot be locked | `AddToCart`, `MergeGuestCart` |
+| `coupons.total_usage_limit` / `usage_limit_per_customer` vs `coupon_redemptions` | cross-table invariant, no constraint possible | `lockForUpdate` on `coupons` before either `COUNT` | `RedeemCoupon` |
+| `coupon_redemptions` via `UNIQUE(coupon_id, order_id)` | insert-vs-insert, same order retried or double-submitted | catch `UniqueConstraintViolationException`, return the existing row | `RedeemCoupon` |
 
 ### Lock order
 
 `products` before `inventories`, always. `ReserveStock` and `ReleaseStock`
 take `inventories` alone and never reach for a product, so no cycle exists.
+
+`products`, then `coupons`, then `inventories` (decision 5,
+`misc/coupon-actions-plan.md`). `RedeemCoupon` locks exactly one `coupons`
+row, independent of which products are in the cart, so it sits between the
+other two rather than racing either. No Action today takes both `coupons`
+and `products`/`inventories` in one transaction — this is a rule for
+`CreateOrder`, not yet built, which will compose `RedeemCoupon` with
+`ReserveStock`.
 
 `CreateOrder` will lock several `inventories` rows at once and must sort them
 by primary key first; nothing does that yet because nothing yet locks more
@@ -41,7 +51,8 @@ than one.
 ## What is tested
 
 Which test proves which scenario is cited directly in
-`reference/write-rules/product.md` and `reference/write-rules/cart.md`, next
+`reference/write-rules/product.md`, `reference/write-rules/cart.md`, and
+`reference/write-rules/coupon.md`, next
 to the outcome it proves — not duplicated here as a second index.
 `MainProductImageConcurrencyTest.php` is pinned by
 construction rather than by a deleted mechanism, and
@@ -89,8 +100,6 @@ than a guard.
 
 ### Not covered
 
-- Coupon redemption against §21's caps. `RedeemCoupon` does not exist —
-  designed in `misc/coupon-actions-plan.md`, not yet built.
 - Two staff transitioning one order. `TransitionOrderStatus` does not exist.
 - Duplicate Stripe events against `UNIQUE(stripe_event_id)`.
 - `orders.serial_number` allocation.
