@@ -70,11 +70,10 @@ it('has no price column to go stale', function (): void {
 });
 
 /*
- * chk_products_min_order_quantity_positive keeps every product's minimum at 1
- * or more, so on an empty cart the minimum check catches every quantity the
- * `< 1` guard catches, and both raise InvalidCartQuantityException. Asserting
- * the class alone therefore stays green with the guard deleted — the message
- * and the negative-delta case below are what tell the two apart.
+ * chk_products_min_order_quantity_positive means the minimum check alone
+ * would also reject a zero quantity, so asserting the class here stays green
+ * with the `< 1` guard deleted. The message, and the negative-delta case
+ * below, are what tell the two guards apart.
  */
 
 it('rejects a quantity of zero', function (): void {
@@ -262,15 +261,10 @@ it('re-reads the variation instead of trusting the one it was passed', function 
 });
 
 /*
- * The retry that resolves the race (§CLAUDE.md's idempotency rule: catch the
- * unique violation, retry as an update) cannot be proven in this file.
- * addOrIncrement() wraps its read-decide-write in DB::transaction(), so a
- * same-process collision injected via a model event lands inside that
- * transaction and is rolled back with it when the unique violation fires —
- * hiding the very collision the test means to force, the same trap
- * troubleshooting.md documents under "A concurrency test cannot be written in
- * one process". `tests/Concurrency/AddToCartConcurrencyTest.php` proves it
- * with two real processes instead.
+ * The retry cannot be proven single-process: a same-process collision lands
+ * inside addOrIncrement()'s own transaction and rolls back with it, hiding
+ * the collision rather than forcing it. tests/Concurrency/AddToCartConcurrencyTest.php
+ * proves it with two real processes.
  */
 
 it('leaves no line behind when the stock check fails after a first add', function (): void {
@@ -317,9 +311,7 @@ it('leaves an existing line alone once its product is deactivated', function ():
 
     $variation->product->update(['is_available' => false]);
 
-    // This Action guards what it writes, not what is already in the cart —
-    // RemoveFromCart is how the customer clears a line that went dead after
-    // being added, same as for a soft-deleted product.
+    // Guards what it writes, not what is already in the cart.
     expect(fn () => app(AddToCart::class)->handle($cart, $variation, 1))
         ->toThrow(RemovedFromCatalogueException::class);
 
