@@ -42,7 +42,7 @@ class PaymentEvent extends Model
             'status_before' => PaymentStatus::class,
             'status_after' => PaymentStatus::class,
             'payload' => 'array',
-            'processed_at' => 'timestamp',
+            'processed_at' => 'datetime',
         ];
     }
 

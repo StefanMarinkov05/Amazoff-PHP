@@ -10,9 +10,6 @@ use Filament\Support\Contracts\HasLabel;
 /**
  * §20 requires stock to change through movements rather than direct quantity
  * writes, so every one of these is an append-only ledger entry.
- *
- * The specification spells two of these "Order reserion" and "Reserion
- * release"; both are typos for reservation.
  */
 enum InventoryMovementType: string implements HasColor, HasLabel
 {

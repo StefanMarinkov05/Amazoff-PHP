@@ -37,7 +37,7 @@ class ContactMessage extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
-            'handled_at' => 'timestamp',
+            'handled_at' => 'datetime',
         ];
     }
 

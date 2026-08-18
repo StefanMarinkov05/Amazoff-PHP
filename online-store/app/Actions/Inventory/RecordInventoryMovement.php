@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Actions\Inventory;
+
+use App\Enums\InventoryMovementType;
+use App\Models\Inventory;
+use App\Models\InventoryMovement;
+use App\Models\User;
+
+/**
+ * Writes one row to the stock ledger.
+ *
+ * §20 requires stock to change through movements rather than direct quantity
+ * writes, so every Action that touches a quantity column calls this in the
+ * same transaction. The ledger is what makes a wrong total explainable after
+ * the fact — without it, a drifting count has no history to read.
+ *
+ * A movement without the quantity change it describes is a lie, so calling
+ * this outside an Action that makes that change is a mistake.
+ *
+ * Authorizes nothing — the caller has already authorized what this records.
+ * Locks nothing, and opens no transaction of its own: it joins the caller's.
+ * See `explanation/inventory.md`.
+ */
+final class RecordInventoryMovement
+{
+    /**
+     * @param  int  $quantity  Signed. Positive adds to the quantity the
+     *                         movement type describes, negative removes —
+     *                         a reservation release is a negative
+     *                         `ReservationRelease`, not a positive one.
+     */
+    public function handle(
+        Inventory $inventory,
+        InventoryMovementType $type,
+        int $quantity,
+        ?User $actor,
+        ?string $note = null,
+    ): InventoryMovement {
+        return $inventory->inventoryMovements()->create([
+            'movement_type' => $type,
+            'quantity' => $quantity,
+            'created_by_id' => $actor?->id,
+            'note' => $note,
+        ]);
+    }
+}

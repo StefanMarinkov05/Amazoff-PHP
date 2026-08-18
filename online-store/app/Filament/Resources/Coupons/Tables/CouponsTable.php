@@ -56,8 +56,9 @@ class CouponsTable
                 TextColumn::make('usage_limit_per_customer')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('times_used')
-                    ->numeric()
+                TextColumn::make('redemptions_count')
+                    ->label('Times used')
+                    ->counts('couponRedemptions')
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->boolean(),

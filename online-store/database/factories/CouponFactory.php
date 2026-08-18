@@ -36,7 +36,6 @@ class CouponFactory extends Factory
             'ends_at' => $endsAt,
             'total_usage_limit' => fake()->boolean(60) ? fake()->numberBetween(10, 1000) : null,
             'usage_limit_per_customer' => fake()->boolean(70) ? fake()->numberBetween(1, 5) : null,
-            'times_used' => fake()->numberBetween(0, 10),
             'is_active' => fake()->boolean(),
         ];
     }

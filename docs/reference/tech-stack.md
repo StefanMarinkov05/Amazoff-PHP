@@ -38,6 +38,7 @@ environment. No rationale here — that's in
 | Docker Compose | Local dev: `app` (PHP-FPM), `webserver` (nginx), `db` (MySQL 8), `vite`, `mailpit` |
 | GitHub Actions | CI — Pint, Larastan, Pest against a real MySQL service container |
 | Forge + VPS | Production, not containerized |
+| PCOV 1.0.12 | Test coverage collection, `app` image and CI only — not installed in production. ADR-0009 |
 
 ## Currently unresolved
 

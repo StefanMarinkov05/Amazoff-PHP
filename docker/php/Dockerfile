@@ -52,6 +52,15 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         opcache \
     && rm -rf /var/lib/apt/lists/*
 
+# PCOV for `pest --coverage` — line coverage only, not Xdebug's fuller (and
+# slower) instrumentation. Chosen because tests/Concurrency/ already pays
+# real per-test process-boot overhead; ADR-0009 has the full reasoning,
+# including why this is a report, not a CI gate.
+RUN pecl install pcov \
+    && docker-php-ext-enable pcov
+COPY docker/php/conf.d/pcov.ini /usr/local/etc/php/conf.d/pcov.ini
+COPY docker/php/conf.d/cli-memory.ini /usr/local/etc/php/conf.d/cli-memory.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
