@@ -153,11 +153,17 @@ it('denies a customer every resource in the panel', function (string $model): vo
 it('gives content_editor content resources and nothing else', function (): void {
     $editor = userByEmail('editor@example.com');
 
-    // §3.3 grants article categories and tags. Articles and reviews have no
-    // Filament resource yet, so only these two are reachable today.
+    // §3.3 grants article categories and tags. Articles have no Filament
+    // resource yet, so only these two are reachable today.
     expect($editor->can('viewAny', Tag::class))->toBeTrue()
         ->and($editor->can('create', Tag::class))->toBeTrue()
         ->and($editor->can('viewAny', ArticleCategory::class))->toBeTrue();
+
+    // §3.3 does not mention reviews and §24 gives hiding an inappropriate one
+    // to administrators. Moderation is not authoring.
+    expect($editor->can('viewAny', ProductReview::class))->toBeFalse()
+        ->and($editor->can('approve_product_review'))->toBeFalse()
+        ->and($editor->can('delete_product_review'))->toBeFalse();
 
     // Catalogue data is not content.
     expect($editor->can('viewAny', Brand::class))->toBeFalse()

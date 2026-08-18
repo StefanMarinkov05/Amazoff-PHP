@@ -38,10 +38,11 @@ needed to touch.
 | Area | Work |
 |---|---|
 | Data model | Initial schema design |
-| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li></ul> |
+| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li></ul> |
 | Seeders | Role and staff account seeding |
 | Infra | Local database provisioning on a fresh clone |
-| Authorization | Policies for product-related resources |
+| Actions | Review approval and unapproval |
+| Authorization | <ul><li>Policies for product-related resources</li><li>Narrowed `content_editor` to the scope §3.3 grants</li></ul> |
 | Schema | Fields supporting contact message handling |
 | Documentation | For the above |
 
