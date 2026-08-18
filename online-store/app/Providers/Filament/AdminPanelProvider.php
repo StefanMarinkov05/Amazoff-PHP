@@ -33,6 +33,17 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            // Off by default in Filament v4. A Create/Edit page's record save
+            // and its relationship sync (CouponForm's products/
+            // productCategories, ProductForm's attributes, RoleForm's
+            // permission checklists) are otherwise separate auto-committed
+            // statements — a detach then a re-attach — leaving a real,
+            // if narrow, window where a concurrent read sees neither the old
+            // nor the new state. Actions already open their own nested
+            // DB::transaction() regardless (savepoint semantics, outermost
+            // boundary commits — docs/reference/actions.md), so this adds no
+            // conflict there.
+            ->databaseTransactions()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([

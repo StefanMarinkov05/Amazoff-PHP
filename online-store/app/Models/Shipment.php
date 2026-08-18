@@ -48,8 +48,8 @@ class Shipment extends Model
             'status' => ShipmentStatus::class,
             'cod_amount' => 'decimal:2',
             'weight' => 'decimal:2',
-            'shipped_at' => 'timestamp',
-            'delivered_at' => 'timestamp',
+            'shipped_at' => 'datetime',
+            'delivered_at' => 'datetime',
         ];
     }
 

@@ -1,81 +1,91 @@
 # Contributions
 
-Who built what, and where AI assistance was used. Separate from
-`CONTRIBUTING.md`, which is the process guide — this is the record.
+Who built what, and where AI assistance was used. `CONTRIBUTING.md` is the
+process guide; this is the record.
+
+Two people. The work split along the seam between the admin panel and the
+layers underneath it. The conflicts came from the two seeders both sides
+needed to touch.
 
 ## Team
 
-### Both
+### Together
 
-- Brainstorming — extending the specification, defining a goal and a scope
-- Research into the tech stack and which tools to use
-- Modelling the data
-- Building the project skeleton and setting up a container
+| Area | Work |
+|---|---|
+| Specification | Extended the issued spec into a working one, deviations marked |
+| Stack | Researched and chose the tools |
+| Data model | Modelled the data |
+| Project setup | Project skeleton, Docker container |
 
 ### Stefan Marinkov
 
-- Setting up the CI workflow
-- `App\Enums` — the twelve backed enums, their casts, and the four status
-  transition matrices, drafted with an LLM and reviewed before acceptance
-- `tests/Feature/FactoryTest.php` — asserts every factory persists a row
-- All project documentation to date, listed below
+| Area | Work |
+|---|---|
+| CI | Pipeline setup |
+| Enums | Backed enums, casts, status transition matrices |
+| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li></ul> |
+| Validation | Database-level constraints across pivot and catalogue tables |
+| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
+| Authorization | Permissions, roles, policies, administrator bypass |
+| Admin panel | Roles and permissions screen |
+| Actions | Full `app/Actions` |
+| Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
+| Documentation | For the above |
 
 ### Aleksandar Stanchev
 
-- Modelled the first prototype of the schema
-
-## Documentation
-
-Every document in the repository is Stefan's responsibility. Listed for review;
-authoring method is covered under AI assistance below.
-
-| Document | What it is |
+| Area | Work |
 |---|---|
-| `README.md` | Setup and everyday commands |
-| `CLAUDE.md` | Architecture and security rules, non-negotiable |
-| `CONTRIBUTING.md` | Branching, PR process, review checklist |
-| `CONTRIBUTIONS.md` | This file |
-| `docs/README.md` | How `docs/` is organized |
-| `docs/adr/0001-tech-stack-selection.md` | Kickoff stack decisions and alternatives rejected |
-| `docs/adr/0002-db-schema-design.md` | Catalogue schema: attributes, variations, stock ownership |
-| `docs/adr/0003-seeding-data.md` | Three seeders, fixture format, validator |
-| `docs/adr/0004-state-transitions.md` | Where the order state machine lives |
-| `docs/explanation/documentation-design.md` | Diátaxis layout, ADR vs explanation |
-| `docs/explanation/tech-stack-overview.md` | What is built versus merely installed |
-| `docs/explanation/db-schema-design.md` | The parts of the schema the diagram cannot show |
-| `docs/explanation/gdpr.md` | Soft versus hard delete, order anonymization |
-| `docs/how-to/regenerate-with-blueprint.md` | Safe regeneration and the files Blueprint must not own |
-| `docs/how-to/use-ci.md` | What the workflow runs and what a green check does not cover |
-| `docs/how-to/troubleshooting.md` | Errors that already cost an afternoon, and what stops each recurring |
-| `docs/how-to/write-docs-and-comments.md` | Where rationale lives: code or docs |
-| `docs/how-to/choose-a-model.md` | Model and effort level per kind of work |
-| `docs/reference/specification.md` | The requirements as being built, with deviations marked |
-| `docs/reference/schema.md` | Tables, constraints, enum columns |
-| `docs/reference/tech-stack.md` | Versions and packages |
-| `docs/reference/erd-diagram.pdf` | Entity relationship diagram |
-| `docs/changelog/CHANGELOG.md` | What shipped, and what is still open |
+| Data model | Initial schema design |
+| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li></ul> |
+| Seeders | Role and staff account seeding |
+| Infra | Local database provisioning on a fresh clone |
+| Actions | Review approval and unapproval |
+| Authorization | <ul><li>Policies for product-related resources</li><li>Narrowed `content_editor` to the scope §3.3 grants</li></ul> |
+| Schema | Fields supporting contact message handling |
+| Documentation | For the above |
 
 ## AI assistance
 
-Used by Stefan only, not Aleksandar. The tool is Claude Code, configured with
-skills covering architecture, code review, and documentation standards so that
-generated work passes a review pass before it reaches the repository.
+Stated here rather than left to be inferred from the commit history.
 
-### Scope
+Stefan used AI from the start; Aleksandar from 2026-08-11, for the Filament
+panel work. The tool is Claude Code, configured with skills covering
+architecture, code review, and documentation standards, so generated work has
+been through a review pass before it reaches the repository.
 
-Documentation, code comments, summaries and commit messages — turning draft notes into full
-explanatory text. Schema-shaped code where the content is mechanical: enums,
-model casts, factories, and scaffolding.
+### Where it is used
 
-Architectural options are proposed by the LLM and decided by the developer.
-Generated output is a first draft and is read before it is trusted; several
-decisions in the current codebase were changed during review rather than
-accepted as written, including the enum display contracts, which enums carry a
-transition matrix, and the split between rationale kept in code and rationale
-kept in an ADR.
+- Documentation, code comments, summaries, commit messages — draft notes into
+  finished text
+- Schema-shaped code where the content is mechanical: enums, model casts,
+  factories, scaffolding
+- Reasoning about concurrency safety, where a test can show a race is
+  unlikely but not that it is impossible
 
-### Written by hand or Deep reasoning model and hardly reviewed regardless of scope
+Architectural options come from the developers and the model; the decision is
+the developer's. Generated output is a first draft and is read before it is
+trusted. Not a formality — several decisions in the codebase were changed
+during review rather than accepted as written, including the enum display
+contracts, which enums carry a transition matrix, and whether rationale
+belongs in the code or an ADR.
 
-Business logic that carries risk — pricing calculations, stock reservation and
-locking, Stripe webhook idempotency, Policy classes, and the `CourierGateway`
-interface. Per the working agreement in `CLAUDE.md`.
+### Where it gets a stronger model and a closer read
+
+- Pricing calculations
+- Stock reservation and locking
+- Stripe webhook idempotency
+- Authorization
+- The `CourierGateway` interface
+
+Per the working agreement in `CLAUDE.md` and the levels in
+`docs/how-to/choose-a-model.md`.
+
+These are the places where a plausible-looking answer is most expensive. A
+wrong permission check and a right one are the same three lines, and only one
+is caught by reading. So this category is verified against the running
+application rather than trusted because static analysis came back green — the
+authorization work was checked by logging in as each seeded account, and by
+deleting a policy to confirm the test suite went red rather than assuming it
+would.

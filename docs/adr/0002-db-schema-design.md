@@ -74,6 +74,27 @@ product's price applies. A phone whose 512GB variant costs more sets a price on
 that one variation and leaves the rest untouched, without duplicating the
 description or the SEO fields across variants.
 
+### Datetime columns are cast `datetime`, never Blueprint's `timestamp`
+
+Blueprint's generated model casts use `'timestamp'` for every `timestamp()`
+column. That cast returns a Unix integer, not a `Carbon` instance — so any
+comparison against one (`->lt()`, `->gt()`, a discount or coupon window check)
+is a `TypeError`, not a wrong answer. The failure is silent until the first
+comparison runs, which for a discount window is the first time a product
+carrying one reaches the cart.
+
+Found on `Product::discount_starts_at`/`discount_ends_at` while writing the
+cart-Actions tests (`ResolveVariationPrice` needs exactly this comparison),
+and then on ten more columns across `Article`, `Cart`, `ContactMessage`,
+`Coupon`, `NewsletterSubscriber`, `Order`, `Payment`, `PaymentEvent`,
+`Shipment`, and `ShipmentTrackingEvent` — Blueprint generated the same mistake
+everywhere it generated a datetime cast at all. Fixed in every model in one
+pass; `'datetime'` is what every one of them needed.
+
+Applies wherever a model casts a `timestamp()` column, not only to the
+catalogue tables this ADR otherwise covers — recorded here because this is
+where a caster reads before adding the next one.
+
 ### Specifications are not attributes
 
 `product_specifications` holds free-text name/value pairs — warranty length,

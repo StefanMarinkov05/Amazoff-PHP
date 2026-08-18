@@ -11,8 +11,18 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. No Filament Resources exist
-yet — the admin panel has no content in it.
+`canAccessPanel()` on `User` gates it by role. Seven Resources exist over the
+catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
+`ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
+`make:filament-resource --generate` and corrected by hand where the
+generator didn't infer unique-index validation from the schema. An eighth,
+over spatie's `Role`, is described under authorization below. Nothing exists
+yet for `Product` or `Order`, or anything else that touches money or stock.
+
+`User` also implements `Filament\Models\Contracts\HasName`
+(`getFilamentName()`), required because `FilamentManager` falls back to a
+`name` attribute this schema doesn't have — see `troubleshooting.md` for
+the crash this produced before it was added.
 
 Roles come from `spatie/laravel-permission`. `User` uses the `HasRoles`
 trait; `canAccessPanel()` checks `hasAnyRole(User::STAFF_ROLES)`. Verified
@@ -20,13 +30,61 @@ working — staff reach the panel, a customer does not, and a user can hold
 two roles at once.
 
 The three staff role rows (`administrator`, `content_editor`,
-`warehouse_employee`) exist in the local database but **there is no seeder
-for them**, so a fresh `migrate:fresh --seed` produces none. No permissions
-are defined either — only roles.
+`warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
+called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
+them in every environment. `PermissionSeeder` runs before it with a
+catalogue of 104 permissions named `{ability}_{resource}`, where the ability
+half matches the Laravel policy method that checks it — which is what keeps
+a policy method to one line. `UserSeeder` then creates one account per role
+plus a plain customer, gated to non-production; see ADR-0003 on why seeded
+credentials and seeded reference data get different treatment.
 
-No Policy classes exist yet, so `canAccessPanel()` is currently the only
-authorization check in the codebase. "All checks go through Policies" is the
-target from ADR-0001, not the current state.
+`content_editor` holds 20 permissions and `warehouse_employee` 12, from §3.3
+and §3.4. `administrator` holds none: a `Gate::before` callback in
+`AppServiceProvider` returns `true` for that role and short-circuits every
+check, so the role does not drift out of step with the catalogue as
+permissions are added. The cost is that a policy can no longer deny an
+administrator anything, which pushes "nobody may do X" rules into the
+Actions as domain invariants.
+
+Twenty Policy classes exist — one per resource the permission catalogue
+names, rather than one per Resource that happens to be built, since a
+missing policy fails open the moment someone scaffolds the resource. Most
+methods are a single `$user->can('{ability}_{resource}')`; they check
+permissions rather than role names because §3.5 requires permissions
+editable at runtime, and a `hasRole()` check would go stale the moment an
+administrator edits a role.
+
+Five carry more than that. `OrderPolicy` and `PaymentPolicy` refuse creation
+outright — an order exists because a customer checked out, a payment because
+Stripe said so — and `OrderPolicy::view`, `ProductReviewPolicy::view`, and
+`UserPolicy::view` add ownership branches, the per-record half §34 calls
+preventing unauthorized resource access. `UserPolicy::delete` refuses
+self-deletion, since removing the last administrator locks the panel against
+everyone.
+
+Laravel resolves policies by convention, with one exception:
+`Spatie\Permission\Models\Role` is outside `App\Models`, so
+`AppServiceProvider` registers `RolePolicy` by hand. Without it the model
+that controls what every role may do would be the one ungated model in the
+system.
+
+`tests/Feature/RolePermissionTest.php` covers the matrix, weighted toward
+the denials, and asserts that all twenty models resolve a policy at all.
+
+A Filament resource over spatie's `Role` model makes §3.5 true rather than
+architectural: an administrator changes what a role may do from
+**Roles & permissions**, and the change is live on the next request. Edit
+only — no create or delete, because `canAccessPanel()` gates on the
+`User::STAFF_ROLES` constant and a role created in the UI would grant no
+panel access until someone edited that constant and deployed.
+
+ADR-0006 records why the four layers are separate and what the arrangement
+costs — chiefly that `Gate::before` makes a policy unable to deny an
+administrator anything, which pushes "nobody may do X" rules into the
+Actions. `reference/permissions.md` lists the catalogue;
+`how-to/edit-a-role.md` covers the panel and seeder paths and why they are
+not equivalent.
 
 Blueprint has generated the schema from `online-store/draft.yaml`: 40
 migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
@@ -40,7 +98,7 @@ The 12 models with such columns cast them, and the factories draw from
 `ArticleStatus` — carry a transition matrix; see ADR-0004 for where the rest of
 the state machine is meant to live.
 Beyond enum casts and relations the models remain data structures — no
-Actions, no Policies, and nothing yet calls `canTransitionTo()`.
+Actions, and nothing yet calls `canTransitionTo()`.
 
 Larastan and Pest are configured and passing against what exists so far.
 

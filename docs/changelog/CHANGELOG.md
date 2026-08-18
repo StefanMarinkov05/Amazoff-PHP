@@ -60,9 +60,195 @@ when the work happened, not when it was committed — nothing in
   discovered by glob. This is the check `docs/how-to/regenerate-with-blueprint.md`
   describes as the only way to catch a factory writing a value its column
   cannot hold; it was documented but not automated.
+- Six Filament resources over the catalogue's lookup entities: `Brand`,
+  `Tag`, `ProductCategory`, `ArticleCategory`, `Attribute`, `AttributeValue`.
+  Scaffolded with `make:filament-resource --generate`, then corrected by hand
+  — see Fixed, below. `ProductCategory`'s self-referencing `parent_id` and
+  `AttributeValue`'s `attribute_id` foreign key both resolved to `Select`
+  fields backed by `relationship()` without manual intervention.
+- `database/seeders/RoleSeeder.php` — creates the three `User::STAFF_ROLES`
+  rows (`administrator`, `content_editor`, `warehouse_employee`). Runs in
+  every environment, production included, since a role must exist before
+  anyone can be assigned to it through the panel.
+- `DatabaseSeeder` now creates a staff account and assigns it the
+  `administrator` role, gated behind `! app()->isProduction()` — reference
+  data (roles) seeds everywhere, a known-password test credential does not.
+  Closes the gap the `Open` section below used to track.
+- `User` implements `Filament\Models\Contracts\HasName`, alongside the
+  existing `FilamentUser`. See Fixed, below, for why this was load-bearing
+  rather than cosmetic.
+- `docker/mysql/init/01-test-database.sh`, mounted into the `db` service's
+  `docker-entrypoint-initdb.d/`. Creates `online_shop_test` and grants the
+  app user access to it on first container initialization, matching what
+  CI's MySQL service already provisions — local `pest` runs against a fresh
+  clone without a manual `CREATE DATABASE` step.
+- `database/seeders/PermissionSeeder.php` — 104 permissions named
+  `{ability}_{resource}`, the ability half matching the Laravel policy method
+  that checks it. Seeded in full rather than per built resource: §3.3 and
+  §3.4 describe what a role may do, not what happens to be built, and
+  `content_editor`'s deny-list is only meaningful if the permissions it
+  excludes exist.
+- `RoleSeeder` now attaches those permissions — 20 to `content_editor`, 12 to
+  `warehouse_employee`, none to `administrator`. `syncPermissions()` rather
+  than `givePermissionTo()`, so a permission removed from the seeder is
+  actually revoked on the next run; the tradeoff is that a re-seed discards
+  runtime edits made through the panel.
+- `database/seeders/UserSeeder.php` — one account per role plus a plain
+  customer, gated to non-production. §37 criterion 18 is only demonstrable
+  with an account per role, and the customer is what proves
+  `canAccessPanel()` denies someone holding no role at all.
+- `Gate::before` in `AppServiceProvider` grants `administrator` every
+  ability. Returns `null` rather than `false` when the role is absent, so
+  other users still reach spatie's callback and then their policy.
+- Twenty Policy classes — one per resource the permission catalogue names,
+  not one per Filament Resource built, since a missing policy fails open the
+  moment a resource is scaffolded. Most methods are one
+  `$user->can('{ability}_{resource}')`, checking permissions rather than role
+  names because §3.5 requires permissions editable at runtime. `Order` and
+  `Payment` refuse creation outright; `Order`, `ProductReview`, and `User`
+  add ownership branches; `User` refuses self-deletion. `RolePolicy` is
+  registered by hand in `AppServiceProvider` because spatie's `Role` sits
+  outside `App\Models` and convention does not find it.
+- `tests/Feature/RolePermissionTest.php` — 32 tests over the §37 criterion 18
+  matrix, weighted toward the denials, including that every model with a
+  Resource resolves a policy at all.
+- `docs/adr/0006-authorization-layers.md` — why panel access, permissions,
+  policies, and the administrator exemption are four separate mechanisms, and
+  what the arrangement costs.
+- `docs/how-to/run-the-tests.md` — running one file or one test, the flags
+  worth knowing, why the suite needs MySQL, and how to check that a test can
+  actually fail.
+- Filament resource over spatie's `Role`, satisfying §3.5 — permissions
+  editable without a deploy, which until now described an arrangement nobody
+  could exercise. Edit only: no create or delete, since `canAccessPanel()`
+  gates on the `User::STAFF_ROLES` constant and a role created in the UI
+  would grant no panel access until that constant changed. Permissions render
+  as one checkbox list per resource, each scoped to its own names so several
+  lists can edit the same relation without clearing each other.
+- `App\Support\PermissionCatalogue` — the catalogue's shape, read by both
+  `PermissionSeeder` and the roles form. Previously private constants on the
+  seeder; the UI needed the same groupings.
+- `docs/reference/permissions.md` — the 104 permissions, the three roles and
+  what each holds, and which check answers which question.
+- `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
+  are not equivalent, and what the screen deliberately refuses to do.
+- `app/Actions/Inventory/` — `RecordInventoryMovement`, `ReserveStock`, and
+  `ReleaseStock`, the first Actions in the codebase, plus
+  `Inventory::available()` and `InsufficientStockException`. Both writing
+  Actions take `DB::transaction` and `lockForUpdate`; the ledger writer
+  deliberately opens no transaction, since a movement without the quantity
+  change it describes is a lie and the caller owns the boundary.
+- `tests/Concurrency/`, a testsuite of its own, because `RefreshDatabase`
+  rolls back rather than commits and a second connection cannot see rows that
+  were never committed. The race test runs two OS processes against a shared
+  wall-clock barrier and asserts the *type* of the loser's exception — both
+  the locked and unlocked versions produce one winner, and only the locked one
+  fails cleanly.
+- `docs/adr/0007-action-conventions.md` — the actor is a nullable last
+  parameter and null means the system; events dispatch after commit; an Action
+  is required where a rule spans tables rather than everywhere; composition
+  nests via savepoints.
+- `docs/explanation/inventory.md` and
+  `docs/explanation/concurrency-and-locking.md` — the stock counters and the
+  locking that protects them, including why `increment()` rather than
+  arithmetic in PHP is load-bearing: the constraint catches the first case as
+  a 500 and cannot catch the second at all.
+- `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
+  the reasoning for each instruction so it can be edited rather than copied
+  once and left to go stale.
+- Filament resource over `Product`, with `ProductVariation`, `ProductImage`,
+  and `ProductSpecification` as relation managers rather than resources of
+  their own. None is browsed independently of its product, and a standalone
+  resource would let a variation be created without one. Relation managers
+  only render on the Edit page — a child row needs its parent's id, which
+  does not exist while the create form is open.
+- `ProductImagePolicy` and `ProductSpecificationPolicy`, checking
+  `view_product` and `update_product` rather than permissions of their own.
+  Managing a product's images or specifications is editing that product, and
+  §3 describes no role that draws a line between them. A distinct class is
+  still required: `ProductPolicy::update()` is type-hinted to `Product` and
+  cannot receive a `ProductImage`. `ProductVariation` keeps its own
+  permission set, because §3.4 gives the warehouse a reason to read SKU and
+  stock without holding the catalogue's descriptive content.
+- Filament resource over `Coupon`, satisfying §11's discount codes. Fields
+  react to each other: `value` renders as `%` or `EUR` and caps at 100 or the
+  column ceiling depending on `type`, `max_discount_amount` appears only for
+  percentage coupons, and the product and category pickers appear only under
+  the matching `scope`. `times_used` is displayed but never submitted —
+  `disabled()` plus `dehydrated(false)`, since an editable counter would let
+  an exhausted coupon be reopened by typing a smaller number.
+- Table filters, the first in any resource: `type`, `scope`, and `is_active`
+  on coupons.
+- Filament resources over `ContactMessage` and `NewsletterSubscriber`, the
+  first read-mostly ones: no create page, no create action, and a View page
+  with an infolist — also the first infolists in the panel. Both arrive from
+  public forms (§5, §26), so creating one by hand would fabricate a record
+  the sender never submitted.
+- `contact_messages.handled_at` and `internal_note`, in a new migration.
+  `ContactMessagePolicy::update()` already described "marking handled or
+  attaching an internal note", but the columns it assumed did not exist, so
+  the edit screen's only effect was rewriting the sender's own words. The
+  customer's fields are now `disabled()` and `dehydrated(false)`; only the
+  two staff columns are writable. `handled_at` is a nullable timestamp
+  rather than a boolean — when a message was dealt with is worth more than
+  that it was, and null already means outstanding.
+
+- `docs/adr/0009-code-coverage.md` — PCOV for `pest --coverage`, chosen over
+  Xdebug by benchmarking both against this suite specifically (+13% on
+  `tests/Concurrency/`, +36% on a fast in-process run) rather than assuming
+  the difference. Reported as a CI artifact, never gated — no `--min`
+  threshold, consistent with this project's existing position that a
+  passing test is not evidence without deletion-proof.
+  `docker/php/conf.d/pcov.ini`, `docker/php/conf.d/cli-memory.ini` (the
+  default 128M `memory_limit` cannot assemble a full-project report).
+- `docs/reference/coverage.md` — per-class PCOV breakdown, distinguishing
+  lines proven by a concurrency test PCOV cannot see from lines genuinely
+  untested.
+- `docs/reference/write-rules/` — `product-write-rules.md`,
+  `cart-write-rules.md`, and `concurrency-coverage.md` moved here as
+  `product.md`, `cart.md`, `concurrency.md`. The three cross-reference each
+  other constantly and shared a naming pattern already; ~25 other files
+  citing the old paths updated.
+- `tests/Concurrency/ReleaseStockConcurrencyTest.php`,
+  `ForceDeleteProductVariationConcurrencyTest.php`,
+  `MergeGuestCartConcurrencyTest.php` — three mechanisms
+  (`lockForUpdate()`, a catch-and-retry) that existed in application code
+  but had never been raced by two real processes. All three verified by
+  deletion.
+- `tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php` — races
+  `AddToCart` against `MergeGuestCart` directly rather than each against
+  itself. Proved the collision is real and `AddToCart`'s retry handles it;
+  could not prove `MergeGuestCart`'s retry in this specific pairing across
+  24 attempts under three synchronization strategies — `MergeGuestCart` has
+  no domain validation before its insert and wins every time in this
+  environment. Recorded as a measured, narrower gap rather than claimed as
+  fully verified. `docs/explanation/concurrency-and-locking.md` gained a
+  section on why a cross-Action race needs a rendezvous beyond the usual
+  wall-clock barrier.
+- Tests closing three branches no test exercised: `ForceDeleteProduct`'s
+  refusal when a product has reviews, `RemoveProductImage`'s authorization
+  check (nothing had ever called it with a non-null actor), `ReleaseStock`'s
+  `quantity < 1` guard (present and tested on `ReserveStock`, missing on its
+  sibling).
 
 ### Changed
 
+- CI split into three parallel jobs (ADR-0010): `lint` (Pint, Larastan, no
+  database), `test` (`tests/Unit` + `tests/Feature`, 2-shard matrix), and
+  `test-concurrency` (`tests/Concurrency`, 3-shard matrix). Both suites'
+  shards are hand-partitioned by measured wall-clock time, not split
+  evenly by file count — each suite has one file whose cost would
+  otherwise land wherever alphabetical order put it: one
+  `tests/Concurrency` file using `->repeat(6)` is over half that suite's
+  time; `tests/Feature/RolePermissionTest.php`'s `beforeEach` reseeds
+  three seeders before every test (deliberate — the permission registrar
+  caches for 24h) and is over a third of the Feature/Unit suite's time.
+  Coverage collection dropped from CI entirely — sharding `test` means no
+  single shard's report matches `reference/coverage.md`'s numbers, and
+  merging two partial reports is real infrastructure for a number ADR-0009
+  already established nothing gates on. Regenerate locally
+  (`docs/reference/coverage.md` has the command) when the numbers are
+  needed.
 - Local database container runs with relaxed durability
   (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).
   Production is unaffected — it runs on Forge with MySQL's defaults. A single
@@ -72,8 +258,43 @@ when the work happened, not when it was committed — nothing in
   `default-mysql-client`, which is MariaDB's and rejects the flags Laravel
   passes to `mysqldump`. `schema:dump` now works, which lets `migrate:fresh`
   load a schema dump instead of replaying every migration.
+- `Table::configureUsing()` in `AppServiceProvider` sets `defaultCurrency`
+  to EUR. Filament's `money()` columns fall back to `usd` when given no
+  argument, so this is set once rather than passed to every money column,
+  where a new table would silently render dollars.
+- `AssociateAction` and `DissociateAction` removed from all three product
+  relation managers. `--generate` scaffolds them, but `product_id` is NOT
+  NULL on all three child tables, so no row is ever unattached and
+  "associate" could only mean reassigning another product's image, spec, or
+  variation to this one. Nothing in §6–7 asks for that. They also bypass
+  policies entirely — Filament checks only `isReadOnly()` for them — so
+  gating rather than removing would have needed a second mechanism.
 
 ### Fixed
+
+- `MergeGuestCart` had no collision handling at all — unlike `AddToCart`,
+  which it otherwise mirrors, a concurrent merge or an unrelated `AddToCart`
+  landing on the same line surfaced as an uncaught `QueryException`. Now
+  catches and retries as an update, same shape as `AddToCart`. The fix
+  needed one subtlety `AddToCart`'s doesn't: the retry runs as a savepoint
+  inside the merge's own outer transaction, and a savepoint rollback does
+  not refresh the transaction's `REPEATABLE READ` snapshot the way a fresh
+  top-level transaction does, so the retry's read must `lockForUpdate()`
+  rather than read plainly.
+- `CalculateCartTotals` threw an uncaught `TypeError` on any cart line whose
+  variation or product had been soft-deleted after the line was added — a
+  realistic, previously-untested case. Now skips the line rather than
+  crashing the cart total.
+- `ReportsDomainFailures` (turns an Action's domain exception into a
+  Filament notification) caught `RuntimeException` only. Seven of the eight
+  domain exceptions extend it; `InvalidCartQuantityException` deliberately
+  extends `InvalidArgumentException` instead, per its own docblock, written
+  before this trait existed. Would have reached a Filament page as an
+  uncaught exception rather than a notification the moment Cart got a
+  caller that used the trait — silent only because no such caller exists
+  yet. Now catches both.
+- `pest --coverage` failed outright everywhere — CI set `coverage: none`
+  explicitly and no driver was installed locally.
 
 - `app/Models/User.php` was invalid PHP — an unclosed `$hidden` array and an
   unclosed `profile()` method from a merge conflict resolved by hand. It also
@@ -92,6 +313,59 @@ when the work happened, not when it was committed — nothing in
 - `UserFactory` hashed a random password per row and left no known password
   for tests to log in with. Now hashes once per process, with an
   `unverified()` state.
+- `make:filament-resource --generate` does not infer unique-index validation
+  from the schema. All six generated forms had a `slug` field with no
+  `->unique()` rule despite a database-level unique constraint on every one
+  of them; `AttributeValueForm` needed a composite rule
+  (`modifyRuleUsing`) to match `attribute_values`' `UNIQUE(attribute_id,
+  slug)` rather than a plain column-level check. Corrected by hand in all
+  six resources.
+- `AttributeValueForm.php` imported `Filament\Forms\Get`, which does not
+  exist in Filament v4 — `Get`/`Set` moved to
+  `Filament\Schemas\Components\Utilities\Get`. Pint and the IDE (which
+  cannot resolve any vendor class from the host — see `troubleshooting.md`)
+  both missed it; Larastan caught it as `class.notFound`. Would otherwise
+  have failed at runtime the first time the closure using it ran.
+- `FilamentManager::getUserName()` threw a `TypeError` on every panel page
+  after login. It falls back to reading a `name` attribute when the
+  authenticated model does not implement `HasName`, and this schema has no
+  `name` column — only `first_name`/`last_name`. Fixed by implementing
+  `HasName::getFilamentName()` on `User`.
+- `DatabaseSeeder` passed `'name' => 'Test User'` to a `users` table with no
+  `name` column — silently discarded by Eloquent rather than erroring (see
+  the seeded-column entry in `troubleshooting.md`). Replaced with a seeder
+  that sets `first_name`/`last_name`, matching the actual schema.
+- Every reactive field in `CouponForm` compared `$get('field')` against an
+  enum's `->value`. Filament casts an enum-backed `Select`'s state to a
+  `BackedEnum`, so each comparison was an object against a string and never
+  matched: the percentage cap never applied and 105 reached the database as
+  a `CHECK` violation, and `max_discount_amount` and both scope pickers were
+  permanently invisible. `Get::enum()` reads either representation. See
+  `troubleshooting.md` — Pint and Larastan pass on both versions.
+- `decimal:2` on every money field in `ProductForm` and the variations
+  relation manager. With one parameter Laravel's rule means *exactly* that
+  many decimal places, so a round `20` was rejected. Now `decimal:0,2`.
+- `ProductForm` accepted a `discount_price` above `regular_price`, which the
+  `CHECK` constraint then rejected as a 500. Now `->lt('regular_price')`.
+  The same rule is deliberately absent on variations: a null variation price
+  inherits the product's, and the constraint permits a discount alongside it,
+  so a naive comparison would reject rows the database accepts. Resolving the
+  effective price belongs in an Action.
+- `ContactMessage` and `NewsletterSubscriber` still offered a create button
+  after their create pages and routes were removed. `CreateAction` lives on
+  the `ListRecords` page, not in `getPages()`, and with no route to link to
+  Filament rendered it as a modal — which then failed on insert. Both
+  policies already refused `create()`, but `Gate::before` grants an
+  administrator every ability before any policy runs, so removing the action
+  is the only thing that actually holds.
+- Product forms and the three relation managers had no `maxLength` on any
+  string field. The database rejects the overflow with the truncation error
+  described at the top of `troubleshooting.md`; nothing client-side stopped
+  it.
+- `public/css/filament` and `public/fonts/filament` existed as empty
+  directories — the compiled assets were never published, so every asset
+  request 404'd and the panel rendered unstyled. `php artisan
+  filament:assets` now runs as part of setup; see `README.md`.
 
 ### Removed
 
@@ -105,8 +379,6 @@ when the work happened, not when it was committed — nothing in
   Not pinned.
 - Content translation storage shape and default locale.
 - Audit log shape.
-- No seeder for the three staff roles. They exist in the local database but
-  a fresh `migrate:fresh --seed` creates none.
 - Enum value lists exist in two places: the 19 `enum()` literals in the
   migrations, and `App\Enums`. The migrations are frozen by the append-only
   rule, so the duplication cannot be removed retroactively. Migrations added

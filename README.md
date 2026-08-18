@@ -32,7 +32,17 @@ docker compose exec app composer install
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
 docker compose exec app php artisan storage:link
+docker compose exec app php artisan filament:assets
 ```
+
+The last line publishes Filament's compiled CSS/JS/fonts into `public/`.
+Composer's `post-install-cmd` runs `filament:upgrade`, which is meant to do
+this automatically — but if it fires before the panel is fully installed, or
+`public/` was created by an earlier partial install, you're left with empty
+`public/css/filament` and `public/fonts/filament` directories and an unstyled
+`/admin` that 404s every asset request. Running the command directly is
+idempotent, so it's safe to include in setup unconditionally rather than
+diagnosing it after the fact.
 
 The app is then available at:
 
@@ -52,14 +62,18 @@ Run everything through `docker compose exec app`, or open a shell:
 docker compose exec app bash
 
 php artisan migrate:fresh --seed   # offline, deterministic
-php artisan fixtures:validate      # gate on scraped/translated data
-php artisan demo:simulate          # demo data — NOT part of the merge gate
-php artisan demo:race              # concurrency check on stock reservation
 
 ./vendor/bin/pint --test
 ./vendor/bin/phpstan analyse
 ./vendor/bin/pest
 ```
+
+Running a single file, filtering by test name, and the flags worth knowing are
+in [`docs/how-to/run-the-tests.md`](docs/how-to/run-the-tests.md).
+
+`fixtures:validate`, `demo:simulate`, and `demo:race` are planned per
+[`docs/adr/0003-seeding-data.md`](docs/adr/0003-seeding-data.md) and do not
+exist yet.
 
 Stop the stack with `docker compose down`; add `-v` to also drop the database
 volume.
@@ -76,6 +90,7 @@ Copy the printed webhook signing secret into `online-store/.env` as
 ## CI
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs Pint, Larastan,
-and Pest against MySQL on every push and pull request targeting `main`.
-External APIs are mocked, so it needs no real credentials. See
+and Pest against MySQL on every push to `main` and every pull request,
+regardless of target branch. External APIs are mocked, so it needs no real
+credentials. A green check does not block a merge on this repository — see
 [`docs/how-to/use-ci.md`](docs/how-to/use-ci.md).
