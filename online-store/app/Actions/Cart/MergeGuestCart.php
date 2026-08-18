@@ -6,6 +6,7 @@ namespace App\Actions\Cart;
 
 use App\Models\Cart;
 use App\Models\CartItem;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,15 +14,20 @@ use Illuminate\Support\Facades\DB;
  * where both hold the same variation — `UNIQUE(cart_id, product_variation_id)`
  * forbids two rows, so a plain move would violate it on the second line.
  *
- * The summed quantity is **not** re-validated against current stock here.
- * Login is not a moment §11 requires availability to hold, and a customer
- * discovering at checkout that a merged line exceeds stock is `CreateOrder`'s
- * problem to raise, not this Action's to prevent — silently discarding part
- * of a merge would be a worse experience than a checkout-time message.
+ * The summed quantity is not re-validated against stock; `CreateOrder` is
+ * what raises that at checkout, same as `AddToCart`.
  *
- * The guest cart is deleted once merged, cascade or not: leaving an empty
- * cart with a stale `session_id` behind serves nothing.
- * reference/product-write-rules.md
+ * Locks nothing on the first attempt, for the same reason `AddToCart` does
+ * not — a caught `UNIQUE` violation retries as an update instead. Unlike
+ * `AddToCart`'s retry, this one runs as a savepoint inside the merge's own
+ * outer transaction (so one bad line rolls back the whole merge) and *locks*
+ * on the retry: a savepoint rollback does not refresh the outer
+ * `REPEATABLE READ` snapshot, so a plain re-read would collide again.
+ * `explanation/concurrency-and-locking.md`
+ *
+ * The guest cart is deleted once merged; deleting it is idempotent, so two
+ * concurrent merges of the same guest cart both succeed even though only one
+ * row existed to delete.
  */
 final class MergeGuestCart
 {
@@ -36,24 +42,42 @@ final class MergeGuestCart
             $guestItems = $guestCart->cartItems()->get();
 
             foreach ($guestItems as $guestItem) {
-                /** @var CartItem|null $existing */
-                $existing = $userCart->cartItems()
-                    ->where('product_variation_id', $guestItem->product_variation_id)
-                    ->first();
-
-                if ($existing !== null) {
-                    $existing->increment('quantity', $guestItem->quantity);
-                } else {
-                    $userCart->cartItems()->create([
-                        'product_variation_id' => $guestItem->product_variation_id,
-                        'quantity' => $guestItem->quantity,
-                    ]);
-                }
+                $this->mergeLine($userCart, $guestItem->product_variation_id, $guestItem->quantity);
             }
 
             $guestCart->delete();
         });
 
         return $userCart->refresh();
+    }
+
+    private function mergeLine(Cart $userCart, int $variationId, int $quantity): void
+    {
+        try {
+            $this->applyLine($userCart, $variationId, $quantity, lock: false);
+        } catch (UniqueConstraintViolationException) {
+            // Loser of the race — a rival insert landed first. Locks this
+            // retry; see the class docblock for why it must.
+            $this->applyLine($userCart, $variationId, $quantity, lock: true);
+        }
+    }
+
+    private function applyLine(Cart $userCart, int $variationId, int $quantity, bool $lock): void
+    {
+        DB::transaction(function () use ($userCart, $variationId, $quantity, $lock): void {
+            $query = $userCart->cartItems()->where('product_variation_id', $variationId);
+
+            /** @var CartItem|null $existing */
+            $existing = $lock ? $query->lockForUpdate()->first() : $query->first();
+
+            if ($existing !== null) {
+                $existing->increment('quantity', $quantity);
+            } else {
+                $userCart->cartItems()->create([
+                    'product_variation_id' => $variationId,
+                    'quantity' => $quantity,
+                ]);
+            }
+        });
     }
 }

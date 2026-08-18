@@ -18,8 +18,8 @@ use Illuminate\Support\Carbon;
  * variations override the amount, not the schedule.
  *
  * Called by `AddToCart`/`UpdateCartItemQuantity` and, later, `CreateOrder` —
- * a function, not an Action, because it writes nothing. `reference/
- * product-write-rules.md`
+ * a function, not an Action, because it writes nothing.
+ * `reference/write-rules/product.md`
  */
 final class ResolveVariationPrice
 {

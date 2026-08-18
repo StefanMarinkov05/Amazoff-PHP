@@ -12,26 +12,27 @@ use App\Models\CartItem;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Adds a variation to a cart, or increases the quantity if it is already
- * there — `UNIQUE(cart_id, product_variation_id)` allows one line per
- * variation, so a second add is a quantity change, not a second row.
+ * Adds a variation to a cart, or increases the line's quantity if one
+ * already exists — `UNIQUE(cart_id, product_variation_id)` allows only one
+ * row per variation.
  *
- * Validates against the variation's *current* state on every call: current
- * price (§11 — the cart never stores a price, so there is nothing to go
- * stale), current availability, the product's `min_order_quantity`, and
- * current stock. None of that is re-validated at checkout by this Action —
- * `CreateOrder` (slice 5) re-validates independently, because a cart line
- * can go stale between this call and checkout.
+ * Re-checks availability, minimum quantity, and stock on every call, not
+ * only on insert. None of it is re-validated at checkout by this Action;
+ * `CreateOrder` does that independently since a line can go stale before
+ * then. Price is never stored on the line, so there is nothing to
+ * invalidate.
  *
- * Locks nothing. A cart is single-owner state — one session or one
- * `user_id` — so no second request can race this one for the same cart. The
- * stock check reads without a lock because it is advisory here: it stops an
- * obviously-doomed add early, but the number that matters is re-checked
- * under `lockForUpdate()` by `ReserveStock` at checkout, which is what
- * actually enforces it. reference/product-write-rules.md
+ * Deactivation refuses a new write but leaves an existing line alone —
+ * `RemoveFromCart` is how a customer clears it.
+ *
+ * Locks nothing: a caught `UNIQUE` violation retries as an update rather
+ * than locking a row that may not exist yet. The stock check itself is
+ * advisory — `ReserveStock` under `lockForUpdate()` at checkout is what
+ * actually enforces it. `explanation/concurrency-and-locking.md`
  */
 final class AddToCart
 {
@@ -54,10 +55,24 @@ final class AddToCart
             throw RemovedFromCatalogueException::variation($variation);
         }
 
+        if (! $product->is_available || ! $live->is_available) {
+            throw RemovedFromCatalogueException::variation($live);
+        }
+
         if ($quantity < 1) {
             throw InvalidCartQuantityException::notPositive($product, $quantity);
         }
 
+        try {
+            return $this->addOrIncrement($cart, $live, $product, $quantity);
+        } catch (UniqueConstraintViolationException) {
+            // Loser of the race; see class docblock for why retrying is correct.
+            return $this->addOrIncrement($cart, $live, $product, $quantity);
+        }
+    }
+
+    private function addOrIncrement(Cart $cart, ProductVariation $live, Product $product, int $quantity): CartItem
+    {
         return DB::transaction(function () use ($cart, $live, $product, $quantity): CartItem {
             /** @var CartItem|null $existing */
             $existing = $cart->cartItems()

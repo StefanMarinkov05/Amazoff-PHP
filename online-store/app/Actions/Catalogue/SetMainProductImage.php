@@ -21,11 +21,11 @@ use Illuminate\Support\Facades\Gate;
  * deadlock the way a demote-then-promote pair can.
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks nothing.
- * explanation/concurrency-and-locking.md · reference/product-write-rules.md
+ * explanation/concurrency-and-locking.md · reference/write-rules/product.md
  */
 final class SetMainProductImage
 {
-    public function handle(ProductImage $image, ?User $actor = null): ProductImage
+    public function handle(ProductImage $image, ?User $actor): ProductImage
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('update', $image);

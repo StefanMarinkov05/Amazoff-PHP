@@ -47,7 +47,7 @@ function productAttributes(array $overrides = []): array
 }
 
 it('creates a product with its variation and stock row', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
 
     expect($product->exists)->toBeTrue()
         ->and($product->productVariations()->count())->toBe(1)
@@ -59,7 +59,7 @@ it('gives every variation its own stock row', function (): void {
         variationAttributes(),
         variationAttributes(),
         variationAttributes(),
-    ]);
+    ], null);
 
     // UNIQUE(product_variation_id) means one row each; three variations
     // sharing one stock row would be three products sharing one quantity.
@@ -69,7 +69,7 @@ it('gives every variation its own stock row', function (): void {
 });
 
 it('refuses a product with no variation and writes nothing', function (): void {
-    expect(fn () => app(CreateProduct::class)->handle(productAttributes(), []))
+    expect(fn () => app(CreateProduct::class)->handle(productAttributes(), [], null))
         ->toThrow(ProductRequiresVariationException::class);
 
     // The invariant is the reason this is an Action. A product row saved
@@ -80,7 +80,7 @@ it('refuses a product with no variation and writes nothing', function (): void {
 it('passes opening stock through to the ledger', function (): void {
     $product = app(CreateProduct::class)->handle(productAttributes(), [
         variationAttributes(['initial_quantity' => 12]),
-    ]);
+    ], null);
 
     $inventory = $product->productVariations()->sole()->inventory()->sole();
 
@@ -92,7 +92,7 @@ it('passes opening stock through to the ledger', function (): void {
 it('does not persist initial_quantity as a variation column', function (): void {
     $product = app(CreateProduct::class)->handle(productAttributes(), [
         variationAttributes(['initial_quantity' => 5]),
-    ]);
+    ], null);
 
     // Eloquent discards a non-fillable key silently (troubleshooting.md, "A
     // seeded column silently does nothing"), so the only evidence that it was
@@ -114,7 +114,7 @@ it('rolls the whole product back when one variation fails', function (): void {
     expect(fn () => app(CreateProduct::class)->handle(productAttributes(), [
         variationAttributes(),
         variationAttributes(['sku' => $taken]),
-    ]))->toThrow(QueryException::class);
+    ], null))->toThrow(QueryException::class);
 
     // Nothing from this call survives: not the product, not the first
     // variation, not its stock row. This is also the proof that ADR-0007's
@@ -165,9 +165,9 @@ it('allows an actor holding both catalogue permissions', function (): void {
  */
 
 it('updates a product that has a variation', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
 
-    $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'regular_price' => '99.00']);
+    $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'regular_price' => '99.00'], null);
 
     expect($updated->fresh()->name)->toBe('Renamed')
         ->and($updated->fresh()->regular_price)->toBe('99.00');
@@ -177,9 +177,10 @@ it('leaves columns absent from the payload alone', function (): void {
     $product = app(CreateProduct::class)->handle(
         productAttributes(['name' => 'Original', 'regular_price' => '189.90', 'is_featured' => true]),
         [variationAttributes()],
+        null,
     );
 
-    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']);
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null);
 
     // Partial payloads are the shape that makes concurrent edits survivable,
     // so an Action quietly widening a write would matter — see
@@ -192,9 +193,9 @@ it('leaves columns absent from the payload alone', function (): void {
 });
 
 it('ignores a key that is not a product column', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
 
-    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'not_a_column' => 'x']);
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed', 'not_a_column' => 'x'], null);
 
     expect($product->fresh()->name)->toBe('Renamed')
         ->and($product->fresh()->getAttributes())->not->toHaveKey('not_a_column');
@@ -206,7 +207,7 @@ it('refuses to make a product available with no variation', function (): void {
     expect(fn () => app(UpdateProduct::class)->handle($product, [
         'is_available' => true,
         'name' => 'Published',
-    ]))->toThrow(ProductRequiresVariationException::class);
+    ], null))->toThrow(ProductRequiresVariationException::class);
 
     // The rest of the edit goes with it. A partial save would leave the
     // rename applied and the flag not, which is worse than either.
@@ -219,7 +220,7 @@ it('allows editing a product that stays unavailable with no variation', function
 
     // §6–7 words the invariant around sellability. A draft with nothing in it
     // yet is a half-entered record, not a broken one.
-    $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Draft']);
+    $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Draft'], null);
 
     expect($updated->fresh()->name)->toBe('Draft')
         ->and($updated->fresh()->is_available)->toBeFalse();
@@ -228,25 +229,25 @@ it('allows editing a product that stays unavailable with no variation', function
 it('refuses to publish a product whose only variation is soft-deleted', function (): void {
     $product = app(CreateProduct::class)->handle(productAttributes(['is_available' => false]), [
         variationAttributes(),
-    ]);
+    ], null);
     $product->productVariations()->sole()->delete();
 
     // The count runs through the SoftDeletes global scope, so a trashed
     // variation is not a variation. Nothing can reserve stock against it.
-    expect(fn () => app(UpdateProduct::class)->handle($product, ['is_available' => true]))
+    expect(fn () => app(UpdateProduct::class)->handle($product, ['is_available' => true], null))
         ->toThrow(ProductRequiresVariationException::class);
 });
 
 it('keeps an already-available product editable while it has a variation', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
 
-    $updated = app(UpdateProduct::class)->handle($product, ['is_featured' => true]);
+    $updated = app(UpdateProduct::class)->handle($product, ['is_featured' => true], null);
 
     expect($updated->fresh()->is_featured)->toBeTrue();
 });
 
 it('denies an actor without update_product', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(['name' => 'Original']), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(['name' => 'Original']), [variationAttributes()], null);
     $actor = catalogueActor('create_product');
 
     expect(fn () => app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], $actor))
@@ -256,10 +257,33 @@ it('denies an actor without update_product', function (): void {
 });
 
 it('allows an actor holding update_product', function (): void {
-    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()]);
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
     $actor = catalogueActor('update_product');
 
     $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], $actor);
+
+    expect($updated->fresh()->name)->toBe('Renamed');
+});
+
+/*
+ * ADR-0007: null is the application acting on its own behalf and skips the
+ * policy check. Pinned rather than left implicit — ADR-0003 has the fixture
+ * loader and the seeders calling CreateProduct with no authenticated user, so
+ * a change that starts refusing null breaks seeding, and it should break a
+ * test first.
+ */
+
+it('skips the policy for a null actor when creating', function (): void {
+    $product = app(CreateProduct::class)->handle(productAttributes(), [variationAttributes()], null);
+
+    expect($product->exists)->toBeTrue()
+        ->and($product->productVariations()->count())->toBe(1);
+});
+
+it('skips the policy for a null actor when updating', function (): void {
+    $product = app(CreateProduct::class)->handle(productAttributes(['name' => 'Original']), [variationAttributes()], null);
+
+    $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null);
 
     expect($updated->fresh()->name)->toBe('Renamed');
 });

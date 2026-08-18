@@ -746,6 +746,29 @@ Forge with MySQL's defaults intact. The settings are commented in
 `docker-compose.yml` so nobody restores them thinking they are a safety
 improvement. If migrations start crawling again, check these first.
 
+**Update, 2026-08-17 — a separate slow file, not a process-level cost.**
+While sizing CI shards, a ~30s gap that first looked like a fixed
+per-process bootstrap cost (present regardless of which file ran first)
+turned out, on careful re-reading of the CI log, to belong entirely to
+`tests/Feature/RolePermissionTest.php`. Its `beforeEach` calls
+`forgetCachedPermissions()` and reseeds `PermissionSeeder`, `RoleSeeder`,
+and `UserSeeder` before every single test, not once per file — deliberate,
+per its own comment (the permission registrar caches for 24h; without
+forgetting it, the second test resolves against the first test's
+now-truncated rows), but expensive across the file's many
+dataset-driven tests. Not a bug, not environment-specific: reproduces
+identically in CI and locally once measured correctly. First misattributed
+to whichever file happened to sit near it in a given run's PASS-line
+ordering — a Pest `PASS` line prints after a file's last test finishes, so
+a naive timestamp diff between consecutive `PASS` lines attributes the gap
+to the *next* file rather than the one that just finished, which pointed
+at `ReportsDomainFailuresTest` and later at a phantom "local Docker Desktop
+schema-load cost" before the real cause (this file's `beforeEach`) was
+isolated by checking each test's own self-reported duration inside the
+file, not the gap before its `PASS` line. Logged here so `RolePermissionTest`'s
+cost isn't re-diagnosed as CI flakiness, a schema issue, or attributed to
+whatever file happens to run next to it.
+
 ---
 
 ## A migration with many ALTER TABLE statements takes minutes
@@ -971,3 +994,224 @@ configured to require that check.
    docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
    docker compose exec app ./vendor/bin/pest
    ```
+
+---
+
+## A scripted rewrite reports success and leaves broken PHP
+
+**Symptom.** A `perl -pi`, `sed -i`, or Python rewrite over a PHP file exits
+zero and prints nothing. The file is syntactically broken — a closure signature
+truncated mid-parameter, a namespace merged into the line above it, or CRLF
+introduced into a file the rest of the repository keeps as LF. Nothing reports
+it until a test run minutes later, by which point the failure looks like a bug
+in the code the edit was aimed at.
+
+Observed four times across the catalogue and cart slices. The last was a
+two-substitution `perl -0pi -e` replacing a `DB::transaction(function () use
+(...)` opening: the first substitution matched, the second matched a line it
+was not meant to, and the result was
+`syntax error, unexpected token ","` on the closure's parameter list.
+
+**Cause.** A stream editor has no model of PHP. A pattern written against the
+file as remembered rather than as it currently reads will match a different
+span, match twice, or match nothing — and all three exit zero. Multi-line
+patterns with `-0` are the worst case, because the span they can silently
+swallow is unbounded.
+
+**Fix.** `php -l` on the file, immediately — not at the next test run:
+
+```bash
+docker compose exec app php -l app/Actions/Cart/MergeGuestCart.php
+```
+
+Restore from a copy taken before the edit. `cp` before, `php -l` after.
+
+**Why it recurs.** Every other tool in this workflow reports its own failures.
+A stream editor's success and its no-op are the same exit code, and its
+mangling is also that exit code.
+
+**Prevention.** Use the editor tooling for edits to PHP, which fails loudly on
+a non-matching target. Where a scripted rewrite is genuinely the right tool —
+a repeated mechanical mutation across several files, as in a guard-deletion
+sweep — pair it with `cp` to a scratch copy beforehand and `php -l` on every
+touched file immediately after, in the same command, so the check cannot be
+skipped.
+
+---
+
+## A guard-deletion test stays green because a second guard subsumes it
+
+**Symptom.** A validation guard is deleted to prove its test is real, and the
+test stays green. Unlike the authorization case, no second Action is involved
+and no composition is hiding the source — the Action has one call site and the
+assertion names the right exception class.
+
+**Cause.** Two guards in the same Action raise the *same* exception class, and
+a database constraint makes the second one's range cover the first's. In
+`AddToCart` and `UpdateCartItemQuantity` the `$quantity < 1` guard and the
+`min_order_quantity` guard both raise `InvalidCartQuantityException`, and
+`chk_products_min_order_quantity_positive` keeps every minimum at 1 or more —
+so on an empty cart line every quantity the first guard rejects, the second
+rejects too. `expect(...)->toThrow(InvalidCartQuantityException::class)` cannot
+tell them apart.
+
+**Fix.** Two changes, both needed:
+
+1. Assert the message, not only the class — Pest's `toThrow()` takes a second
+   argument matched against the message, and the two guards have different
+   wording because they are different messages to a customer.
+2. Add the case only the guard under test can catch. For `AddToCart` that is a
+   negative quantity against an existing line: `-2` added to a line of `5` sums
+   to `3`, which clears both the minimum and the stock check, so without the
+   guard "add to cart" silently removes two units.
+
+**Why it recurs.** Two guards raising one exception class is good design — the
+caller handles one failure mode — and the subsumption is a property of a
+`CHECK` constraint in a migration, not of either guard. Nothing at the call
+site or in the test hints that one range contains the other.
+
+**Prevention.** When one Action raises the same exception class from more than
+one place, the tests for those places assert the message. A shared exception
+class with distinct static factories (`notPositive()`,
+`belowMinimumOrder()`) is the signal to check for.
+
+---
+
+## PHPStan crashes at the memory limit and reports "Found 1 error"
+
+**Symptom.** `./vendor/bin/phpstan analyse` ends with `Found 1 error` and
+`Result is incomplete because of severe errors`. The single error is
+`Child process error: PHPStan process crashed because it reached configured
+PHP memory limit: 128M ... while running parallel worker`.
+
+**Cause.** The container's CLI `memory_limit` is 128M and PHPStan's parallel
+workers exceed it as the analysed codebase grows. It is a harness failure
+reported in the same shape as an analysis finding.
+
+**Fix.**
+
+```bash
+docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
+```
+
+**Why it recurs.** `README.md` and `CLAUDE.md` both give the bare
+`phpstan analyse` form, which worked until the codebase crossed the threshold
+and will keep appearing to work on smaller checkouts.
+
+**Prevention.** Pass `--memory-limit=1G` always. Setting `memory_limit` in
+`phpstan.neon` would remove the flag from every call site and is the better
+fix if this recurs on CI.
+
+---
+
+## A same-process collision test loses its injected row to the wrong rollback
+
+**Symptom.** A test forces a unique-constraint collision by inserting a
+conflicting row from inside a model event (`creating`) fired partway through
+the Action under test. The Action's retry-on-violation logic should then pick
+up that row and fold into it — but the row is gone by the time the Action
+returns, as if the collision never happened.
+
+**Cause.** The Action wraps its read-decide-write in `DB::transaction()`.
+Laravel implements a transaction opened while one is already active (here,
+the outer `RefreshDatabase` transaction) as a savepoint. The injected insert,
+written through the query builder or even the raw PDO handle on the *same*
+connection, still lands after that savepoint began — so when the unique
+violation rolls the savepoint back, the injected row goes with it. The
+collision is real for one statement and erased before the retry can see it.
+
+**Fix.** None available in-process. This is a second variant of "A concurrency
+test cannot be written in one process": there the problem was a lock
+constraining only other transactions, here it is a savepoint undoing work
+that looks like it happened on a different connection but shares the same one.
+Prove the retry with two real processes instead —
+`tests/Concurrency/AddToCartConcurrencyTest.php` is the worked example for
+this Action.
+
+**Why it recurs.** A raw PDO `exec()` looks like it should escape the ORM's
+transaction tracking. It does not escape MySQL's: the connection, not the
+framework, is what the savepoint rollback operates on.
+
+**Prevention.** Any retry-on-`UniqueConstraintViolationException` mechanism
+built on `DB::transaction()` needs a genuinely separate connection to test
+with a single-process collision, or — the cheaper option every case in this
+codebase has taken so far — a `tests/Concurrency/` test with two OS processes.
+
+---
+
+## Several unrelated tests fail at `UserSeeder`, then pass on re-run
+
+**Symptom.** A handful of tests across unrelated files fail together, each
+stack ending in `database/seeders/UserSeeder.php` with an SQLSTATE error.
+Re-running the suite unchanged is green. Distinct from the "every concurrency
+test fails at once" entry above: the failures here are scattered across Feature
+files rather than confined to `tests/Concurrency/`, and the trace points at
+seeding rather than at a winner-count assertion.
+
+**Cause.** Two `pest` processes running against the same database at once —
+typically one started with `run_in_background` and a second started in the
+foreground before the first finished. `RefreshDatabase` migrates and seeds per
+process, so the second run truncates tables the first is mid-way through
+using, and whichever test is seeding when that happens fails on a row that
+vanished underneath it.
+
+**Fix.** Wait for the first run to finish. Nothing to change in the code.
+
+**Why it recurs.** The full suite takes six to seven minutes, which is long
+enough to be tempting to background, and long enough to forget it is still
+running. Neither process reports that the other exists.
+
+**Prevention.** One suite run at a time against a given database. If two are
+genuinely needed, they need separate `DB_DATABASE` values, not separate
+terminals.
+
+---
+
+## Larastan reports an enum comparison as always false, on a property that really is that enum
+
+**Symptom.** `phpstan analyse` fails on a `===` comparison against a
+backed-enum-cast property — `Strict comparison ... will always evaluate to
+false` — even though `php artisan tinker` confirms the property really does
+cast to that enum at runtime, and the comparison is correct.
+
+**Cause.** Larastan's model-property inference (`checkModelProperties: true`)
+reads the column's raw database type for a MySQL `enum(...)` column and
+infers a union of string literals (`'percentage'|'fixed'`) for the property,
+rather than reading the `casts()` method. Every model in this codebase types
+`casts()`'s return as `@return array<string, string>`, which is accurate for
+scalar casts but tells Larastan nothing about which enum class a given key
+casts to — so for a property backed by a DB-level `enum` column *and* cast to
+a PHP backed enum, Larastan's two inference paths disagree, and the DB-driven
+one wins. `Coupon::$type`/`$scope` were the first case: no earlier merged
+Action compared a `Coupon`, `Order`, or `Payment` enum-cast property with
+`===` against an enum case, so the mismatch was latent since the schema
+migrations, not introduced by the code that first tripped it.
+
+**Fix.** Add explicit `@property` docblock annotations naming the enum class,
+above the model's class declaration:
+
+```php
+/**
+ * @property CouponType $type
+ * @property CouponScope $scope
+ */
+class Coupon extends Model
+```
+
+This is the standard Laravel/Larastan convention for typing magic properties,
+and it takes priority over both the DB-column inference and `casts()`'s
+generic return type.
+
+**Why it recurs.** Any model with a MySQL `enum(...)` column cast to a PHP
+backed enum is affected the moment code compares that property with `===`
+against an enum case — `Order::$status`/`$payment_status`/`$payment_method`
+are the next likely case, once `TransitionOrderStatus` is built and compares
+against `OrderStatus`.
+
+**Prevention.** When adding the first `===` comparison against a new
+enum-cast property, run Larastan on the touched files before assuming the
+comparison is fine — the runtime cast being correct (confirmed via tinker)
+does not mean Larastan agrees. Add the `@property` annotation to the model at
+the same time, rather than reaching for `treatPhpDocTypesAsCertain: false` in
+`phpstan.neon`, which would silence this class of check project-wide instead
+of fixing the one model's missing type information.

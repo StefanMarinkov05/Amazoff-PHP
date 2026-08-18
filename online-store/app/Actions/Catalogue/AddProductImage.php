@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks nothing; the
  * promotion goes through `SetMainProductImage`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class AddProductImage
 {
@@ -32,7 +32,7 @@ final class AddProductImage
      *
      * @throws RemovedFromCatalogueException
      */
-    public function handle(Product $product, array $attributes, ?User $actor = null): ProductImage
+    public function handle(Product $product, array $attributes, ?User $actor): ProductImage
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', ProductImage::class);

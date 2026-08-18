@@ -44,11 +44,11 @@ it('leaves exactly one main image when two are promoted at once', function (): v
     $first = app(AddProductImage::class)->handle($product, [
         'path' => 'product-images/a.jpg',
         'sort_order' => 0,
-    ]);
+    ], null);
     $second = app(AddProductImage::class)->handle($product, [
         'path' => 'product-images/b.jpg',
         'sort_order' => 1,
-    ]);
+    ], null);
 
     $script = <<<'PHP'
         <?php
@@ -71,6 +71,7 @@ it('leaves exactly one main image when two are promoted at once', function (): v
         try {
             app(App\Actions\Catalogue\SetMainProductImage::class)->handle(
                 App\Models\ProductImage::findOrFail($id),
+                null,
             );
             echo 'OK';
         } catch (Throwable $e) {

@@ -13,7 +13,7 @@ use InvalidArgumentException;
  *
  * Extends `InvalidArgumentException`, not `RuntimeException` like the
  * catalogue exceptions — the caller passed a bad argument, not a domain rule
- * a legal argument happened to violate. reference/product-write-rules.md
+ * a legal argument happened to violate. reference/write-rules/product.md
  */
 class InvalidCartQuantityException extends InvalidArgumentException
 {

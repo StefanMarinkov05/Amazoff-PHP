@@ -35,16 +35,16 @@ beforeEach(function (): void {
 function productWithOneVariation(bool $available, int $stock = 0): array
 {
     $product = Product::factory()->create(['is_available' => $available]);
-    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), $stock);
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), $stock, null);
 
     return [$product, $variation];
 }
 
 it('removes a variation the product can spare', function (): void {
     [$product] = productWithOneVariation(available: true);
-    $spare = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $spare = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    app(RemoveProductVariation::class)->handle($spare);
+    app(RemoveProductVariation::class)->handle($spare, null);
 
     expect($product->fresh()->productVariations()->count())->toBe(1)
         ->and($spare->fresh()->trashed())->toBeTrue();
@@ -53,7 +53,7 @@ it('removes a variation the product can spare', function (): void {
 it('refuses to remove the last variation of an available product', function (): void {
     [$product, $variation] = productWithOneVariation(available: true);
 
-    expect(fn () => app(RemoveProductVariation::class)->handle($variation))
+    expect(fn () => app(RemoveProductVariation::class)->handle($variation, null))
         ->toThrow(ProductRequiresVariationException::class);
 
     expect($variation->fresh()->trashed())->toBeFalse()
@@ -65,7 +65,7 @@ it('allows removing the last variation of an unavailable product', function (): 
 
     // §6–7 words the invariant around sellability. A draft with nothing in it
     // is a half-entered record, and UpdateProduct will refuse to publish it.
-    app(RemoveProductVariation::class)->handle($variation);
+    app(RemoveProductVariation::class)->handle($variation, null);
 
     expect($variation->fresh()->trashed())->toBeTrue()
         ->and($product->fresh()->productVariations()->count())->toBe(0);
@@ -73,25 +73,25 @@ it('allows removing the last variation of an unavailable product', function (): 
 
 it('counts trashed siblings as gone when deciding', function (): void {
     [$product, $first] = productWithOneVariation(available: false);
-    $second = app(AddProductVariation::class)->handle($product, variationAttributes());
+    $second = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    app(RemoveProductVariation::class)->handle($first);
+    app(RemoveProductVariation::class)->handle($first, null);
     $product->update(['is_available' => true]);
 
     // One live variation left, so this is the last one — the trashed sibling
     // must not make it look otherwise.
-    expect(fn () => app(RemoveProductVariation::class)->handle($second))
+    expect(fn () => app(RemoveProductVariation::class)->handle($second, null))
         ->toThrow(ProductRequiresVariationException::class);
 });
 
 it('refuses to remove a variation with stock reserved against it', function (): void {
     [$product, $variation] = productWithOneVariation(available: false, stock: 10);
-    app(AddProductVariation::class)->handle($product, variationAttributes());
-    app(ReserveStock::class)->handle($variation, 3);
+    app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
+    app(ReserveStock::class)->handle($variation, 3, null);
 
     // Removing it would strand the reservation: still subtracted from
     // available(), on a row nothing lists any more.
-    expect(fn () => app(RemoveProductVariation::class)->handle($variation))
+    expect(fn () => app(RemoveProductVariation::class)->handle($variation, null))
         ->toThrow(VariationHasReservedStockException::class);
 
     expect($variation->fresh()->trashed())->toBeFalse();
@@ -99,20 +99,20 @@ it('refuses to remove a variation with stock reserved against it', function (): 
 
 it('allows removal once the reservation is released', function (): void {
     [$product, $variation] = productWithOneVariation(available: false, stock: 10);
-    app(AddProductVariation::class)->handle($product, variationAttributes());
-    app(ReserveStock::class)->handle($variation, 3);
-    app(ReleaseStock::class)->handle($variation, 3);
+    app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
+    app(ReserveStock::class)->handle($variation, 3, null);
+    app(ReleaseStock::class)->handle($variation, 3, null);
 
-    app(RemoveProductVariation::class)->handle($variation);
+    app(RemoveProductVariation::class)->handle($variation, null);
 
     expect($variation->fresh()->trashed())->toBeTrue();
 });
 
 it('leaves the inventory row and its ledger behind', function (): void {
     [$product, $variation] = productWithOneVariation(available: false, stock: 7);
-    app(AddProductVariation::class)->handle($product, variationAttributes());
+    app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
 
-    app(RemoveProductVariation::class)->handle($variation);
+    app(RemoveProductVariation::class)->handle($variation, null);
 
     // Soft-deleting the variation is not deleting its history. §20's ledger is
     // what makes a past quantity explainable, and a restored variation finds
@@ -145,7 +145,7 @@ it('allows an actor holding delete_product_variation', function (): void {
 it('skips the policy for a null actor', function (): void {
     [, $variation] = productWithOneVariation(available: false);
 
-    app(RemoveProductVariation::class)->handle($variation);
+    app(RemoveProductVariation::class)->handle($variation, null);
 
     expect($variation->fresh()->trashed())->toBeTrue();
 });

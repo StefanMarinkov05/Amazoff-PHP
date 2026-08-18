@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Storage;
  * still have a main one.
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`.
- * reference/product-write-rules.md
+ * reference/write-rules/product.md
  */
 final class RemoveProductImage
 {
@@ -32,7 +32,7 @@ final class RemoveProductImage
     /**
      * @throws ProductImageInUseException
      */
-    public function handle(ProductImage $image, ?User $actor = null): void
+    public function handle(ProductImage $image, ?User $actor): void
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $image);

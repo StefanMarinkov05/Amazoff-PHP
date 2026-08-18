@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Gate;
  *
  * Authorizes `delete_product_variation` (no `forceDelete` ability exists).
  * Locks `products`, then `inventories`.
- * ADR-0008 · reference/product-write-rules.md · reference/permissions.md
+ * ADR-0008 · reference/write-rules/product.md · reference/permissions.md
  */
 final class ForceDeleteProductVariation
 {
@@ -47,7 +47,7 @@ final class ForceDeleteProductVariation
      */
     public function handle(
         ProductVariation $variation,
-        ?User $actor = null,
+        ?User $actor,
         bool $productIsBeingErased = false,
     ): void {
         if ($actor !== null) {

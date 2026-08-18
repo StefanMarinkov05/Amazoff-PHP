@@ -130,6 +130,39 @@ The ordering matters when judging a change. A test that stops reproducing the
 race is a weaker signal than a constraint that is still in place, and the
 constraint is why overselling is impossible rather than merely unlikely.
 
+## A savepoint does not refresh the snapshot
+
+`AddToCart`'s retry-on-collision (catch `UniqueConstraintViolationException`,
+retry as an update) works because the retry is a brand-new top-level
+`DB::transaction()` call, with its own fresh `REPEATABLE READ` snapshot taken
+at its own first read. `MergeGuestCart` composes several such attempts inside
+one outer transaction, per ADR-0007's "Composition nests" — each line's own
+`DB::transaction()` becomes a savepoint rather than a new transaction, which
+is what lets an uncaught failure on one line roll back every line already
+merged in the same call.
+
+That composition has a consequence worth naming, because it is not obvious
+and it broke the first version of `MergeGuestCart`'s fix: **rolling back to a
+savepoint does not move the outer transaction's snapshot.** MySQL takes a
+`REPEATABLE READ` snapshot once, at the transaction's first read, and every
+plain `SELECT` inside that transaction — including one issued after a
+savepoint rollback — is served from it. A retry that re-reads plainly still
+sees the pre-collision state and collides again, with nothing left to catch
+the second failure.
+
+The fix is the same tool `ReserveStock` and `ReleaseStock` already use for a
+different reason: `lockForUpdate()` bypasses the snapshot and reads the
+latest *committed* row regardless of when in the transaction it runs. The
+retry locks; the first attempt does not, because a lock cannot prevent a
+collision on a row that does not exist yet — see `AddToCart`'s own docblock
+for why that Action rejects a lock as the mechanism in the first place.
+
+The general shape: a nested `DB::transaction()` gets a consistent view of
+*writes*, via the savepoint, but not a fresh view of *reads*, because the
+snapshot belongs to the outer transaction and nothing inside a nested call
+can renew it. Any retry-after-catch pattern written inside a composed Action
+needs to ask which of the two it needs.
+
 ## Two other kinds of contention, which need different mechanisms
 
 Stock is row contention inside a single request, and the lock above is the
@@ -238,6 +271,75 @@ the second connection — and asking for one makes that connection queue behind
 the test's own uncommitted write. These tests commit their fixtures and
 truncate afterwards.
 
+### Why the worker is generated, not committed
+
+Every test in `tests/Concurrency/` builds its worker as a PHP nowdoc
+(`<<<'PHP'`, no interpolation — the content is identical on every run of a
+given test), writes it to `base_path()` with `file_put_contents()`, spawns
+it, then `@unlink()`s it. Not a static file committed alongside the test.
+
+Two reasons, one deliberate and one a cost not yet paid off:
+
+- **Colocation.** The worker's exact behaviour — which Action it calls, with
+  what arguments, what it does on failure — sits in the same file as the
+  assertions reading its outcome. Auditing whether a race test proves what
+  it claims (`how-to/run-the-tests.md`'s "checking that a test can fail")
+  means reading one file, not cross-referencing a test against a separate
+  worker it was written to match.
+- **The file is treated as disposable, not as source.** It lands in the
+  project root next to `artisan` and `composer.json` — deliberately outside
+  `tests/`, so it never looks like a permanent part of the suite — and
+  `@unlink()` removes it once the process exits. Nothing gitignores it: if
+  a run aborts before reaching that line (a fatal error mid-spawn, a killed
+  test process), the generated file is left behind, untracked, in the
+  project root. Rare in practice, not impossible.
+
+The cost: since the nowdoc never varies per run, the Laravel-bootstrap
+boilerplate at the top of every worker (`require autoload.php`, boot the
+kernel, `DB::select('SELECT 1')` to warm the connection, the busy-wait
+barrier) is copy-pasted near-verbatim across all ten files rather than
+written once. A static, committed worker file per test would read
+identically and cost nothing at runtime that generating it doesn't already
+cost. Colocation was the reason this wasn't done that way from the start;
+it does not require the bootstrap boilerplate to be duplicated to get that
+benefit. Moving the shared bootstrap into `tests/Concurrency/helpers/` and
+keeping each worker's unique Action-call line inline is an agreed follow-up
+PR, deferred until after the change that prompted this note merges — not
+done here.
+
+### A cross-Action race needs a fourth thing: a rendezvous
+
+The three facts above are enough when both processes run the *same* Action —
+add racing add, merge racing merge. Identical code takes identical time to
+reach the critical section, so aligning process *start* times is the same as
+aligning *arrival* times, and either side is equally likely to lose.
+
+It is not enough when the two processes run *different* Actions.
+`AddToCart` and `MergeGuestCart` do different amounts of work before their
+own read-then-insert — `MergeGuestCart` validates nothing first,
+`AddToCart` checks `min_order_quantity` and `available()` — so a wall-clock
+barrier that successfully aligns both *starts* can still leave one side
+reliably arriving at its insert first. Measured, not assumed:
+`AddToCartVsMergeGuestCartConcurrencyTest.php` raced the pair 24 times under
+three synchronization strategies, and `MergeGuestCart` won every single one.
+That is a real property of the two code paths, not a flaw in the barrier.
+
+The fix is a second, tighter synchronization layered on top of the
+wall-clock one: each worker writes its own ready-flag file once it reaches
+the barrier, then polls for the other's flag before calling its Action, so
+neither proceeds until both have arrived. This removes process-boot jitter
+specifically — it cannot equalise the two Actions' own internal work, only
+the time it took each process to get to the starting line. Whether a
+cross-Action pairing can be forced to a fair race at all, versus needing a
+matched or deliberately padded workload on the faster side, is open;
+`reference/write-rules/cart.md`'s "Known gaps" has the specific case.
+
+A cross-Action test should also race more than once — `->repeat(n)` in
+Pest — since a single run of "delete one side's mechanism, check once" can
+pass by chance if that side happens to win. It is still not sufficient proof
+if the asymmetry turns out to be as deterministic as this one was; only a
+technique that can force the losing side to alternate would be.
+
 ### Choosing the assertion
 
 This is the step that decides whether the test is worth anything, and it
@@ -270,5 +372,5 @@ rolls back, and the wrong one for proving a lock exists.
 
 `how-to/troubleshooting.md` records the designs that look correct and prove
 nothing, and why the suite fails as a block under load.
-`reference/concurrency-coverage.md` lists every contested resource, its
+`reference/write-rules/concurrency.md` lists every contested resource, its
 mechanism, and the test that has been observed failing without it.

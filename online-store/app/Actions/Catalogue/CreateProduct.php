@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Gate;
  * Authorizes `create_product`, and `create_product_variation` through the
  * nested Action. Locks nothing — no other request can reach an uncommitted
  * product.
- * ADR-0007 · reference/product-write-rules.md
+ * ADR-0007 · reference/write-rules/product.md
  */
 final class CreateProduct
 {
@@ -40,7 +40,7 @@ final class CreateProduct
      *
      * @throws ProductRequiresVariationException
      */
-    public function handle(array $attributes, array $variations, ?User $actor = null): Product
+    public function handle(array $attributes, array $variations, ?User $actor): Product
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('create', Product::class);

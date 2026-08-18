@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Gate;
  * §20's ledger has to survive a removal.
  *
  * Authorizes `delete_product_variation`. Locks `products`, then `inventories`.
- * ADR-0008 · reference/product-write-rules.md
+ * ADR-0008 · reference/write-rules/product.md
  */
 final class RemoveProductVariation
 {
@@ -35,7 +35,7 @@ final class RemoveProductVariation
      * @throws ProductRequiresVariationException
      * @throws VariationHasReservedStockException
      */
-    public function handle(ProductVariation $variation, ?User $actor = null): ProductVariation
+    public function handle(ProductVariation $variation, ?User $actor): ProductVariation
     {
         if ($actor !== null) {
             Gate::forUser($actor)->authorize('delete', $variation);

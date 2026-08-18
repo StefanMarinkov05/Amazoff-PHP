@@ -7,30 +7,72 @@ Internship project, Lumen101 2026.
 The app lives in [`online-store/`](online-store/), not at repo root. Local
 dev runs through Docker Compose — see [`README.md`](README.md) for setup.
 
-**Read [`docs/README.md`](docs/README.md) before touching anything
-architectural.** It maps to [`docs/adr/`](docs/adr/) (decisions, one
-combined file for now, see its note on granularity) and
-[`docs/explanation/`](docs/explanation/) (how the system currently fits
-together). If a suggestion contradicts an accepted ADR, say so explicitly
-rather than silently diverging.
+## Where things live — read before touching anything architectural
+
+This file is the router, not the source of truth. It says where to look;
+the linked file is what's actually current. If a suggestion contradicts an
+accepted ADR, say so explicitly rather than silently diverging.
+
+- **[`docs/README.md`](docs/README.md)** — the doc structure itself
+  (Diátaxis: tutorials / how-to / reference / explanation, plus ADR and
+  changelog). Start here if unsure which of the below to open.
+- **[`docs/reference/specification.md`](docs/reference/specification.md)**
+  — the working spec. §37 is the graded contract; §1–36 is the wish list
+  §37 draws from; §38 is optional. Every `§`-numbered reference anywhere
+  in this file or the docs points here. Its implementation-standards table
+  at the bottom is the part that goes stale fastest and is worth
+  re-reading even mid-session.
+- **[`docs/adr/`](docs/adr/)** — one decision, one file, frozen once
+  accepted. Ten so far (`0001`–`0010`); a changed mind gets a new ADR
+  marked `Superseded by ADR-XXXX`, never an edit to the old one.
+- **[`docs/explanation/`](docs/explanation/)** — how the system fits
+  together *today*, updated as it changes. `concurrency-and-locking.md`,
+  `security-model.md`, `gdpr.md`, `filament-resources.md`,
+  `db-schema-design.md`, `inventory.md`, `tech-stack-overview.md`.
+- **[`docs/reference/`](docs/reference/)** — facts, no opinions.
+  `specification.md` is the working spec (§-numbered, diverges from the
+  issued PDF in tracked ways); `actions.md` lists every Action, what it
+  writes, who can call it, what it throws; `write-rules/` (`product.md`,
+  `cart.md`, `coupon.md`, `concurrency.md`) is the expected-behaviour page
+  per aggregate — refusals, races, what a change does to state that
+  already exists; `schema.md`, `permissions.md`, `coverage.md`,
+  `fixture-format.md`, `tech-stack.md` are the rest.
+- **[`docs/how-to/troubleshooting.md`](docs/how-to/troubleshooting.md)** —
+  check this **before** proposing a fix for any error. Several of this
+  project's errors look like ordinary bugs and are not — a green Larastan
+  run against red IDE diagnostics, a factory that passes every static
+  check and fails on insert, a regeneration that reports success and
+  leaves stale definitions behind. If the error isn't there and you solve
+  it, add an entry: symptom, cause, fix, why it recurs, prevention — not
+  just what fixed it this time.
+- **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
+  `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
+  `run-the-tests.md`, `start-a-session.md`, `use-ci.md`,
+  `write-docs-and-comments.md`. Short recipes; read the relevant one
+  before improvising the task from scratch. Definetely read `start-a-session.md`
+  and the prompt in it in case anything is missing from here
 
 ---
 
 ## Architecture — non-negotiable
 
-- Business logic lives in `app/Actions/*`. One command per class, single
-  `handle()`.
+- Business logic lives in `app/Actions/{Area}/{Verb}{Noun}.php`. One command
+  per class, single `handle()`, grouped by the aggregate the write belongs
+  to, not by the caller. `docs/reference/actions.md` is the current,
+  complete list; don't infer what exists from memory or from this file.
 - Controllers and Livewire components are thin: validate → call Action →
   respond.
 - Filament resources call the same Actions as the storefront wherever a rule
   exists — this is what keeps two developers from building two subtly
   different versions of the same business rule. A rule exists when a write
-  spans more than one table or enforces an invariant: a product needs a
-  variation and an inventory row, an order needs items and addresses, a
-  status change needs a history row. Plain lookup tables (`Brand`, `Tag`,
-  `Attribute`, `AttributeValue`, `ProductCategory`, `ArticleCategory`,
-  `Carrier`) keep Filament's default CRUD, because wrapping a single-table
-  save in an Action buys nothing and costs a class. See ADR-0007.
+  spans more than one table or enforces an invariant the schema cannot
+  express: a product needs a variation and an inventory row, an order needs
+  items and addresses, a status change needs a history row. Plain lookup
+  tables (`Brand`, `Tag`, `Attribute`, `AttributeValue`, `ProductCategory`,
+  `ArticleCategory`, `Carrier`) keep Filament's default CRUD, because
+  wrapping a single-table save in an Action buys nothing and costs a class.
+  So does `CouponResource` — coupon *redemption* is the contested state,
+  not the coupon row itself. See ADR-0007.
 - No repository pattern. Eloquent is the repository.
 - Every fixed value set is a backed enum in `App\Enums`, with behaviour on
   it. Never the same list twice. Display goes through Filament's `HasLabel`
@@ -44,10 +86,15 @@ rather than silently diverging.
   `docs/adr/0001-tech-stack-selection.md`.
 - Money: `decimal(10,2)` columns, `decimal:2` casts, `bcmath` arithmetic.
   Never float.
-- Contested state (stock, coupon usage): `DB::transaction` **and**
-  `lockForUpdate()`. The transaction alone does not prevent the race.
-- Order status changes go through `TransitionOrderStatus`. Never assign
-  `->status` directly — it bypasses history, events, and role gates.
+- Contested state (stock reservation, coupon usage caps): `DB::transaction`
+  **and** `lockForUpdate()` on the row the invariant actually lives on —
+  not necessarily the row being written. The transaction alone does not
+  prevent the race; `docs/reference/write-rules/concurrency.md` has the
+  full contested-resource map and lock order.
+- Order status changes will go through a `TransitionOrderStatus` Action —
+  designed in ADR-0004, **not yet built.** Until it exists, nothing writes
+  `orders.status` at all; don't assign `->status` directly once it does, or
+  invent a workaround now.
 - External APIs sit behind a Saloon connector plus an interface in
   `App\Contracts`. Abstract the courier (two implementations); do not
   abstract Stripe (one).
@@ -80,7 +127,6 @@ rather than silently diverging.
   confirmation, carry the COD amount to the courier, and are marked paid on
   remittance.
 
-
 ## Working style
 
 - Vertical slices, atomically. One entity fully (migration → model →
@@ -91,17 +137,38 @@ rather than silently diverging.
 - Migrations are append-only after the schema freeze. Never edit a merged
   migration; always add a new one.
 - Generated code is a first draft. It gets read before it's trusted.
-- Verify against a running app. `php -l` proves syntax, not behaviour.
+- Verify against a running app, not by reading code: `php -l` proves
+  syntax, Larastan proves types, Pest proves the paths it covers — none of
+  them executes the behaviour. `docs/how-to/troubleshooting.md`'s own
+  cases are all green-static-check, wrong-behaviour bugs.
+- **Commits and pushes: do not, unless explicitly asked.** Commit messages
+  are written by hand and reviewed as part of the project's implementation
+  standards — never add a `Co-Authored-By` trailer, on this repo or any
+  fork/branch of it. `docs/how-to/start-a-session.md` is the full
+  session-priming prompt this project uses; read it before a session that
+  will touch architecture, and follow its reading order over improvising
+  one.
+- **PR bodies use [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)**
+  — `What this does`, `Related ADR`, and the checklist as written there.
+  Don't improvise a different shape (a generic "Summary"/"Test plan"
+  layout is not this repo's convention). There is no separate
+  commit-message template file; a commit body follows the same
+  discipline the PR template asks for — a short "what this does," then
+  what was verified — rather than free-form prose.
 
 ## Before proposing a fix for an error
 
-Check `docs/how-to/troubleshooting.md` first. Several of the errors this project
-produces look like ordinary bugs and are not — a green Larastan run against red
-IDE diagnostics, a factory that passes every static check and fails on insert, a
-regeneration that reports success and leaves stale definitions behind.
+Check `docs/how-to/troubleshooting.md` first — this is worth its own
+heading because it's the instruction most often skipped under time
+pressure, not because the router section above doesn't already say it.
+Several of the errors this project produces look like ordinary bugs and
+are not — a green Larastan run against red IDE diagnostics, a factory that
+passes every static check and fails on insert, a regeneration that reports
+success and leaves stale definitions behind.
 
-If the error is not there and you solve it, add an entry — including why it
-recurs and what would prevent it permanently, not just what fixed it this time.
+If the error is not there and you solve it, add an entry — including why
+it recurs and what would prevent it permanently, not just what fixed it
+this time.
 
 ## Commands
 
@@ -111,6 +178,11 @@ command list. Short version:
 ```bash
 docker compose exec app php artisan migrate:fresh --seed
 docker compose exec app ./vendor/bin/pint --test
-docker compose exec app ./vendor/bin/phpstan analyse
+docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
 docker compose exec app ./vendor/bin/pest
 ```
+
+`--memory-limit=1G` is required, not optional — the container's default
+128M crashes Larastan's parallel workers on this codebase's current size,
+reporting `Found 1 error` in the same shape as a real finding.
+`troubleshooting.md` has the full symptom.

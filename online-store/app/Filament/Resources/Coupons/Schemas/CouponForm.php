@@ -84,11 +84,6 @@ class CouponForm
                     ->integer()
                     ->minValue(1)
                     ->nullable(),
-                TextInput::make('times_used')
-                    ->numeric()
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->hiddenOn('create'),
                 Toggle::make('is_active')
                     ->required()
                     ->default(true),

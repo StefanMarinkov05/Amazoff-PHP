@@ -15,6 +15,7 @@ use App\Models\Inventory;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductReview;
 use App\Models\ProductSpecification;
 use App\Models\ProductVariation;
 use App\Models\WishlistItem;
@@ -24,7 +25,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 /*
  * Deleting and erasing a product. Outcome table in
- * `reference/product-write-rules.md`.
+ * `reference/write-rules/product.md`.
  */
 
 beforeEach(function (): void {
@@ -38,7 +39,7 @@ function productWithVariations(int $count = 2, int $stock = 0): Product
     $product = Product::factory()->create(['is_available' => true]);
 
     for ($i = 0; $i < $count; $i++) {
-        app(AddProductVariation::class)->handle($product, variationAttributes(), $stock);
+        app(AddProductVariation::class)->handle($product, variationAttributes(), $stock, null);
     }
 
     return $product;
@@ -47,7 +48,7 @@ function productWithVariations(int $count = 2, int $stock = 0): Product
 it('takes the variations with the product', function (): void {
     $product = productWithVariations();
 
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     // Cascaded in the application, not the schema — a database cascade would
     // reach inventory_movements and destroy §20's ledger.
@@ -60,11 +61,11 @@ it('makes the variations of a deleted product unreservable', function (): void {
     $product = productWithVariations(count: 1, stock: 10);
     $variation = $product->productVariations()->sole();
 
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     // ReserveStock checks the variation, not the product, so the cascade is
     // what makes a deleted product's stock unreachable.
-    expect(fn () => app(ReserveStock::class)->handle($variation, 1))
+    expect(fn () => app(ReserveStock::class)->handle($variation, 1, null))
         ->toThrow(RemovedFromCatalogueException::class);
 
     expect(Inventory::where('product_variation_id', $variation->getKey())->sole()->reserved_quantity)->toBe(0);
@@ -74,7 +75,7 @@ it('keeps the stock rows and the ledger', function (): void {
     $product = productWithVariations(count: 1, stock: 7);
     $variation = $product->productVariations()->sole();
 
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     // Soft deletion withdraws; it does not destroy.
     $inventory = Inventory::where('product_variation_id', $variation->getKey())->sole();
@@ -85,11 +86,11 @@ it('keeps the stock rows and the ledger', function (): void {
 
 it('delists a product that still has stock reserved for open orders', function (): void {
     $product = productWithVariations(count: 1, stock: 10);
-    app(ReserveStock::class)->handle($product->productVariations()->sole(), 3);
+    app(ReserveStock::class)->handle($product->productVariations()->sole(), 3, null);
 
     // Unlike RemoveProductVariation, reserved stock is not a refusal here:
     // delisting while orders are open is ordinary.
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     expect($product->fresh()->trashed())->toBeTrue();
 });
@@ -107,9 +108,9 @@ it('denies an actor without delete_product', function (): void {
 
 it('refuses to update a product that has been deleted', function (): void {
     $product = productWithVariations();
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
-    expect(fn () => app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']))
+    expect(fn () => app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null))
         ->toThrow(RemovedFromCatalogueException::class);
 });
 
@@ -117,7 +118,7 @@ it('erases a product with its variations and stock rows', function (): void {
     $product = productWithVariations();
     $variationIds = $product->productVariations()->pluck('id')->all();
 
-    app(ForceDeleteProduct::class)->handle($product);
+    app(ForceDeleteProduct::class)->handle($product, null);
 
     // Children before parents; the reverse is error 1451.
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeFalse()
@@ -130,7 +131,7 @@ it('erases the images and specifications that block the parent delete', function
     ProductImage::factory()->create(['product_id' => $product->getKey()]);
     ProductSpecification::factory()->create(['product_id' => $product->getKey()]);
 
-    app(ForceDeleteProduct::class)->handle($product);
+    app(ForceDeleteProduct::class)->handle($product, null);
 
     // Both are NO ACTION and both raise 1451 on their own — verified against
     // the database. Without a child of each kind the erase test passes with
@@ -142,11 +143,11 @@ it('erases the images and specifications that block the parent delete', function
 
 it('erases a product whose variations are already soft-deleted', function (): void {
     $product = productWithVariations();
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     // A trashed variation still holds the foreign key, so querying without
     // withTrashed() would hide exactly the rows that cause 1451.
-    app(ForceDeleteProduct::class)->handle($product);
+    app(ForceDeleteProduct::class)->handle($product, null);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeFalse()
         ->and(ProductVariation::withTrashed()->where('product_id', $product->getKey())->count())->toBe(0);
@@ -158,7 +159,7 @@ it('refuses to erase a product that has been ordered', function (): void {
 
     // ON DELETE SET NULL, so the database would accept this and silently null
     // the reference. §19 requires the history to survive.
-    expect(fn () => app(ForceDeleteProduct::class)->handle($product))
+    expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
         ->toThrow(ProductCannotBeErasedException::class);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue();
@@ -171,7 +172,7 @@ it('drops cart lines when erasing a product', function (): void {
         'quantity' => 1,
     ]);
 
-    app(ForceDeleteProduct::class)->handle($product);
+    app(ForceDeleteProduct::class)->handle($product, null);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeFalse()
         ->and(CartItem::count())->toBe(0);
@@ -181,8 +182,18 @@ it('refuses to erase a product that is on a wishlist', function (): void {
     $product = productWithVariations();
     WishlistItem::factory()->create(['product_id' => $product->getKey()]);
 
-    expect(fn () => app(ForceDeleteProduct::class)->handle($product))
+    expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
         ->toThrow(ProductCannotBeErasedException::class);
+});
+
+it('refuses to erase a product that has been reviewed', function (): void {
+    $product = productWithVariations();
+    ProductReview::factory()->create(['product_id' => $product->getKey()]);
+
+    expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
+        ->toThrow(ProductCannotBeErasedException::class);
+
+    expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue();
 });
 
 it('names the reason it refused, not just the class', function (): void {
@@ -193,7 +204,7 @@ it('names the reason it refused, not just the class', function (): void {
     OrderItem::factory()->count(2)->create(['product_id' => $ordered->getKey()]);
 
     try {
-        app(ForceDeleteProduct::class)->handle($ordered);
+        app(ForceDeleteProduct::class)->handle($ordered, null);
         $this->fail('Expected the erase to be refused.');
     } catch (ProductCannotBeErasedException $e) {
         expect($e->product->is($ordered))->toBeTrue()
@@ -205,7 +216,7 @@ it('names the reason it refused, not just the class', function (): void {
     WishlistItem::factory()->create(['product_id' => $wishlisted->getKey()]);
 
     try {
-        app(ForceDeleteProduct::class)->handle($wishlisted);
+        app(ForceDeleteProduct::class)->handle($wishlisted, null);
         $this->fail('Expected the erase to be refused.');
     } catch (ProductCannotBeErasedException $e) {
         expect($e->getMessage())->toContain('wishlist');
@@ -214,10 +225,10 @@ it('names the reason it refused, not just the class', function (): void {
 
 it('carries the record that was removed from the catalogue', function (): void {
     $product = productWithVariations();
-    app(DeleteProduct::class)->handle($product);
+    app(DeleteProduct::class)->handle($product, null);
 
     try {
-        app(UpdateProduct::class)->handle($product, ['name' => 'Renamed']);
+        app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null);
         $this->fail('Expected the update to be refused.');
     } catch (RemovedFromCatalogueException $e) {
         // A caller has to be able to say *which* record went without parsing
@@ -230,7 +241,7 @@ it('refuses to erase a product whose variation has stock history', function (): 
     $product = productWithVariations(count: 1, stock: 5);
 
     // Delegated to ForceDeleteProductVariation, which owns the ledger refusal.
-    expect(fn () => app(ForceDeleteProduct::class)->handle($product))
+    expect(fn () => app(ForceDeleteProduct::class)->handle($product, null))
         ->toThrow(VariationCannotBeErasedException::class);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue()
@@ -245,4 +256,27 @@ it('denies an actor without delete_product for an erase', function (): void {
         ->toThrow(AuthorizationException::class);
 
     expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeTrue();
+});
+
+/*
+ * ADR-0007: null is the application acting on its own behalf and skips the
+ * policy check. Both erasers are pinned because they are the most destructive
+ * pair in the catalogue — a change that quietly starts accepting null from
+ * somewhere new is worth a failing test.
+ */
+
+it('skips the policy for a null actor when deleting', function (): void {
+    $product = productWithVariations();
+
+    app(DeleteProduct::class)->handle($product, null);
+
+    expect($product->fresh()->trashed())->toBeTrue();
+});
+
+it('skips the policy for a null actor when erasing', function (): void {
+    $product = productWithVariations();
+
+    app(ForceDeleteProduct::class)->handle($product, null);
+
+    expect(Product::withTrashed()->whereKey($product->getKey())->exists())->toBeFalse();
 });
