@@ -69,6 +69,14 @@ needed to touch.
 - `handled_at` and `internal_note` on `contact_messages`, so the edit screen
   records what staff did with a message instead of editing what the sender
   wrote
+- `ProductReview` resource — read and moderate only. Approving and unapproving
+  are `app/Actions/ProductReview`, not a toggle on a form, because §24 makes
+  moderation a distinct ability from editing and a form field would have
+  checked the wrong one
+- Corrected `content_editor`'s scope: it held the four review permissions,
+  which §3.3 does not grant and §24 assigns to administrators. Removed from
+  `RoleSeeder`, with assertions in `RolePermissionTest` so it cannot come back
+  unnoticed
 - Documentation for the above
 
 ## Documentation

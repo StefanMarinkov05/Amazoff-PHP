@@ -72,13 +72,19 @@ Checked directly on the page that uses them rather than through a policy.
 | Role | Permissions | Scope |
 |---|---|---|
 | `administrator` | **0** | Everything, via `Gate::before`. Attaching all 104 would drift as the catalogue grows |
-| `content_editor` | 20 | Articles, article categories, tags, review moderation |
+| `content_editor` | 16 | Articles, article categories, tags |
 | `warehouse_employee` | 12 | Orders, shipments, inventory, read-only carriers |
 
 ### content_editor
 
 Full CRUD on `article` (plus `publish`), `article_category`, and `tag`.
-On `product_review`: `viewAny`, `view`, `approve`, `delete`.
+
+No `product_review`. §3.3 scopes this role to articles, images, article
+categories, and tags and does not mention reviews; §24 assigns hiding an
+inappropriate review to administrators by name. Moderation is judging spam and
+abuse in a customer's own words rather than authoring content, so the four
+review permissions sit with the administrator. They were briefly granted here
+and removed once §3.3 was read against §24.
 
 Denied **by name** in §3.3, not merely omitted: `payment`, `carrier` (courier
 credentials), `user` and `role` (user permissions), `setting`. Anyone widening

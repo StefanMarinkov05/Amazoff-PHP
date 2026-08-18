@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ProductReviews;
 
-use App\Filament\Resources\ProductReviews\Pages\CreateProductReview;
-use App\Filament\Resources\ProductReviews\Pages\EditProductReview;
 use App\Filament\Resources\ProductReviews\Pages\ListProductReviews;
 use App\Filament\Resources\ProductReviews\Pages\ViewProductReview;
-use App\Filament\Resources\ProductReviews\Schemas\ProductReviewForm;
 use App\Filament\Resources\ProductReviews\Schemas\ProductReviewInfolist;
 use App\Filament\Resources\ProductReviews\Tables\ProductReviewsTable;
 use App\Models\ProductReview;
@@ -23,11 +20,6 @@ class ProductReviewResource extends Resource
     protected static ?string $model = ProductReview::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
-    public static function form(Schema $schema): Schema
-    {
-        return ProductReviewForm::configure($schema);
-    }
 
     public static function infolist(Schema $schema): Schema
     {

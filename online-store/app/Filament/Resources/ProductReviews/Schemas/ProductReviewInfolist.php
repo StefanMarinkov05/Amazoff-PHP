@@ -14,17 +14,17 @@ class ProductReviewInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('user.id')
-                    ->label('User')
-                    ->placeholder('-'),
                 TextEntry::make('product.name')
                     ->label('Product'),
-                TextEntry::make('orderItem.id')
-                    ->label('Order item')
-                    ->placeholder('-'),
                 TextEntry::make('author_name'),
+                TextEntry::make('user.email')
+                    ->label('Account')
+                    ->placeholder('Deleted account'),
+                TextEntry::make('orderItem.product_sku')
+                    ->label('Verified purchase')
+                    ->placeholder('No linked order'),
                 TextEntry::make('rating')
-                    ->numeric(),
+                    ->formatStateUsing(fn (int $state): string => str_repeat('★', $state).str_repeat('☆', 5 - $state)),
                 TextEntry::make('body')
                     ->columnSpanFull(),
                 IconEntry::make('approved')
