@@ -1,18 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\Orders\RelationManagers;
 
-use Filament\Actions\AssociateAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\DissociateAction;
-use Filament\Actions\DissociateBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -23,75 +15,30 @@ class OrderItemsRelationManager extends RelationManager
 {
     protected static string $relationship = 'orderItems';
 
-    public function form(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                Select::make('product_id')
-                    ->relationship('product', 'name'),
-                Select::make('product_variation_id')
-                    ->relationship('productVariation', 'id'),
-                TextInput::make('product_name')
-                    ->required(),
-                TextInput::make('product_sku')
-                    ->required(),
-                TextInput::make('variation_name'),
-                TextInput::make('quantity')
-                    ->required()
-                    ->numeric()
-                    ->default(1),
-                TextInput::make('unit_price')
-                    ->required()
-                    ->numeric()
-                    ->prefix('$'),
-                TextInput::make('line_total')
-                    ->required()
-                    ->numeric(),
-                TextInput::make('discount_amount')
-                    ->required()
-                    ->numeric()
-                    ->default(0.0),
-                TextInput::make('vat_rate')
-                    ->required()
-                    ->numeric(),
-                TextInput::make('vat_amount')
-                    ->required()
-                    ->numeric(),
-            ]);
-    }
-
     public function infolist(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextEntry::make('product.name')
-                    ->label('Product')
-                    ->placeholder('-'),
-                TextEntry::make('productVariation.id')
-                    ->label('Product variation')
-                    ->placeholder('-'),
                 TextEntry::make('product_name'),
-                TextEntry::make('product_sku'),
+                TextEntry::make('product_sku')
+                    ->label('SKU'),
                 TextEntry::make('variation_name')
-                    ->placeholder('-'),
+                    ->placeholder('—'),
                 TextEntry::make('quantity')
                     ->numeric(),
                 TextEntry::make('unit_price')
                     ->money(),
                 TextEntry::make('line_total')
-                    ->numeric(),
+                    ->money(),
                 TextEntry::make('discount_amount')
-                    ->numeric(),
+                    ->money(),
                 TextEntry::make('vat_rate')
-                    ->numeric(),
+                    ->suffix('%'),
                 TextEntry::make('vat_amount')
-                    ->numeric(),
-                TextEntry::make('created_at')
-                    ->dateTime()
-                    ->placeholder('-'),
-                TextEntry::make('updated_at')
-                    ->dateTime()
-                    ->placeholder('-'),
+                    ->money(),
+                TextEntry::make('product.name')
+                    ->label('Current catalogue product')
+                    ->placeholder('No longer in the catalogue'),
             ]);
     }
 
@@ -100,61 +47,31 @@ class OrderItemsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('product_name')
             ->columns([
-                TextColumn::make('product.name')
-                    ->searchable(),
-                TextColumn::make('productVariation.id')
-                    ->searchable(),
                 TextColumn::make('product_name')
                     ->searchable(),
                 TextColumn::make('product_sku')
+                    ->label('SKU')
                     ->searchable(),
                 TextColumn::make('variation_name')
+                    ->placeholder('—')
                     ->searchable(),
                 TextColumn::make('quantity')
-                    ->numeric()
-                    ->sortable(),
+                    ->numeric(),
                 TextColumn::make('unit_price')
-                    ->money()
-                    ->sortable(),
+                    ->money(),
                 TextColumn::make('line_total')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('discount_amount')
-                    ->numeric()
-                    ->sortable(),
+                    ->money(),
                 TextColumn::make('vat_rate')
-                    ->numeric()
-                    ->sortable(),
+                    ->suffix('%')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('vat_amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
+                    ->money()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
-            ->headerActions([
-                CreateAction::make(),
-                AssociateAction::make(),
-            ])
+            ->headerActions([])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
-                DissociateAction::make(),
-                DeleteAction::make(),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DissociateBulkAction::make(),
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->toolbarActions([]);
     }
 }

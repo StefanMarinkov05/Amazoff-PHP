@@ -1,13 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\Orders\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class OrdersTable
@@ -16,73 +20,81 @@ class OrdersTable
     {
         return $table
             ->columns([
-                TextColumn::make('user.id')
-                    ->searchable(),
                 TextColumn::make('serial_number')
-                    ->searchable(),
+                    ->label('Order')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Placed')
+                    ->dateTime()
+                    ->sortable(),
+                TextColumn::make('first_name')
+                    ->label('Customer')
+                    ->formatStateUsing(fn (string $state, $record): string => "{$state} {$record->last_name}")
+                    ->searchable(['first_name', 'last_name']),
                 TextColumn::make('email')
                     ->label('Email address')
                     ->searchable(),
-                TextColumn::make('phone')
-                    ->searchable(),
-                TextColumn::make('first_name')
-                    ->searchable(),
-                TextColumn::make('last_name')
-                    ->searchable(),
-                TextColumn::make('status')
-                    ->badge(),
-                TextColumn::make('payment_status')
-                    ->badge(),
-                TextColumn::make('payment_method')
-                    ->badge(),
-                TextColumn::make('currency')
-                    ->searchable(),
-                TextColumn::make('subtotal_amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('discount_amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('shipping_amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('vat_amount')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('total_amount')
-                    ->numeric()
-                    ->sortable(),
-                IconColumn::make('invoice_required')
-                    ->boolean(),
-                TextColumn::make('invoice_company')
-                    ->searchable(),
-                TextColumn::make('invoice_vat_number')
-                    ->searchable(),
-                TextColumn::make('invoice_eik')
-                    ->searchable(),
-                TextColumn::make('anonymized_at')
-                    ->dateTime()
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
+                TextColumn::make('user.email')
+                    ->label('Account')
+                    ->placeholder('Guest')
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('payment_status')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('payment_method')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_amount')
+                    ->label('Total')
+                    ->money()
+                    ->sortable(),
+                TextColumn::make('subtotal_amount')
+                    ->money()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('discount_amount')
+                    ->money()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('shipping_amount')
+                    ->money()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('vat_amount')
+                    ->money()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('invoice_required')
+                    ->label('Invoice')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('anonymized_at')
+                    ->label('Anonymized')
                     ->dateTime()
-                    ->sortable()
+                    ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                SelectFilter::make('status')
+                    ->options(OrderStatus::class)
+                    ->multiple(),
+                SelectFilter::make('payment_status')
+                    ->options(PaymentStatus::class)
+                    ->multiple(),
+                SelectFilter::make('payment_method')
+                    ->options(PaymentMethod::class),
+                TernaryFilter::make('user_id')
+                    ->label('Placed by')
+                    ->placeholder('Everyone')
+                    ->trueLabel('Registered customers')
+                    ->falseLabel('Guests')
+                    ->nullable(),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->toolbarActions([]);
     }
 }
