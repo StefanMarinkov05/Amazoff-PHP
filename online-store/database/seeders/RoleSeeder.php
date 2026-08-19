@@ -13,13 +13,19 @@ class RoleSeeder extends Seeder
     /**
      * Permissions held by content_editor, from §3.3.
      *
+     * Reviews are deliberately absent. §3.3 scopes this role to articles,
+     * images, article categories, and tags; it does not mention reviews, and
+     * §24 assigns hiding an inappropriate one to administrators by name.
+     * Moderating a review is judging spam and abuse against a customer's
+     * words, not authoring content, so it stays with the administrator until
+     * §3.3 says otherwise.
+     *
      * @var list<string>
      */
     private const CONTENT_EDITOR_PERMISSIONS = [
         'viewAny_article', 'view_article', 'create_article', 'update_article', 'delete_article', 'publish_article',
         'viewAny_article_category', 'view_article_category', 'create_article_category', 'update_article_category', 'delete_article_category',
         'viewAny_tag', 'view_tag', 'create_tag', 'update_tag', 'delete_tag',
-        'viewAny_product_review', 'view_product_review', 'approve_product_review', 'delete_product_review',
     ];
 
     /**

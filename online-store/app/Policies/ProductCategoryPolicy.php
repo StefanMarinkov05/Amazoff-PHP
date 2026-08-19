@@ -36,7 +36,7 @@ class ProductCategoryPolicy
      * user may delete categories, and does not belong here. It currently
      * lives in ProductCategoriesTable as a `visible()` closure; per
      * CLAUDE.md it belongs in an Action so the storefront and the panel
-     * cannot disagree about it. Tracked in misc/open-review-findings.md.
+     * cannot disagree about it.
      */
     public function delete(User $user, ProductCategory $productCategory): bool
     {

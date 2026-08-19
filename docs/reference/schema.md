@@ -110,22 +110,24 @@ onto order items. Arithmetic uses `bcmath`, never float.
 
 ## Enum columns
 
-19 columns across 13 tables, each cast to a backed enum in `App\Enums`.
+19 columns across 13 tables, each cast to a backed enum in `App\Enums`. The
+backing value — the string a fixture or a raw insert must use — is the one on
+the right of `=` below, not the case name.
 
-| Enum | Columns |
-|---|---|
-| `OrderStatus` | `orders.status`, `order_status_histories.previous_status`, `.new_status` |
-| `PaymentStatus` | `payments.status`, `orders.payment_status`, `payment_events.status_before`, `.status_after` |
-| `PaymentMethod` | `payments.method`, `orders.payment_method` |
-| `ShipmentStatus` | `shipments.status`, `shipment_tracking_events.status` |
-| `InventoryMovementType` | `inventory_movements.movement_type` |
-| `ArticleStatus` | `articles.status` |
-| `CouponType` | `coupons.type` |
-| `CouponScope` | `coupons.scope` |
-| `AddressType` | `order_addresses.type` |
-| `DeliveryType` | `order_addresses.delivery_type` |
-| `AttributeInputType` | `attributes.input_type` |
-| `NewsletterStatus` | `newsletter_subscribers.status` |
+| Enum | Values | Columns |
+|---|---|---|
+| `OrderStatus` | `new`, `awaiting_payment`, `paid`, `confirmed`, `preparing`, `ready_for_shipment`, `shipped`, `delivered`, `cancelled`, `returned`, `refunded` | `orders.status`, `order_status_histories.previous_status`, `.new_status` |
+| `PaymentStatus` | `pending`, `processing`, `paid`, `failed`, `cancelled`, `refunded`, `partially_refunded` | `payments.status`, `orders.payment_status`, `payment_events.status_before`, `.status_after` |
+| `PaymentMethod` | `stripe`, `cash_on_delivery` | `payments.method`, `orders.payment_method` |
+| `ShipmentStatus` | `pending`, `shipped`, `in_transit`, `delivered`, `returned`, `cancelled` | `shipments.status`, `shipment_tracking_events.status` |
+| `InventoryMovementType` | `initial_stock`, `new_delivery`, `order_reservation`, `completed_sale`, `reservation_release`, `customer_return`, `damaged_product`, `manual_correction` | `inventory_movements.movement_type` |
+| `ArticleStatus` | `draft`, `scheduled`, `published`, `archived` | `articles.status` |
+| `CouponType` | `percentage`, `fixed` | `coupons.type` |
+| `CouponScope` | `entire_order`, `products`, `categories` | `coupons.scope` |
+| `AddressType` | `billing`, `delivery` | `order_addresses.type` |
+| `DeliveryType` | `address`, `office` | `order_addresses.delivery_type` |
+| `AttributeInputType` | `select`, `color`, `text` | `attributes.input_type` |
+| `NewsletterStatus` | `subscribed`, `unsubscribed` | `newsletter_subscribers.status` |
 
 The value lists exist twice — in the migration `enum()` literals, which are
 frozen by the append-only rule, and in `App\Enums`. Migrations added from here

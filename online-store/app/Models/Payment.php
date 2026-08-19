@@ -46,7 +46,7 @@ class Payment extends Model
             'status' => PaymentStatus::class,
             'amount' => 'decimal:2',
             'refunded_amount' => 'decimal:2',
-            'paid_at' => 'timestamp',
+            'paid_at' => 'datetime',
         ];
     }
 

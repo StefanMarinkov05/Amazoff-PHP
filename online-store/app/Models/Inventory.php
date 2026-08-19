@@ -37,14 +37,34 @@ class Inventory extends Model
         return [
             'id' => 'integer',
             'product_variation_id' => 'integer',
+            'current_quantity' => 'integer',
+            'reserved_quantity' => 'integer',
+            'sold_quantity' => 'integer',
+            'returned_quantity' => 'integer',
+            'damaged_quantity' => 'integer',
         ];
     }
 
+    /**
+     * §20: available quantity is current minus reserved.
+     *
+     * Derived rather than stored, per ADR-0002 — a stored copy is a second
+     * source of truth that drifts the moment a reservation is written without
+     * updating it. The cost is that it cannot be used in a WHERE clause
+     * directly; queries filtering on availability compare the two columns.
+     */
+    public function available(): int
+    {
+        return $this->current_quantity - $this->reserved_quantity;
+    }
+
+    /** @return HasMany<InventoryMovement, $this> */
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
     }
 
+    /** @return BelongsTo<ProductVariation, $this> */
     public function productVariation(): BelongsTo
     {
         return $this->belongsTo(ProductVariation::class);

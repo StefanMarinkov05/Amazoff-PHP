@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Models\Cart;
+use App\Models\Inventory;
+use App\Models\Product;
+use App\Models\ProductVariation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,6 +24,20 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+| Concurrency tests are the exception, and must not use RefreshDatabase.
+|
+| It wraps each test in a transaction that is rolled back rather than
+| committed, so rows the test creates are invisible to every other database
+| connection — and a second connection asking for them blocks on the test's
+| own uncommitted write. A test for row locking then times out on its own
+| first session and proves nothing about the code under test.
+|
+| These tests commit their fixtures and clean up after themselves.
+*/
+pest()->extend(TestCase::class)
+    ->in('Concurrency');
 
 /*
 |--------------------------------------------------------------------------
@@ -46,7 +65,101 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/*
+ * Shared by the catalogue Action tests. Defined here rather than in whichever
+ * test file happened to need them first: Pest exposes a test file's functions
+ * globally only once that file is loaded, so a helper living in a sibling is
+ * undefined when its consumer is run on its own with a path or --filter.
+ */
+
+/**
+ * Grants real permission names from the real catalogue. givePermissionTo()
+ * throws on a name that does not exist, so a typo fails loudly instead of
+ * granting nothing and letting a denial test pass for the wrong reason.
+ *
+ * Grant everything the operation needs *except* the permission under test —
+ * an actor holding none is denied by whichever check runs first, which for a
+ * composed Action is rarely the one being tested. See troubleshooting.md,
+ * "An authorization test passes with the authorization check deleted".
+ */
+function catalogueActor(string ...$permissions): User
 {
-    // ..
+    $user = User::factory()->create();
+    $user->givePermissionTo($permissions);
+
+    return $user;
+}
+
+/** @return array<string, mixed> */
+function variationAttributes(array $overrides = []): array
+{
+    return array_merge([
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{16}'),
+        'price' => '19.99',
+        'is_available' => true,
+    ], $overrides);
+}
+
+/*
+ * Shared by the cart Action tests. Same reason as above: a helper defined in a
+ * sibling test file is undefined when its consumer runs under --filter.
+ */
+
+/**
+ * A variation with a stock row, at prices and limits the test states.
+ *
+ * ProductFactory randomises `regular_price`, `discount_price`, the discount
+ * window, `min_order_quantity`, and `is_available`; ProductVariationFactory
+ * randomises the price overrides and pulls in a ProductImage. Every one of
+ * those is an input to the rules under test, so a cart test built on the
+ * defaults asserts against a different product on each run.
+ *
+ * @param  array<string, mixed>  $product
+ * @param  array<string, mixed>  $variation
+ */
+function cartVariation(int $stock = 10, array $product = [], array $variation = []): ProductVariation
+{
+    $productModel = Product::factory()->create(array_merge([
+        'regular_price' => '100.00',
+        'discount_price' => null,
+        'discount_starts_at' => null,
+        'discount_ends_at' => null,
+        'vat_rate' => 20.00,
+        'min_order_quantity' => 1,
+        'is_available' => true,
+    ], $product));
+
+    $variationModel = ProductVariation::factory()->create(array_merge([
+        'product_id' => $productModel->getKey(),
+        // Null rather than the factory's ProductImage: that image belongs to a
+        // second product the test never names, and this one needs no image.
+        'image_id' => null,
+        'price' => null,
+        'discount_price' => null,
+        'is_available' => true,
+    ], $variation));
+
+    Inventory::factory()->create([
+        'product_variation_id' => $variationModel->getKey(),
+        'current_quantity' => $stock,
+        'reserved_quantity' => 0,
+        'sold_quantity' => 0,
+        'returned_quantity' => 0,
+        'damaged_quantity' => 0,
+    ]);
+
+    return $variationModel;
+}
+
+/**
+ * A cart with neither an owner nor a coupon — both nullable, and the factory
+ * creates a User and a Coupon for every cart otherwise.
+ */
+function emptyCart(?User $owner = null): Cart
+{
+    return Cart::factory()->create([
+        'user_id' => $owner?->getKey(),
+        'coupon_id' => null,
+        'expires_at' => null,
+    ]);
 }

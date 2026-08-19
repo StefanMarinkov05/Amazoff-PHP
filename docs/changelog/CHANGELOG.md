@@ -82,7 +82,7 @@ when the work happened, not when it was committed — nothing in
   app user access to it on first container initialization, matching what
   CI's MySQL service already provisions — local `pest` runs against a fresh
   clone without a manual `CREATE DATABASE` step.
-- `database/seeders/PermissionSeeder.php` — 108 permissions named
+- `database/seeders/PermissionSeeder.php` — 104 permissions named
   `{ability}_{resource}`, the ability half matching the Laravel policy method
   that checks it. Seeded in full rather than per built resource: §3.3 and
   §3.4 describe what a role may do, not what happens to be built, and
@@ -132,6 +132,27 @@ when the work happened, not when it was committed — nothing in
   what each holds, and which check answers which question.
 - `docs/how-to/edit-a-role.md` — the panel path and the seeder path, why they
   are not equivalent, and what the screen deliberately refuses to do.
+- `app/Actions/Inventory/` — `RecordInventoryMovement`, `ReserveStock`, and
+  `ReleaseStock`, the first Actions in the codebase, plus
+  `Inventory::available()` and `InsufficientStockException`. Both writing
+  Actions take `DB::transaction` and `lockForUpdate`; the ledger writer
+  deliberately opens no transaction, since a movement without the quantity
+  change it describes is a lie and the caller owns the boundary.
+- `tests/Concurrency/`, a testsuite of its own, because `RefreshDatabase`
+  rolls back rather than commits and a second connection cannot see rows that
+  were never committed. The race test runs two OS processes against a shared
+  wall-clock barrier and asserts the *type* of the loser's exception — both
+  the locked and unlocked versions produce one winner, and only the locked one
+  fails cleanly.
+- `docs/adr/0007-action-conventions.md` — the actor is a nullable last
+  parameter and null means the system; events dispatch after commit; an Action
+  is required where a rule spans tables rather than everywhere; composition
+  nests via savepoints.
+- `docs/explanation/inventory.md` and
+  `docs/explanation/concurrency-and-locking.md` — the stock counters and the
+  locking that protects them, including why `increment()` rather than
+  arithmetic in PHP is load-bearing: the constraint catches the first case as
+  a 500 and cannot catch the second at all.
 - `docs/how-to/start-a-session.md` — a session prompt for Claude Code, with
   the reasoning for each instruction so it can be edited rather than copied
   once and left to go stale.
@@ -171,9 +192,75 @@ when the work happened, not when it was committed — nothing in
   two staff columns are writable. `handled_at` is a nullable timestamp
   rather than a boolean — when a message was dealt with is worth more than
   that it was, and null already means outstanding.
+- Filament resource over `Order`, read-only, with `orderItems`,
+  `orderStatusHistories`, and `orderAddresses` as read-only relation
+  managers. `OrderPolicy` refuses create (§12 — an order exists because
+  checkout ran) and delete (§19 — the history has to survive), and there is
+  no edit page because the only legitimate write is a status change, which
+  belongs in `TransitionOrderStatus`. **Criterion 16 is therefore not met
+  yet**: the screens read orders, nothing moves one. Order items are the §18
+  price snapshot and status history is the §19 audit trail, so neither is
+  hand-editable by design.
+- `OrderAddressesRelationManager` composes one readable address line rather
+  than listing six columns, branching on `DeliveryType` — a home delivery
+  fills `street`, a courier pickup fills `courier_office_*`, never both.
+
+- `docs/adr/0009-code-coverage.md` — PCOV for `pest --coverage`, chosen over
+  Xdebug by benchmarking both against this suite specifically (+13% on
+  `tests/Concurrency/`, +36% on a fast in-process run) rather than assuming
+  the difference. Reported as a CI artifact, never gated — no `--min`
+  threshold, consistent with this project's existing position that a
+  passing test is not evidence without deletion-proof.
+  `docker/php/conf.d/pcov.ini`, `docker/php/conf.d/cli-memory.ini` (the
+  default 128M `memory_limit` cannot assemble a full-project report).
+- `docs/reference/coverage.md` — per-class PCOV breakdown, distinguishing
+  lines proven by a concurrency test PCOV cannot see from lines genuinely
+  untested.
+- `docs/reference/write-rules/` — `product-write-rules.md`,
+  `cart-write-rules.md`, and `concurrency-coverage.md` moved here as
+  `product.md`, `cart.md`, `concurrency.md`. The three cross-reference each
+  other constantly and shared a naming pattern already; ~25 other files
+  citing the old paths updated.
+- `tests/Concurrency/ReleaseStockConcurrencyTest.php`,
+  `ForceDeleteProductVariationConcurrencyTest.php`,
+  `MergeGuestCartConcurrencyTest.php` — three mechanisms
+  (`lockForUpdate()`, a catch-and-retry) that existed in application code
+  but had never been raced by two real processes. All three verified by
+  deletion.
+- `tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php` — races
+  `AddToCart` against `MergeGuestCart` directly rather than each against
+  itself. Proved the collision is real and `AddToCart`'s retry handles it;
+  could not prove `MergeGuestCart`'s retry in this specific pairing across
+  24 attempts under three synchronization strategies — `MergeGuestCart` has
+  no domain validation before its insert and wins every time in this
+  environment. Recorded as a measured, narrower gap rather than claimed as
+  fully verified. `docs/explanation/concurrency-and-locking.md` gained a
+  section on why a cross-Action race needs a rendezvous beyond the usual
+  wall-clock barrier.
+- Tests closing three branches no test exercised: `ForceDeleteProduct`'s
+  refusal when a product has reviews, `RemoveProductImage`'s authorization
+  check (nothing had ever called it with a non-null actor), `ReleaseStock`'s
+  `quantity < 1` guard (present and tested on `ReserveStock`, missing on its
+  sibling).
 
 ### Changed
 
+- CI split into three parallel jobs (ADR-0010): `lint` (Pint, Larastan, no
+  database), `test` (`tests/Unit` + `tests/Feature`, 2-shard matrix), and
+  `test-concurrency` (`tests/Concurrency`, 3-shard matrix). Both suites'
+  shards are hand-partitioned by measured wall-clock time, not split
+  evenly by file count — each suite has one file whose cost would
+  otherwise land wherever alphabetical order put it: one
+  `tests/Concurrency` file using `->repeat(6)` is over half that suite's
+  time; `tests/Feature/RolePermissionTest.php`'s `beforeEach` reseeds
+  three seeders before every test (deliberate — the permission registrar
+  caches for 24h) and is over a third of the Feature/Unit suite's time.
+  Coverage collection dropped from CI entirely — sharding `test` means no
+  single shard's report matches `reference/coverage.md`'s numbers, and
+  merging two partial reports is real infrastructure for a number ADR-0009
+  already established nothing gates on. Regenerate locally
+  (`docs/reference/coverage.md` has the command) when the numbers are
+  needed.
 - Local database container runs with relaxed durability
   (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).
   Production is unaffected — it runs on Forge with MySQL's defaults. A single
@@ -196,6 +283,30 @@ when the work happened, not when it was committed — nothing in
   gating rather than removing would have needed a second mechanism.
 
 ### Fixed
+
+- `MergeGuestCart` had no collision handling at all — unlike `AddToCart`,
+  which it otherwise mirrors, a concurrent merge or an unrelated `AddToCart`
+  landing on the same line surfaced as an uncaught `QueryException`. Now
+  catches and retries as an update, same shape as `AddToCart`. The fix
+  needed one subtlety `AddToCart`'s doesn't: the retry runs as a savepoint
+  inside the merge's own outer transaction, and a savepoint rollback does
+  not refresh the transaction's `REPEATABLE READ` snapshot the way a fresh
+  top-level transaction does, so the retry's read must `lockForUpdate()`
+  rather than read plainly.
+- `CalculateCartTotals` threw an uncaught `TypeError` on any cart line whose
+  variation or product had been soft-deleted after the line was added — a
+  realistic, previously-untested case. Now skips the line rather than
+  crashing the cart total.
+- `ReportsDomainFailures` (turns an Action's domain exception into a
+  Filament notification) caught `RuntimeException` only. Seven of the eight
+  domain exceptions extend it; `InvalidCartQuantityException` deliberately
+  extends `InvalidArgumentException` instead, per its own docblock, written
+  before this trait existed. Would have reached a Filament page as an
+  uncaught exception rather than a notification the moment Cart got a
+  caller that used the trait — silent only because no such caller exists
+  yet. Now catches both.
+- `pest --coverage` failed outright everywhere — CI set `coverage: none`
+  explicitly and no driver was installed locally.
 
 - `app/Models/User.php` was invalid PHP — an unclosed `$hidden` array and an
   unclosed `profile()` method from a merge conflict resolved by hand. It also
