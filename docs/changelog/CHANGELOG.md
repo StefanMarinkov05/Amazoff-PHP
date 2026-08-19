@@ -192,6 +192,18 @@ when the work happened, not when it was committed — nothing in
   two staff columns are writable. `handled_at` is a nullable timestamp
   rather than a boolean — when a message was dealt with is worth more than
   that it was, and null already means outstanding.
+- Filament resource over `Order`, read-only, with `orderItems`,
+  `orderStatusHistories`, and `orderAddresses` as read-only relation
+  managers. `OrderPolicy` refuses create (§12 — an order exists because
+  checkout ran) and delete (§19 — the history has to survive), and there is
+  no edit page because the only legitimate write is a status change, which
+  belongs in `TransitionOrderStatus`. **Criterion 16 is therefore not met
+  yet**: the screens read orders, nothing moves one. Order items are the §18
+  price snapshot and status history is the §19 audit trail, so neither is
+  hand-editable by design.
+- `OrderAddressesRelationManager` composes one readable address line rather
+  than listing six columns, branching on `DeliveryType` — a home delivery
+  fills `street`, a courier pickup fills `courier_office_*`, never both.
 
 - `docs/adr/0009-code-coverage.md` — PCOV for `pest --coverage`, chosen over
   Xdebug by benchmarking both against this suite specifically (+13% on
