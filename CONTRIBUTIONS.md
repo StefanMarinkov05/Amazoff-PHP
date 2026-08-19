@@ -38,7 +38,7 @@ needed to touch.
 | Area | Work |
 |---|---|
 | Data model | Initial schema design |
-| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li></ul> |
+| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li><li>Order resource, read-only pending the status-transition Action</li></ul> |
 | Seeders | Role and staff account seeding |
 | Infra | Local database provisioning on a fresh clone |
 | Actions | Review approval and unapproval |
