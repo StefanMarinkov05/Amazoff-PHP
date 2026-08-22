@@ -6,7 +6,7 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Twenty-one Actions across five areas, ten domain exceptions.
+Twenty-six Actions across five areas, fourteen domain exceptions.
 
 ## Naming
 
@@ -25,11 +25,38 @@ constructor injection.
 | `RecordInventoryMovement` | `inventory_movements` | optional, recorded as `created_by_id` | — |
 | `ReserveStock` | `inventories.reserved_quantity`, `inventory_movements` | optional | `InsufficientStockException`, `InvalidArgumentException` |
 | `ReleaseStock` | `inventories.reserved_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `CompleteSale` | `inventories.reserved_quantity`, `inventories.current_quantity`, `inventories.sold_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `RestockReturn` | `inventories.sold_quantity`, `inventories.current_quantity`, `inventories.returned_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 
 `RecordInventoryMovement` is the one Action that opens no transaction of its
 own and is not meant to be called directly. A movement row without the
 quantity change it describes is a false ledger entry, so the caller owns the
 boundary.
+
+`CompleteSale` and `RestockReturn` (ADR-0011) are the two counters §20's
+schema always had and nothing wrote to until `TransitionOrderStatus` — moving
+stock from reserved to sold on `=> Shipped`, and from sold back to current on
+`=> Returned`. In `CompleteSale`, `reserved_quantity` is decremented before
+`current_quantity`: `chk_inventories_reserved_not_above_current` is evaluated
+per statement, and decrementing `current` first would fail it the moment a
+sale empties stock that was fully reserved. `RestockReturn` has no such
+ordering hazard — raising `current_quantity` can never violate that
+constraint. Neither authorizes anything, for the same reason
+`ReserveStock`/`ReleaseStock` do not: the caller has already authorized the
+status change these record. `RestockReturn` assumes a return is resellable.
+
+`RecordDamage` is the third such counter — `current_quantity` to
+`damaged_quantity`, the `DamagedProduct` movement. General-purpose like
+`ReserveStock`/`ReleaseStock` rather than composed by `TransitionOrderStatus`:
+a warehouse employee marking N units damaged on the shelf is independent of
+any specific order, and a damaged *return* is a separate, later call after
+`RestockReturn` rather than a branch inside it — no admin surface triggers
+either path yet. Guards `available()` (current minus reserved), not
+`current_quantity` alone: damaging reserved stock would push
+`reserved_quantity` above `current_quantity`, which the same `CHECK`
+constraint rejects, and doing so silently would leave a reservation pointing
+at stock that no longer exists.
 
 ## Catalogue
 
@@ -45,6 +72,20 @@ boundary.
 | `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
 | `SetMainProductImage` | `product_images` | optional, `update_product` | — |
 | `RemoveProductImage` | `product_images`, and the file on disk | optional, `update_product` | `ProductImageInUseException` |
+| `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
+
+`ProductCategory` is otherwise default Filament CRUD, per CLAUDE.md's plain-
+lookup-table exemption — `DeleteProductCategory` is the one exception, and a
+narrow one: `parent_id`'s own `constrained()` foreign key already refuses a
+delete while a subcategory exists, as a raw `QueryException`.
+`ProductCategoryPolicy::delete()`'s own docblock had already named the gap
+this closes — the same check lived in a Filament `visible()`/`disabled()`
+closure, read once when the row rendered rather than when the click landed,
+and `children()->count()` in it was commented out because `ProductCategory`
+had no `children()` relation to call. Locks the category row before counting
+live children and products, so both the storefront and the panel get the
+same clean refusal instead of a 500 or a silently-disabled button.
+`write-rules/product-category.md` is the outcomes page.
 
 A product with images has exactly one main image, which MySQL cannot express —
 no partial unique index, and ADR-0004 rejected triggers. `SetMainProductImage`
@@ -133,7 +174,8 @@ a `Coupon` row is single-table with no second writer, decision 10.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException` |
+| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
+| `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
 
 `reference/write-rules/order.md` is the outcomes page.
 
@@ -147,9 +189,54 @@ derived from the row's own auto-increment id after insert, updated inside
 the same transaction before commit — no dedicated counter, no extra lock.
 No pre-order stock hold either: stock is reserved once, at order creation.
 
+`orders.cart_id` (`UNIQUE`, nullable, no foreign key) is set on the same
+insert. `CartAlreadyCheckedOutException` is a caught
+`UniqueConstraintViolationException`, not a check-then-act guard — the same
+CLAUDE.md idempotency shape as `coupon_redemptions`'s
+`UNIQUE(coupon_id, order_id)`. `CheckoutActorRemovedException` is a caught
+`QueryException` on the `orders_user_id_foreign` constraint, distinguished by
+message from any other `QueryException` that insert could raise — reachable
+only if `$actor` is hard-deleted between being read and the insert.
+`CouponNotApplicableException::noLongerExists()` is thrown before the
+transaction opens if `cart.coupon_id` points at a row `Coupon::query()->find()`
+no longer returns; `carts.coupon_id`'s own foreign key already blocks the
+ordinary path to that state (no cascade, so a coupon cannot be hard-deleted
+while any cart still applies it), so this is defence in depth rather than a
+reachable production gap.
+
 Every order is created at `OrderStatus::New`, `PaymentStatus::Pending`,
-regardless of payment method — `TransitionOrderStatus` does not exist yet,
-so the `New => AwaitingPayment`/`=> Confirmed` move is a later Action's job.
+regardless of payment method. `CreateOrder` does not write an
+`order_status_histories` row for that initial state — §19 requires history
+for *changes*, and `null => New` is not one; the column stays nullable for a
+future data import where the previous status is genuinely unknown.
+
+`TransitionOrderStatus` (ADR-0004, ADR-0011) is the only writer of
+`orders.status`. `OrderStatus::canTransitionTo()` decides legality;
+`OrderPolicy::updateStatus(User, Order, OrderStatus $to)` decides who, routed
+by target — `cancel_order`/`refund_order` for `Cancelled`/`Refunded`,
+`updateStatus_order` otherwise, since ADR-0004's own context names
+cancelling and refunding as administrator moves distinct from a warehouse
+employee's routine advance. `$from === $to` is a clean no-op — no status
+write, no history row, no inventory movement, no event — safe only because
+`OrderStatus`'s transition graph is acyclic
+(`tests/Unit/Enums/TransitionMatrixTest.php`, "keeps the order status graph
+acyclic"). `UNIQUE(order_id, new_status)` on `order_status_histories`
+backstops the `orders` row lock the same way
+`chk_inventories_reserved_not_above_current` backstops `ReserveStock` —
+reaching it means the lock failed.
+
+The inventory consequence of a transition lives inside
+`TransitionOrderStatus` itself, keyed by target status, rather than in a
+`CancelOrder`/`ShipOrder` wrapper a caller could bypass by calling this
+Action directly — ADR-0011's departure from ADR-0004's original
+`CancelOrder` example. `=> Cancelled` releases every line
+(`ReleaseStock`, unconditionally — the matrix does not allow `Cancelled`
+from `Shipped` or `Delivered`, so every reachable cancellation is from a
+state where stock is reserved and not yet sold); `=> Shipped` completes the
+sale (`CompleteSale`, reserved → sold); `=> Returned` restocks
+(`RestockReturn`, sold → current). Every other target moves no inventory.
+Lines are processed sorted by `product_variation_id`, matching `CreateOrder`'s
+own reasoning for the same deadlock-avoidance sort.
 
 ## Transactions
 
@@ -170,6 +257,11 @@ so the `New => AwaitingPayment`/`=> Confirmed` move is a later Action's job.
 | `ApplyCoupon` | no — a single-row `UPDATE`, no lock to hold open |
 | `RemoveCoupon` | no — a single-row `UPDATE` |
 | `CreateOrder` | yes — wraps the order, items, addresses, `RedeemCoupon`, and every `ReserveStock` call |
+| `TransitionOrderStatus` | yes — wraps the status write, the history row, and every composed inventory Action |
+| `CompleteSale` | yes |
+| `RestockReturn` | yes |
+| `RecordDamage` | yes |
+| `DeleteProductCategory` | yes |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.
@@ -205,9 +297,31 @@ actually commits.
 
 ## Locking
 
-`ReserveStock` and `ReleaseStock` take `lockForUpdate()` on the inventory row
-before reading the quantities. `explanation/concurrency-and-locking.md` covers
-what the lock does and what the `CHECK` constraints do instead.
+`ReserveStock`, `ReleaseStock`, `CompleteSale`, `RestockReturn`, and
+`RecordDamage` take `lockForUpdate()` on the inventory row before reading the
+quantities. `explanation/concurrency-and-locking.md` covers what the lock
+does and what the `CHECK` constraints do instead.
+
+`DeleteProductCategory` takes `lockForUpdate()` on the `product_categories`
+row before counting live children and products, so a subcategory or product
+attached to it in the same instant is not read as a stale zero.
+`parent_id`'s own foreign key backstops the outcome either way — no lock can
+make a category-with-children delete succeed — so what the lock decides is
+only whether the refusal is the clean domain exception or a raw
+`QueryException`. Measured, not assumed, and with one honestly-recorded
+limit: `tests/Concurrency/DeleteProductCategoryConcurrencyTest.php` could not
+force the specific narrow window where removing the lock changes the
+outcome, the same conclusion reached for the deadlock-prevention sort below.
+
+`TransitionOrderStatus` takes `lockForUpdate()` on the `orders` row,
+re-reading `status` from the locked row rather than trusting the model
+passed into `handle()` — evaluating the parameter's own `status` instead of
+the freshly-locked row's is a lock that protects nothing, and it is the one
+subtlety here that no static check catches (`tests/Concurrency/
+TransitionOrderStatusConcurrencyTest.php` proves it by deletion). Lock order
+is **`orders` before `inventories`**: the composed inventory Action, if any,
+locks its lines only after the `orders` lock is already held. No Action
+today takes both in the opposite order.
 
 `UpdateProduct`, `RemoveProductVariation`, and `ForceDeleteProductVariation`
 take `lockForUpdate()` on the `products` row — the aggregate root — rather
@@ -265,8 +379,12 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
 | `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
-| `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon` | the coupon; six named constructors, one per refusal reason |
+| `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon`, `CreateOrder` | the coupon (nullable — `noLongerExists()` has none to carry); seven named constructors, one per refusal reason |
 | `EmptyCartException` | `CreateOrder` | the cart |
+| `CartAlreadyCheckedOutException` | `CreateOrder` | the cart |
+| `CheckoutActorRemovedException` | `CreateOrder` | the actor |
+| `IllegalOrderStatusTransitionException` | `TransitionOrderStatus` | the order, the `from` status, the `to` status |
+| `ProductCategoryCannotBeDeletedException` | `DeleteProductCategory` | the category; two named constructors, `hasChildren()` and `hasProducts()` |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -284,7 +402,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Nine of the ten extend `RuntimeException`. `InvalidCartQuantityException`
+Thirteen of the fourteen extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -315,6 +433,10 @@ covers both, plus that a non-domain exception of either base class and a
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
 | `RedeemCoupon` | composed by `CreateOrder`, tests |
 | `CreateOrder` | tests only |
+| `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
+| `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
+| `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
+| `DeleteProductCategory` | `EditProductCategory` header action, tests |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
 criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have

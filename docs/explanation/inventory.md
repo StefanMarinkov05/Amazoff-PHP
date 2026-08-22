@@ -90,13 +90,34 @@ enums do.
 
 ## What exists
 
-`Inventory::available()`, `RecordInventoryMovement`, `ReserveStock`, and
-`ReleaseStock`, with the reservation path covered by feature tests and a
-concurrency suite.
+`Inventory::available()`, `RecordInventoryMovement`, `ReserveStock`,
+`ReleaseStock`, `CompleteSale`, `RestockReturn`, and `RecordDamage` — six of
+§20's eight movement types, missing only manual correction. All six
+quantity-writing Actions are covered by feature tests; the first four also by
+a concurrency suite.
 
-Not built: `CommitStock`, which turns a reservation into a sale when an order
-ships and is the only path that decrements `current_quantity`. Nor the
-movements for returns, damage, or manual correction, which need an admin
-surface to be reachable from. Nothing yet calls `ReserveStock` either — the
-cart and checkout that will are still unbuilt, so today the Actions are
-exercised only by tests.
+`ReserveStock` is called by `CreateOrder`, at order creation, for every
+payment method — COD included, per CLAUDE.md's "reserve stock on
+confirmation" read as a conservative superset of "reserve at creation is
+never later." `ReleaseStock`, `CompleteSale`, and `RestockReturn` are called
+by `TransitionOrderStatus`, keyed by the order's target status:
+`=> Cancelled` releases, `=> Shipped` completes the sale (`reserved_quantity`
+decremented before `current_quantity` — the one ordering that matters and
+that no static check catches, since decrementing `current` first can violate
+`chk_inventories_reserved_not_above_current` mid-transaction when a sale
+empties fully-reserved stock), `=> Returned` restocks. `RestockReturn`
+assumes the return is resellable and credits `current_quantity` directly.
+
+`RecordDamage` is general-purpose rather than composed by
+`TransitionOrderStatus` — a warehouse employee marking N shelf units damaged
+is independent of any specific order, the same shape as `ReserveStock`/
+`ReleaseStock`. It moves `current_quantity` to `damaged_quantity` and guards
+`available()` (current minus reserved) rather than `current_quantity` alone:
+damaging reserved stock would push `reserved_quantity` above
+`current_quantity`, the same `CHECK` constraint `CompleteSale`'s ordering
+respects, and silently allowing it would leave a reservation pointing at
+stock that no longer exists. A damaged *return* is `RestockReturn` followed
+by a separate `RecordDamage` call once inspection finds it unsellable — two
+ledger rows, not a branch inside one Action (ADR-0011). No admin surface
+triggers either `RecordDamage` or the manual-correction movement yet; both
+are reachable only from tests until one does.

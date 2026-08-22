@@ -52,8 +52,11 @@ class RoleSeeder extends Seeder
      *
      * administrator holds no permissions on purpose. `Gate::before` in
      * AppServiceProvider returns true for that role and short-circuits every
-     * check, so attaching all 108 rows would be redundant and would drift out
-     * of step with the catalogue every time a permission is added.
+     * check, so attaching all 106 rows would be redundant and would drift out
+     * of step with the catalogue every time a permission is added. This
+     * includes `cancel_order` and `refund_order` (ADR-0011): warehouse_employee
+     * deliberately does not hold either, so an administrator relies on
+     * Gate::before for both rather than an explicit grant here.
      *
      * The two staff roles are synced rather than added to. syncPermissions()
      * makes re-seeding deterministic, which ADR-0003 requires: a permission

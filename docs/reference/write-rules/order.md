@@ -1,7 +1,7 @@
 # Order writes — expected behaviour
 
 What happens when a cart becomes an order, alone and under concurrency.
-Facts as of 2026-08-17, measured against the running stack rather than
+Facts as of 2026-08-18, measured against the running stack rather than
 read off the code.
 
 Why the mechanisms differ is `explanation/concurrency-and-locking.md`. This
@@ -19,8 +19,11 @@ factory, a seeder, or a raw query builder all bypass every rule below.
 |---|---|
 | Cart has no priceable line — empty, or every line points at a soft-deleted variation/product `CalculateCartTotals` already excludes | `EmptyCartException` |
 | Applied coupon no longer applies — disabled, outside window, below minimum, out of scope, either usage cap reached | `CouponNotApplicableException` |
+| Applied coupon's row is gone entirely (see "Known gaps" for why this is defence in depth rather than an open door) | `CouponNotApplicableException::noLongerExists()` |
 | A line's stock is insufficient at reservation time | `InsufficientStockException` |
 | Either address's `source_address_id` does not belong to the checking-out actor (or is given by a guest at all, who has no saved addresses to own) | `ModelNotFoundException` |
+| The cart was already converted to an order — a double-submitted checkout, a retried job | `CartAlreadyCheckedOutException` |
+| The checking-out actor's account no longer exists at all — a hard delete, not the ordinary soft delete | `CheckoutActorRemovedException` |
 
 Every guard runs inside `CreateOrder`'s own transaction (the coupon and
 stock checks) or before it opens (the empty-cart check, which has nothing
@@ -39,7 +42,7 @@ because a customer completed checkout).
 
 | Table | What |
 |---|---|
-| `orders` | One row. `status = New`, `payment_status = Pending`, regardless of payment method. `serial_number` derived from the row's own auto-increment id (`ORD-%06d`), written in a second update inside the same transaction, before commit — no dedicated counter, no extra lock. `subtotal_amount`/`vat_amount`/`total_amount` recomputed from the cart's current contents; nothing from a caller is trusted (§28, obligation 3) — the signature carries no total input at all, so there is no field to bypass through. |
+| `orders` | One row. `status = New`, `payment_status = Pending`, regardless of payment method. `cart_id` set from the checking-out cart — `UNIQUE`, nullable, no foreign key (see "Two actors at once" and the migration's own docblock). `serial_number` derived from the row's own auto-increment id (`ORD-%06d`), written in a second update inside the same transaction, before commit — no dedicated counter, no extra lock. `subtotal_amount`/`vat_amount`/`total_amount` recomputed from the cart's current contents; nothing from a caller is trusted (§28, obligation 3) — the signature carries no total input at all, so there is no field to bypass through. |
 | `order_items` | One row per priceable cart line. Snapshots `product_name`, `product_sku`, `variation_name` (joined from the variation's attribute values, falling back to the SKU if it has none), `unit_price`, `line_total`, `vat_rate`, `vat_amount` — frozen at creation, immune to a later product edit (§19). `discount_amount` is always `'0.00'`: the coupon discount is an order-level deduction, never a rewrite of line prices. |
 | `order_addresses` | Two rows, `UNIQUE(order_id, type)` — one `billing`, one `delivery`. A given `source_address_id` is scoped to the actor the same way CLAUDE.md requires everywhere else (`$actor->addresses()->findOrFail($id)`) rather than trusted as-is; a guest has no saved addresses to own, so any `source_address_id` from a guest is refused the same way. Verified: `CreateOrderTest`, "accepts a source_address_id that belongs to the checking-out actor," "refuses a source_address_id that belongs to another user," "refuses any source_address_id from a guest." |
 | `coupon_redemptions` | One row, only if `cart.coupon_id` was set, written by `RedeemCoupon` — re-validated independently, nothing trusted from the cart's provisional state. |
@@ -98,20 +101,17 @@ reads a few lines apart.
 |---|---|---|
 | Two customers checking out the last unit of the same variation | exactly one order succeeds; the loser gets a clean `InsufficientStockException`, not a `QueryException` — no half-written order | `CreateOrderConcurrencyTest` |
 | Two customers redeeming a coupon at its total usage limit, through `CreateOrder` | exactly one order succeeds; the loser gets a clean `CouponNotApplicableException` — proves composing `RedeemCoupon` inside `CreateOrder`'s larger transaction does not weaken the guarantee `RedeemCoupon` already proves alone | `CreateOrderConcurrencyTest` |
-| The same cart checked out twice at once — a double-submitted "place order," or two tabs | **both succeed. Two separate orders result, from one cart.** Not a guarantee — a gap, pinned deliberately so a future fix has a red test to turn green rather than a silent assumption | `CreateOrderConcurrencyTest`, "produces two orders from one cart checked out twice at once" |
+| The same cart checked out twice at once — a double-submitted "place order," or two tabs | exactly one order succeeds; the loser gets a clean `CartAlreadyCheckedOutException`, not a raw `QueryException` | `CreateOrderConcurrencyTest`, "fails the loser of a double-submitted checkout cleanly, producing exactly one order" |
 
-The first two share the same assertion shape as `ReserveStockConcurrencyTest`,
-not `RedeemCouponConcurrencyTest`'s in isolation:
-`chk_inventories_reserved_not_above_current` plus `increment()` already
-guarantee exactly one winner regardless of whether the lock holds. What
-the lock decides is *how* the loser fails, and — new to this Action,
-compared to `ReserveStock`/`RedeemCoupon` tested alone — that the loser's
-failure rolls back the order and its items too, not only the reservation
-or the redemption.
-
-The third is a different shape entirely: nothing backstops it, nothing is
-expected to, and the test says so in its own name rather than pretending
-otherwise. See "Known gaps."
+All three share the same assertion shape: a constraint makes exactly one
+winner certain regardless of whether the application-level guard holds
+(`chk_inventories_reserved_not_above_current` for the first,
+`coupon_redemptions`'s `UNIQUE(coupon_id, order_id)` for the second,
+`orders.cart_id`'s `UNIQUE` for the third), so what the test proves is not
+the winner count but *how* the loser fails — a handled domain exception
+rather than a raw `QueryException` reaching the database. All three losers'
+failures roll back the whole order and its items, not only the one row the
+underlying constraint sits on.
 
 ## Lock order
 
@@ -122,35 +122,7 @@ current-at-computation-time the same way `AddToCart` already does.
 
 ## Known gaps
 
-**1. No protection against the same cart being checked out twice.**
-Confirmed by test, not assumed: two concurrent `CreateOrder` calls against
-one cart both succeed, producing two orders (see "Two actors at once").
-Nothing marks a cart as already converted — no `converted_to_order_id`
-column, no lock taken on the cart itself, no idempotency key. Every other
-write-once concern in this codebase is closed by a `UNIQUE` constraint
-caught rather than checked (`AddToCart`'s collision retry,
-`coupon_redemptions`'s `UNIQUE(coupon_id, order_id)`); this one has no
-equivalent. Not fixed here — closing it is a design decision (a schema
-column plus a guard, or a caller-supplied idempotency key once a checkout
-endpoint exists to receive one), not a mechanical correction.
-
-**2. Inserting `orders.user_id` against a row that no longer exists reaches
-the database uncaught.** `nullOnDelete()` governs an *existing* child row
-when its parent is removed — it does not stop a *new* insert from
-referencing an id that is already gone. A hard-deleted `User` between
-reading `$actor` and the `orders` insert surfaces as an uncaught
-`QueryException` rather than a handled refusal. Confirmed by test:
-`CreateOrderTest`, "surfaces an uncaught QueryException when the actor
-account no longer exists at all." Narrow — `User` defaults to soft
-deletes, and a hard-delete path may not exist in the admin panel yet —
-but the gap is real independent of how reachable it currently is.
-`order_addresses.source_address_id` does not share this gap: it is
-looked up through `$actor->addresses()->findOrFail()` rather than
-inserted as given, so a hard-deleted or reassigned `Address` id fails the
-same clean `ModelNotFoundException` as any other unowned id, not a raw
-`QueryException`.
-
-**3. The deadlock-prevention sort is unverified by any test — deliberately,
+**1. The deadlock-prevention sort is unverified by any test — deliberately,
 not by oversight.** `cart_items`'s own `UNIQUE(cart_id,
 product_variation_id)` index happens to return rows pre-sorted by
 `product_variation_id` for a plain `WHERE cart_id = ?` query on the current
@@ -163,18 +135,152 @@ The fix is structural rather than something a race test demonstrates: the
 window between locking two rows inside one transaction is milliseconds,
 too narrow for a barrier-based test to force reliably without being flaky.
 
-**4. `shipping_amount` is hardcoded to `'0.00'`.** No delivery-price
+**2. `shipping_amount` is hardcoded to `'0.00'`.** No delivery-price
 calculation exists yet to feed it.
 
-**5. A coupon hard-deleted between apply and redemption is treated as no
-coupon at all, silently.** `Coupon::query()->find($cart->coupon_id)`
-returns `null` if the row is gone, and `CreateOrder` reads that identically
-to "no coupon was ever applied" — the order proceeds at full price with no
-discount and no error, rather than a refusal telling the customer their
-discount is gone. Every other coupon invalidation (disabled, expired,
-capped) raises `CouponNotApplicableException`; a hard-deleted coupon is the
-one path that does not, because there is no row left to carry the refusal
-context a named exception constructor needs. Not fixed here — coupons have
-no soft-delete today, so closing this cleanly means either giving `Coupon`
-one (a schema decision) or adding a constructor that carries only the id
-that used to matter.
+**Resolved, previously listed here:** the same cart being checked out twice
+(`orders.cart_id`, `UNIQUE`, nullable — see "Two actors at once"); a
+hard-deleted actor reaching the database uncaught
+(`CheckoutActorRemovedException`); a coupon hard-deleted between apply and
+redemption being treated as no coupon at all
+(`CouponNotApplicableException::noLongerExists()` — worth noting this one is
+defence in depth more than an open door: `carts.coupon_id` is a
+`constrained()` foreign key with no cascade, so an ordinary
+`$coupon->forceDelete()` while any cart still applies it already fails at
+the database with error 1451, discovered while writing the test for this
+fix. `CreateOrderTest`, "refuses and writes nothing when the applied coupon
+was hard-deleted before checkout" constructs the state by disabling FK
+checks around the delete, the same technique the concurrency suites use for
+truncation, precisely because the ordinary path is already closed).
+
+## Status transitions
+
+`App\Actions\Order\TransitionOrderStatus`, the only writer of `orders.status`
+(ADR-0004). Direct Eloquent, a factory, a seeder, or a raw query builder all
+bypass every rule below, same caveat as order creation.
+
+### One actor at a time
+
+| Refused when | Exception |
+|---|---|
+| The move is not in `OrderStatus::allowedTransitions()` from the order's current status | `IllegalOrderStatusTransitionException` |
+| The actor lacks the permission the target status routes to — `cancel_order` for `Cancelled`, `refund_order` for `Refunded`, `updateStatus_order` otherwise (ADR-0011) | `Illuminate\Auth\Access\AuthorizationException` |
+
+Legality is checked before authorization: a nonsense move is refused
+regardless of who asked, and checking it first means a denial does not leak
+whether the actor would otherwise have been permitted. A refusal writes
+nothing — no status change, no history row, no inventory movement, no event.
+
+### The no-op
+
+`$from === $to` — a double-submitted status action, a retried job — returns
+the order unchanged: no status write, no history row, no inventory movement,
+no event. Checked *after* authorization, not before: a denied actor sees
+`AuthorizationException` even when the move happens to already be done,
+never a silent success that would leak whether it would otherwise have been
+permitted.
+
+Safe only because `OrderStatus`'s transition graph is acyclic
+(`tests/Unit/Enums/TransitionMatrixTest.php`, "keeps the order status graph
+acyclic") — no order can legitimately re-enter a status it already left, so
+`from === to` is unambiguous evidence of a repeat rather than a status that
+sometimes means "done" and sometimes means "here again, deliberately."
+
+### What gets written
+
+| Table | What |
+|---|---|
+| `orders` | `status` updated to the target. Nothing else on the row changes. |
+| `order_status_histories` | One row: `previous_status`, `new_status`, `user_id` (null for a system actor), `reason`, `note` — the full §19 set. `UNIQUE(order_id, new_status)` backstops the `orders` lock, the same relationship `chk_inventories_reserved_not_above_current` has to `ReserveStock`'s lock — reaching the constraint means the lock failed. |
+| `inventories` / `inventory_movements` | Only for the three targets in the effect table below; every other target writes none. |
+
+### The inventory effect
+
+Keyed by the **target** status, not the source — applied to every order
+line, sorted by `product_variation_id` (the same sort `CreateOrder` applies,
+for the same deadlock-avoidance reason):
+
+| Target | Effect | Per line |
+|---|---|---|
+| `Cancelled` | `ReleaseStock` | reserved → available |
+| `Shipped` | `CompleteSale` | reserved → sold |
+| `Returned` | `RestockReturn` | sold → available, counted as a return |
+| everything else | none | — |
+
+Lives inside `TransitionOrderStatus` itself rather than a `CancelOrder`/
+`ShipOrder` wrapper — ADR-0011's departure from ADR-0004's original
+illustrative example, made explicit rather than silently diverged from. A
+wrapper is bypassed by calling `TransitionOrderStatus` directly, which still
+compiles and still passes every check the wrapper would have owned; folding
+the effect into the Action that cannot be bypassed without bypassing the
+status write itself closes that structurally rather than by convention.
+
+Cancellation needs no "was stock actually reserved?" branch and has none:
+`OrderStatus::allowedTransitions()` does not permit `Cancelled` from
+`Shipped` or `Delivered`, so every reachable cancellation is from a status
+where stock is reserved and not yet sold.
+
+### Two actors at once
+
+| Race | Outcome | Evidence |
+|---|---|---|
+| Two staff sending the same order to the same target at once | both calls report success — the second is the no-op above, not a race loser, since the lock serializes the second read onto the first one's already-written state | `TransitionOrderStatusConcurrencyTest`, "makes two identical concurrent transitions idempotent" |
+| Two staff sending the same order to two different, mutually-exclusive targets at once | exactly one wins; the loser re-reads the locked row, finds its own target no longer legal from the winner's landing status, and gets a clean `IllegalOrderStatusTransitionException` | `TransitionOrderStatusConcurrencyTest`, "fails the loser of two different concurrent transitions cleanly" |
+
+The second race deliberately does not use `Cancelled` as either side.
+`Cancelled` is reachable from almost every non-terminal status (§20 lets an
+order be cancelled from nearly anywhere), so a pairing that includes it is
+not reliably mutually exclusive: whichever side "loses" the row lock can
+often still reach `Cancelled` legally afterward, from the winner's landing
+status, which would make the outcome non-deterministic rather than proving
+anything. `AwaitingPayment` and `Confirmed`, both legal from `New` and
+neither reachable from the other, is the pairing that is.
+
+### Known gaps
+
+**1. Calling `TransitionOrderStatus` directly for a target with an inventory
+effect is the only way to route around that effect, and nothing stops it.**
+There is no `CancelOrder` wrapper to bypass — see "The inventory effect"
+above — but the flip side is that nothing distinguishes "a deliberate
+`=> Cancelled` call" from "a caller that meant something else and got the
+release for free." Convention and review are what hold this, the same
+exposure ADR-0007 already records for a null actor.
+
+**2. A returned item defaults to resellable, and marking it otherwise is a
+separate, later, manual step — deliberately, not a shortcut waiting to be
+closed.** `RestockReturn` always credits `current_quantity` on
+`=> Returned`; `App\Actions\Inventory\RecordDamage` is what corrects that,
+moving `current_quantity` to `damaged_quantity` — but it is not wired into
+`TransitionOrderStatus`'s effect table, and nothing calls it automatically.
+
+The two-step shape was considered and kept on purpose: the only source for
+"is this actually damaged" at the moment an order moves to `Returned` is
+whatever the customer typed into a return request, and that is unverified
+input describing physical state the system cannot check — the same
+category CLAUDE.md already rules out everywhere else ("the browser total is
+never trusted," "a customer cannot order more than is available"). Folding
+a resellable/damaged decision into the status transition would mean an
+inventory movement — and the counters every other Action in this codebase
+treats as ground truth — driven by a claim nobody verified. §20's own
+movement vocabulary supports the split independently: `customer_return` and
+`damaged_product` are two distinct types, not one, which reads as the spec
+expecting them to be separate events rather than two faces of a single
+decision.
+
+So the return is received first (`RestockReturn`, unconditional, stock
+nominally available again), and only a warehouse employee's physical
+inspection — a `RecordDamage` call carrying its own authorized actor, never
+anything sourced from the customer's stated reason — can move it to
+`damaged_quantity` afterward. What is still genuinely missing is narrower
+than "handle damaged returns": an authorized surface for staff to make that
+call at all. Needs `OrderResource` or an inventory-correction screen,
+neither built yet (slice 6b).
+
+**3. Nothing in `TransitionOrderStatus` re-validates that the order's own
+`order_items` still reference live `ProductVariation` rows** beyond loading
+them `withTrashed()` to get a model to pass to the inventory Action. A
+variation soft-deleted after the order shipped still has its `inventories`
+row (the row deliberately outlives the variation, per §20 and
+`ReserveStock`'s own docblock), so the counters move correctly regardless —
+this is recorded because it is easy to assume otherwise, not because
+anything is actually broken.

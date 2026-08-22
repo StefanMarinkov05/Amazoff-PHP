@@ -98,10 +98,18 @@ final class PermissionCatalogue
      * separates writing a draft from publishing it, and §24 makes review
      * approval a moderation step rather than an edit.
      *
+     * `cancel_order` and `refund_order` exist alongside `updateStatus_order`
+     * rather than folded into it: ADR-0004's own context names cancelling
+     * and refunding as administrator moves, distinct from the routine
+     * status advance a warehouse employee makes. One flat
+     * `updateStatus_order` permission cannot express that split — see
+     * ADR-0011 and `OrderPolicy::updateStatus()`, which routes to one of the
+     * three depending on the target status.
+     *
      * @var array<string, list<string>>
      */
     public const DOMAIN_ABILITIES = [
-        'order' => ['updateStatus', 'addInternalNote'],
+        'order' => ['updateStatus', 'addInternalNote', 'cancel', 'refund'],
         'article' => ['publish'],
         'product_review' => ['approve'],
         'payment' => ['refund'],
