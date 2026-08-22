@@ -77,6 +77,43 @@ alternative, optimistic concurrency — a version column, retry on mismatch — 
 not used here. Reservation conflicts are common on exactly the products worth
 stocking, and a retry loop under contention is more machinery than a lock.
 
+## What a blocked transaction actually experiences
+
+Three outcomes, not one, and only the third and rarest is an exception at the
+call site.
+
+**It waits, and resolves.** The ordinary case, above: `SELECT ... FOR UPDATE`
+blocks until the row's current holder commits or rolls back, then proceeds
+against the now-current row. No exception, no error — the request is simply
+slower. This is what every `lockForUpdate()` call in this codebase is built to
+produce, and the concurrency suite's whole job is proving it does.
+
+**It waits too long.** If whatever holds the lock never finishes — a hung
+connection, a request that stalled, a bug — MySQL gives up after
+`innodb_lock_wait_timeout` (50s by default) and raises error 1205, "Lock wait
+timeout exceeded." Not something this codebase has hit; short, single-purpose
+Actions rarely hold a lock for anywhere near 50 seconds.
+
+**It deadlocks.** Two transactions each waiting on a lock the other holds — see
+"Deadlock, once an order holds more than one line" below for the shape and how
+it's avoided here. Verified against Laravel's own source rather than assumed:
+`Illuminate\Database\Connection::transaction()` runs every exception through
+`causedByConcurrencyError()`, which pattern-matches both the 1205 and 1213
+messages identically — so a lock-wait-timeout and a deadlock are handled the
+same way once they reach PHP. What that handling produces depends on nesting.
+At the top level (`$this->transactions === 1`, true for every single-Action
+call in this codebase — checked, none of `app/Actions/*`'s `DB::transaction()`
+calls pass a retry count) it rolls back and rethrows the original
+`QueryException` — no automatic retry, since Laravel only retries when
+`DB::transaction($callback, $attempts)` is called with `$attempts > 1`, which
+nothing here does. Only when the failure happens on a **nested** transaction —
+one Action's `DB::transaction()` running as a savepoint inside another's, per
+ADR-0007's composition — does Laravel instead throw a distinct
+`Illuminate\Database\DeadlockException` (still a `PDOException`, not a
+`QueryException`) so the outer transaction knows the savepoint, not the whole
+transaction, failed. Nothing in this codebase catches either type specially
+today; both are uncaught all the way up.
+
 ## Why the write is an increment
 
 `increment()` is atomic; arithmetic in PHP is not.
@@ -233,18 +270,22 @@ the same reason stock is not held from the moment a customer opens checkout.
 
 ## Deadlock, once an order holds more than one line
 
-Nothing in the codebase reserves two variations yet. `CreateOrder` will, and
-two orders locking the same pair in opposite orders deadlock:
+`CreateOrder` reserves every line of a multi-item order, and
+`TransitionOrderStatus` locks `inventories` again for each line on
+`=> Cancelled`/`=> Shipped`/`=> Returned`. Two orders — or two transitions —
+locking the same pair of variations in opposite orders deadlock:
 
 ```
 Order A   locks variation 7, waits for 9
 Order B   locks variation 9, waits for 7
 ```
 
-InnoDB detects the cycle and rolls one transaction back with error 1213. The
-standard avoidance is a deterministic lock order — sorting the lines by
-primary key before locking, so no two requests can acquire in opposite
-sequence. Retrying a deadlocked transaction is the fallback, not the fix.
+InnoDB detects the cycle and rolls one transaction back with error 1213 — what
+that produces in PHP is "What a blocked transaction actually experiences"
+above. The standard avoidance is a deterministic lock order — sorting the
+lines by primary key before locking, so no two requests can acquire in
+opposite sequence. Retrying a deadlocked transaction is the fallback, not the
+fix.
 
 ## How this is tested
 
@@ -329,16 +370,29 @@ wall-clock one: each worker writes its own ready-flag file once it reaches
 the barrier, then polls for the other's flag before calling its Action, so
 neither proceeds until both have arrived. This removes process-boot jitter
 specifically — it cannot equalise the two Actions' own internal work, only
-the time it took each process to get to the starting line. Whether a
-cross-Action pairing can be forced to a fair race at all, versus needing a
-matched or deliberately padded workload on the faster side, is open;
-`reference/write-rules/cart.md`'s "Known gaps" has the specific case.
+the time it took each process to get to the starting line.
 
 A cross-Action test should also race more than once — `->repeat(n)` in
 Pest — since a single run of "delete one side's mechanism, check once" can
 pass by chance if that side happens to win. It is still not sufficient proof
 if the asymmetry turns out to be as deterministic as this one was; only a
 technique that can force the losing side to alternate would be.
+
+**Whether the rendezvous is enough, on its own, is answered both ways by the
+two cases measured so far — it depends on the pairing, not the technique.**
+`DeleteProductCategoryConcurrencyTest.php` raced `DeleteProductCategory`
+(lock, two counts, a delete) against a plain category insert. Without the
+rendezvous the insert won every time — the exact same boot-jitter trap,
+independently rediscovered. *With* it, both sides won a real share (roughly
+2:1), because the two operations' internal work, while unequal, was close
+enough that removing boot jitter was sufficient on its own. `AddToCart` vs
+`MergeGuestCart` needed more than that — the gap between "validates nothing"
+and "checks two things first" apparently did not close the same way. Neither
+result generalises to the other: measure the specific pairing before
+concluding the rendezvous did or didn't work, rather than assuming from
+either precedent. `reference/write-rules/cart.md`'s "Known gaps" has the
+cart case in full; `reference/write-rules/product-category.md`'s "Known
+gaps" has this one.
 
 ### Choosing the assertion
 
@@ -360,6 +414,55 @@ the third: it reads nothing to decide anything, so there is no window and no
 mechanism to remove.
 
 Getting this backwards produces a green test that survives deleting the lock.
+
+### A fourth shape: idempotent no-ops
+
+None of the three rows above fit two identical concurrent requests against an
+Action whose repeat is a designed no-op rather than a refusal.
+`TransitionOrderStatus` is the case: `$from === $to` returns the order
+unchanged rather than throwing, because a double-submitted status change is
+not an error. Racing two identical transitions against one order therefore
+does not produce a winner and a refused loser — it produces **two successes**,
+because the second call's lock-serialized re-read finds the order already at
+its target and takes the no-op path deliberately, not by accident.
+
+What proves the lock is doing anything here is not what either process
+observes — both report success either way if the no-op path is correct — but
+that the *write* happened exactly once: one `order_status_histories` row, not
+two, and no `QueryException` off `UNIQUE(order_id, new_status)`. Getting this
+backwards — asserting a winner count, as the first three shapes would suggest
+— produces a test that fails against entirely correct behaviour, which is a
+worse mistake than the usual "asserts nothing." `tests/Concurrency/
+TransitionOrderStatusConcurrencyTest.php`, "makes two identical concurrent
+transitions idempotent" is the example; its sibling test, racing two
+*different* legal targets from the same origin, is back to the ordinary
+loser-gets-refused shape, because that pair has no legitimate reading in
+which both calls should succeed.
+
+### Trusting the locked row, not the reference that was locked
+
+`ReserveStock`/`ReleaseStock`/`CompleteSale`/`RestockReturn` never have this
+problem, because they read the quantities they act on directly off the
+locked row in the same statement. `TransitionOrderStatus` can, because it is
+handed an `Order` *instance* — `handle(Order $order, OrderStatus $to, ...)` —
+that was hydrated before the lock was ever requested, and the natural-looking
+`$order->status` is sitting right there once the lock resolves.
+
+Reading it is wrong. `Order::query()->lockForUpdate()->findOrFail($order->
+getKey())` and evaluating `->status` on *that* result is the load-bearing
+step — the parameter's own `status` reflects whatever the database held at
+hydration time, unrelated to whether this call is now holding the lock after
+waiting behind another writer. A lock taken correctly but then ignored in
+favour of a stale reference protects nothing, and nothing about the code
+announces this: it type-checks, it reads naturally, and a single-process test
+cannot tell the two apart, because there is nothing else writing to disagree
+with. `tests/Concurrency/TransitionOrderStatusConcurrencyTest.php`'s first
+test is deletion-proofed against exactly this — swapping the locked row's
+`status` for the parameter's turns the identical-transition race from "both
+succeed, one write" into a `UniqueConstraintViolationException` on the
+second call, since it recomputes the transition as though nothing had
+changed and tries to insert a second `order_status_histories` row for a
+`(order_id, new_status)` pair that already exists.
 
 ### What cannot substitute for a second process
 

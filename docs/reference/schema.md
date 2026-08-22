@@ -55,11 +55,12 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 | `payments` | `UNIQUE(stripe_payment_intent_id)` | One payment row per intent |
 | `coupon_redemptions` | `UNIQUE(coupon_id, order_id)` | A coupon counts once per order |
 | `order_addresses` | `UNIQUE(order_id, type)` | One billing and one delivery address per order |
+| `order_status_histories` | `UNIQUE(order_id, new_status)` | An order enters a given status once — backstop for `TransitionOrderStatus`'s `orders` lock, safe because `OrderStatus`'s transition graph is acyclic |
 | `product_reviews` | `UNIQUE(user_id, product_id)` | One review per customer per product (§24) |
 | `wishlist_items` | `UNIQUE(user_id, product_id)` | No duplicate favourites |
 | `cart_items` | `UNIQUE(cart_id, product_variation_id)` | One line per variation; quantity changes instead |
 | `attribute_values` | `UNIQUE(attribute_id, slug)` | Value slugs unique within their axis |
-| `orders` | `UNIQUE(serial_number)`, `INDEX(email)` | Order lookup by number; tracking by email |
+| `orders` | `UNIQUE(serial_number)`, `UNIQUE(cart_id)` (nullable, no foreign key), `INDEX(email)` | Order lookup by number; one order per cart; tracking by email |
 | `shipments` | `UNIQUE(tracking_number)` | Tracking numbers are not reused |
 | `products`, `product_variations` | `UNIQUE(sku)` | SKU identifies one sellable item |
 
