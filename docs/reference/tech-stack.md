@@ -27,6 +27,7 @@ environment. No rationale here — that's in
 | `pestphp/pest` ^4.7 | Test framework |
 | `pestphp/pest-plugin-laravel` ^4.1 | Laravel test helpers for Pest |
 | `brianium/paratest` ^7.20 | `pest --parallel`, local `Feature`/`Unit` only — see `how-to/run-the-tests.md` |
+| `laravel/boost` ^2.5 | AI-agent guidelines, skills, and an MCP server exposing app info, schema, logs, and a Laravel docs search. Dev-only |
 | `laravel-lang/common` ^6.8 | Framework translation strings, non-English locales |
 | `laravel-shift/blueprint` ^2.13 | Migration/model/factory scaffolding from `draft.yaml` |
 | `laravel/pint` ^1.27 | Code formatting |
@@ -40,6 +41,24 @@ environment. No rationale here — that's in
 | GitHub Actions | CI — Pint, Larastan, Pest against a real MySQL service container |
 | Forge + VPS | Production, not containerized |
 | PCOV 1.0.12 | Test coverage collection, `app` image and CI only — not installed in production. ADR-0009 |
+
+### Boost is dev-only, and the deploy has to keep it that way
+
+`laravel/boost` registers a live route, `POST _boost/browser-logs`, which
+accepts log payloads from a browser. Its own master switch defaults to
+**on** (`'enabled' => env('BOOST_ENABLED', true)`), so nothing inside the
+package stops that route existing in production — the only thing that does
+is Boost being a `require-dev` package that a production install omits.
+
+Production must therefore deploy with `composer install --no-dev`. Nothing
+in this repo enforces or documents that yet (Forge's deploy script is
+configured outside version control), so it is worth confirming before the
+first real deployment. `BOOST_ENABLED=false` in the production environment
+is the belt-and-braces second answer if dev dependencies are ever installed
+there deliberately.
+
+The same reasoning already applies to PCOV, which is why the row above says
+"not installed in production".
 
 ## Currently unresolved
 

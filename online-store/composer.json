@@ -23,6 +23,7 @@
         "larastan/larastan": "^3.10",
         "laravel-lang/common": "^6.8",
         "laravel-shift/blueprint": "^2.13",
+        "laravel/boost": "^2.5",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",

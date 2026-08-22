@@ -12,4 +12,7 @@ Artisan::command('inspire', function () {
 
 // Housekeeping, not time-sensitive — daily is plenty until a TTL policy
 // gives carts an actual expires_at to act on. See ExpireCarts's docblock.
-Schedule::command('carts:expire')->daily();
+// withoutOverlapping() even though today's run is always fast: a stalled
+// run should skip the next tick rather than queue a second one against the
+// same table.
+Schedule::command('carts:expire')->daily()->withoutOverlapping();

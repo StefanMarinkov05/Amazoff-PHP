@@ -101,6 +101,35 @@ when the work happened, not when it was committed — nothing in
   `use`s `RefreshDatabase` internally, so `class_uses_recursive()` still
   resolves it for Laravel's per-worker test-database switching —
   `pest --parallel --testsuite=Feature` is unaffected.
+- `docs/adr/0012-laravel-boost.md` and `laravel/boost` (dev-only) — MCP
+  server (schema/query/log tools plus semantic search over
+  Laravel/Filament/Pest docs), guidelines, and skills for AI-assisted
+  development. `online-store/.ai/guidelines/project-conventions.md` is the
+  hand-written, committed source; `online-store/CLAUDE.md`, `boost.json`,
+  and `.claude/skills/` are generated and gitignored, rebuilt by
+  `php artisan boost:install`. `.mcp.json` points the MCP entry through
+  `docker compose exec app`, since this project's `vendor/` only exists
+  inside the container. Root `CLAUDE.md` now says explicitly that it is
+  hand-written and points at the generated file rather than being confused
+  for it.
+
+  ADR-0012 audits Boost's bundled guidance against this project's actual
+  architecture rather than accepting it wholesale. Three real conflicts,
+  all overridden in `.ai/guidelines/project-conventions.md`: "only create
+  documentation files if requested" (this project's docs are part of the
+  work, not an extra); "always use constructor injection, avoid `app()`"
+  (every Action in this codebase is resolved at the call site, by design —
+  checked against all 30+ existing Actions, not assumed); "code payment
+  gateways to an interface" (ADR-0001 decided the opposite, by name: two
+  courier implementations justify `App\Contracts`, one Stripe
+  implementation does not). Also records, with source-level evidence, why
+  `Illuminate\Concurrency\ProcessDriver` doesn't replace `race:worker` —
+  no barrier, no rendezvous, and no exposed way to pass per-task `DB_*`
+  environment at all.
+
+  One real, applied finding from the audit beyond the ADR itself:
+  `carts:expire`'s schedule entry gained `->withoutOverlapping()`, per a
+  Boost scheduling rule naming a genuine gap in what was already there.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the
