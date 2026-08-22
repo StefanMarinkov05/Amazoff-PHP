@@ -1215,3 +1215,80 @@ does not mean Larastan agrees. Add the `@property` annotation to the model at
 the same time, rather than reaching for `treatPhpDocTypesAsCertain: false` in
 `phpstan.neon`, which would silence this class of check project-wide instead
 of fixing the one model's missing type information.
+
+---
+
+## `pest --parallel` fails with `Access denied ... to database 'online_shop_test_test_N'`
+
+**Symptom.** `SQLSTATE[HY000] [1044] Access denied for user 'sail'@'%' to
+database 'online_shop_test_test_1'` (or `_2`, `_3`, …), only under
+`--parallel`, on a Docker volume that has never run it before. `pest` without
+`--parallel` works fine against the same volume.
+
+**Cause.** `docker/mysql/init/01-test-database.sh` grants the app user access
+to `online_shop_test` by name, once, on first container init. It predates
+`--parallel` existing in this project, so the grant never covered the
+per-process databases (`online_shop_test_test_1`, `_2`, …) Laravel creates on
+demand for each paratest worker — the app user has no privilege to create or
+touch a database it was never granted, wildcard or otherwise.
+
+**Fix.** The init script now also grants a wildcard pattern,
+`` `online\_shop\_test\_test\_%` ``, which covers any token paratest assigns
+without listing them by hand. This only runs on a fresh volume, though — an
+existing one needs the grant applied once by hand:
+
+```bash
+docker compose exec db mysql -u root -ppassword -e "GRANT ALL PRIVILEGES ON \`online\_shop\_test\_test\_%\`.* TO 'sail'@'%'; FLUSH PRIVILEGES;"
+```
+
+**Why it recurs.** Anyone who set up their dev volume before this grant
+existed hits it the first time they try `--parallel`, no matter how long ago
+their volume was created — the init script only ever runs once, at first
+creation, so an old volume never picks up a later addition to it on its own.
+
+**Prevention.** The wildcard grant is now permanent in the init script for
+every new volume. If this reappears, the volume predates the grant — apply
+the one-line fix above rather than debugging further; there is nothing else
+this error means.
+
+---
+
+## `pest --parallel --testsuite=Concurrency` corrupts its own fixtures
+
+**Symptom.** Run `Concurrency` tests under `--parallel` (or omit `--testsuite`
+entirely while `--parallel` is on, which includes them by default) and a
+large fraction fail — measured 21 of 33 — with `ModelNotFoundException` or a
+raw `QueryException` surfacing from inside a race worker's captured output,
+plus assertion-count mismatches like "expected size 1, actual size 0". The
+same tests pass reliably run sequentially or under `--parallel
+--testsuite=Feature`.
+
+**Cause.** Laravel's automatic per-process test database
+(`Illuminate\Testing\Concerns\TestDatabases::bootTestDatabase()`) only
+switches a test case onto its own suffixed database
+(`online_shop_test_test_N`) when that test case uses `RefreshDatabase`,
+`DatabaseMigrations`, `DatabaseTransactions`, or `DatabaseTruncation`.
+`tests/Pest.php` deliberately applies none of those to `Concurrency` — those
+tests need a second real connection to see rows the first one already
+committed, which any of those four traits' transaction-wrapping would hide.
+The same exclusion that makes the tests correct under normal execution means
+every parallel worker stays pointed at the one un-suffixed `online_shop_test`
+database when running one, so two workers' fixtures — and their spawned race
+workers' reads of those fixtures — collide in the same physical rows.
+
+**Fix.** Don't. Run `Concurrency` sequentially, always: either bare `pest
+--testsuite=Concurrency`, or CI's existing three hand-partitioned shards,
+which already parallelise it correctly — one process, one database, one
+sequential batch of files per shard, not one process per test.
+
+**Why it recurs.** `--parallel` with no `--testsuite` filter silently includes
+every suite, `Concurrency` among them, and the failure looks exactly like the
+ordinary kind of concurrency-test flakiness the suite exists to distinguish
+from a real race — someone re-running it expecting a transient collision
+would burn real time before noticing every run fails the same way.
+
+**Prevention.** Always pass `--testsuite=Feature` (optionally with `Unit`)
+when using `--parallel`; never point it at `Concurrency` or leave
+`--testsuite` unset. `run-the-tests.md`'s "Running in parallel" section
+states this as the first rule, not a caveat at the bottom, for the same
+reason.

@@ -26,6 +26,7 @@ environment. No rationale here — that's in
 | `larastan/larastan` ^3.10 | Static analysis (PHPStan + Laravel-aware rules) |
 | `pestphp/pest` ^4.7 | Test framework |
 | `pestphp/pest-plugin-laravel` ^4.1 | Laravel test helpers for Pest |
+| `brianium/paratest` ^7.20 | `pest --parallel`, local `Feature`/`Unit` only — see `how-to/run-the-tests.md` |
 | `laravel-lang/common` ^6.8 | Framework translation strings, non-English locales |
 | `laravel-shift/blueprint` ^2.13 | Migration/model/factory scaffolding from `draft.yaml` |
 | `laravel/pint` ^1.27 | Code formatting |

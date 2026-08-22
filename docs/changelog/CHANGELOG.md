@@ -54,6 +54,17 @@ when the work happened, not when it was committed — nothing in
   existing `@property CouponType $type`) was found rather than guessed.
   `Order::$status` has the identical gap, uncaught until whoever writes
   against it hits the same error.
+- `brianium/paratest` as a dev dependency, plus a wildcard grant in
+  `docker/mysql/init/01-test-database.sh` for the per-worker databases
+  Laravel creates. `pest --parallel --processes=4 --testsuite=Feature` runs
+  472 tests in 260s against 474s sequential. Two measured findings recorded
+  in `run-the-tests.md`: `--processes=12` (this machine's `nproc`) is
+  *slower* at 338–361s, because every worker re-runs `migrate:fresh`
+  including the ~55s schema load and twelve of them contend on one MySQL
+  container; and `Concurrency` must never run under `--parallel` — 21 of 33
+  tests fail, since Laravel only switches a test case onto its own per-worker
+  database when it uses `RefreshDatabase` or a sibling trait, which
+  `tests/Pest.php` deliberately does not apply there.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the
