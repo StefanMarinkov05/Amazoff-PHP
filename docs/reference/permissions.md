@@ -94,8 +94,15 @@ the role should read that section first.
 
 Catalogue lookups — `brand`, `product_category`, `attribute`,
 `attribute_value` — appear in neither §3.3's grant list nor its deny list and
-are currently excluded. Revisit when the Article resource lands and "related
-products" (§22) makes `viewAny_product` a concrete question.
+are currently excluded.
+
+The Article resource has now landed, answering the "related products" (§22)
+question this section used to defer: `ArticleForm`'s products field is a
+relationship `Select`, `relationship('products', 'name')`, so it renders
+product *names* only — no price, SKU, stock, or anything else `ProductResource`
+exposes. Product names are already public on the storefront. `viewAny_product`
+correctly stays ungranted — it gates catalog management, not naming a product
+in an unrelated picker — and no permission change is needed for this field.
 
 ### warehouse_employee
 

@@ -8,6 +8,52 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `app/Actions/Content/PublishArticle.php`, closing §37 criterion 17. Moves
+  an article through §22's lifecycle — draft, scheduled, published, archived
+  — checking `ArticleStatus::canTransitionTo()` before the write.
+  `publish_article` is a permission separate from `update_article`
+  (`content_editor` holds both, but a `Select` on `status` would have
+  checked `update` and skipped the matrix), so this is an Action below
+  ADR-0007's usual multi-table bar, built anyway because the authorization
+  is the entire point of the operation. `published_at` is stamped the first
+  time an article reaches Published and never rewritten — it answers "when
+  did readers first see this," which an unpublish-and-republish does not
+  change. Verified: `content_editor` can transition, `warehouse_employee`
+  is refused with `AuthorizationException`, an illegal move throws
+  `ArticleTransitionNotAllowedException`, and `published_at` survives a
+  Published → Draft → Published round trip unchanged.
+- Filament resource over `Article`, full CRUD — the panel's first, since
+  every prior resource this session was either lookup-table CRUD or
+  deliberately read-only. `author_id` is NOT NULL and never a form field;
+  `CreateArticle::mutateFormDataBeforeCreate()` sets it from `auth()->id()`.
+  No `mutateFormDataBeforeSave()` on the edit page — that would reassign
+  authorship to whoever last touched the record, which `updated_at` already
+  answers. `status` and `published_at` are absent from the form entirely;
+  both are `PublishArticle`'s alone.
+- The status-change menu on `ArticlesTable` is generated from
+  `ArticleStatus::cases()` rather than hand-written, one button per case.
+  `visible()` calls the same `canTransitionTo()` the Action enforces, so
+  the menu can only ever offer legal moves and the matrix stays the single
+  place the rule lives — widening the enum widens the menu with no second
+  edit. The Action still re-checks on click; a hidden button is UX, not the
+  guarantee.
+- `Article::content` uses `RichEditor`, the panel's first rich-text field
+  (§22 — headings, lists, links, images, quotes, tables, embedded video,
+  code blocks). Sanitising it is deliberately **not** done here: `CLAUDE.md`
+  places Purify at render time, and nothing renders an article yet — a
+  write-time cast would be a second, earlier answer to a question
+  render-time already owns.
+- `app/Exceptions/ArticleTransitionNotAllowedException.php` — carries both
+  ends of the refused move as `ArticleStatus` instances rather than
+  strings, so a catcher can build its own message from `getLabel()`.
+- `@property ArticleStatus $status` on `Article`. Without it Larastan
+  inferred the raw `enum()` literal union instead of the cast, rejecting
+  `$article->status->canTransitionTo($to)` as "cannot call method on
+  string" even though the runtime type is correct — proven with
+  `PHPStan\dumpType()`, which is also how the fix (mirroring `Coupon`'s
+  existing `@property CouponType $type`) was found rather than guessed.
+  `Order::$status` has the identical gap, uncaught until whoever writes
+  against it hits the same error.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the

@@ -6,7 +6,7 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Twenty-six Actions across five areas, fourteen domain exceptions.
+Twenty-nine Actions across six areas, fifteen domain exceptions.
 
 ## Naming
 
@@ -238,6 +238,26 @@ sale (`CompleteSale`, reserved → sold); `=> Returned` restocks
 Lines are processed sorted by `product_variation_id`, matching `CreateOrder`'s
 own reasoning for the same deadlock-avoidance sort.
 
+## Content
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `PublishArticle` | `articles.status`, `articles.published_at` | required — no non-human caller exists | `ArticleTransitionNotAllowedException` |
+
+Below ADR-0007's usual bar for an Action — one column, one table — built
+anyway because the authorization is the entire point. `publish_article` is a
+permission distinct from `update_article` (`content_editor` holds both), so
+the check has to be `publish`, not `update`; a `Select` on `status` in
+`ArticleForm` would have checked the wrong ability and skipped
+`ArticleStatus::canTransitionTo()` entirely. `status` and `published_at` are
+absent from the form for exactly that reason.
+
+`published_at` is set once, the first time an article reaches `Published`,
+and never overwritten on a later transition — it answers "when did readers
+first see this," not "when was this last touched," which `updated_at`
+already covers. No transaction: one row, one statement, nothing read first
+to decide anything.
+
 ## Transactions
 
 | Action | Opens `DB::transaction` |
@@ -385,6 +405,7 @@ Measured and pinned, including the wrong behaviour, in
 | `CheckoutActorRemovedException` | `CreateOrder` | the actor |
 | `IllegalOrderStatusTransitionException` | `TransitionOrderStatus` | the order, the `from` status, the `to` status |
 | `ProductCategoryCannotBeDeletedException` | `DeleteProductCategory` | the category; two named constructors, `hasChildren()` and `hasProducts()` |
+| `ArticleTransitionNotAllowedException` | `PublishArticle` | the `from` and `to` statuses, as `ArticleStatus` instances rather than strings |
 
 `RemovedFromCatalogueException` covers a soft-deleted row reached through a
 model loaded before the deletion — a cart holding a variation an
@@ -437,6 +458,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
 | `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
 | `DeleteProductCategory` | `EditProductCategory` header action, tests |
+| `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
 criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have
