@@ -13,6 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property OrderStatus $status
+ * @property PaymentStatus $payment_status
+ * @property PaymentMethod $payment_method
+ */
 class Order extends Model
 {
     use HasFactory;
@@ -24,6 +29,7 @@ class Order extends Model
      */
     protected $fillable = [
         'user_id',
+        'cart_id',
         'serial_number',
         'email',
         'phone',
@@ -57,6 +63,7 @@ class Order extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'cart_id' => 'integer',
             'status' => OrderStatus::class,
             'payment_status' => PaymentStatus::class,
             'payment_method' => PaymentMethod::class,
@@ -103,5 +110,15 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * No database foreign key — `cart_id` is a plain `UNIQUE` column, not a
+     * constrained one (see the migration's docblock). The relation still
+     * works; Eloquent needs no FK to join on a column.
+     */
+    public function cart(): BelongsTo
+    {
+        return $this->belongsTo(Cart::class);
     }
 }

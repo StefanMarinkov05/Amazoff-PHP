@@ -165,3 +165,55 @@ it('keeps every lifecycle free of a self-transition it did not ask for', functio
         );
     }
 });
+
+/*
+ * Order status only. `TransitionOrderStatus` (slice 6) leans on the graph
+ * being acyclic for two things a hand-written legal/illegal table above
+ * cannot guard: `UNIQUE(order_id, new_status)` on `order_status_histories`
+ * is a true invariant only if no order can ever re-enter a status, and
+ * `from === to` being read as "this change already happened" (the no-op
+ * return) is only safe under the same assumption. A table edited in step
+ * with the enum — the exact failure mode this file's own module doc names —
+ * would still pass the exhaustive test above even if it introduced a cycle;
+ * this is the algorithmic check that does not share that blind spot.
+ *
+ * Not run for PaymentStatus (PartiallyRefunded is a deliberate self-loop) or
+ * ArticleStatus (deliberately permissive, every state reachable from every
+ * other per ADR-0004) — a cycle is correct for both, so the property does
+ * not apply. Not run for ShipmentStatus because nothing depends on its
+ * acyclicity today; add it here first if that changes.
+ */
+it('keeps the order status graph acyclic', function (): void {
+    // Standard white/grey/black DFS cycle detection: 0 = unvisited,
+    // 1 = on the current path, 2 = fully explored. Finding a 1 means the
+    // path has looped back on itself.
+    $state = [];
+
+    $visit = function (OrderStatus $node) use (&$visit, &$state): void {
+        $state[$node->value] = 1;
+
+        foreach ($node->allowedTransitions() as $next) {
+            expect($state[$next->value] ?? 0)->not->toBe(1, sprintf(
+                '%s => %s closes a cycle back through %s. An order must never '.
+                'be able to re-enter a status it already left.',
+                $node->name,
+                $next->name,
+                $node->name,
+            ));
+
+            if (($state[$next->value] ?? 0) === 0) {
+                $visit($next);
+            }
+        }
+
+        $state[$node->value] = 2;
+    };
+
+    foreach (OrderStatus::cases() as $case) {
+        if (($state[$case->value] ?? 0) === 0) {
+            $visit($case);
+        }
+    }
+
+    expect($state)->toHaveCount(count(OrderStatus::cases()));
+});

@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Cart;
 use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -162,4 +166,68 @@ function emptyCart(?User $owner = null): Cart
         'coupon_id' => null,
         'expires_at' => null,
     ]);
+}
+
+/*
+ * Shared by the inventory Action tests — ReserveStock, ReleaseStock,
+ * CompleteSale, RestockReturn. Same reason as catalogueActor(): defined here
+ * rather than in whichever sibling file needed it first, so it is not
+ * undefined when one of the four test files runs alone under --filter.
+ */
+
+/**
+ * A variation with a stock row at exactly the counters a test states —
+ * nothing randomised, since every one of the four counters is an input to
+ * the rule under test.
+ */
+function variationWithStock(int $current, int $reserved = 0, int $sold = 0, int $returned = 0): ProductVariation
+{
+    $variation = ProductVariation::factory()->create();
+
+    Inventory::factory()->create([
+        'product_variation_id' => $variation->getKey(),
+        'current_quantity' => $current,
+        'reserved_quantity' => $reserved,
+        'sold_quantity' => $sold,
+        'returned_quantity' => $returned,
+        'damaged_quantity' => 0,
+    ]);
+
+    return $variation;
+}
+
+/*
+ * Shared by the order-status Action tests — TransitionOrderStatusTest and
+ * its concurrency counterpart both need an order with a real line pointing
+ * at a real stock row, and the two files run as separate Pest suites
+ * (Feature vs Concurrency), so neither can define this for the other.
+ */
+
+/**
+ * An order with one line against `$variation`, at whatever `OrderStatus` the
+ * test needs. Deliberately does not touch `$variation`'s inventory row —
+ * New/Confirmed/Shipped mean different things for reserved/sold/current, and
+ * a helper that guessed would hide the exact precondition each test means to
+ * state. Callers set the inventory counters themselves, right next to the
+ * status they chose, per `variationWithStock()` above.
+ *
+ * Named `orderWithVariationLine`, not `orderWithLine` — that name is already
+ * a distinct, file-local helper in `RedeemCouponTest.php`, and Pest loads
+ * every file's functions into one global scope.
+ */
+function orderWithVariationLine(ProductVariation $variation, OrderStatus $status, int $quantity = 2): Order
+{
+    $order = Order::factory()->create([
+        'status' => $status,
+        'payment_status' => PaymentStatus::Pending,
+    ]);
+
+    OrderItem::factory()->create([
+        'order_id' => $order->getKey(),
+        'product_id' => $variation->product_id,
+        'product_variation_id' => $variation->getKey(),
+        'quantity' => $quantity,
+    ]);
+
+    return $order->fresh();
 }

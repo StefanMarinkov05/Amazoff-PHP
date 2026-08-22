@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\CouponScope;
 use App\Enums\CouponType;
+use App\Exceptions\CartAlreadyCheckedOutException;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\InsufficientStockException;
 use App\Models\Cart;
@@ -29,11 +30,10 @@ use Symfony\Component\Process\Process;
  *   end-to-end version of RedeemCouponConcurrencyTest, proving composition
  *   inside CreateOrder's larger transaction does not weaken the guarantee
  *   RedeemCoupon already proves alone.
- * - The same cart, checked out twice at once — pinning current behaviour
- *   rather than proving a guarantee: nothing marks a cart as already
- *   converted, so this produces two orders today. Measured and pinned,
- *   including the gap, the same way ConcurrentProductEditTest pins a known
- *   weakness elsewhere in this codebase rather than hiding it.
+ * - The same cart, checked out twice at once — `orders.cart_id`'s `UNIQUE`
+ *   constraint (nullable, no cascade) makes exactly one winner certain
+ *   either way; this proves the loser fails cleanly rather than at the
+ *   database, the same assertion shape as the first race.
  */
 
 afterEach(function (): void {
@@ -257,10 +257,11 @@ it('fails the loser of a coupon-limit checkout race cleanly, proving RedeemCoupo
         ->and(Order::count())->toBe(1);
 });
 
-it('produces two orders from one cart checked out twice at once — a known gap, not a guarantee', function (): void {
+it('fails the loser of a double-submitted checkout cleanly, producing exactly one order', function (): void {
     // Deliberately generous stock: this test is not about availability, it
-    // is about whether anything at all stops the same cart being converted
-    // twice. Nothing does today.
+    // is about whether anything stops the same cart being converted twice.
+    // orders.cart_id (UNIQUE, nullable) now does — see
+    // write-rules/order.md, "Two actors at once."
     $variation = orderRaceVariation(10);
     $cart = cartWantingOne($variation);
 
@@ -268,11 +269,16 @@ it('produces two orders from one cart checked out twice at once — a known gap,
     $report = "\nWorker output was:\n".$outputs->implode("\n---\n");
 
     expect($outputs->filter(fn (string $o) => $o === 'OK'))->toHaveCount(
-        2,
-        'If this ever reads 1, something now protects against a double-'.
-        'submitted checkout that did not before — update this test to '.
-        'assert the new guarantee instead of the gap, and remove this note.'.$report,
+        1,
+        'Expected exactly one winner. Neither winning usually means the workers failed to boot.'.$report,
     );
 
-    expect(Order::count())->toBe(2);
+    expect($outputs->first(fn (string $o) => $o !== 'OK'))->toBe(
+        'FAILED:'.CartAlreadyCheckedOutException::class,
+        'The loser did not refuse cleanly. A raw QueryException here means '.
+        'the UniqueConstraintViolationException catch around the orders '.
+        'insert is not doing its job.'.$report,
+    );
+
+    expect(Order::count())->toBe(1);
 });
