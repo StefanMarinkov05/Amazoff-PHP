@@ -176,15 +176,17 @@ the moment the signature widens.
 
 ## Environment notes
 
-`tests/Concurrency/` is a separate suite in `phpunit.xml` and is excluded from
-`RefreshDatabase` in `tests/Pest.php`, because a transaction that is rolled
-back rather than committed leaves rows no second connection can see. Those
-tests commit their fixtures and truncate in `afterEach` with
-`Schema::disableForeignKeyConstraints()`.
+`tests/Concurrency/` is a separate suite in `phpunit.xml` and is excluded
+from `LazilyRefreshDatabase` (`Feature`'s trait) in `tests/Pest.php`,
+because a transaction that is rolled back rather than committed leaves rows
+no second connection can see. Those tests commit their fixtures and
+truncate in `afterEach` with `Schema::disableForeignKeyConstraints()`.
 
-Workers are booted by hand rather than through `php artisan tinker <file>`,
-which never exits. Both spin-wait on a shared `microtime(true)` instant so
-they enter the critical section together; Laravel's boot time is hundreds of
+Both sides of a race run as `php artisan race:worker`
+(`app/Console/Commands/RaceWorker.php`), spawned by `runRaceWorkers()` in
+`tests/Concurrency/RaceHelper.php` — not `php artisan tinker <file>`, which
+never exits. Both spin-wait on a shared `microtime(true)` instant so they
+enter the critical section together; Laravel's boot time is hundreds of
 milliseconds and the window under test is microseconds.
 
 Single-process fault injection cannot substitute for a second process when the

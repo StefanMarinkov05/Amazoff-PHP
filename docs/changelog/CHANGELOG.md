@@ -54,6 +54,82 @@ when the work happened, not when it was committed — nothing in
   existing `@property CouponType $type`) was found rather than guessed.
   `Order::$status` has the identical gap, uncaught until whoever writes
   against it hits the same error.
+- `brianium/paratest` as a dev dependency, plus a wildcard grant in
+  `docker/mysql/init/01-test-database.sh` for the per-worker databases
+  Laravel creates. `pest --parallel --processes=4 --testsuite=Feature` runs
+  472 tests in 260s against 474s sequential. Two measured findings recorded
+  in `run-the-tests.md`: `--processes=12` (this machine's `nproc`) is
+  *slower* at 338–361s, because every worker re-runs `migrate:fresh`
+  including the ~55s schema load and twelve of them contend on one MySQL
+  container; and `Concurrency` must never run under `--parallel` — 21 of 33
+  tests fail, since Laravel only switches a test case onto its own per-worker
+  database when it uses `RefreshDatabase` or a sibling trait, which
+  `tests/Pest.php` deliberately does not apply there.
+- `app/Actions/Cart/ExpireCarts.php` and `app/Console/Commands/ExpireCarts.php`
+  — deletes carts past `expires_at`, excluding any already referenced by
+  `orders.cart_id`, scheduled `->daily()` in `routes/console.php`. The first
+  scheduled command in the project. Inert today by design: nothing in `app/`
+  writes `expires_at` yet, because the TTL policy (guest carts expire after
+  about a month; a registered customer's cart does not expire — the checkout
+  stage is what expires for them) is not built.
+- `docs/reference/console-commands.md` — every custom Artisan command, what
+  invokes it, and why a command is a caller rather than a place a rule lives.
+  Also records that nothing runs `schedule:run` locally, so a scheduled
+  command never fires on its own in Docker.
+- `app/Console/Commands/RaceWorker.php` and
+  `tests/Concurrency/RaceHelper.php` — one `race:worker` Artisan command
+  replaces the PHP nowdoc every concurrency test used to write to
+  `base_path()`, spawn, and `@unlink()`. All twelve race files now describe
+  a race as a job list (`action`, `ids`, `args`, optional `rendezvous`) and
+  call `runRaceWorkers()`. `concurrency-and-locking.md`'s "Why the worker is
+  generated, not committed" had already recorded the duplicated bootstrap as
+  a cost and named this refactor as an agreed follow-up; this is it. Roughly
+  700 lines of duplicated boilerplate removed, and the suite got faster as a
+  side effect —
+  518s against a ~695s baseline, because Artisan's bootstrap beats a
+  hand-rolled `require bootstrap/app.php` per worker. Behaviour preserved:
+  all 33 tests pass, and `ReserveStockConcurrencyTest` was re-deletion-proofed
+  against the new harness (lock removed, `QueryException` instead of the
+  clean refusal, exactly as before). The rendezvous ready-flags moved to
+  `storage/framework/testing/`, which Laravel already gitignores — a worker
+  killed between planting its flag and unlinking it used to leave an
+  untracked file in the project root.
+- `tests/Pest.php`: `Feature` now uses `LazilyRefreshDatabase` instead of
+  `RefreshDatabase` — same isolation guarantee, migrates only on first DB
+  touch. Measured back to back on this suite: 683s → 617s, 479/479 tests
+  unchanged. Verified structurally, not just measured: `LazilyRefreshDatabase`
+  `use`s `RefreshDatabase` internally, so `class_uses_recursive()` still
+  resolves it for Laravel's per-worker test-database switching —
+  `pest --parallel --testsuite=Feature` is unaffected.
+- `docs/adr/0012-laravel-boost.md` and `laravel/boost` (dev-only) — MCP
+  server (schema/query/log tools plus semantic search over
+  Laravel/Filament/Pest docs), guidelines, and skills for AI-assisted
+  development. `online-store/.ai/guidelines/project-conventions.md` is the
+  hand-written, committed source; `online-store/CLAUDE.md`, `boost.json`,
+  and `.claude/skills/` are generated and gitignored, rebuilt by
+  `php artisan boost:install`. `.mcp.json` points the MCP entry through
+  `docker compose exec app`, since this project's `vendor/` only exists
+  inside the container. Root `CLAUDE.md` now says explicitly that it is
+  hand-written and points at the generated file rather than being confused
+  for it.
+
+  ADR-0012 audits Boost's bundled guidance against this project's actual
+  architecture rather than accepting it wholesale. Three real conflicts,
+  all overridden in `.ai/guidelines/project-conventions.md`: "only create
+  documentation files if requested" (this project's docs are part of the
+  work, not an extra); "always use constructor injection, avoid `app()`"
+  (every Action in this codebase is resolved at the call site, by design —
+  checked against all 30+ existing Actions, not assumed); "code payment
+  gateways to an interface" (ADR-0001 decided the opposite, by name: two
+  courier implementations justify `App\Contracts`, one Stripe
+  implementation does not). Also records, with source-level evidence, why
+  `Illuminate\Concurrency\ProcessDriver` doesn't replace `race:worker` —
+  no barrier, no rendezvous, and no exposed way to pass per-task `DB_*`
+  environment at all.
+
+  One real, applied finding from the audit beyond the ADR itself:
+  `carts:expire`'s schedule entry gained `->withoutOverlapping()`, per a
+  Boost scheduling rule naming a genuine gap in what was already there.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the

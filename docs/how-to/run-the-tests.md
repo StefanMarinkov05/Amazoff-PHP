@@ -53,8 +53,76 @@ individual cases from a dataset.
 | `--parallel` | Split across processes — needs a database per process |
 | `--compact` | One line per file rather than per test |
 
-`--parallel` is the one to be careful with: each process needs its own test
-database, so it only helps once `online_shop_test_1`, `_2` and so on exist.
+`--parallel` is the one to be careful with — see "Running in parallel" below
+for what it actually requires and where it must not be pointed.
+
+## Running in parallel
+
+Requires `brianium/paratest` as a dev dependency:
+
+```bash
+docker compose exec app composer require --dev brianium/paratest
+```
+
+Then scope it to `Feature` (and `Unit`, which is fast enough that it barely
+matters either way):
+
+```bash
+docker compose exec app ./vendor/bin/pest --parallel --processes=4 --testsuite=Feature
+```
+
+**Never run `Concurrency` under `--parallel`, and never omit `--testsuite` while
+`--parallel` is on** — measured on this codebase: `pest --parallel --testsuite=Concurrency`
+produces 21 failures out of 33 tests, all `ModelNotFoundException` or
+`QueryException` from a race worker reading rows another process had already
+deleted. This is not flakiness to retry away.
+
+Laravel's automatic per-process test database (`online_shop_test_test_1`,
+`_2`, …) is wired up in `Illuminate\Testing\Concerns\TestDatabases`, and it
+only fires for a test case using `RefreshDatabase`, `DatabaseMigrations`,
+`DatabaseTransactions`, or `DatabaseTruncation` — checked via
+`class_uses_recursive()`, so `LazilyRefreshDatabase` (`Feature`'s actual
+trait; it `use`s `RefreshDatabase` internally) still qualifies.
+`tests/Pest.php` deliberately applies none of the four to `Concurrency` —
+see the comment there: those tests need a second real connection to see
+rows the first one committed, which a wrapping transaction would hide. That
+same exclusion is what leaves every parallel worker pointed at the one
+un-suffixed `online_shop_test` database when a Concurrency test runs, so two
+workers' fixtures collide in the same physical rows. `Feature` tests survive
+this same mechanism failing open only because their trait already isolates
+them by transaction; `Concurrency` tests have no such isolation by design,
+so they need the database-per-process split and get skipped by it at once.
+
+CI already parallelises `Concurrency` correctly, at the process level rather
+than the row level: three hand-partitioned shards (`test-concurrency` a/b/c
+in `ci.yml`), each running its own sequential batch of files in its own
+job/database. Reproduce that locally by running each shard's file list as
+its own sequential `pest` invocation in a separate terminal, if the full
+Concurrency suite's ~12 minutes needs cutting down — don't reach for
+`--parallel` for it.
+
+**Measured on this machine** (12 cores, `nproc` inside the `app` container),
+`Feature` + `Unit`, 472 tests:
+
+| Invocation | Duration |
+|---|---|
+| Sequential (`pest --testsuite=Feature`) | 473.75s |
+| `--parallel --processes=4` | 259.69s |
+| `--parallel --processes=12` (= `nproc`) | 338–361s |
+
+`--processes=12` is *slower* than `--processes=4`, not faster: every worker
+pays its own `migrate:fresh` — including the `database/schema/mysql-schema.sql`
+load, ~55s alone in the sequential run — on every invocation regardless of
+whether that worker's database already existed from a prior run (Laravel
+reuses the database but still re-runs the migration against it). Twelve
+workers doing that at once against one shared MySQL container are
+I/O-contending with each other during the expensive part; four are not.
+Re-measure if the machine or the schema's migration cost changes materially
+— this is a measured number for this codebase's current size, not a
+universal constant.
+
+A fresh Docker volume needs one extra grant before any of this works — see
+`troubleshooting.md`.
 
 ## Which database the tests use
 
@@ -74,9 +142,11 @@ Docker volumes are in `troubleshooting.md`.
 
 ## Seeding inside a test
 
-`tests/Pest.php` applies `RefreshDatabase` to everything in `Feature`, which
-truncates between tests but does **not** run seeders. A test that needs roles
-or permissions seeds them itself:
+`tests/Pest.php` applies `LazilyRefreshDatabase` to everything in
+`Feature` — the same isolation as `RefreshDatabase` (truncates between
+tests, does **not** run seeders), except migration is deferred until a
+test's first database touch rather than always running. A test that needs
+roles or permissions seeds them itself:
 
 ```php
 beforeEach(function (): void {
@@ -87,7 +157,7 @@ beforeEach(function (): void {
 ```
 
 `forgetCachedPermissions()` is not optional there. `spatie/laravel-permission`
-caches the permission table for 24 hours, and `RefreshDatabase` does not clear
+caches the permission table for 24 hours, and neither refresh trait clears
 that cache — without it the second test in a run resolves permissions against
 the first test's deleted rows.
 
@@ -120,9 +190,10 @@ the full reasoning, including why this is a report rather than a CI gate: no
 `--min` threshold anywhere, nothing fails the build over a percentage.
 
 **A race contributes nothing to this number, whatever the class's overall
-percentage says.** `tests/Concurrency/*` spawns real `php` subprocesses to
-run the Action under test, and that code executes in a process PCOV never
-instruments — verified: isolating just the race in
+percentage says.** `tests/Concurrency/*` spawns real `php artisan
+race:worker` subprocesses to run the Action under test, and that code
+executes in a process PCOV never instruments — verified: isolating just the
+race in
 `PublishProductConcurrencyTest.php` measures `UpdateProduct` and
 `RemoveProductVariation` at 0.0%. But a class's own file often *also*
 carries a same-process test (a sequential companion, or a separate feature

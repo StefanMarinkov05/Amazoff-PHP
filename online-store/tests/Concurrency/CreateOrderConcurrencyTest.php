@@ -18,7 +18,6 @@ use App\Models\ProductVariation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Three races through the full CreateOrder transaction, not through a
@@ -102,87 +101,10 @@ function cartWantingOne(ProductVariation $variation, ?int $couponId = null): Car
  */
 function runOrderRaceWorkers(array $cartIds): Collection
 {
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $cartId = (int) $argv[1];
-        $startAt = (float) $argv[2];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        $customer = [
-            'email' => 'race-'.$cartId.'-'.bin2hex(random_bytes(4)).'@example.com',
-            'phone' => '0000000000',
-            'first_name' => 'Race',
-            'last_name' => (string) $cartId,
-            'payment_method' => App\Enums\PaymentMethod::CashOnDelivery,
-        ];
-        $address = [
-            'delivery_type' => App\Enums\DeliveryType::Address,
-            'first_name' => 'Race',
-            'last_name' => (string) $cartId,
-            'phone' => '0000000000',
-            'country' => 'BG',
-            'city' => 'Sofia',
-            'postcode' => '1000',
-            'street' => 'Test street',
-        ];
-
-        try {
-            app(App\Actions\Order\CreateOrder::class)->handle(
-                App\Models\Cart::findOrFail($cartId),
-                $customer,
-                $address,
-                $address,
-                null,
-            );
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('order-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    $env = [
-        'DB_CONNECTION' => 'mysql',
-        'DB_DATABASE' => config('database.connections.mysql.database'),
-        'DB_HOST' => config('database.connections.mysql.host'),
-        'DB_PORT' => (string) config('database.connections.mysql.port'),
-        'DB_USERNAME' => config('database.connections.mysql.username'),
-        'DB_PASSWORD' => config('database.connections.mysql.password'),
-    ];
-
-    try {
-        $processes = collect($cartIds)->map(function (int $cartId) use ($startAt, $env): Process {
-            $process = new Process(
-                ['php', 'order-race-worker.php', (string) $cartId, (string) $startAt],
-                base_path(),
-                $env,
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-
-        return $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('order-race-worker.php'));
-    }
+    return runRaceWorkers(array_map(
+        fn (int $cartId): array => ['action' => 'create-order', 'ids' => [$cartId]],
+        $cartIds,
+    ));
 }
 
 it('fails the loser of a last-unit checkout race cleanly rather than committing a half order', function (): void {

@@ -24,3 +24,12 @@ Thumbs.db
 
 # Laravel's own .gitignore is added when the app is scaffolded and merges
 # with this file.
+
+# Laravel Boost — generated, not source. `online-store/.ai/guidelines/` is the
+# hand-written part and IS committed; everything below is rebuilt from it by
+# `php artisan boost:install`, so committing it would only produce churn on
+# every regeneration. Same split this repo already applies to the race worker
+# and to Blueprint's output: the source is versioned, the artifact is not.
+online-store/CLAUDE.md
+online-store/boost.json
+online-store/.claude/skills/

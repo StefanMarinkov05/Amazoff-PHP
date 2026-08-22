@@ -8,7 +8,6 @@ use App\Models\CartItem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * The pairing `AddToCartConcurrencyTest` and `MergeGuestCartConcurrencyTest`
@@ -68,105 +67,26 @@ afterEach(function (): void {
  */
 function raceAddAgainstMerge(int $userCartId, int $guestCartId, int $variationId): array
 {
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $role = $argv[1];
-        $userCart = App\Models\Cart::findOrFail((int) $argv[2]);
-        $startAt = (float) $argv[4];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        // A second, tighter rendezvous on top of the wall-clock target: each
-        // worker signals it has reached this point, then waits for the other
-        // to do the same, so neither starts calling its Action before both
-        // have already arrived here. AddToCart and MergeGuestCart do
-        // different amounts of work internally before their own read-then
-        // -write — both deliberately re-read fresh state rather than trust
-        // anything resolved ahead of time, so that work cannot be hoisted
-        // out of handle() to equalise the paths. This rendezvous instead
-        // removes process-boot jitter as a source of misalignment, which the
-        // wall-clock barrier alone left standing.
-        $readyFile = __DIR__.'/ready-'.$role;
-        $otherReadyFile = __DIR__.'/ready-'.($role === 'add' ? 'merge' : 'add');
-        file_put_contents($readyFile, '1');
-        $waitUntil = microtime(true) + 2.0;
-        while (! file_exists($otherReadyFile) && microtime(true) < $waitUntil) {
-            usleep(50);
-        }
-        @unlink($readyFile);
-
-        try {
-            if ($role === 'add') {
-                $variation = App\Models\ProductVariation::findOrFail((int) $argv[5]);
-                app(App\Actions\Cart\AddToCart::class)->handle($userCart, $variation, 1);
-            } else {
-                $guestCart = App\Models\Cart::findOrFail((int) $argv[3]);
-                app(App\Actions\Cart\MergeGuestCart::class)->handle($guestCart, $userCart);
-            }
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('add-vs-merge-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    $env = [
-        'DB_CONNECTION' => 'mysql',
-        'DB_DATABASE' => config('database.connections.mysql.database'),
-        'DB_HOST' => config('database.connections.mysql.host'),
-        'DB_PORT' => (string) config('database.connections.mysql.port'),
-        'DB_USERNAME' => config('database.connections.mysql.username'),
-        'DB_PASSWORD' => config('database.connections.mysql.password'),
-    ];
-
-    try {
-        $processes = collect(['add', 'merge'])->map(function (string $role) use (
-            $userCartId,
-            $guestCartId,
-            $variationId,
-            $startAt,
-            $env,
-        ): Process {
-            $process = new Process(
-                [
-                    'php',
-                    'add-vs-merge-race-worker.php',
-                    $role,
-                    (string) $userCartId,
-                    (string) $guestCartId,
-                    (string) $startAt,
-                    (string) $variationId,
-                ],
-                base_path(),
-                $env,
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-
-        return $processes
-            ->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()))
-            ->all();
-    } finally {
-        @unlink(base_path('add-vs-merge-race-worker.php'));
-    }
+    // `rendezvous` is what makes this pairing meaningful rather than a
+    // measurement of boot time: AddToCart and MergeGuestCart do different
+    // amounts of work before their own read-then-write, and both
+    // deliberately re-read fresh state inside handle(), so that work cannot
+    // be hoisted out to equalise the paths. The wall-clock barrier alone
+    // leaves boot jitter deciding the winner; this second handshake removes
+    // it. See the file docblock for what that did and did not prove.
+    return runRaceWorkers([
+        [
+            'action' => 'add-to-cart',
+            'ids' => [$userCartId, $variationId],
+            'args' => [1],
+            'rendezvous' => 'add',
+        ],
+        [
+            'action' => 'merge-guest-cart',
+            'ids' => [$guestCartId, $userCartId],
+            'rendezvous' => 'merge',
+        ],
+    ])->all();
 }
 
 it('folds a direct add and a guest-cart merge of the same variation cleanly', function (): void {

@@ -10,7 +10,6 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Two customers redeeming a coupon at its usage limit simultaneously.
@@ -89,67 +88,10 @@ function orderWithOneLine(Product $product, string $email): Order
  */
 function runRedeemRace(Coupon $coupon, Order $orderA, Order $orderB): Illuminate\Support\Collection
 {
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $couponId = (int) $argv[1];
-        $orderId = (int) $argv[2];
-        $startAt = (float) $argv[3];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        try {
-            app(App\Actions\Coupon\RedeemCoupon::class)->handle(
-                App\Models\Coupon::findOrFail($couponId),
-                App\Models\Order::findOrFail($orderId),
-            );
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('redeem-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    $env = [
-        'DB_CONNECTION' => 'mysql',
-        'DB_DATABASE' => config('database.connections.mysql.database'),
-        'DB_HOST' => config('database.connections.mysql.host'),
-        'DB_PORT' => (string) config('database.connections.mysql.port'),
-        'DB_USERNAME' => config('database.connections.mysql.username'),
-        'DB_PASSWORD' => config('database.connections.mysql.password'),
-    ];
-
-    try {
-        $processes = collect([$orderA, $orderB])->map(function (Order $order) use ($coupon, $startAt, $env): Process {
-            $process = new Process(
-                ['php', 'redeem-race-worker.php', (string) $coupon->getKey(), (string) $order->getKey(), (string) $startAt],
-                base_path(),
-                $env,
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-
-        return $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('redeem-race-worker.php'));
-    }
+    return runRaceWorkers([
+        ['action' => 'redeem-coupon', 'ids' => [$coupon->getKey(), $orderA->getKey()]],
+        ['action' => 'redeem-coupon', 'ids' => [$coupon->getKey(), $orderB->getKey()]],
+    ]);
 }
 
 it('lets exactly one of two different customers redeem a coupon at its total usage limit', function (): void {

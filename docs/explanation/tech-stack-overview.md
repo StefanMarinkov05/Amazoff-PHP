@@ -130,3 +130,11 @@ hasn't been tested against real code yet.
 Content translation storage shape and audit log shape are undecided. PHP
 version (`^8.3` declared, `8.4` actually required by the lockfile) is
 unresolved.
+
+Nothing calls `schedule:run` locally — no cron, no supervisor loop, in
+`docker-compose.yml` or the `app` image. `routes/console.php`'s `Schedule::`
+entries (`carts:expire`) are correct and tested, but won't fire in a local
+container on their own; run `docker compose exec app php artisan
+schedule:run` by hand to trigger due tasks, or `schedule:work` for a
+foreground loop, while developing against one. Forge registers this
+automatically in production per ADR-0001, so this only affects local dev.
