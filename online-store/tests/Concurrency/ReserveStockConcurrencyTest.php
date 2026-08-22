@@ -9,7 +9,6 @@ use App\Models\ProductVariation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Concurrency tests for stock reservation. Why every race test is shaped this
@@ -65,69 +64,11 @@ function stockedVariation(int $quantity): ProductVariation
 it('fails the loser of a race cleanly rather than at the database', function (): void {
     $variation = stockedVariation(1);
 
-    // Booted by hand: `artisan tinker <file>` never exits. usleep alone
-    // overshoots by milliseconds, so the worker sleeps to just before the
-    // instant and busy-waits the rest.
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $variation = App\Models\ProductVariation::findOrFail((int) $argv[1]);
-        $startAt = (float) $argv[2];
-
-        // Warm the connection so the barrier is the last thing that happens
-        // before the Action, rather than a TCP handshake being it.
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        try {
-            app(App\Actions\Inventory\ReserveStock::class)->handle($variation, 1, null);
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    try {
-        $processes = collect(range(1, 2))->map(function () use ($variation, $startAt): Process {
-            $process = new Process(
-                ['php', 'race-worker.php', (string) $variation->getKey(), (string) $startAt],
-                base_path(),
-                // phpunit.xml points this suite at online_shop_test; a bare
-                // PHP process reads .env instead, which is the dev database.
-                [
-                    'DB_CONNECTION' => 'mysql',
-                    'DB_DATABASE' => config('database.connections.mysql.database'),
-                    'DB_HOST' => config('database.connections.mysql.host'),
-                    'DB_PORT' => (string) config('database.connections.mysql.port'),
-                    'DB_USERNAME' => config('database.connections.mysql.username'),
-                    'DB_PASSWORD' => config('database.connections.mysql.password'),
-                ],
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-        $outputs = $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('race-worker.php'));
-    }
-
-    $report = "\nWorker output was:\n".$outputs->implode("\n---\n");
+    $outputs = runRaceWorkers([
+        ['action' => 'reserve-stock', 'ids' => [$variation->getKey()], 'args' => [1]],
+        ['action' => 'reserve-stock', 'ids' => [$variation->getKey()], 'args' => [1]],
+    ]);
+    $report = raceReport($outputs);
 
     expect($outputs->filter(fn (string $o) => $o === 'OK'))->toHaveCount(
         1,

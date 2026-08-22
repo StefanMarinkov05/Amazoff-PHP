@@ -400,9 +400,13 @@ inside the locking transaction, where the lock is not supposed to stop it and
 does not. The test therefore behaves identically with the lock and without it.
 
 **Fix.** Two real OS processes with a barrier, in `tests/Concurrency/`.
-`ReserveStockConcurrencyTest` and `PublishProductConcurrencyTest` are the two
-worked examples; the second differs in asserting the winner *count*, which is
-possible only because no `CHECK` constraint backs that invariant up.
+Both halves run as `php artisan race:worker`, spawned by `runRaceWorkers()`
+in `tests/Concurrency/RaceHelper.php` — add a `match` arm to
+`App\Console\Commands\RaceWorker::dispatchAction()` for the Action being
+raced, then pass its job list. `ReserveStockConcurrencyTest` and
+`PublishProductConcurrencyTest` are the two worked examples; the second
+differs in asserting the winner *count*, which is possible only because no
+`CHECK` constraint backs that invariant up.
 
 **Why it recurs.** Fault injection is the right technique for the neighbouring
 problem — proving a `DB::transaction` rolls back — and it works there for the

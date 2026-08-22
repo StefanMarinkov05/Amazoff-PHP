@@ -186,9 +186,10 @@ the full reasoning, including why this is a report rather than a CI gate: no
 `--min` threshold anywhere, nothing fails the build over a percentage.
 
 **A race contributes nothing to this number, whatever the class's overall
-percentage says.** `tests/Concurrency/*` spawns real `php` subprocesses to
-run the Action under test, and that code executes in a process PCOV never
-instruments — verified: isolating just the race in
+percentage says.** `tests/Concurrency/*` spawns real `php artisan
+race:worker` subprocesses to run the Action under test, and that code
+executes in a process PCOV never instruments — verified: isolating just the
+race in
 `PublishProductConcurrencyTest.php` measures `UpdateProduct` and
 `RemoveProductVariation` at 0.0%. But a class's own file often *also*
 carries a same-process test (a sequential companion, or a separate feature

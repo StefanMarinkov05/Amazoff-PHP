@@ -76,6 +76,24 @@ when the work happened, not when it was committed — nothing in
   invokes it, and why a command is a caller rather than a place a rule lives.
   Also records that nothing runs `schedule:run` locally, so a scheduled
   command never fires on its own in Docker.
+- `app/Console/Commands/RaceWorker.php` and
+  `tests/Concurrency/RaceHelper.php` — one `race:worker` Artisan command
+  replaces the PHP nowdoc every concurrency test used to write to
+  `base_path()`, spawn, and `@unlink()`. All twelve race files now describe
+  a race as a job list (`action`, `ids`, `args`, optional `rendezvous`) and
+  call `runRaceWorkers()`. `concurrency-and-locking.md`'s "Why the worker is
+  generated, not committed" had already recorded the duplicated bootstrap as
+  a cost and named this refactor as an agreed follow-up; this is it. Roughly
+  700 lines of duplicated boilerplate removed, and the suite got faster as a
+  side effect —
+  518s against a ~695s baseline, because Artisan's bootstrap beats a
+  hand-rolled `require bootstrap/app.php` per worker. Behaviour preserved:
+  all 33 tests pass, and `ReserveStockConcurrencyTest` was re-deletion-proofed
+  against the new harness (lock removed, `QueryException` instead of the
+  clean refusal, exactly as before). The rendezvous ready-flags moved to
+  `storage/framework/testing/`, which Laravel already gitignores — a worker
+  killed between planting its flag and unlinking it used to leave an
+  untracked file in the project root.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the

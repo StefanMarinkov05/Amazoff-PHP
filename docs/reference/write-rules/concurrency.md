@@ -182,9 +182,11 @@ back rather than committed leaves rows no second connection can see. Those
 tests commit their fixtures and truncate in `afterEach` with
 `Schema::disableForeignKeyConstraints()`.
 
-Workers are booted by hand rather than through `php artisan tinker <file>`,
-which never exits. Both spin-wait on a shared `microtime(true)` instant so
-they enter the critical section together; Laravel's boot time is hundreds of
+Both sides of a race run as `php artisan race:worker`
+(`app/Console/Commands/RaceWorker.php`), spawned by `runRaceWorkers()` in
+`tests/Concurrency/RaceHelper.php` — not `php artisan tinker <file>`, which
+never exits. Both spin-wait on a shared `microtime(true)` instant so they
+enter the critical section together; Laravel's boot time is hundreds of
 milliseconds and the window under test is microseconds.
 
 Single-process fault injection cannot substitute for a second process when the

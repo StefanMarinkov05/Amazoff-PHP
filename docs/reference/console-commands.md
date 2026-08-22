@@ -11,6 +11,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | Command | Purpose | Invoked by |
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
+| `race:worker` | Runs one Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
 ## What belongs in a command
@@ -23,6 +24,9 @@ the Action (`app/Actions/Cart/ExpireCarts.php`) decides what "expired" means
 and which carts are exempt. Two classes with one name is deliberate — the
 Action is the rule, the command is one way to reach it. ADR-0007's reasoning
 for Filament resources applies unchanged.
+
+The exception is `race:worker`, which is test infrastructure rather than a
+domain caller, and dispatches to whichever Action a given race needs.
 
 ## `carts:expire`
 
@@ -40,6 +44,43 @@ it, because the TTL policy is not built. The intended shape, not yet
 implemented: guest carts expire roughly a month after last touch; a
 registered customer's cart does not expire at all, since the thing that
 expires for a logged-in customer is the checkout stage rather than the cart.
+
+## `race:worker`
+
+Test-only, though registered unconditionally — it appears in `artisan list`
+in production. It writes only through the same Actions and policies as any
+other caller, so the exposure is a stray command name rather than a bypass.
+
+```bash
+php artisan race:worker reserve-stock --id=7 --arg=1 --start-at=1755900000.5
+```
+
+Not run by hand. `runRaceWorkers()` in `tests/Concurrency/RaceHelper.php`
+builds the arguments and spawns one process per job.
+
+| Option | Meaning |
+|---|---|
+| `action` | Which arm of `dispatchAction()` to run |
+| `--id=*` | Model ids, in the order that arm documents |
+| `--arg=*` | Scalars — a quantity, an `OrderStatus` value |
+| `--start-at=` | `microtime(true)` instant every worker releases at |
+| `--ready-file=` / `--peer-file=` | The cross-Action rendezvous; see below |
+
+Actions available today: `reserve-stock`, `release-stock`, `add-to-cart`,
+`merge-guest-cart`, `redeem-coupon`, `publish-product`, `remove-variation`,
+`force-delete-variation`, `set-main-image`, `delete-category`,
+`create-child-category`, `transition-order-status`, `create-order`.
+
+`create-child-category` is plain Eloquent rather than an Action, matching
+what Filament's default create does for a lookup table — the asymmetry
+`DeleteProductCategoryConcurrencyTest` is about.
+
+The worker prints `OK` or `FAILED:<exception class>` and nothing else. That
+string *is* the protocol: assertions compare against it, so a command that
+printed anything extra would break every race test at once.
+
+`explanation/concurrency-and-locking.md`, "How this is tested", has why races
+need two processes, a barrier, and sometimes a rendezvous at all.
 
 ## The scheduler does not run locally
 
