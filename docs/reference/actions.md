@@ -123,11 +123,17 @@ the variation. Zero writes no movement row.
 | `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same three |
 | `MergeGuestCart` | `cart_items`, deletes the guest `carts` row | — no non-human caller, no parameter | — never refuses |
 | `RemoveFromCart` | `cart_items` (hard delete) | — no non-human caller, no parameter | — never refuses |
+| `ExpireCarts` | deletes `carts` past `expires_at` (and their `cart_items`, by cascade) | — no actor at all, human or otherwise: invoked by the `carts:expire` schedule | — never refuses |
 
-None of the four take an `?User $actor`. A customer editing their own cart
-holds no permission to check, and nothing here has a non-human caller the
-way `RecordInventoryMovement` or `ReserveStock` do — ADR-0007's stated
-exception, not an oversight.
+None of the first four take an `?User $actor`. A customer editing their own
+cart holds no permission to check, and nothing here has a non-human caller
+the way `RecordInventoryMovement` or `ReserveStock` do — ADR-0007's stated
+exception, not an oversight. `ExpireCarts` goes further: there is no actor
+to check *against* — it runs on a schedule, not in response to anyone's
+request — and it excludes any cart already referenced by `orders.cart_id`,
+since that cart produced a real order and isn't abandoned. Nothing in
+`app/` sets `expires_at` yet, so today this has nothing to act on; it
+exists ahead of that TTL policy, not because of it.
 
 `AddToCart` and `UpdateCartItemQuantity` re-validate the line they are about
 to write on every call — current price, availability, `min_order_quantity`,
@@ -451,6 +457,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 | `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
+| `ExpireCarts` | `carts:expire` console command (`routes/console.php`, scheduled daily), tests |
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
 | `RedeemCoupon` | composed by `CreateOrder`, tests |
 | `CreateOrder` | tests only |

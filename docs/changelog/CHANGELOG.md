@@ -65,6 +65,17 @@ when the work happened, not when it was committed — nothing in
   tests fail, since Laravel only switches a test case onto its own per-worker
   database when it uses `RefreshDatabase` or a sibling trait, which
   `tests/Pest.php` deliberately does not apply there.
+- `app/Actions/Cart/ExpireCarts.php` and `app/Console/Commands/ExpireCarts.php`
+  — deletes carts past `expires_at`, excluding any already referenced by
+  `orders.cart_id`, scheduled `->daily()` in `routes/console.php`. The first
+  scheduled command in the project. Inert today by design: nothing in `app/`
+  writes `expires_at` yet, because the TTL policy (guest carts expire after
+  about a month; a registered customer's cart does not expire — the checkout
+  stage is what expires for them) is not built.
+- `docs/reference/console-commands.md` — every custom Artisan command, what
+  invokes it, and why a command is a caller rather than a place a rule lives.
+  Also records that nothing runs `schedule:run` locally, so a scheduled
+  command never fires on its own in Docker.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the
