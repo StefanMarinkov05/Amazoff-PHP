@@ -8,6 +8,84 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `app/Actions/Content/PublishArticle.php`, closing §37 criterion 17. Moves
+  an article through §22's lifecycle — draft, scheduled, published, archived
+  — checking `ArticleStatus::canTransitionTo()` before the write.
+  `publish_article` is a permission separate from `update_article`
+  (`content_editor` holds both, but a `Select` on `status` would have
+  checked `update` and skipped the matrix), so this is an Action below
+  ADR-0007's usual multi-table bar, built anyway because the authorization
+  is the entire point of the operation. `published_at` is stamped the first
+  time an article reaches Published and never rewritten — it answers "when
+  did readers first see this," which an unpublish-and-republish does not
+  change. Verified: `content_editor` can transition, `warehouse_employee`
+  is refused with `AuthorizationException`, an illegal move throws
+  `ArticleTransitionNotAllowedException`, and `published_at` survives a
+  Published → Draft → Published round trip unchanged.
+- Filament resource over `Article`, full CRUD — the panel's first, since
+  every prior resource this session was either lookup-table CRUD or
+  deliberately read-only. `author_id` is NOT NULL and never a form field;
+  `CreateArticle::mutateFormDataBeforeCreate()` sets it from `auth()->id()`.
+  No `mutateFormDataBeforeSave()` on the edit page — that would reassign
+  authorship to whoever last touched the record, which `updated_at` already
+  answers. `status` and `published_at` are absent from the form entirely;
+  both are `PublishArticle`'s alone.
+- The status-change menu on `ArticlesTable` is generated from
+  `ArticleStatus::cases()` rather than hand-written, one button per case.
+  `visible()` calls the same `canTransitionTo()` the Action enforces, so
+  the menu can only ever offer legal moves and the matrix stays the single
+  place the rule lives — widening the enum widens the menu with no second
+  edit. The Action still re-checks on click; a hidden button is UX, not the
+  guarantee.
+- `Article::content` uses `RichEditor`, the panel's first rich-text field
+  (§22 — headings, lists, links, images, quotes, tables, embedded video,
+  code blocks). Sanitising it is deliberately **not** done here: `CLAUDE.md`
+  places Purify at render time, and nothing renders an article yet — a
+  write-time cast would be a second, earlier answer to a question
+  render-time already owns.
+- `app/Exceptions/ArticleTransitionNotAllowedException.php` — carries both
+  ends of the refused move as `ArticleStatus` instances rather than
+  strings, so a catcher can build its own message from `getLabel()`.
+- `@property ArticleStatus $status` on `Article`. Without it Larastan
+  inferred the raw `enum()` literal union instead of the cast, rejecting
+  `$article->status->canTransitionTo($to)` as "cannot call method on
+  string" even though the runtime type is correct — proven with
+  `PHPStan\dumpType()`, which is also how the fix (mirroring `Coupon`'s
+  existing `@property CouponType $type`) was found rather than guessed.
+  `Order::$status` has the identical gap, uncaught until whoever writes
+  against it hits the same error.
+- `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
+  `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
+  `ProductCategoryPolicy::delete()`'s own docblock had already named the
+  gap: whether a category could be deleted at all lived in a Filament
+  `visible()`/`disabled()` closure, read once when the row rendered, with
+  its `children()->count()` half commented out because `ProductCategory`
+  had no `children()` relation. Added the relation, the Action
+  (`ProductCategoryCannotBeDeletedException`, `lockForUpdate()` on the
+  category before counting live children and products), and moved the
+  guarded delete from the list table's row action to `EditProductCategory`'s
+  header, matching `EditProduct`'s existing shape — a static Table class has
+  no `$this` for `ReportsDomainFailures` to bind to, a Page does.
+- `tests/Concurrency/DeleteProductCategoryConcurrencyTest.php` — deleting a
+  category while a subcategory is created underneath it. Asymmetric
+  deliberately, and says so: the create side is plain Eloquent, so its
+  failure mode is a raw `QueryException` off `parent_id`'s foreign key, not
+  a domain exception. Measured, not assumed: without a second, tighter
+  rendezvous on top of the usual wall-clock barrier, the create side won
+  every time — boot jitter alone was deciding it, the trap
+  `AddToCartVsMergeGuestCartConcurrencyTest` already names for a different
+  pairing. With the rendezvous both sides win a real share. Also recorded
+  honestly: deletion-proofing the Action's lock across fourteen attempts
+  never forced the one failure that would prove it necessary — the window
+  is narrower than this harness can reliably hit, the same conclusion
+  `write-rules/order.md` already reached for the deadlock-prevention sort.
+  The lock stays regardless, on the same reasoning `ReserveStock`'s does.
+- `docs/reference/write-rules/product-category.md` — the outcomes page for
+  the above.
+- `misc/variation-images-plan.md` — draft plan for giving product variations
+  their own optional image gallery, additive to the existing product-level
+  one. Two schema-shaping questions left open for explicit sign-off before
+  any migration is written.
 - Docker Compose local dev environment: `app` (PHP-FPM), `webserver`
   (nginx), `db` (MySQL 8), `vite`, `mailpit`.
 - Filament admin panel, installed and verified against Laravel 13.8.
@@ -242,6 +320,103 @@ when the work happened, not when it was committed — nothing in
   check (nothing had ever called it with a non-null actor), `ReleaseStock`'s
   `quantity < 1` guard (present and tested on `ReserveStock`, missing on its
   sibling).
+- `app/Actions/Order/TransitionOrderStatus.php` — the only writer of
+  `orders.status`, closing the gap ADR-0004 designed and left unbuilt. Checks
+  `OrderStatus::canTransitionTo()` for legality, `OrderPolicy::updateStatus()`
+  for authorization (routed by target status — `cancel_order`/`refund_order`
+  for `Cancelled`/`Refunded`, `updateStatus_order` otherwise), writes the §19
+  history row, applies the target status's inventory effect, and dispatches
+  `OrderStatusChanged` after commit. `$from === $to` is a clean no-op rather
+  than a refusal, checked after authorization so a denied actor cannot infer
+  a move's legality from a silent success. Locks `orders`, re-reading
+  `status` from the locked row rather than the `Order` instance passed into
+  `handle()` — the one subtlety that compiles either way and only a
+  two-process test can tell apart; see
+  `explanation/concurrency-and-locking.md`, "Trusting the locked row, not the
+  reference that was locked."
+- `app/Actions/Inventory/CompleteSale.php` and `RestockReturn.php` — the two
+  movement directions §20's schema always had (`sold_quantity`,
+  `returned_quantity`, `InventoryMovementType::CompletedSale`/
+  `CustomerReturn`) and nothing wrote to before now. Composed by
+  `TransitionOrderStatus` on `=> Shipped` and `=> Returned`; ADR-0011 records
+  why they live inside that Action rather than behind a `CancelOrder`/
+  `ShipOrder` wrapper. `CompleteSale` decrements `reserved_quantity` before
+  `current_quantity` — the reverse order can violate
+  `chk_inventories_reserved_not_above_current` mid-transaction when a sale
+  empties fully-reserved stock, and nothing static catches the ordering;
+  `CompleteSaleTest`, "completes a sale that empties the entire
+  reserved-equals-current stock" is deletion-proofed against it.
+- `App\Exceptions\IllegalOrderStatusTransitionException` and
+  `App\Events\OrderStatusChanged` — the first class in `app/Events`, so the
+  storefront/panel/webhook has a convention for `ShouldDispatchAfterCommit`
+  (ADR-0007) to follow rather than inventing one under time pressure. No
+  listeners yet; §28's queued emails are a later slice.
+- `cancel_order` and `refund_order` permissions, in
+  `PermissionCatalogue::DOMAIN_ABILITIES`. Catalogue grows 104 → 106.
+  `warehouse_employee`'s seeded grant list is unchanged — it holds neither,
+  by design, relying on `Gate::before` to grant an administrator both rather
+  than an explicit row.
+- A migration adding `UNIQUE(order_id, new_status)` to
+  `order_status_histories` — the backstop for `TransitionOrderStatus`'s
+  `orders` lock, in the same relationship
+  `chk_inventories_reserved_not_above_current` has to `ReserveStock`. Depends
+  on `OrderStatus`'s transition graph being acyclic, which
+  `tests/Unit/Enums/TransitionMatrixTest.php` now asserts algorithmically
+  (a DFS cycle check) rather than only by the file's existing hand-written
+  legal/illegal table, which — by the file's own stated reasoning — could be
+  edited in step with a matrix change that introduced a cycle and still pass.
+- `docs/adr/0011-order-status-side-effects.md` — the inventory consequence of
+  a status transition lives inside `TransitionOrderStatus`, keyed by target
+  status, rather than in a `CancelOrder`/`ShipOrder` wrapper; records the
+  explicit departure from ADR-0004's original illustrative example and why.
+- `tests/Concurrency/TransitionOrderStatusConcurrencyTest.php` — two staff
+  transitioning one order at once, closing the gap
+  `reference/write-rules/concurrency.md` had listed as "Not covered." Two
+  races, not one: identical concurrent transitions (both succeed, exactly one
+  write — the no-op design means this is not a winner/loser shape at all,
+  see `explanation/concurrency-and-locking.md`, "A fourth shape: idempotent
+  no-ops") and two different, mutually-exclusive transitions from the same
+  origin (ordinary winner/loser). The second race deliberately avoids
+  `Cancelled` as either side — it is reachable from almost every status, so
+  a pairing including it is not reliably exclusive.
+- Closed three of `write-rules/order.md`'s five original `CreateOrder`
+  "Known gaps," all the same idempotency shape (a constraint plus a caught
+  violation, never check-then-act):
+  - `orders.cart_id` (`UNIQUE`, nullable, no foreign key) plus
+    `CartAlreadyCheckedOutException` — the same cart checked out twice, once
+    a deliberately-pinned gap with its own concurrency test, now a
+    guarantee. `CreateOrderConcurrencyTest`'s third race rewritten from
+    asserting two orders to asserting one order and a clean refusal for the
+    loser.
+  - `CheckoutActorRemovedException`, a caught `QueryException` on the
+    `orders_user_id_foreign` constraint — a hard-deleted actor between being
+    read and the `orders` insert now refuses cleanly instead of surfacing a
+    raw `QueryException`. `CreateOrderTest`'s gap-pinning test rewritten to
+    assert the new exception.
+  - `CouponNotApplicableException::noLongerExists()` — a coupon whose row is
+    gone by checkout now refuses rather than silently proceeding at full
+    price. Discovered while writing its test that this is defence in depth
+    rather than a reachable gap: `carts.coupon_id`'s own foreign key has no
+    cascade, so an ordinary `$coupon->forceDelete()` while any cart still
+    applies it already fails at the database with error 1451 — the test
+    constructs the state by disabling FK checks around the delete, the
+    technique the concurrency suites use for truncation, precisely because
+    the ordinary path is already closed. `coupon` is now nullable on the
+    exception, since this one refusal has no row left to carry.
+  - The remaining two gaps (the deadlock-prevention sort's evidence gap,
+    `shipping_amount` hardcoded pending courier integration) are unchanged —
+    neither is a mechanical correction.
+- `app/Actions/Inventory/RecordDamage.php` — the last of §20's ledger
+  directions nothing wrote to, closing the status-transition "Known gaps"
+  entry on damaged returns halfway: `current_quantity` to
+  `damaged_quantity`, general-purpose like `ReserveStock`/`ReleaseStock`
+  rather than composed by `TransitionOrderStatus`. Guards `available()`
+  (current minus reserved), not `current_quantity` alone — damaging reserved
+  stock would push `reserved_quantity` above `current_quantity`, the same
+  `CHECK` constraint `CompleteSale`'s decrement ordering already respects.
+  No caller composes it and no admin surface triggers it yet; a damaged
+  return is still `RestockReturn` followed by a separate manual
+  `RecordDamage` call, not a single automatic path.
 
 ### Changed
 
@@ -378,6 +553,19 @@ when the work happened, not when it was committed — nothing in
   directories — the compiled assets were never published, so every asset
   request 404'd and the panel rendered unstyled. `php artisan
   filament:assets` now runs as part of setup; see `README.md`.
+- `App\Models\Order` had no `@property` docblock naming its three enum-cast
+  columns, so Larastan inferred `status`/`payment_status`/`payment_method` as
+  raw DB-enum string unions instead of `OrderStatus`/`PaymentStatus`/
+  `PaymentMethod` the moment `TransitionOrderStatus` read one back and called
+  an enum method on it — `troubleshooting.md`'s "Larastan reports an enum
+  comparison as always false" entry had already named `Order` as "the next
+  likely case" once this Action existed. Added the three annotations,
+  matching `Coupon`'s existing precedent.
+- `docs/explanation/tech-stack-overview.md` — said "Nothing exists yet for
+  `Product` or `Order`" and "no Actions" under Filament resources, both
+  several slices stale (twelve resources and 24 Actions exist). Corrected in
+  the same pass as this slice, since it is the page the next session reads
+  to decide what is safe to build on.
 
 ### Removed
 

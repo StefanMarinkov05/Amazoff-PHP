@@ -9,6 +9,8 @@ use App\Actions\Inventory\ReserveStock;
 use App\Enums\AddressType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Exceptions\CartAlreadyCheckedOutException;
+use App\Exceptions\CheckoutActorRemovedException;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\EmptyCartException;
 use App\Exceptions\InsufficientStockException;
@@ -27,6 +29,8 @@ use App\Support\CouponDiscountLine;
 use App\Support\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -63,6 +67,8 @@ final class CreateOrder
      * @throws EmptyCartException
      * @throws CouponNotApplicableException
      * @throws InsufficientStockException
+     * @throws CartAlreadyCheckedOutException
+     * @throws CheckoutActorRemovedException
      */
     public function handle(
         Cart $cart,
@@ -98,8 +104,19 @@ final class CreateOrder
         $subtotal = $lines->reduce(fn (string $carry, array $line): string => bcadd($carry, $line['lineTotal'], 2), '0.00');
         $vat = $lines->reduce(fn (string $carry, array $line): string => bcadd($carry, $line['vatAmount'], 2), '0.00');
 
-        /** @var Coupon|null $coupon */
-        $coupon = $cart->coupon_id !== null ? Coupon::query()->find($cart->coupon_id) : null;
+        $coupon = null;
+
+        if ($cart->coupon_id !== null) {
+            /** @var Coupon|null $coupon */
+            $coupon = Coupon::query()->find($cart->coupon_id);
+
+            // A gone coupon is not "no coupon was ever applied" — refuse the
+            // same as any other invalidation rather than proceed at full
+            // price silently. See CouponNotApplicableException::noLongerExists().
+            if ($coupon === null) {
+                throw CouponNotApplicableException::noLongerExists($cart->coupon_id);
+            }
+        }
 
         $discount = '0.00';
 
@@ -122,6 +139,7 @@ final class CreateOrder
         $total = bcadd(bcsub($subtotal, $discount, 2), $shipping, 2);
 
         return DB::transaction(function () use (
+            $cart,
             $lines,
             $customer,
             $billingAddress,
@@ -134,7 +152,7 @@ final class CreateOrder
             $shipping,
             $total,
         ): Order {
-            $order = $this->createOrderRow($customer, $actor, $subtotal, $discount, $shipping, $vat, $total);
+            $order = $this->createOrderRow($cart, $customer, $actor, $subtotal, $discount, $shipping, $vat, $total);
 
             foreach ($lines as $line) {
                 $this->createOrderItem($order, $line);
@@ -224,8 +242,12 @@ final class CreateOrder
 
     /**
      * @param  array<string, mixed>  $customer
+     *
+     * @throws CartAlreadyCheckedOutException
+     * @throws CheckoutActorRemovedException
      */
     private function createOrderRow(
+        Cart $cart,
         array $customer,
         ?User $actor,
         string $subtotal,
@@ -234,30 +256,50 @@ final class CreateOrder
         string $vat,
         string $total,
     ): Order {
-        /** @var Order $order */
-        $order = Order::query()->create([
-            'user_id' => $actor?->getKey(),
-            // Placeholder, unique on its own — overwritten from the row's
-            // own id once it exists, before this transaction commits.
-            'serial_number' => (string) Str::uuid(),
-            'email' => $customer['email'],
-            'phone' => $customer['phone'],
-            'first_name' => $customer['first_name'],
-            'last_name' => $customer['last_name'],
-            'status' => OrderStatus::New,
-            'payment_status' => PaymentStatus::Pending,
-            'payment_method' => $customer['payment_method'],
-            'subtotal_amount' => $subtotal,
-            'discount_amount' => $discount,
-            'shipping_amount' => $shipping,
-            'vat_amount' => $vat,
-            'total_amount' => $total,
-            'customer_note' => $customer['customer_note'] ?? null,
-            'invoice_required' => $customer['invoice_required'] ?? false,
-            'invoice_company' => $customer['invoice_company'] ?? null,
-            'invoice_vat_number' => $customer['invoice_vat_number'] ?? null,
-            'invoice_eik' => $customer['invoice_eik'] ?? null,
-        ]);
+        try {
+            /** @var Order $order */
+            $order = Order::query()->create([
+                'user_id' => $actor?->getKey(),
+                'cart_id' => $cart->getKey(),
+                // Placeholder, unique on its own — overwritten from the row's
+                // own id once it exists, before this transaction commits.
+                'serial_number' => (string) Str::uuid(),
+                'email' => $customer['email'],
+                'phone' => $customer['phone'],
+                'first_name' => $customer['first_name'],
+                'last_name' => $customer['last_name'],
+                'status' => OrderStatus::New,
+                'payment_status' => PaymentStatus::Pending,
+                'payment_method' => $customer['payment_method'],
+                'subtotal_amount' => $subtotal,
+                'discount_amount' => $discount,
+                'shipping_amount' => $shipping,
+                'vat_amount' => $vat,
+                'total_amount' => $total,
+                'customer_note' => $customer['customer_note'] ?? null,
+                'invoice_required' => $customer['invoice_required'] ?? false,
+                'invoice_company' => $customer['invoice_company'] ?? null,
+                'invoice_vat_number' => $customer['invoice_vat_number'] ?? null,
+                'invoice_eik' => $customer['invoice_eik'] ?? null,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // The only unique constraint this insert can realistically
+            // collide on. serial_number is a fresh UUID per attempt — a
+            // collision there is not a real-world case worth branching on.
+            throw new CartAlreadyCheckedOutException($cart);
+        } catch (QueryException $e) {
+            if (! str_contains($e->getMessage(), 'orders_user_id_foreign')) {
+                throw $e;
+            }
+
+            // nullOnDelete() governs an existing child row, not a new insert
+            // referencing an id that's already gone. A null $actor writes a
+            // null user_id, which can never violate this FK, so reaching
+            // this branch guarantees $actor is not null.
+            assert($actor instanceof User);
+
+            throw new CheckoutActorRemovedException($actor);
+        }
 
         return $order;
     }

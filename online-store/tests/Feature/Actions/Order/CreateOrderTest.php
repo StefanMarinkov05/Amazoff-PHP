@@ -12,6 +12,8 @@ use App\Enums\DeliveryType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Exceptions\CartAlreadyCheckedOutException;
+use App\Exceptions\CheckoutActorRemovedException;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\EmptyCartException;
 use App\Exceptions\InsufficientStockException;
@@ -24,7 +26,7 @@ use App\Models\OrderAddress;
 use App\Models\OrderItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Schema;
 
 /*
  * cartVariation() and emptyCart() come from tests/Pest.php.
@@ -244,6 +246,49 @@ it('refuses and writes nothing when the coupon became invalid after being applie
         ->and(CouponRedemption::count())->toBe(0);
 });
 
+it('refuses and writes nothing when the applied coupon was hard-deleted before checkout', function (): void {
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(product: ['regular_price' => '100.00']), 1);
+    $coupon = Coupon::factory()->create([
+        'code' => 'DELETED',
+        'type' => CouponType::Fixed,
+        'scope' => CouponScope::EntireOrder,
+        'value' => '5.00',
+        'max_discount_amount' => null,
+        'minimum_order_value' => null,
+        'is_active' => true,
+        'starts_at' => null,
+        'ends_at' => null,
+        'total_usage_limit' => null,
+        'usage_limit_per_customer' => null,
+    ]);
+    app(ApplyCoupon::class)->handle($cart, $coupon->code);
+
+    // carts.coupon_id is constrained() with no cascade, so a plain
+    // $coupon->forceDelete() here fails with error 1451 — the FK blocks it
+    // while any cart still references the row. That means the scenario this
+    // test pins is not reachable through ordinary application code today;
+    // forcing it (disabling FK checks around the delete, the same technique
+    // the concurrency suites use for truncation) is what makes it possible
+    // to construct at all. The fix stands as defence in depth — if that FK
+    // is ever relaxed, or a coupon is ever removed by a path that bypasses
+    // Eloquent, CreateOrder still refuses cleanly instead of silently
+    // proceeding at full price.
+    Schema::disableForeignKeyConstraints();
+    $coupon->forceDelete();
+    Schema::enableForeignKeyConstraints();
+
+    // Distinct from "coupon became invalid": there is no row left to carry
+    // a refusal reason, so cart.coupon_id points at nothing. Before this
+    // fix, Coupon::query()->find() returning null was read identically to
+    // "no coupon was ever applied," and the order proceeded at full price
+    // with no discount and no error.
+    expect(fn () => app(CreateOrder::class)->handle($cart->fresh(), checkoutCustomer(), checkoutAddress(), checkoutAddress(), null))
+        ->toThrow(CouponNotApplicableException::class);
+
+    expect(Order::count())->toBe(0);
+});
+
 it('refuses and writes nothing when stock runs out mid-transaction', function (): void {
     $cart = emptyCart();
     $variation = cartVariation(stock: 1);
@@ -370,13 +415,13 @@ it('attributes the order to the actor even if that account was soft-deleted mome
     expect($order->user_id)->toBe($user->getKey());
 });
 
-it('surfaces an uncaught QueryException when the actor account no longer exists at all', function (): void {
-    // Deliberately pinning a gap, not a guard: unlike a soft delete, a hard
-    // delete removes the users row entirely. orders.user_id is nullOnDelete,
-    // which governs an EXISTING child row when its parent is removed — it
-    // does not let a NEW insert reference an id that is already gone.
-    // CreateOrder has no guard for this today; it was not asked for and
-    // this test exists to make that explicit rather than silent.
+it('refuses cleanly when the actor account no longer exists at all', function (): void {
+    // Unlike a soft delete, a hard delete removes the users row entirely.
+    // orders.user_id is nullOnDelete, which governs an EXISTING child row
+    // when its parent is removed — it does not stop a NEW insert from
+    // referencing an id that is already gone, so this reaches the database
+    // as a raw FK violation. CreateOrder now catches it and rethrows as a
+    // named exception rather than letting the QueryException surface.
     $user = User::factory()->create();
     $user->forceDelete();
 
@@ -384,7 +429,11 @@ it('surfaces an uncaught QueryException when the actor account no longer exists 
     app(AddToCart::class)->handle($cart, cartVariation(), 1);
 
     expect(fn () => app(CreateOrder::class)->handle($cart, checkoutCustomer(), checkoutAddress(), checkoutAddress(), $user))
-        ->toThrow(QueryException::class);
+        ->toThrow(CheckoutActorRemovedException::class);
+
+    // Nothing survives the refusal — the FK violation happens on the very
+    // first insert inside the transaction, before items or addresses exist.
+    expect(Order::count())->toBe(0);
 });
 
 it('creates every order at New/Pending regardless of payment method', function (string $method): void {
@@ -412,6 +461,23 @@ it('leaves the cart itself and its items in place afterward', function (): void 
 
     expect($cart->fresh())->not->toBeNull()
         ->and($item->fresh())->not->toBeNull();
+});
+
+it('refuses a second checkout of the same cart and writes nothing the second time', function (): void {
+    // The cart surviving checkout (above) is exactly what makes a second,
+    // sequential CreateOrder call against it possible — a double-submitted
+    // "place order," a stale page reload, a retried job. Sequential, not
+    // concurrent: the second call starts only after the first has committed.
+    // The concurrent version is CreateOrderConcurrencyTest.
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 1);
+
+    app(CreateOrder::class)->handle($cart, checkoutCustomer(), checkoutAddress(), checkoutAddress(), null);
+
+    expect(fn () => app(CreateOrder::class)->handle($cart->fresh(), checkoutCustomer(), checkoutAddress(), checkoutAddress(), null))
+        ->toThrow(CartAlreadyCheckedOutException::class);
+
+    expect(Order::count())->toBe(1);
 });
 
 it('leaves a placed order intact after its source cart is deleted', function (): void {

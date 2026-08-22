@@ -63,6 +63,7 @@ jobs:
               tests/Feature/Actions/Catalogue/AddProductVariationTest.php
               tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
               tests/Feature/Actions/Catalogue/CreateProductTest.php
+              tests/Feature/Actions/Catalogue/DeleteProductCategoryTest.php
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
@@ -149,12 +150,14 @@ jobs:
               tests/Concurrency/ReleaseStockConcurrencyTest.php
               tests/Concurrency/ReserveStockConcurrencyTest.php
               tests/Concurrency/RedeemCouponConcurrencyTest.php
+              tests/Concurrency/TransitionOrderStatusConcurrencyTest.php
           - name: c
             paths: >-
               tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php
               tests/Concurrency/MainProductImageConcurrencyTest.php
               tests/Concurrency/PublishProductConcurrencyTest.php
               tests/Concurrency/CreateOrderConcurrencyTest.php
+              tests/Concurrency/DeleteProductCategoryConcurrencyTest.php
 
     services:
       mysql:
