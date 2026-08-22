@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
 
@@ -64,10 +65,20 @@ class OrderPolicy
      * legal at all is a separate question answered by OrderStatus itself, and
      * recording the change is a third — see ADR-0004. This method answers only
      * whether this actor may attempt one.
+     *
+     * Routed by target rather than a single flat permission: ADR-0004's own
+     * context names cancelling and refunding as administrator moves,
+     * distinct from the routine advances (`New => Confirmed`,
+     * `Confirmed => Preparing`, ...) a warehouse employee makes under
+     * `updateStatus_order`. See ADR-0011.
      */
-    public function updateStatus(User $user, Order $order): bool
+    public function updateStatus(User $user, Order $order, OrderStatus $to): bool
     {
-        return $user->can('updateStatus_order');
+        return match ($to) {
+            OrderStatus::Cancelled => $user->can('cancel_order'),
+            OrderStatus::Refunded => $user->can('refund_order'),
+            default => $user->can('updateStatus_order'),
+        };
     }
 
     /** §18: internal notes are staff-only and never shown to the customer. */
