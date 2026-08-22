@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8d2d64a1f157208333a844ffcaec6085",
+    "content-hash": "6ebf3de1d3421c205fd0228906a1c940",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -3387,16 +3387,16 @@
         },
         {
             "name": "livewire/livewire",
-            "version": "v3.8.3",
+            "version": "v3.8.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/livewire/livewire.git",
-                "reference": "ab9c2ac9305008aa9ab0f1beecec8ed6c3a591b2"
+                "reference": "038443795e69af79ba03064cbc19d76b60e2c638"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/livewire/livewire/zipball/ab9c2ac9305008aa9ab0f1beecec8ed6c3a591b2",
-                "reference": "ab9c2ac9305008aa9ab0f1beecec8ed6c3a591b2",
+                "url": "https://api.github.com/repos/livewire/livewire/zipball/038443795e69af79ba03064cbc19d76b60e2c638",
+                "reference": "038443795e69af79ba03064cbc19d76b60e2c638",
                 "shasum": ""
             },
             "require": {
@@ -3451,7 +3451,7 @@
             "description": "A front-end framework for Laravel.",
             "support": {
                 "issues": "https://github.com/livewire/livewire/issues",
-                "source": "https://github.com/livewire/livewire/tree/v3.8.3"
+                "source": "https://github.com/livewire/livewire/tree/v3.8.5"
             },
             "funding": [
                 {
@@ -3459,7 +3459,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-31T00:08:18+00:00"
+            "time": "2026-08-18T11:38:50+00:00"
         },
         {
             "name": "monolog/monolog",

@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use App\Livewire\Catalogue\ProductList;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/catalogue', ProductList::class);
