@@ -31,7 +31,11 @@ listed as unverified, because a test that has never failed is not evidence.
 | `cart_items` via `UNIQUE(cart_id, product_variation_id)` | insert-vs-insert across two requests | catch `UniqueConstraintViolationException`, retry as `increment()` — no lock, since a row that does not exist yet cannot be locked | `AddToCart`, `MergeGuestCart` |
 | `coupons.total_usage_limit` / `usage_limit_per_customer` vs `coupon_redemptions` | cross-table invariant, no constraint possible | `lockForUpdate` on `coupons` before either `COUNT` | `RedeemCoupon` |
 | `coupon_redemptions` via `UNIQUE(coupon_id, order_id)` | insert-vs-insert, same order retried or double-submitted | catch `UniqueConstraintViolationException`, return the existing row | `RedeemCoupon` |
+| `orders` via `UNIQUE(cart_id)` | insert-vs-insert, the same cart checked out twice | catch `UniqueConstraintViolationException`, throw `CartAlreadyCheckedOutException` | `CreateOrder` |
+| `product_categories` deleted while a subcategory is created underneath it | delete-vs-insert, asymmetric — one side has no Action to lose through | `lockForUpdate` on the category, backstopped by `parent_id`'s foreign key either way | `DeleteProductCategory` |
 | two orders reserving the same variation(s) | row contention across several `inventories` rows in one transaction | `ReserveStock`'s own lock, called once per line, sorted by `product_variation_id` first | `CreateOrder` |
+| `orders.status` | row contention inside one request; idempotency across two identical requests | `lockForUpdate` on `orders`, re-read from the locked row, plus `UNIQUE(order_id, new_status)` as backstop | `TransitionOrderStatus` |
+| `inventories.reserved_quantity`/`sold_quantity`/`current_quantity` via a status transition | row contention, composed inside `TransitionOrderStatus`'s own `orders` lock | `CompleteSale`/`RestockReturn`'s own `lockForUpdate` on `inventories`, same shape as `ReserveStock`/`ReleaseStock` | `TransitionOrderStatus` |
 
 ### Lock order
 
@@ -53,6 +57,14 @@ happens to return rows pre-sorted by `product_variation_id` for this query
 shape on the current MySQL version, so removing the explicit sort does not
 turn any test red either. `reference/write-rules/order.md`, "Known gaps"
 has the reasoning for keeping it anyway.
+
+`orders` before `inventories`. `TransitionOrderStatus` locks the `orders`
+row first and only then, for the three targets carrying an inventory effect,
+locks each affected line's `inventories` row — sorted by
+`product_variation_id`, same reasoning as `CreateOrder`. No Action today
+locks `orders` and then anything else in the opposite order, so the two
+declared orders (`products`/`coupons`/`inventories`, and now `orders`/
+`inventories`) do not currently interact.
 
 ## What is tested
 
@@ -106,12 +118,14 @@ than a guard.
 
 ### Not covered
 
-- Two staff transitioning one order. `TransitionOrderStatus` does not exist.
 - Duplicate Stripe events against `UNIQUE(stripe_event_id)`.
 - Two processes creating a product with the same SKU. The `UNIQUE` constraint
   makes the outcome certain, so there is nothing a race test would add.
 
-The first two are slices 6–7 in the working plan.
+The first is slice 7 in the working plan. Two staff transitioning one order
+is covered as of `TransitionOrderStatus` — see
+`reference/write-rules/order.md`, "Two actors at once", and
+`tests/Concurrency/TransitionOrderStatusConcurrencyTest.php`.
 
 `orders.serial_number` allocation and deadlock between two orders locking
 the same variations in opposite order are no longer open — both are settled

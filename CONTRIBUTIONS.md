@@ -38,10 +38,10 @@ needed to touch.
 | Area | Work |
 |---|---|
 | Data model | Initial schema design |
-| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li><li>Order resource, read-only pending the status-transition Action</li></ul> |
+| Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li><li>Order resource, read-only pending the status-transition Action</li><li>Article resource, full CRUD, with a status-change menu generated from the transition matrix rather than hand-written</li></ul> |
 | Seeders | Role and staff account seeding |
 | Infra | Local database provisioning on a fresh clone |
-| Actions | Review approval and unapproval |
+| Actions | <ul><li>Review approval and unapproval</li><li>Article status transitions (§22), separating `publish` from `update` the way review moderation separates `approve`</li></ul> |
 | Authorization | <ul><li>Policies for product-related resources</li><li>Narrowed `content_editor` to the scope §3.3 grants</li></ul> |
 | Schema | Fields supporting contact message handling |
 | Documentation | For the above |

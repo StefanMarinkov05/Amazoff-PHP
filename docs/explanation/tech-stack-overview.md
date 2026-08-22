@@ -11,13 +11,17 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. Seven Resources exist over the
-catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
+`canAccessPanel()` on `User` gates it by role. Twelve Resources exist:
+the catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
 `ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
 `make:filament-resource --generate` and corrected by hand where the
-generator didn't infer unique-index validation from the schema. An eighth,
-over spatie's `Role`, is described under authorization below. Nothing exists
-yet for `Product` or `Order`, or anything else that touches money or stock.
+generator didn't infer unique-index validation from the schema; `Product`,
+with `ProductVariation`/`ProductImage`/`ProductSpecification` as relation
+managers rather than resources of their own; `Coupon`; the read-mostly
+`ContactMessage` and `NewsletterSubscriber`; and one over spatie's `Role`,
+described under authorization below. Nothing exists yet for `Order` — the
+Actions that write it (`CreateOrder`, `TransitionOrderStatus`) are built and
+tested, but the panel surface is a later slice (6b in the working plan).
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
@@ -33,7 +37,7 @@ The three staff role rows (`administrator`, `content_editor`,
 `warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
 called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
 them in every environment. `PermissionSeeder` runs before it with a
-catalogue of 104 permissions named `{ability}_{resource}`, where the ability
+catalogue of 106 permissions named `{ability}_{resource}`, where the ability
 half matches the Laravel policy method that checks it — which is what keeps
 a policy method to one line. `UserSeeder` then creates one account per role
 plus a plain customer, gated to non-production; see ADR-0003 on why seeded
@@ -86,19 +90,29 @@ Actions. `reference/permissions.md` lists the catalogue;
 `how-to/edit-a-role.md` covers the panel and seeder paths and why they are
 not equivalent.
 
-Blueprint has generated the schema from `online-store/draft.yaml`: 40
-migrations, 32 models, 32 factories. `migrate:fresh` applies cleanly and
-every factory persists a row, which `tests/Feature/FactoryTest.php` now
-asserts rather than leaving to a manual check.
+Blueprint generated the schema from `online-store/draft.yaml`: 32 models, 32
+factories. Migrations now number 48 — the generated set plus hand-written
+ones added since (check constraints, composite pivot keys, the `contact_
+messages` handling columns, dropping `coupons.times_used`, the
+`order_status_histories` unique constraint) — so this count moves often and
+is worth recounting (`ls database/migrations | wc -l`) rather than trusting a
+stale figure here. `migrate:fresh` applies cleanly and every factory
+persists a row, which `tests/Feature/FactoryTest.php` asserts rather than
+leaving to a manual check.
 
 `App\Enums` holds 12 backed enums covering every `enum` column in the schema.
 The 12 models with such columns cast them, and the factories draw from
 `Enum::cases()`. All 12 implement Filament's `HasLabel`; seven also implement
 `HasColor`. Four of them — `OrderStatus`, `PaymentStatus`, `ShipmentStatus`,
 `ArticleStatus` — carry a transition matrix; see ADR-0004 for where the rest of
-the state machine is meant to live.
-Beyond enum casts and relations the models remain data structures — no
-Actions, and nothing yet calls `canTransitionTo()`.
+the state machine is meant to live. `OrderStatus::canTransitionTo()` is now
+called, by `TransitionOrderStatus` — the other three matrices still have no
+caller.
+
+24 Actions exist across five areas (`reference/actions.md`).
+Business logic lives there now, not on the models — the models remain data
+structures with enum casts and relations, exactly as CLAUDE.md's
+Actions-own-the-rules architecture requires.
 
 Larastan and Pest are configured and passing against what exists so far.
 

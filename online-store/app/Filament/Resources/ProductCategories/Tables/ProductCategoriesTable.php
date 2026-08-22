@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ProductCategories\Tables;
 
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -39,16 +38,6 @@ class ProductCategoriesTable
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make()
-                    ->visible(fn ($record) =>
-                        // $record->children()->count() === 0 &&
-                        $record->products()->count() === 0
-                    )
-                    ->disabled(fn ($record) =>
-                        // $record->children()->count() > 0 ||
-                        $record->products()->count() > 0
-                    )
-                    ->tooltip('Cannot delete a category that has subcategories or products'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

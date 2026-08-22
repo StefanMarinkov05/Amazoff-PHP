@@ -3,7 +3,7 @@
 What exists after `migrate:fresh --seed`. Why it is arranged this way is
 ADR-0006; how to use the roles screen is `how-to/edit-a-role.md`.
 
-104 permissions, three roles, four demo accounts.
+106 permissions, three roles, four demo accounts.
 
 ## Naming
 
@@ -28,7 +28,9 @@ The catalogue's shape is defined once, in `App\Support\PermissionCatalogue`.
 | `create` | see below | New record |
 | `update` | every resource | Edit an existing record |
 | `delete` | every resource | Remove a record |
-| `updateStatus` | `order` | §17 — not every employee may select every status |
+| `updateStatus` | `order` | §17 — not every employee may select every status. Routine advances only; `Cancelled` and `Refunded` route to the two abilities below instead (ADR-0011) |
+| `cancel` | `order` | Administrator move, per ADR-0004's own reasoning — distinct from a warehouse employee's routine status advance |
+| `refund` | `order` | Same reasoning as `cancel_order`, for the symmetric terminal move |
 | `addInternalNote` | `order` | §18 — staff-only, never shown to the customer |
 | `publish` | `article` | §22 — separate from `update`, so drafting can be granted without publication |
 | `approve` | `product_review` | §24 — moderation rather than an edit |
@@ -71,7 +73,7 @@ Checked directly on the page that uses them rather than through a policy.
 
 | Role | Permissions | Scope |
 |---|---|---|
-| `administrator` | **0** | Everything, via `Gate::before`. Attaching all 104 would drift as the catalogue grows |
+| `administrator` | **0** | Everything, via `Gate::before`. Attaching all 106 would drift as the catalogue grows |
 | `content_editor` | 16 | Articles, article categories, tags |
 | `warehouse_employee` | 12 | Orders, shipments, inventory, read-only carriers |
 
@@ -92,13 +94,22 @@ the role should read that section first.
 
 Catalogue lookups — `brand`, `product_category`, `attribute`,
 `attribute_value` — appear in neither §3.3's grant list nor its deny list and
-are currently excluded. Revisit when the Article resource lands and "related
-products" (§22) makes `viewAny_product` a concrete question.
+are currently excluded.
+
+The Article resource has now landed, answering the "related products" (§22)
+question this section used to defer: `ArticleForm`'s products field is a
+relationship `Select`, `relationship('products', 'name')`, so it renders
+product *names* only — no price, SKU, stock, or anything else `ProductResource`
+exposes. Product names are already public on the storefront. `viewAny_product`
+correctly stays ungranted — it gates catalog management, not naming a product
+in an unrelated picker — and no permission change is needed for this field.
 
 ### warehouse_employee
 
-- `order` — `viewAny`, `view`, `updateStatus`, `addInternalNote`. Not `create`
-  or `delete`; those do not exist.
+- `order` — `viewAny`, `view`, `updateStatus`, `addInternalNote`. Not
+  `cancel` or `refund` — ADR-0011 reserves both for the administrator, via
+  `Gate::before`, the same way `content_editor` reaches nothing it is not
+  explicitly granted. Not `create` or `delete`; those do not exist.
 - `shipment` — `viewAny`, `view`, `create`, `update`. §37 criterion 15.
 - `inventory` — `viewAny`, `view`, `update`.
 - `carrier` — `viewAny` only. Picking a courier is not administering one.

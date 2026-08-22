@@ -8,7 +8,6 @@ use App\Enums\InventoryMovementType;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Inventory;
-use App\Models\ProductVariation;
 use App\Models\User;
 
 /*
@@ -18,23 +17,10 @@ use App\Models\User;
  * Actions are called directly here, with no HTTP and no request. That is the
  * property ADR-0007 is buying: the same class the storefront, the panel, and
  * the Stripe webhook call is testable by constructing it.
+ *
+ * variationWithStock() is defined in tests/Pest.php, shared with
+ * CompleteSaleTest and RestockReturnTest.
  */
-
-function variationWithStock(int $current, int $reserved = 0): ProductVariation
-{
-    $variation = ProductVariation::factory()->create();
-
-    Inventory::factory()->create([
-        'product_variation_id' => $variation->getKey(),
-        'current_quantity' => $current,
-        'reserved_quantity' => $reserved,
-        'sold_quantity' => 0,
-        'returned_quantity' => 0,
-        'damaged_quantity' => 0,
-    ]);
-
-    return $variation;
-}
 
 it('reserves stock and leaves current quantity untouched', function (): void {
     $variation = variationWithStock(10);
