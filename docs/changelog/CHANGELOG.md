@@ -94,6 +94,13 @@ when the work happened, not when it was committed — nothing in
   `storage/framework/testing/`, which Laravel already gitignores — a worker
   killed between planting its flag and unlinking it used to leave an
   untracked file in the project root.
+- `tests/Pest.php`: `Feature` now uses `LazilyRefreshDatabase` instead of
+  `RefreshDatabase` — same isolation guarantee, migrates only on first DB
+  touch. Measured back to back on this suite: 683s → 617s, 479/479 tests
+  unchanged. Verified structurally, not just measured: `LazilyRefreshDatabase`
+  `use`s `RefreshDatabase` internally, so `class_uses_recursive()` still
+  resolves it for Laravel's per-worker test-database switching —
+  `pest --parallel --testsuite=Feature` is unaffected.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the

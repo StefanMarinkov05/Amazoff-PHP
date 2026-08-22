@@ -258,9 +258,9 @@ asks for one, it queues behind the test's own uncommitted write.
 The failure looks like a locking bug in the code under test. It is the test
 harness locking against itself.
 
-**Fix.** Keep concurrency tests out of `RefreshDatabase`. `tests/Concurrency/`
+**Fix.** Keep concurrency tests out of the refresh trait. `tests/Concurrency/`
 is registered as its own suite in `phpunit.xml` and is excluded from the
-`->use(RefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
+`->use(LazilyRefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
 their fixtures and truncate in `afterEach`, with
 `Schema::disableForeignKeyConstraints()` around the truncation so the order of
 tables does not have to track whatever the factories currently create.

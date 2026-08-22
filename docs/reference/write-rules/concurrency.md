@@ -176,11 +176,11 @@ the moment the signature widens.
 
 ## Environment notes
 
-`tests/Concurrency/` is a separate suite in `phpunit.xml` and is excluded from
-`RefreshDatabase` in `tests/Pest.php`, because a transaction that is rolled
-back rather than committed leaves rows no second connection can see. Those
-tests commit their fixtures and truncate in `afterEach` with
-`Schema::disableForeignKeyConstraints()`.
+`tests/Concurrency/` is a separate suite in `phpunit.xml` and is excluded
+from `LazilyRefreshDatabase` (`Feature`'s trait) in `tests/Pest.php`,
+because a transaction that is rolled back rather than committed leaves rows
+no second connection can see. Those tests commit their fixtures and
+truncate in `afterEach` with `Schema::disableForeignKeyConstraints()`.
 
 Both sides of a race run as `php artisan race:worker`
 (`app/Console/Commands/RaceWorker.php`), spawned by `runRaceWorkers()` in

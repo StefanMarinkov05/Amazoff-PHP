@@ -80,16 +80,18 @@ deleted. This is not flakiness to retry away.
 Laravel's automatic per-process test database (`online_shop_test_test_1`,
 `_2`, …) is wired up in `Illuminate\Testing\Concerns\TestDatabases`, and it
 only fires for a test case using `RefreshDatabase`, `DatabaseMigrations`,
-`DatabaseTransactions`, or `DatabaseTruncation`. `tests/Pest.php` deliberately
-does not apply any of those to `Concurrency` — see the comment there: those
-tests need a second real connection to see rows the first one committed,
-which a wrapping transaction would hide. That same exclusion is what leaves
-every parallel worker pointed at the one un-suffixed `online_shop_test`
-database when a Concurrency test runs, so two workers' fixtures collide in
-the same physical rows. `Feature` tests survive this same mechanism failing
-open only because `RefreshDatabase` already isolates them by transaction;
-`Concurrency` tests have no such isolation by design, so they need the
-database-per-process split and get skipped by it at once.
+`DatabaseTransactions`, or `DatabaseTruncation` — checked via
+`class_uses_recursive()`, so `LazilyRefreshDatabase` (`Feature`'s actual
+trait; it `use`s `RefreshDatabase` internally) still qualifies.
+`tests/Pest.php` deliberately applies none of the four to `Concurrency` —
+see the comment there: those tests need a second real connection to see
+rows the first one committed, which a wrapping transaction would hide. That
+same exclusion is what leaves every parallel worker pointed at the one
+un-suffixed `online_shop_test` database when a Concurrency test runs, so two
+workers' fixtures collide in the same physical rows. `Feature` tests survive
+this same mechanism failing open only because their trait already isolates
+them by transaction; `Concurrency` tests have no such isolation by design,
+so they need the database-per-process split and get skipped by it at once.
 
 CI already parallelises `Concurrency` correctly, at the process level rather
 than the row level: three hand-partitioned shards (`test-concurrency` a/b/c
@@ -140,9 +142,11 @@ Docker volumes are in `troubleshooting.md`.
 
 ## Seeding inside a test
 
-`tests/Pest.php` applies `RefreshDatabase` to everything in `Feature`, which
-truncates between tests but does **not** run seeders. A test that needs roles
-or permissions seeds them itself:
+`tests/Pest.php` applies `LazilyRefreshDatabase` to everything in
+`Feature` — the same isolation as `RefreshDatabase` (truncates between
+tests, does **not** run seeders), except migration is deferred until a
+test's first database touch rather than always running. A test that needs
+roles or permissions seeds them itself:
 
 ```php
 beforeEach(function (): void {
@@ -153,7 +157,7 @@ beforeEach(function (): void {
 ```
 
 `forgetCachedPermissions()` is not optional there. `spatie/laravel-permission`
-caches the permission table for 24 hours, and `RefreshDatabase` does not clear
+caches the permission table for 24 hours, and neither refresh trait clears
 that cache — without it the second test in a run resolves permissions against
 the first test's deleted rows.
 
