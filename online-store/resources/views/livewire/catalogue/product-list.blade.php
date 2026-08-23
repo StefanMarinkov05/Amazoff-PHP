@@ -203,9 +203,14 @@
                                 style="animation-delay: {{ min($index * 40, 320) }}ms"
                                 class="group animate-card-in flex flex-col overflow-hidden rounded-card border
                                        border-ink-200 bg-white transition-all duration-300
-                                       hover:-translate-y-0.5 hover:border-marine-600/40 hover:shadow-lg hover:shadow-ink-900/5"
+                                       hover:-translate-y-1.5 hover:border-marine-600/50 hover:shadow-xl hover:shadow-ink-900/10"
                             >
                                 <a href="/products/{{ $product->slug }}" class="relative block aspect-square overflow-hidden bg-ink-50">
+                                    {{-- One flourish, on the core action. --}}
+                                    <span aria-hidden="true"
+                                          class="pointer-events-none absolute inset-y-0 -left-1/3 z-10 w-1/3 -skew-x-12
+                                                 bg-gradient-to-r from-transparent via-white/45 to-transparent
+                                                 opacity-0 group-hover:opacity-100 group-hover:animate-shine"></span>
                                     @if ($image)
                                         <img src="{{ Storage::url($image->path) }}"
                                              alt="{{ $image->alt_text ?? $product->name }}" loading="lazy"

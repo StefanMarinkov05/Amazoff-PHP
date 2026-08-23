@@ -290,7 +290,10 @@ class DemoSeeder extends Seeder
         foreach (range(1, $definition['images'] ?? 1) as $position) {
             ProductImage::create([
                 'product_id' => $product->id,
-                'path' => PlaceholderImage::render($product->name.($position > 1 ? " view {$position}" : '')),
+                'path' => PlaceholderImage::render(
+                    $product->name.($position > 1 ? " view {$position}" : ''),
+                    $definition['category'],
+                ),
                 'alt_text' => $product->name,
                 'is_main' => $position === 1,
                 'sort_order' => $position - 1,

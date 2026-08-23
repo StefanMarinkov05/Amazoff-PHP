@@ -48,7 +48,7 @@
 @keyframes card-in {
     from {
         opacity: 0;
-        transform: translateY(0.5rem);
+        transform: translateY(1.25rem) scale(0.97);
     }
     to {
         opacity: 1;
@@ -57,7 +57,21 @@
 }
 
 @utility animate-card-in {
-    animation: card-in 0.45s var(--ease-out-quart) both;
+    animation: card-in 0.55s var(--ease-out-quart) both;
+}
+
+/* Sweeps once across a card's image on hover — the single flourish. */
+@keyframes shine {
+    from {
+        transform: translateX(-140%) skewX(-18deg);
+    }
+    to {
+        transform: translateX(320%) skewX(-18deg);
+    }
+}
+
+@utility animate-shine {
+    animation: shine 0.9s var(--ease-out-quart);
 }
 
 /*

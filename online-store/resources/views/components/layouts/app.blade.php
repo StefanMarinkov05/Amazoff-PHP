@@ -7,6 +7,11 @@
 
         <title>{{ $title ?? 'Online Shop' }}</title>
 
+        {{-- Vite::fonts() is separate from @vite and easy to miss: the plugin
+             writes public/fonts-manifest.dev.json but nothing injects it, so
+             without this line Instrument Sans never loads and the whole page
+             silently falls back to the system UI font. --}}
+        {{ Vite::fonts() }}
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="flex min-h-full flex-col bg-ink-50 font-sans text-ink-900 antialiased">
