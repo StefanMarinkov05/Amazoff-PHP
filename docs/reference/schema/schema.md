@@ -100,8 +100,9 @@ migration skips itself there. This is why the test suite runs on MySQL — see
 
 What the database cannot express, and therefore stays an application invariant:
 cross-table SKU uniqueness, every product having at least 1 variation, 2
-variations sharing an attribute-value set, order totals agreeing with bcmath
-rounding, and status transitions. ADR-0005 lists them; ADR-0004 owns the last.
+variations sharing an attribute-value set, order totals agreeing with
+`Money`'s rounding, and status transitions. ADR-0005 lists them; ADR-0004
+owns the last.
 
 ## Soft deletes
 
@@ -113,9 +114,20 @@ gone rather than hidden.
 
 ## Money
 
-`decimal(10,2)` columns with `decimal:2` casts, `decimal(8,2)` for weights.
-Prices are stored gross; `products.vat_rate` is per-product and snapshotted
-onto order items. Arithmetic uses `bcmath`, never float.
+`decimal(10,2)` columns with `decimal:2` casts. Prices are stored gross;
+`products.vat_rate` is per-product and snapshotted onto order items.
+Arithmetic goes through `App\Support\Money`, never raw `bc*` calls or float —
+`explanation/money.md`.
+
+Weight and dimensions are not money and are not decimal: `weight_g` and the
+three `*_mm` columns are unsigned integers (whole grams, whole millimetres),
+with a separate `*_display_unit` enum column recording only how the panel
+shows the number back — see `schema/fixture-format.md`'s field notes.
+
+`carriers.cod_fee` is a BG cash-on-delivery handling surcharge — it lives on
+the carrier because Econt and Speedy tariff it differently, not on `products`
+or `orders`; not yet folded into an order total since carrier selection
+(`CalculateDeliveryPrice`, slice 8) isn't built.
 
 ## Enum columns
 
