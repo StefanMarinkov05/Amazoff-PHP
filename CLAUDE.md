@@ -33,8 +33,8 @@ in agreement: if a rule here changes, change it there too.
   in this file or the docs points here. Its implementation-standards table
   at the bottom is the part that goes stale fastest and is worth
   re-reading even mid-session.
-- **[`docs/adr/`](docs/adr/)** — one decision, one file. Thirteen so far
-  (`0001`–`0013`). The *decision* — the choice made and the reasoning
+- **[`docs/adr/`](docs/adr/)** — one decision, one file. Fourteen so far
+  (`0001`–`0014`). The *decision* — the choice made and the reasoning
   behind it — is frozen once accepted: a changed mind gets a new ADR
   marked `Superseded by ADR-XXXX`, never a rewrite of the old one. Purely
   additive or subtractive housekeeping that doesn't touch the decision
@@ -44,8 +44,8 @@ in agreement: if a rule here changes, change it there too.
 - **[`docs/explanation/`](docs/explanation/)** — how the system fits
   together *today*, updated as it changes. `concurrency-and-locking.md`,
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
-  `db-schema-design.md`, `inventory.md`, `product-variability.md`,
-  `tech-stack-overview.md`.
+  `storefront-pages.md`, `db-schema-design.md`, `inventory.md`,
+  `product-variability.md`, `tech-stack-overview.md`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
@@ -82,8 +82,11 @@ in agreement: if a rule here changes, change it there too.
   per class, single `handle()`, grouped by the aggregate the write belongs
   to, not by the caller. `docs/reference/actions.md` is the current,
   complete list; don't infer what exists from memory or from this file.
-- Controllers and Livewire components are thin: validate → call Action →
-  respond.
+- Controllers and Livewire components are thin **on the write path**:
+  validate → call Action → respond. Reads are the component's own business —
+  a storefront page queries Eloquent directly rather than through an Action,
+  because a read has no invariant for an Action to own. See ADR-0014, and
+  `docs/explanation/storefront-pages.md` for the shape a page takes.
 - Filament resources call the same Actions as the storefront wherever a rule
   exists — this is what keeps two developers from building two subtly
   different versions of the same business rule. A rule exists when a write
