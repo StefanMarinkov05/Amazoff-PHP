@@ -1,7 +1,23 @@
 @import 'tailwindcss';
 
+/*
+ * Sources are declared explicitly because automatic detection does not work
+ * here: Tailwind anchors its scan at the git root, `.git` lives one level
+ * above `online-store/`, and the container mounts only `online-store/`. With
+ * no git root visible the scan collapses to almost nothing.
+ *
+ * The symptom is nasty because it is partial rather than total — a class
+ * already present in the compiled-view cache keeps working while a newly
+ * added one silently does not, so `grid-cols-2` renders and
+ * `lg:grid-cols-3` beside it in the same attribute does not. Clearing the
+ * view cache then breaks classes that worked a minute earlier.
+ *
+ * `../views` is the fix: scan the Blade source itself, not the compiled
+ * output of whichever pages happen to have been rendered.
+ */
+@source '../views/**/*.blade.php';
+@source '../../app/Livewire/**/*.php';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
