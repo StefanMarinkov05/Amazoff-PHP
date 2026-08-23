@@ -24,7 +24,7 @@ others.
 ### Fixed value sets are backed enums
 
 Every column with a fixed set of allowed values is a MySQL `enum` column with a
-matching backed enum in `App\Enums` — twelve enums covering all 19 such
+matching backed enum in `App\Enums` — 12 enums covering all 19 such
 columns. The enum is the source of truth in application code: models cast to
 it, factories draw from `cases()`, and the fixture validator checks membership
 against it rather than restating the list.
@@ -41,7 +41,7 @@ see ADR-0004.
 
 ### Variability through attributes and values, not columns
 
-Four tables carry it:
+4 tables carry it:
 
 - `attributes` — the axis a product can vary along: Size, Colour, Storage.
   Carries `input_type` for how its values render and `is_filterable` for
@@ -63,8 +63,8 @@ with Hard and Soft values; nothing else moves.
 `product_variations` carries a quantity column. This resolves the §6/§7/§20
 conflict in favour of §20: one owner, one number.
 
-It follows that every sellable product has at least one variation, including
-products with nothing to vary. A book with a single edition still gets one
+It follows that every sellable product has at least 1 variation, including
+products with nothing to vary. A book with a single edition still gets 1
 variation row, because that row is where its stock lives.
 
 ### Variation price is nullable and inherits
@@ -106,7 +106,7 @@ them would mean every display-only fact entering the filter panel.
 ## Consequences
 
 + New product categories need no migration. The catalogue holds electronics,
-  clothing, and books through the same four tables.
+  clothing, and books through the same 4 tables.
 + Filtering is uniform: one query shape covers every attribute rather than one
   per category.
 + Stock has exactly one owner, so no reconciliation between two quantity
@@ -118,7 +118,7 @@ them would mean every display-only fact entering the filter panel.
   adding `UNIQUE(attribute_id, product_id)` and
   `UNIQUE(attribute_value_id, product_variation_id)`.
 − Nothing at the database level guarantees that a variation's set of attribute
-  values is complete, or that two variations of one product do not carry
+  values is complete, or that 2 variations of 1 product do not carry
   identical sets. Both are application invariants and need enforcing in the
   Action that creates variations.
 − Filtering traverses two pivots. Index choice on both matters and has not been

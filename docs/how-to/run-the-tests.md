@@ -212,7 +212,7 @@ the report — measured: it exhausted 128M building `coverage.php` after all
 418 tests had already passed. `docker/php/conf.d/cli-memory.ini` raises it to
 1G; nothing extra to pass on the command line.
 
-**57.5%** overall, full suite, measured 2026-08-17. `reference/coverage.md`
+**55.9%** overall, full suite, measured 2026-08-23. `reference/coverage.md`
 has the per-class breakdown, including which uncovered lines are proven by a
 concurrency test PCOV can't see and which are genuinely untested.
 

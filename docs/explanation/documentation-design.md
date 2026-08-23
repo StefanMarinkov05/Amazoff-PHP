@@ -91,6 +91,21 @@ Plain and declarative. No rhetorical build-up, no persuasive framing, no
 instructions addressed to the reader ("you should decide X"). Documents
 state what is true and what is undecided; they do not assign work.
 
+Numbers as digits, not words — `15 Resources`, not `fifteen Resources`. A
+count is a fact a reader (or an agent) scans for, and a spelled-out number
+does not match a `grep` for the digit the way the actual count in the code
+does. Applies to code comments too, not just `docs/`.
+
+Not every spelled-out number is a count, though — "one" and "two" are
+articles as often as they are quantities: "one table, no invariant" states a
+fact about cardinality; "the one Action that opens no transaction" means "the
+single Action," and digitizing it reads as a typo. A mechanical find-and-
+replace on a noun that follows a number cannot tell the two apart — verified
+the hard way applying this rule project-wide, which corrupted roughly twenty
+sentences from "one Action owns X" into "1 Action owns X" and needed a second
+pass, by eye, to fix. Read the sentence; digitize only where a reader would
+naturally write the numeral.
+
 ## What is not in `docs/`
 
 `CLAUDE.md` (architecture rules), `CONTRIBUTING.md` (process),

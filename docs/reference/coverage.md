@@ -1,16 +1,21 @@
 # Test coverage — PCOV, full suite
 
-Facts as of 2026-08-17. PCOV only — Xdebug was benchmarked against it and
+Facts as of 2026-08-23. PCOV only — Xdebug was benchmarked against it and
 removed; ADR-0009 has the numbers and the reasoning for keeping PCOV. This
 page is line coverage, not scenario coverage: `write-rules/product.md`,
 `write-rules/cart.md`, and `write-rules/concurrency.md` are what actually
 prove a behaviour; this page is where a line ran at all.
 
-**Overall: ~60%** (not remeasured this session — regenerating `--coverage`
-against the full suite, concurrency included, takes long enough that it
-wasn't rerun here; the per-class rows below are current, the header
-percentage is the last measured figure). 513 tests, 1348 assertions, full
-suite including `tests/Concurrency/`, confirmed clean on 2026-08-17.
+**Overall: 55.9%.** 622 tests, 1636 assertions, full suite including
+`tests/Concurrency/`, confirmed clean — zero failures — on 2026-08-23,
+1108s. Down from 57.5% on 2026-08-17 not because anything regressed, but
+because the denominator grew faster than covered lines did: the variation
+image gallery (`SetVariationImages` and `ResolveVariationImage`, both at
+100%) added Filament admin surface — `ProductVariationsRelationManager`'s
+gallery modal, `ProductImagesRelationManager`'s new file-validation rules —
+that pulls the `Filament/Resources/*` rows further toward 0%, the same way
+every prior admin-only screen already does. See "Reading a number below
+100%" below for why that is expected, not a gap.
 
 CI does not collect coverage at all (ADR-0010) — sharding `test` into
 parallel jobs made a single combined number require a merge step for a
@@ -109,7 +114,9 @@ single-process trick.
 | `RemoveProductImage` | 100.0% | — | — |
 | `RemoveProductVariation` | 100.0% | — | — |
 | `SetMainProductImage` | 100.0% | — | — |
+| `SetVariationImages` | 100.0% | — | — |
 | `UpdateProduct` | 100.0% | — | — |
+| `DeleteProductCategory` | 100.0% | — | — |
 
 ## Inventory
 
@@ -127,6 +134,7 @@ single-process trick.
 | `CalculateCouponDiscount` | 100.0% |
 | `CouponDiscountLine` | 100.0% |
 | `PermissionCatalogue` | 100.0% |
+| `ResolveVariationImage` | 91.7% — line 66, `$variation->product === null`. `product_id` is NOT NULL on `product_variations`, so the schema itself refuses the state this branch guards against; genuinely untestable without deliberate corruption, not a gap |
 | `ResolveVariationPrice` | 100.0% |
 
 ## Exceptions

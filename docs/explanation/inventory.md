@@ -13,7 +13,7 @@ Stock hangs off `product_variations`, not `products`. The sellable thing is
 "Red, size M", not "T-shirt", so a count on the product would have no single
 answer. `inventories` carries `UNIQUE(product_variation_id)` to make the
 one-to-one binding structural rather than conventional — ADR-0002 records why
-every sellable product has at least one variation even when there is nothing
+every sellable product has at least 1 variation even when there is nothing
 to vary.
 
 ## Five counters and one derivation
@@ -85,7 +85,7 @@ nullability runs all the way up through the Actions.
 
 The eight movement types are fixed by §20 and live in
 `App\Enums\InventoryMovementType`. They classify rather than transition, so
-the enum carries no transition matrix; ADR-0004 explains which of the twelve
+the enum carries no transition matrix; ADR-0004 explains which of the 12
 enums do.
 
 ## What exists
@@ -118,6 +118,6 @@ damaging reserved stock would push `reserved_quantity` above
 respects, and silently allowing it would leave a reservation pointing at
 stock that no longer exists. A damaged *return* is `RestockReturn` followed
 by a separate `RecordDamage` call once inspection finds it unsellable — two
-ledger rows, not a branch inside one Action (ADR-0011). No admin surface
+ledger rows, not a branch inside 1 Action (ADR-0011). No admin surface
 triggers either `RecordDamage` or the manual-correction movement yet; both
 are reachable only from tests until one does.

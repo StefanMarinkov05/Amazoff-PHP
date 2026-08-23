@@ -131,7 +131,7 @@ tool" judgment:
   until all finish. Nothing aligns *when* each task begins running its
   closure — no analog to `race:worker`'s `--start-at` wall-clock instant,
   which exists specifically because sequential-looking starts turn a race
-  into two ordered calls that pass with and without the lock under test.
+  into 2 ordered calls that pass with and without the lock under test.
 - **No rendezvous.** Nothing between "started" and "finished" — no hook
   two tasks of unequal internal length could use to align their *arrival*
   at the operation under test, which two of twelve race tests need on top

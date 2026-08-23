@@ -107,7 +107,7 @@ calls pass a retry count) it rolls back and rethrows the original
 `QueryException` — no automatic retry, since Laravel only retries when
 `DB::transaction($callback, $attempts)` is called with `$attempts > 1`, which
 nothing here does. Only when the failure happens on a **nested** transaction —
-one Action's `DB::transaction()` running as a savepoint inside another's, per
+One Action's `DB::transaction()` running as a savepoint inside another's, per
 ADR-0007's composition — does Laravel instead throw a distinct
 `Illuminate\Database\DeadlockException` (still a `PDOException`, not a
 `QueryException`) so the outer transaction knows the savepoint, not the whole
@@ -142,7 +142,7 @@ increment()          B evaluates 1 + 1 = 2 at write time
 
 read-modify-write    A writes reserved = 1
                      B writes reserved = 1, from its own stale read of 0
-                     → reserved = 1 for two orders. The constraint is
+                     → reserved = 1 for 2 orders. The constraint is
                        satisfied. The oversell is silent.
 ```
 
@@ -206,9 +206,9 @@ Stock is row contention inside a single request, and the lock above is the
 right tool for it. Two other shapes appear in the catalogue, and applying the
 same tool to either produces something wrong. ADR-0008 records the choice.
 
-### An invariant spanning two tables
+### An invariant spanning 2 tables
 
-§6–7 requires every sellable product to have at least one variation.
+§6–7 requires every sellable product to have at least 1 variation.
 `UpdateProduct` publishes a product after counting its variations;
 `RemoveProductVariation` deletes a variation after checking the product is not
 available. Both are check-then-act, and run concurrently they both read the
@@ -272,7 +272,7 @@ the same reason stock is not held from the moment a customer opens checkout.
 
 `CreateOrder` reserves every line of a multi-item order, and
 `TransitionOrderStatus` locks `inventories` again for each line on
-`=> Cancelled`/`=> Shipped`/`=> Returned`. Two orders — or two transitions —
+`=> Cancelled`/`=> Shipped`/`=> Returned`. 2 orders — or 2 transitions —
 locking the same pair of variations in opposite orders deadlock:
 
 ```
@@ -372,7 +372,7 @@ The fix is a second, tighter synchronization layered on top of the
 wall-clock one: each worker writes its own ready-flag file once it reaches
 the barrier, then polls for the other's flag before calling its Action, so
 neither proceeds until both have arrived. This removes process-boot jitter
-specifically — it cannot equalise the two Actions' own internal work, only
+specifically — it cannot equalise the 2 Actions' own internal work, only
 the time it took each process to get to the starting line.
 
 In code this is `'rendezvous' => '<name>'` on **both** jobs passed to
@@ -417,7 +417,7 @@ differs per mechanism. Ask what catches the failure if the mechanism is gone:
 Stock is the first row: `chk_inventories_reserved_not_above_current` produces
 one winner either way, so counting winners proves nothing and
 `InsufficientStockException` against `QueryException` is the signal. The
-product invariant is the second: MySQL cannot express it across two tables, so
+product invariant is the second: MySQL cannot express it across 2 tables, so
 without the lock both processes genuinely succeed. Promoting a main image is
 the third: it reads nothing to decide anything, so there is no window and no
 mechanism to remove.
@@ -430,7 +430,7 @@ None of the three rows above fit two identical concurrent requests against an
 Action whose repeat is a designed no-op rather than a refusal.
 `TransitionOrderStatus` is the case: `$from === $to` returns the order
 unchanged rather than throwing, because a double-submitted status change is
-not an error. Racing two identical transitions against one order therefore
+not an error. Racing two identical transitions against 1 order therefore
 does not produce a winner and a refused loser — it produces **two successes**,
 because the second call's lock-serialized re-read finds the order already at
 its target and takes the no-op path deliberately, not by accident.

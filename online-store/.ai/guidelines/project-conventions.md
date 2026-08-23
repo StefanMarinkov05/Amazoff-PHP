@@ -92,6 +92,17 @@ follows is the short version.
 - Verify against a running app, not by reading code. `php -l` proves syntax,
   Larastan proves types, Pest proves the paths it covers — none of them
   executes the behaviour.
+- A test earns its place by proving something ours, not the framework's.
+  `ProductResourceTest.php`'s `'refuses a product with no variations'` uses
+  Filament's own `Livewire::test()->fillForm()->assertHasFormErrors()`
+  machinery, but what it proves is a domain rule
+  (`ProductRequiresVariationException`'s territory), not the form's
+  plumbing. A test reasserting that `->acceptedFileTypes()` rejects a bad
+  MIME type, or that `Illuminate\Validation\Rules\Dimensions` rejects a
+  too-small image, proves Filament and Laravel work — already proven
+  upstream — for a flaky, fixture-heavy cost. Before writing a test, name
+  what it proves and check whether that thing is ours. Root
+  `CLAUDE.md`'s "Working style" has this in full.
 
 ## Working style
 

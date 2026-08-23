@@ -45,7 +45,7 @@ the rule and the boolean derives from it.
 These methods are deliberately role-blind. No role name appears in `App\Enums`.
 
 A matrix goes on an enum only when illegal moves exist **and** some actor can
-attempt them. That is four of the twelve enums. The other eight classify rather
+attempt them. That is four of the 12 enums. The other eight classify rather
 than change — an inventory movement type labels a ledger row, it does not
 become a different type later — except `NewsletterStatus`, which is a lifecycle
 whose every move is legal, so a matrix would permit everything and assert
