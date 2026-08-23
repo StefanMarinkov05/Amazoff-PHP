@@ -45,7 +45,7 @@ in agreement: if a rule here changes, change it there too.
   together *today*, updated as it changes. `concurrency-and-locking.md`,
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
   `db-schema-design.md`, `inventory.md`, `product-variability.md`,
-  `tech-stack-overview.md`.
+  `money.md`, `tech-stack-overview.md`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
@@ -54,11 +54,16 @@ in agreement: if a rule here changes, change it there too.
   `coupon.md`, `concurrency.md`) is the expected-behaviour page
   per aggregate — refusals, races, what a change does to state that
   already exists; `console-commands.md` lists every custom Artisan command
-  and what invokes it; `schema.md`, `permissions.md`, `coverage.md`,
-  `fixture-format.md`, `tech-stack.md`, and
+  and what invokes it; `permissions.md`, `coverage.md`, and `tech-stack.md`
+  are the rest.
+
+  `schema/` is everything about the shape of the data: `schema.md` (the
+  tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and
+  `article-fixture-format.md` (the two seed-document shapes),
   `product-catalogue-worked-example.md` (one product's rows, table by table,
   for when the product/variation/attribute/image relationships need to be
-  seen rather than reasoned about) are the rest.
+  seen rather than reasoned about), and `open-schema-questions.md` (deferred
+  schema decisions, each with what would trigger revisiting it).
 - **[`docs/how-to/troubleshooting.md`](docs/how-to/troubleshooting.md)** —
   check this **before** proposing a fix for any error. Several of this
   project's errors look like ordinary bugs and are not — a green Larastan
@@ -106,8 +111,9 @@ in agreement: if a rule here changes, change it there too.
   Exception: roles. Provided by `spatie/laravel-permission`, not an enum —
   §3.5 requires them editable at runtime. See
   `docs/adr/0001-tech-stack-selection.md`.
-- Money: `decimal(10,2)` columns, `decimal:2` casts, `bcmath` arithmetic.
-  Never float.
+- Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes through
+  `App\Support\Money`, never raw `bc*` calls or float. See
+  `docs/explanation/money.md`.
 - Contested state (stock reservation, coupon usage caps): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. The transaction alone does not
