@@ -6,7 +6,189 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Fixed
+
+- `AddProductVariation`/`RemoveProductVariation` composing `SetDefaultVariation`
+  with `$actor` passed through, rather than `null`. `ProductVariationPolicy`
+  gives `create`/`update`/`delete` three separate permissions (unlike
+  `ProductImagePolicy`, where they collapse to one `update_product`), so an
+  actor holding only `create_product_variation` could create a variation but
+  then fail `AuthorizationException` on the automatic first-becomes-default
+  promotion, which demands `update_product_variation` — a permission the
+  create path never claimed to need. `RecordInventoryMovement`'s own
+  docblock states the precedent this should have followed from the start:
+  "authorizes nothing — the caller has already authorized what this
+  records." Caught by the full Feature suite, not by either Action's own
+  test file in isolation — both passed alone because their fixtures granted
+  every relevant permission together. Regression test added:
+  `AddProductVariationTest`'s "allows an actor holding create_product_variation"
+  now asserts the promotion, not just that the create succeeded.
+- `ProductResourceTest`'s `'creates a product with a stock row through the
+  panel'` — the `Repeater::make('variations')` item in `ProductForm` never
+  reached `weight_display_unit`'s own `->default()`, because filling a
+  repeater item via Livewire replaces it wholesale rather than merging over
+  per-field defaults; a live browser submit always carries the Select's
+  value, so the test's omission was under-specifying the form, not a defect
+  in it. Same root class of bug as the `is_default` one above: passing
+  green in isolation, caught only once the CLAUDE.md-mandated post-change
+  gate ran the whole suite.
+
 ### Added
+
+- `DemoCustomerSeeder`, `DemoCartSeeder`, `DemoCouponSeeder`,
+  `DemoWishlistSeeder` — the four remaining pieces of the demo dataset, none
+  of them fixtures. `fixture-format.md` previously documented a four-array
+  top-level JSON shape (`users`/`products`/`coupons`/`carts`) that
+  `FixtureLoader` never implemented — `loadProduct()` is its only entry
+  point, and a file in that shape failed validation with
+  `is missing required key [name]` before a row could load. Rather than
+  build three more loaders for data that gains nothing from being hand
+  authored, these seeders produce it directly: `DemoCustomerSeeder` (100
+  factory customers), `DemoCartSeeder` (carts for ~35% of them plus a few
+  guest carts, through `TouchCartExpiry` so `expires_at` follows the same
+  rule a real cart write does — `null` for a registered customer, `now() +
+  guest_ttl_hours` for a guest), `DemoCouponSeeder` (one coupon per required
+  state), `DemoWishlistSeeder` (wishlists for ~20% of customers). Doc
+  rewritten to match; see its own "What a fixture file actually contains"
+  section.
+
+  One coverage state could not be produced: a coupon at
+  `total_usage_limit` **reached**. `coupons.times_used` does not exist —
+  `RedeemCoupon` counts real `coupon_redemptions` rows instead
+  (`reference/actions.md`) — and a redemption needs a real `order_id`
+  (`NOT NULL`, cascade-on-delete). Orders are explicitly 0-scope for this
+  seed, so faking one just to exhaust a coupon would fabricate order data
+  nothing else in the set produces. `ONEUSEONLY` (`total_usage_limit: 1`,
+  never redeemed) covers the narrow-limit path only; "reached" belongs to
+  whichever session seeds orders.
+- `App\Support\ResolveVariationMeasurements` — the weight/dimension
+  counterpart to `ResolveVariationPrice`, and the fix for a semantic that
+  was documented without being implemented: the new nullable
+  `product_variations` measurement columns were specified as
+  "null inherits the product's" with nothing anywhere performing that
+  inheritance, so `$variation->weight_g` returned null for the common
+  inheriting variation. A null weight reaching a courier is a zero-weight
+  parcel rather than an error, which is why this is a resolver and not a
+  convention.
+
+  Inheritance is **per axis**, correcting an "all three or none" rule
+  written into three docs a day earlier. That rule forbade the most
+  realistic override there is — a hardcover edition is the same page size
+  as its paperback sibling and only thicker — and buying nothing for it,
+  since per-axis fallback is exactly what `price` already does. `isShippable()`
+  is the one all-or-nothing check, because a courier quote needs the whole
+  set even though each figure resolves on its own. 5 tests, all observed
+  failing against a broken fallback first.
+- `carriers.cod_fee` — BG couriers charge a separate cash-on-delivery
+  handling fee, priced per carrier (Econt and Speedy differ), so it lives on
+  `carriers` rather than `products` or `orders`. Not yet folded into an
+  order total: `CreateOrder` hardcodes `shipping = '0.00'` until carrier
+  selection (`CalculateDeliveryPrice`, slice 8) exists to read it from.
+  `CarrierSeeder` seeds both at placeholder figures, not a published tariff.
+- `App\Support\Money` — a readonly decimal value object, and the only place
+  `bc*` is now called. Every money column is `decimal(n,2)`, so `SCALE` is
+  internal and a caller never picks one: `bcadd($a, $b)` without a scale
+  defaults to 0 and turns 189.90 into 189, which was reachable at any of the
+  30 call sites this replaces across 6 files.
+
+  Two methods carry the calculations whose precision is not obvious.
+  `percentageOf()` is VAT extraction — prices are stored gross, so VAT is
+  `amount * rate / (100 + rate)`, not `/ 100`, and getting it backwards
+  overstates VAT on every line without failing. `shareOf()` is proportional
+  allocation for splitting a discount across matched lines. Both run their
+  intermediate at double scale and round once, because rounding each step
+  compounds across a multi-line cart.
+
+  Deliberately **not** currency-aware: `App\Enums\Currency` exists and orders
+  and payments snapshot it, but the catalogue is single-currency and a
+  currency field here would imply mixed-currency arithmetic is guarded when
+  it is not. `reference/schema/open-schema-questions.md` #2 has what real
+  multi-currency needs; the guard belongs here when it arrives.
+
+  20 unit tests, no database. `CalculateCartTotals` (15) and
+  `CalculateCouponDiscount` (17) verified unchanged after migration — the
+  latter includes the proportional-allocation cases.
+- `App\Filament\Concerns\ConvertsMeasurementInput`, shared by `CreateProduct`
+  and `EditProduct`. `ProductForm` now asks for weight and the three
+  dimensions in a chosen unit via `*_input` fields marked `dehydrated(false)`;
+  this converts them to the canonical `weight_g` and `*_mm` columns on save.
+  Shared rather than duplicated because a conversion that disagreed between
+  the two pages would store different numbers for the same typed input.
+- `product_variations.length_mm`/`width_mm`/`height_mm`, mirroring `price`'s
+  existing null-inherits-the-product pattern: `null` on a variation means
+  "same as the product", set only when a variation genuinely differs (a
+  book's hardcover edition weighing more than its paperback sibling). No
+  per-variation `dimension_display_unit` — a variation's dimensions are
+  entered and shown in the *product's* display unit, never its own, since
+  splitting the display convention across siblings buys nothing. Weight
+  keeps its own per-variation `weight_display_unit`, because weight (unlike
+  the display convention for dimensions) can genuinely differ enough between
+  variations to warrant it.
+- `product_variations.is_default` plus `App\Actions\Catalogue\SetDefaultVariation`,
+  mirroring `SetMainProductImage`/`is_main` exactly: one `UPDATE ... SET
+  is_default = (id = N)` statement, no lock needed since it's a blind write
+  rather than a check-then-act. `AddProductVariation` auto-promotes a
+  product's first variation to default the same way `AddProductImage`
+  promotes a product's first image to main, and accepts `is_default: true`
+  on a later variation to override it. `RemoveProductVariation` hands the
+  flag to a live sibling if the removed variation held it, the same
+  successor-promotion `RemoveProductImage` does for `is_main` — a product
+  never ends up with variations and no default.
+- `ProductVariationsRelationManager` — table gained an `is_default` badge
+  column and a "Make default" row action (star icon, hidden once a
+  variation is already default); the create/edit form gained weight and
+  dimension inputs in the product's display unit, converted to canonical
+  columns via `ConvertsMeasurementInput` before the Action runs.
+
+### Removed
+
+- `products.weight`, `products.dimensions`, `product_variations.weight` —
+  the pre-structured free-text/decimal columns these superseded weeks ago,
+  finally dropped now that every remaining reference to them (models,
+  factories, fixtures) was confirmed migrated to `weight_g`/`*_mm`. Kept
+  around "for one day" past the original migration pending that
+  verification; the day came.
+
+- The store is **Amazoff**. `APP_NAME` set in `.env` and `.env.example`;
+  `logo.png`/`logo2.png` and `favicon.ico`/`favicon2.ico` swapped so the
+  chosen pair is the one the app serves. `logo3.png` and `favicon3.ico` are
+  untouched alternates.
+- `App\Enums\Currency` (EUR, BGN) with `symbol()` and `minorUnitDigits()`.
+  An enum rather than a lookup table, and not the roles exception: adding a
+  currency needs a rounding rule, a symbol and a decimal count, all of which
+  are code. `minorUnitDigits()` states the assumption that 2 is not universal
+  — JPY is 0, and `decimal:2` arithmetic against a zero-decimal currency
+  silently multiplies by 100. Nothing depends on it yet.
+- `App\Enums\LengthUnit` and `App\Enums\WeightUnit`, with conversion in
+  both directions, plus `2026_08_23_120000_add_structured_dimensions_and_weight`:
+  `products.length_mm`/`width_mm`/`height_mm`/`dimension_unit`, and
+  `weight_g`/`weight_unit` on both `products` and `product_variations`.
+  Storage is canonical (whole millimetres, whole grams) with the entry unit
+  stored beside it so the panel shows back what was typed; default cm and kg.
+
+  Replaces free-text `dimensions` and `decimal(8,2)` kilogram `weight`.
+  `open-schema-questions.md` #4 argued it: a courier prices on volumetric
+  weight, needing 3 numbers, and parsing `"24 x 8 x 21 cm"` plus the
+  `24x8x21cm` and `240 x 80 x 210 mm` variants a generator will produce is a
+  bug found at API-call time rather than data entry. Verified: 5 g now stores
+  as 5 g, where `decimal(8,2)` kg rounded it to 10 g.
+
+  The superseded columns are **kept, not dropped** — dropping a merged column
+  alongside its replacement leaves no way to verify a backfill. No backfill
+  was needed (no production data, fixtures not yet authored), which is why
+  this was cheap now. `open-schema-questions.md` #3 tracks the removal.
+- `App\Actions\Cart\TouchCartExpiry` and `config/cart.php` — the missing
+  half of `ExpireCarts`, which had nothing to act on because nothing ever
+  wrote `carts.expires_at`. Guest carts expire 24 hours after the last write;
+  a registered customer's cart never expires and has the column cleared.
+  Called on every cart write so the window slides.
+
+  `MergeGuestCart` now calls it inside its transaction, and that is the
+  load-bearing case: without it a merged cart keeps the guest expiry and
+  `carts:expire` deletes a registered customer's cart a day later.
+- `docs/reference/schema/open-schema-questions.md` — deferred schema decisions, each
+  with today's state, options with costs, a recommendation, and the trigger
+  that would force revisiting. Linked from `CLAUDE.md`'s router.
 
 - File upload validation on both image fields in the panel — product
   images (`ProductImagesRelationManager`) and article images (`ArticleForm`)
@@ -601,6 +783,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- `weight_unit` -> `weight_display_unit` and `dimension_unit` ->
+  `dimension_display_unit`. The old names claimed something false: `weight_g`
+  is **always** grams, and `weight_unit` beside it reads as "the unit this
+  value is in", which would make `weight_g = 1600, weight_unit = kg` mean
+  1600 kg. It means 1600 grams, displayed as 1.6 kg. Storage is canonical,
+  display is remembered, and the names now say so. Free to rename: nothing
+  outside the model declarations read either column.
+- `ProductForm` no longer edits the superseded `weight` decimal or the
+  free-text `dimensions`. Those columns still exist —
+  `reference/schema/open-schema-questions.md` #3 tracks their removal — but
+  the panel and the fixture format now agree on which columns matter, which
+  they did not for the few hours between the two changes.
+- `products.is_available` is confirmed **not** a derived OR of its variations,
+  and `write-rules/product.md` now says so. A product may be available while
+  every variation is not: §6 gives the merchandiser a switch, and
+  visible-but-unbuyable is how a shop signals "coming back". The consequence
+  a storefront query must carry is recorded there — an "in stock" filter needs
+  the product flag **and** a `whereHas` on variation availability, because the
+  flag alone shows products with nothing to buy.
+- Review eligibility needed no change: `CreateProductReview` already requires
+  a delivered order line for the product, `ProductReviewPolicy::create()`
+  returns false outright, and `ProductReviewResource` has no create page — so
+  the Action is the only path and it already enforces §24. Recorded rather
+  than re-implemented.
 - **Dropped `product_variations.image_id`**, the single optional pointer at one
   of the product's images that the gallery replaces. Two columns answering one
   question forces a resolver to invent a precedence rule nothing enforces on
