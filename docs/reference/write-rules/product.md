@@ -22,7 +22,7 @@ current behaviour is Filament's defaults, not this page.
 ## Can a product exist with zero variations?
 
 **Yes, and only while it is unavailable.** §6–7 words the invariant around
-sellability: *every sellable product has at least one variation*. A draft with
+sellability: *every sellable product has at least 1 variation*. A draft with
 nothing in it yet is a half-entered record, not a broken one.
 
 Cart lines are never a reason to refuse an erase. A cart is transient,
@@ -87,7 +87,7 @@ reverse order is error 1451 — which is what Filament's default
 
 ## Two actors at once
 
-### Editing different fields of one product
+### Editing different fields of 1 product
 
 The outcome depends on **what the form submits**, not on what the employee
 changed. All three rows are measured in
@@ -137,10 +137,10 @@ outcome.
 
 | First to commit | Second gets |
 |---|---|
-| publish | removal refused — available product, one variation |
+| publish | removal refused — available product, 1 variation |
 | removal | publish refused — zero variations |
 
-Without the lock **both commit**, because no `CHECK` constraint can span two
+Without the lock **both commit**, because no `CHECK` constraint can span 2
 tables — that is why `tests/Concurrency/PublishProductConcurrencyTest.php`
 (soft delete) and `tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php`
 (permanent) assert the winner count where the stock race test asserts the
@@ -151,7 +151,7 @@ failure type.
 Safe in both orders, and `AddProductVariation` takes **no** product lock —
 deliberately. Adding can only move the invariant in the safe direction, so
 there is no interleaving where it causes a breach. If the removal's snapshot
-predates the add, it counts one variation and refuses; that is conservative,
+predates the add, it counts 1 variation and refuses; that is conservative,
 not wrong.
 
 ### Reserving stock while the variation is removed
@@ -179,7 +179,7 @@ Without the lock the loser instead hits
 `chk_inventories_reserved_quantity_non_negative` and gets a `QueryException`.
 `tests/Concurrency/ReleaseStockConcurrencyTest.php`.
 
-### Two products created with the same SKU or slug
+### 2 products created with the same SKU or slug
 
 `UNIQUE` constraints decide it. One succeeds, the other raises
 `QueryException` and the whole `CreateProduct` transaction rolls back —
@@ -189,7 +189,7 @@ including variations and stock rows already written for it. The loser sees a
 ## Images
 
 A product with images has **exactly one main image**. The database does not
-enforce it — verified: it accepts two `is_main = 1` rows for one product — so
+enforce it — verified: it accepts two `is_main = 1` rows for 1 product — so
 the rule lives in `SetMainProductImage`, expressed as one `UPDATE`.
 
 | Operation | Outcome |
@@ -200,14 +200,22 @@ the rule lives in `SetMainProductImage`, expressed as one `UPDATE`.
 | Promotion | siblings demoted in the same statement |
 | Main image removed, others remain | the lowest `sort_order` succeeds it |
 | Last image removed | the product has no main image, which is legal |
-| Removing an image a variation points at | refused — `ProductImageInUseException` |
+| Removing an image variations are showing | allowed; it leaves every gallery it was in |
 | Two promotions at once | both succeed; the later one wins; one flag survives |
 
-A soft-deleted variation still counts as pointing at an image: it keeps the
-foreign key, so it still causes error 1451.
+Removing an image is no longer refused. Until ADR-0013,
+`product_variations.image_id` was a `NO ACTION` foreign key, so a referenced
+image produced error 1451 and `RemoveProductImage` converted it into
+`ProductImageInUseException` — a soft-deleted variation counted too, since it
+kept the key. That column and that exception are both gone; the variation
+gallery that replaced them cascades.
 
 Images are not soft-deleted. The file on disk is deleted after the transaction
-commits, so a refused removal leaves both the row and the file.
+commits — the ordering that matters, since a row intact and a file gone is the
+one combination nothing can repair.
+
+A variation's *own* gallery, which images it holds and in what order, is a
+separate aggregate with its own page: `product-variation-images.md`.
 
 ## Specifications
 

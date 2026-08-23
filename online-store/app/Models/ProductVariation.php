@@ -22,7 +22,6 @@ class ProductVariation extends Model
      */
     protected $fillable = [
         'product_id',
-        'image_id',
         'sku',
         'price',
         'discount_price',
@@ -40,7 +39,6 @@ class ProductVariation extends Model
         return [
             'id' => 'integer',
             'product_id' => 'integer',
-            'image_id' => 'integer',
             'price' => 'decimal:2',
             'discount_price' => 'decimal:2',
             'weight' => 'decimal:2',
@@ -58,13 +56,28 @@ class ProductVariation extends Model
         return $this->belongsToMany(AttributeValue::class);
     }
 
+    /**
+     * The variation's own gallery, ordered.
+     *
+     * Shares `product_images` with the product rather than owning rows of its
+     * own, so one photograph can represent several variations at a different
+     * position in each. `SetVariationImages` owns the whole ordered set;
+     * nothing else writes the pivot.
+     *
+     * The `id` tie-break is load-bearing, not decoration: `position` carries
+     * no uniqueness constraint, so two rows may share a position and the order
+     * would otherwise be whatever InnoDB returned. ADR-0013.
+     */
+    public function images(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductImage::class)
+            ->withPivot('position')
+            ->orderByPivot('position')
+            ->orderBy('product_images.id');
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
-    }
-
-    public function image(): BelongsTo
-    {
-        return $this->belongsTo(ProductImage::class);
     }
 }

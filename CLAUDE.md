@@ -33,8 +33,8 @@ in agreement: if a rule here changes, change it there too.
   in this file or the docs points here. Its implementation-standards table
   at the bottom is the part that goes stale fastest and is worth
   re-reading even mid-session.
-- **[`docs/adr/`](docs/adr/)** — one decision, one file. Twelve so far
-  (`0001`–`0012`). The *decision* — the choice made and the reasoning
+- **[`docs/adr/`](docs/adr/)** — one decision, one file. Thirteen so far
+  (`0001`–`0013`). The *decision* — the choice made and the reasoning
   behind it — is frozen once accepted: a changed mind gets a new ADR
   marked `Superseded by ADR-XXXX`, never a rewrite of the old one. Purely
   additive or subtractive housekeeping that doesn't touch the decision
@@ -44,16 +44,21 @@ in agreement: if a rule here changes, change it there too.
 - **[`docs/explanation/`](docs/explanation/)** — how the system fits
   together *today*, updated as it changes. `concurrency-and-locking.md`,
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
-  `db-schema-design.md`, `inventory.md`, `tech-stack-overview.md`.
+  `db-schema-design.md`, `inventory.md`, `product-variability.md`,
+  `tech-stack-overview.md`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
   writes, who can call it, what it throws; `write-rules/` (`product.md`,
-  `cart.md`, `coupon.md`, `concurrency.md`) is the expected-behaviour page
+  `product-variation-images.md`, `product-category.md`, `cart.md`,
+  `coupon.md`, `concurrency.md`) is the expected-behaviour page
   per aggregate — refusals, races, what a change does to state that
   already exists; `console-commands.md` lists every custom Artisan command
   and what invokes it; `schema.md`, `permissions.md`, `coverage.md`,
-  `fixture-format.md`, `tech-stack.md` are the rest.
+  `fixture-format.md`, `tech-stack.md`, and
+  `product-catalogue-worked-example.md` (one product's rows, table by table,
+  for when the product/variation/attribute/image relationships need to be
+  seen rather than reasoned about) are the rest.
 - **[`docs/how-to/troubleshooting.md`](docs/how-to/troubleshooting.md)** —
   check this **before** proposing a fix for any error. Several of this
   project's errors look like ordinary bugs and are not — a green Larastan
@@ -82,7 +87,7 @@ in agreement: if a rule here changes, change it there too.
 - Filament resources call the same Actions as the storefront wherever a rule
   exists — this is what keeps two developers from building two subtly
   different versions of the same business rule. A rule exists when a write
-  spans more than one table or enforces an invariant the schema cannot
+  spans more than 1 table or enforces an invariant the schema cannot
   express: a product needs a variation and an inventory row, an order needs
   items and addresses, a status change needs a history row. Plain lookup
   tables (`Brand`, `Tag`, `Attribute`, `AttributeValue`, `ProductCategory`,
@@ -158,6 +163,23 @@ in agreement: if a rule here changes, change it there too.
   syntax, Larastan proves types, Pest proves the paths it covers — none of
   them executes the behaviour. `docs/how-to/troubleshooting.md`'s own
   cases are all green-static-check, wrong-behaviour bugs.
+- **A test earns its place by proving something ours, not the framework's.**
+  `ProductResourceTest.php`'s `'refuses a product with no variations'`
+  already draws this line correctly: it exercises Filament's own
+  `Livewire::test()->fillForm()->assertHasFormErrors()` machinery, but what
+  it *proves* is `ProductRequiresVariationException`'s territory — a domain
+  rule expressed through a form, not the form's plumbing. The same
+  reasoning that keeps a plain lookup table on default Filament CRUD
+  applies one layer down: a test reasserting that `->acceptedFileTypes()`
+  rejects a disallowed MIME type, or that `Illuminate\Validation\Rules
+  \Dimensions` rejects a too-small image, proves Filament and Laravel work,
+  which their own upstream suites already do — it costs a flaky,
+  fixture-heavy test for zero information gained. What *is* worth
+  confirming there is that the right constant reached the right method
+  (`ProductImage::MIN_WIDTH_PX` actually wired into the form) — Larastan
+  already does that, by refusing to compile a typo'd or wrongly-typed
+  reference. Before writing a test, name what it would prove and check
+  whether that thing is ours.
 - **Commits and pushes: do not, unless explicitly asked.** Commit messages
   are written by hand and reviewed as part of the project's implementation
   standards — never add a `Co-Authored-By` trailer, on this repo or any

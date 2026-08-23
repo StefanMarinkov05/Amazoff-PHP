@@ -108,13 +108,17 @@ it. The loader resolves the offset against `now()` at load time.
    uses plain CRUD; the loader does too — no invariant to protect).
 4. Resolve `attribute_values` slugs and attach the pivot rows.
 
-Images are the one exception to "everything goes through the Action":
-`AddProductVariation` takes `image_id` as a plain column, so the loader
-inserts the product's images directly first, builds a `key → id` map, then
-resolves each variation's `image_key` before calling the Action. This
-mirrors what `AddProductImage`/`SetMainProductImage` would do if the loader
-called them instead — a fixture-loading follow-up can switch to the real
-Actions once cascading `is_main` matters for seeded data.
+Images are the one exception to "everything goes through the Action": the
+loader inserts the product's images directly first and builds a `key → id`
+map. This mirrors what `AddProductImage`/`SetMainProductImage` would do if
+the loader called them instead — a fixture-loading follow-up can switch to
+the real Actions once cascading `is_main` matters for seeded data.
+
+A variation no longer carries an `image_key`. ADR-0013 dropped
+`product_variations.image_id`; a fixture giving a variation its own gallery
+resolves its image keys against the same map and calls `SetVariationImages`
+after `AddProductVariation`, since the pivot has an ordering the loader
+cannot express as a column.
 
 ## Coverage the demo fixture set must include
 

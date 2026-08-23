@@ -111,14 +111,14 @@ into a toast would hide exactly the failures that should stay loud.
 
 ## Which children need an Action, and which do not
 
-ADR-0007's threshold is a write spanning more than one table, or an invariant
+ADR-0007's threshold is a write spanning more than 1 table, or an invariant
 the schema cannot express. Applied to the product's three children:
 
 | Relation manager | Routes through Actions | Why |
 |---|---|---|
 | Variations | yes | a variation needs an `inventories` row; removal must not strand held stock |
-| Images | yes | exactly one `is_main` per product, and `product_variations.image_id` is `NO ACTION` |
-| Specifications | **no** | one table, no invariant, no second writer — default CRUD, per CLAUDE.md's rule that wrapping a single-table save in an Action buys nothing |
+| Images | yes | exactly one `is_main` per product; removal cascades out of every variation gallery |
+| Specifications | **no** | 1 table, no invariant, no second writer — default CRUD, per CLAUDE.md's rule that wrapping a single-table save in an Action buys nothing |
 
 Specifications being plain CRUD is a decision, not an omission. It is the same
 call as `Brand`, `Tag` and the other lookup tables.
@@ -136,3 +136,58 @@ disk with object storage; nothing outside `ProductImage::DISK` needs to change.
 `RemoveProductImage` deletes the file **after** the transaction commits. A
 rollback would otherwise leave the row intact and the file gone, which is the
 one combination nothing can repair.
+
+## Static, checked-in assets
+
+Not every image is user-uploaded. `public/` holds files that ship with the app
+and are never written by an Action or a Filament form. Laravel serves anything
+under `public/` directly; nothing runs `storage:link` for these, and nothing
+purges them.
+
+| File | Path | Used by |
+|---|---|---|
+| Logo | `public/images/logo.png` | Filament panel branding (`brandLogo()`) and, once built, the storefront header |
+| Favicon | `public/favicon.ico` | The browser tab icon, at the conventional root path — overwrites Laravel's own default `favicon.ico`, not placed under `images/` |
+| Default product image | `public/images/default-product.png` | `ResolveVariationImage::urlOrDefault()` — see below |
+
+The favicon's path is not a free choice the way the other two are: browsers
+request `/favicon.ico` at the domain root without being told to, so anywhere
+else requires an explicit `<link rel="icon">` in a layout — and no non-`welcome`
+layout exists yet for one to live in. Placing it at the root is what makes it
+work with zero additional code.
+
+None of these three exist in the repository yet; the paths are reserved so
+code can reference them ahead of the files landing.
+
+## The variation gallery modal
+
+`ProductVariationsRelationManager`'s "Images" row action opens a `Repeater`
+rather than the plain multi-select an earlier draft used — `reference/write-
+rules/product-variation-images.md` has the write behaviour;
+this is the admin surface built on top of it, ADR-0013's gallery-as-a-set
+Action.
+
+Each repeater row is two form components, not a table column: a `ViewField`
+rendering `resources/views/filament/forms/components/variation-image-
+thumbnail.blade.php`, and a `Select` scoped to the variation's own product's
+images. The thumbnail is a live preview, not a stored value — it reads
+whatever the row's `Select` currently holds and re-renders on change via
+`->live()`, so picking a different photo swaps the thumbnail before the
+gallery is saved. Both must set `->live()` for this to work: the `Select`
+to *emit* the change, the `ViewField` to *react* to it.
+
+Array order in the Repeater becomes gallery `position` — dragging a row
+(`->reorderableWithDragAndDrop()`) is the entire reorder mechanism; there is
+no separate move-up/move-down control and no `orderColumn` binding to the
+database, because the modal always submits the whole set through
+`SetVariationImages` in one call rather than writing incrementally.
+
+`fillForm` matters more here than in a typical Filament form: it has to hand
+the Repeater the gallery already in `position` order, or opening the modal
+and saving with no changes would silently rewrite every position to
+whatever order Eloquent happened to load the pivot rows in.
+
+The thumbnail's fallback — when a row has no `image_id` selected yet, or (in
+`urlOrDefault`, used wherever a resolved image is displayed rather than
+edited) when a variation has no gallery and its product has no main image
+either — is the static asset table above, not a broken `<img>` tag.

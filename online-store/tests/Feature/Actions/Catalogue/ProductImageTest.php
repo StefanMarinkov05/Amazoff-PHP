@@ -6,7 +6,7 @@ use App\Actions\Catalogue\AddProductImage;
 use App\Actions\Catalogue\AddProductVariation;
 use App\Actions\Catalogue\RemoveProductImage;
 use App\Actions\Catalogue\SetMainProductImage;
-use App\Exceptions\ProductImageInUseException;
+use App\Actions\Catalogue\SetVariationImages;
 use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -110,35 +110,23 @@ it('leaves no main image when the last one goes', function (): void {
     expect($product->productImages()->count())->toBe(0);
 });
 
-it('refuses to remove an image a variation points at', function (): void {
-    $product = Product::factory()->create(['is_available' => false]);
-    $image = app(AddProductImage::class)->handle($product, imageAttributes(), null);
-    app(AddProductVariation::class)->handle($product, [
-        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
-        'image_id' => $image->getKey(),
-    ], 0, null);
-
-    // product_variations.image_id is NO ACTION, so without this the database
-    // refuses with 1451 — a 500 rather than a message.
-    expect(fn () => app(RemoveProductImage::class)->handle($image, null))
-        ->toThrow(ProductImageInUseException::class);
-
-    expect(ProductImage::whereKey($image->getKey())->exists())->toBeTrue();
-});
-
-it('counts a trashed variation as still pointing at the image', function (): void {
+it('removes an image that variations were showing', function (): void {
     $product = Product::factory()->create(['is_available' => false]);
     $image = app(AddProductImage::class)->handle($product, imageAttributes(), null);
     $variation = app(AddProductVariation::class)->handle($product, [
         'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
-        'image_id' => $image->getKey(),
     ], 0, null);
-    $variation->delete();
+    app(SetVariationImages::class)->handle($variation, [$image->getKey()], null);
 
-    // A soft-deleted variation still holds the foreign key, so it still
-    // causes 1451.
-    expect(fn () => app(RemoveProductImage::class)->handle($image, null))
-        ->toThrow(ProductImageInUseException::class);
+    app(RemoveProductImage::class)->handle($image, null);
+
+    // Until ADR-0013 this was refused: product_variations.image_id was a
+    // NO ACTION foreign key, so the database answered with 1451 and the
+    // Action turned that into ProductImageInUseException. The column is gone
+    // and the gallery pivot cascades, so the image leaves every gallery it
+    // was in instead of blocking on them.
+    expect(ProductImage::whereKey($image->getKey())->exists())->toBeFalse()
+        ->and($variation->images()->count())->toBe(0);
 });
 
 it('deletes the uploaded file only after the row is gone', function (): void {
@@ -152,24 +140,15 @@ it('deletes the uploaded file only after the row is gone', function (): void {
     Storage::disk(ProductImage::DISK)->assertMissing($path);
 });
 
-it('keeps the file when the removal is refused', function (): void {
-    $product = Product::factory()->create(['is_available' => false]);
-    $path = ProductImage::DIRECTORY.'/kept.jpg';
-    Storage::disk(ProductImage::DISK)->put($path, 'bytes');
-
-    $image = app(AddProductImage::class)->handle($product, imageAttributes(['path' => $path]), null);
-    app(AddProductVariation::class)->handle($product, [
-        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
-        'image_id' => $image->getKey(),
-    ], 0, null);
-
-    expect(fn () => app(RemoveProductImage::class)->handle($image, null))
-        ->toThrow(ProductImageInUseException::class);
-
-    // The file is deleted after the commit, so a refusal must leave it. Row
-    // intact and file gone is the one combination nothing can repair.
-    Storage::disk(ProductImage::DISK)->assertExists($path);
-});
+/*
+ * There was a fourth removal test here — "keeps the file when the removal is
+ * refused" — asserting that a refused RemoveProductImage left the file on
+ * disk. It is gone rather than rewritten: ADR-0013 removed the only refusal
+ * this Action had, so nothing can reach the branch it covered. The property it
+ * protected (delete the file after the commit, never inside it) is still real
+ * and still commented in the Action; what no longer exists is a way to
+ * exercise it.
+ */
 
 it('denies an actor without update_product', function (): void {
     $product = Product::factory()->create();
