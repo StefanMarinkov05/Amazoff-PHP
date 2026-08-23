@@ -20,6 +20,15 @@ class RoleSeeder extends Seeder
      * words, not authoring content, so it stays with the administrator until
      * §3.3 says otherwise.
      *
+     * No `product` permission either, despite ArticleForm's "related
+     * products" field (§22): `relationship('products', 'name')` is a plain
+     * Eloquent query with no policy call anywhere in Filament's
+     * implementation, and it renders names only, already public on the
+     * storefront. `viewAny_product` gates catalogue management, not naming a
+     * product in an unrelated picker — granting it here would widen access
+     * to `ProductResource` for a field that was never checking it.
+     * `reference/permissions.md` has the verification in full.
+     *
      * @var list<string>
      */
     private const CONTENT_EDITOR_PERMISSIONS = [
