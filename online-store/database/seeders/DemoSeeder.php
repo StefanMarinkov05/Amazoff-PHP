@@ -78,6 +78,9 @@ class DemoSeeder extends Seeder
         $this->command?->info('Seeding content…');
         $this->content($author);
 
+        $this->command?->info('Seeding reviews…');
+        $this->reviews();
+
         $this->command?->info('Seeding coupons…');
         $this->coupons();
 
@@ -557,6 +560,68 @@ class DemoSeeder extends Seeder
             ]);
 
             $article->tags()->attach(collect($articleTags)->map(fn (string $t): int => $tags[$t]->id)->all());
+        }
+    }
+
+    /**
+     * A handful of approved reviews so the catalogue's rating display has
+     * something honest to average. Deliberately uneven: some products carry
+     * none, so the "no rating yet" branch is visible too.
+     */
+    private function reviews(): void
+    {
+        $customers = User::query()
+            ->whereIn('email', ['customer@example.com', 'maria.petrova@example.com', 'georgi.ivanov@example.com'])
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return;
+        }
+
+        $bodies = [
+            5 => 'Exactly what I hoped for. Arrived quickly and the build quality is obvious the moment you unbox it.',
+            4 => 'Very good overall. Docked a star only because the packaging was minimal for the price.',
+            3 => 'Does the job. Nothing wrong with it, but nothing that surprised me either.',
+            2 => 'Worked for a few weeks then developed a fault. Support replied quickly, still waiting on the replacement.',
+        ];
+
+        // Ratings per product SKU prefix, so the demo has a spread rather than
+        // every product sitting at a flattering 4.5.
+        $plan = [
+            'AUR-ONE' => [5, 5, 4],
+            'MER-VERSO' => [5, 4],
+            'VEC-68' => [4, 5, 4, 3],
+            'KES-R35' => [5, 5, 5],
+            'PAL-SAUTE' => [4, 3],
+            'VEC-GLIDE' => [3, 2],
+            'HAL-ARC' => [5],
+        ];
+
+        foreach ($plan as $skuPrefix => $ratings) {
+            $product = Product::query()->where('sku', $skuPrefix)->first();
+
+            if ($product === null) {
+                continue;
+            }
+
+            foreach ($ratings as $index => $rating) {
+                $customer = $customers[$index % $customers->count()];
+
+                // UNIQUE(user_id, product_id): one review per customer per
+                // product, so extra ratings beyond the customer count are
+                // recorded as guests whose account has since been erased.
+                $isFirstForCustomer = $index < $customers->count();
+
+                $product->productReviews()->create([
+                    'user_id' => $isFirstForCustomer ? $customer->id : null,
+                    'author_name' => $isFirstForCustomer
+                        ? $customer->first_name.' '.$customer->last_name
+                        : 'Verified buyer',
+                    'rating' => $rating,
+                    'body' => $bodies[$rating] ?? $bodies[3],
+                    'approved' => true,
+                ]);
+            }
         }
     }
 
