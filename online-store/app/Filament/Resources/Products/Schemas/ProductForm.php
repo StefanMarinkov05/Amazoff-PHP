@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Enums\LengthUnit;
+use App\Enums\WeightUnit;
 use App\Models\ProductVariation;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
@@ -73,14 +75,53 @@ class ProductForm
                     ->integer()
                     ->minValue(1)
                     ->default(1),
-                TextInput::make('weight')
+                // Weight and dimensions are entered in whatever unit suits
+                // the product and stored canonically — grams and millimetres.
+                // The *_display_unit columns remember what was typed so this
+                // form shows the same number back; nothing computes from
+                // them. reference/schema/open-schema-questions.md #3.
+                Select::make('weight_display_unit')
+                    ->label('Weight unit')
+                    ->options(WeightUnit::class)
+                    ->default(WeightUnit::default())
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->required(),
+                TextInput::make('weight_input')
+                    ->label('Weight')
                     ->numeric()
-                    ->step('0.01')
-                    ->rules(['decimal:0,2', 'max:999999.99'])
-                    ->nullable(),
-                TextInput::make('dimensions')
-                    ->maxLength(100)
-                    ->nullable(),
+                    ->step('0.001')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                Select::make('dimension_display_unit')
+                    ->label('Dimension unit')
+                    ->options(LengthUnit::class)
+                    ->default(LengthUnit::default())
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->required(),
+                TextInput::make('length_input')
+                    ->label('Length')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                TextInput::make('width_input')
+                    ->label('Width')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                TextInput::make('height_input')
+                    ->label('Height')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
                 Toggle::make('is_available')
                     ->required()
                     ->default(true),
@@ -132,11 +173,19 @@ class ProductForm
                             ->prefix('EUR')
                             ->lt('price')
                             ->nullable(),
-                        TextInput::make('weight')
+                        Select::make('weight_display_unit')
+                            ->label('Weight unit')
+                            ->options(WeightUnit::class)
+                            ->default(WeightUnit::default())
+                            ->selectablePlaceholder(false)
+                            ->required(),
+                        TextInput::make('weight_input')
+                            ->label('Weight')
                             ->numeric()
-                            ->step('0.01')
-                            ->rules(['decimal:0,2', 'max:999999.99'])
-                            ->nullable(),
+                            ->step('0.001')
+                            ->minValue(0)
+                            ->nullable()
+                            ->dehydrated(false),
                         // Not a column. AddProductVariation turns this into an
                         // InitialStock movement against the row it creates.
                         TextInput::make('initial_quantity')

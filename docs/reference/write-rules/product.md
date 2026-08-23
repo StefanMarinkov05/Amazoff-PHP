@@ -61,6 +61,19 @@ deliberate. The storefront never renders it because it is unavailable, and
 | `AddProductVariation` | product is soft-deleted | `RemovedFromCatalogueException` |
 | | opening stock is negative | `InvalidArgumentException` |
 | `UpdateProduct` | `is_available = true` and zero live variations | `ProductRequiresVariationException` |
+
+`products.is_available` counts variations **existing**, not variations
+available. A product may be available while every variation is
+`is_available = false`, and that is deliberate: §6 gives the merchandiser a
+switch, and a product visible-but-unbuyable is how a shop signals "this is
+coming back". It is not a giant OR of its variations and must not become one
+— deriving the column would remove the override.
+
+The consequence a storefront query must carry: a listing that shows only
+buyable products filters on `products.is_available` **and** a
+`whereHas('productVariations', is_available)`. Filtering on the product flag
+alone shows products with nothing to buy, which is intended for a product
+page and wrong for an "in stock" filter.
 | | product is soft-deleted | `RemovedFromCatalogueException` |
 | `DeleteProduct` | — never refuses; reserved stock is allowed | — |
 | `ForceDeleteProduct` | product is on an order line, review, or wishlist | `ProductCannotBeErasedException` |
@@ -185,6 +198,36 @@ Without the lock the loser instead hits
 `QueryException` and the whole `CreateProduct` transaction rolls back —
 including variations and stock rows already written for it. The loser sees a
 500 rather than a validation message.
+
+## Default variation
+
+A product with variations has **exactly one default variation**, the same
+shape as the main-image rule below and enforced the same way —
+`SetDefaultVariation`, one `UPDATE` (`is_default = (id = N)`), no lock.
+
+| Operation | Outcome |
+|---|---|
+| First variation added | becomes default, whether or not it was asked for |
+| Later variation added | not default, unless `is_default: true` is passed |
+| Later variation added as default | the previous default is demoted |
+| Promotion | siblings demoted in the same statement |
+| Default variation removed, others remain | the first remaining sibling succeeds it |
+| Last variation removed | refused already — `ProductRequiresVariationException` — so this case cannot arise |
+| Two promotions at once | both succeed; the later one wins; one flag survives |
+
+Variation-level weight and dimensions follow the same null-inherits-the-product
+pattern as `price`: `null` on a variation means "same as the product's own
+value," set only when a variation genuinely differs. Inheritance is **per
+axis** — a hardcover edition is the same page size as its paperback sibling
+and only thicker, so it overrides `height_mm` and `weight_g` and leaves the
+other two null rather than restating values that are genuinely identical.
+`ResolveVariationMeasurements` performs that resolution and is what callers
+must read; `$variation->weight_g` on its own returns null for the common
+inheriting variation, and a null weight handed to a courier is a zero-weight
+parcel rather than an error.
+
+Dimensions have no per-variation display unit — a variation's dimensions are
+entered and shown in the product's `dimension_display_unit`, never its own.
 
 ## Images
 

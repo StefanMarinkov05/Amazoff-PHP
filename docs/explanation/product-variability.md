@@ -4,7 +4,7 @@ How 1 product becomes many sellable things, and which table answers which
 question. Describes the system as it is on 2026-08-23. Decisions are argued in
 ADR-0002 (schema), ADR-0007 (Actions), and ADR-0013 (variation images); this
 page assumes them and shows the arrangement they produce.
-`reference/product-catalogue-worked-example.md` makes the same arrangement
+`reference/schema/product-catalogue-worked-example.md` makes the same arrangement
 concrete with 1 product's actual rows, table by table — read that one first
 if the relationships below feel abstract.
 

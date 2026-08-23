@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Catalogue\AddProductVariation;
 use App\Actions\Inventory\ReserveStock;
+use App\Enums\WeightUnit;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\RelationManagers\ProductVariationsRelationManager;
@@ -55,7 +56,17 @@ it('creates a product with a stock row through the panel', function (): void {
     Livewire::test(CreateProduct::class)
         ->fillForm(productFormData() + [
             'variations' => [
-                ['sku' => $sku, 'price' => '19.99', 'initial_quantity' => 5, 'is_available' => true],
+                // weight_display_unit is stated because filling a repeater
+                // item replaces it wholesale, so the component's own
+                // ->default() never applies. A browser submit always carries
+                // it: the Select has no placeholder option to leave empty.
+                [
+                    'sku' => $sku,
+                    'price' => '19.99',
+                    'weight_display_unit' => WeightUnit::default(),
+                    'initial_quantity' => 5,
+                    'is_available' => true,
+                ],
             ],
         ])
         ->call('create')

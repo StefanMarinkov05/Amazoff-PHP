@@ -26,11 +26,19 @@ use Illuminate\Support\Facades\Gate;
  * The inventory row is left behind: `inventory_movements` hangs off it and
  * §20's ledger has to survive a removal.
  *
+ * Hands the default flag on to a live sibling if the removed variation held
+ * it — the same successor-promotion `RemoveProductImage` does for `is_main`,
+ * so a product never ends up with variations and no default. If none remain
+ * the last-variation refusal above has already fired, so this only ever runs
+ * when a sibling exists to receive it.
+ *
  * Authorizes `delete_product_variation`. Locks `products`, then `inventories`.
  * ADR-0008 · reference/write-rules/product.md
  */
 final class RemoveProductVariation
 {
+    public function __construct(private readonly SetDefaultVariation $setDefault) {}
+
     /**
      * @throws ProductRequiresVariationException
      * @throws VariationHasReservedStockException
@@ -64,7 +72,25 @@ final class RemoveProductVariation
                 throw ProductRequiresVariationException::whenLastVariationRemoved($product);
             }
 
+            $wasDefault = (bool) $variation->is_default;
+
             $variation->delete();
+
+            if ($wasDefault) {
+                /** @var ProductVariation|null $successor */
+                $successor = $product->productVariations()->first();
+
+                if ($successor !== null) {
+                    // null, not $actor — same reasoning AddProductVariation
+                    // gives at its own setDefault call: this Action's gate
+                    // already authorized delete_product_variation for the
+                    // whole write, and successor-promotion is a structural
+                    // consequence of that delete, not a second discretionary
+                    // edit that should additionally demand
+                    // update_product_variation.
+                    $this->setDefault->handle($successor, null);
+                }
+            }
 
             return $variation;
         });

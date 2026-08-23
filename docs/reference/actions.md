@@ -73,6 +73,7 @@ at stock that no longer exists.
 | `SetMainProductImage` | `product_images` | optional, `update_product` | — |
 | `RemoveProductImage` | `product_images`, and the file on disk; gallery rows cascade | optional, `update_product` | — |
 | `SetVariationImages` | `product_image_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `ImageNotOnProductException` |
+| `SetDefaultVariation` | `product_variations` | optional, `update_product_variation` | — |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
 
 `ProductCategory` is otherwise default Filament CRUD, per CLAUDE.md's plain-
@@ -94,6 +95,14 @@ owns that rule in a single `UPDATE` (`is_main = (id = N)`), so it holds by
 construction rather than by a lock; `AddProductImage` and `RemoveProductImage`
 compose it. Images are not soft-deleted, and `RemoveProductImage` deletes the
 file only after the transaction commits.
+
+The same shape exists one level down: a product has exactly one default
+variation. `SetDefaultVariation` mirrors `SetMainProductImage` exactly — one
+`UPDATE` (`is_default = (id = N)`), no lock. `AddProductVariation` composes
+it to promote a product's first variation automatically, or a later one when
+the caller passes `is_default: true`; `RemoveProductVariation` composes it to
+hand the flag to a live sibling when the removed variation held it, so a
+product with variations never ends up with none of them default.
 
 `ProductSpecification` has no Action: 1 table, no invariant, so ADR-0007
 leaves it as default Filament CRUD.

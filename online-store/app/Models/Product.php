@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\LengthUnit;
+use App\Enums\WeightUnit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property LengthUnit $dimension_display_unit
+ * @property WeightUnit $weight_display_unit
+ */
 class Product extends Model
 {
     use HasFactory, SoftDeletes;
@@ -34,8 +40,12 @@ class Product extends Model
         'discount_ends_at',
         'vat_rate',
         'min_order_quantity',
-        'weight',
-        'dimensions',
+        'length_mm',
+        'width_mm',
+        'height_mm',
+        'dimension_display_unit',
+        'weight_g',
+        'weight_display_unit',
         'is_available',
         'is_featured',
         'seo_title',
@@ -58,7 +68,12 @@ class Product extends Model
             'discount_starts_at' => 'datetime',
             'discount_ends_at' => 'datetime',
             'vat_rate' => 'decimal:2',
-            'weight' => 'decimal:2',
+            'length_mm' => 'integer',
+            'width_mm' => 'integer',
+            'height_mm' => 'integer',
+            'dimension_display_unit' => LengthUnit::class,
+            'weight_g' => 'integer',
+            'weight_display_unit' => WeightUnit::class,
             'is_available' => 'boolean',
             'is_featured' => 'boolean',
         ];
