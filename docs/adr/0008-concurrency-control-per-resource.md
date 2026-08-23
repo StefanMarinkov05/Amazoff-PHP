@@ -14,8 +14,8 @@ Building the catalogue Actions turned up two contested resources that the rule
 as written does not fit, and applying it literally to either produces
 something wrong.
 
-**First: an invariant spanning two tables with no constraint to back it.**
-§6–7 requires every sellable product to have at least one variation. Three
+**First: an invariant spanning 2 tables with no constraint to back it.**
+§6–7 requires every sellable product to have at least 1 variation. 3
 Actions can break it — `CreateProduct`, `UpdateProduct`,
 `RemoveProductVariation` — and each is check-then-act. MySQL cannot express
 the rule: it spans `products` and `product_variations`, and ADR-0004 already
@@ -57,7 +57,7 @@ row: the aggregate root, not the row it is about to write. For the product
 invariant that row is `products`.
 
 This makes the pair safe in both interleavings. Publish first, and removal
-then sees an available product with one variation and refuses. Remove first,
+then sees an available product with 1 variation and refuses. Remove first,
 and publishing then sees zero variations and refuses.
 
 A lock order is declared and documented so composed Actions cannot deadlock:
@@ -92,12 +92,12 @@ way, which by this project's standard makes it a decoration.
 
 + The three kinds of contention have three named mechanisms, so "is this
   contested state?" stops being one question with one answer.
-+ A declared lock order means the first Action to lock two tables —
++ A declared lock order means the first Action to lock 2 tables —
   `CreateOrder` — has a rule to follow rather than a problem to discover.
 + Locking the aggregate root generalises: orders and their items, coupons and
   their redemptions, carts and their items are the same shape.
 
-− The aggregate-root lock serialises unrelated edits to one product. The cost
+− The aggregate-root lock serialises unrelated edits to 1 product. The cost
   is one row for one statement pair, and it is paid on every product write
   rather than only the ones that could conflict.
 − Lost updates remain possible on every full-payload Filament form in the
@@ -111,7 +111,7 @@ way, which by this project's standard makes it a decoration.
 - **Database triggers** enforcing the cross-table invariant. Consistent with
   no application code at all, and ADR-0004 already rejected them for putting a
   business rule where no test looks.
-- **Locking `product_variations` instead of `products`.** The two Actions
+- **Locking `product_variations` instead of `products`.** The 2 Actions
   write different tables, so they would take different locks and neither would
   wait. Correct-looking and completely ineffective.
 - **An advisory "being edited" lock** (a `record_locks` row with a heartbeat,

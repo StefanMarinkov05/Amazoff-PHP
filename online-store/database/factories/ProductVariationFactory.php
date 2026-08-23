@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Product;
-use App\Models\ProductImage;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ProductVariationFactory extends Factory
@@ -19,7 +18,6 @@ class ProductVariationFactory extends Factory
 
         return [
             'product_id' => Product::factory(),
-            'image_id' => ProductImage::factory(),
             'sku' => fake()->regexify('[A-Za-z0-9]{64}'),
             // Null means "inherit the product's price", which is the common
             // case — only variants that genuinely cost more or less override.

@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * One order per cart. `UNIQUE(cart_id)`, nullable — the CLAUDE.md
+ * 1 order per cart. `UNIQUE(cart_id)`, nullable — the CLAUDE.md
  * idempotency shape (a constraint plus a caught violation, never
  * check-then-act), matching `coupon_redemptions`'s `UNIQUE(coupon_id,
  * order_id)` and `cart_items`'s `UNIQUE(cart_id, product_variation_id)`.

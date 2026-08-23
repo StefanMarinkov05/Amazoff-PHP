@@ -17,7 +17,9 @@ class CarrierForm
                 TextInput::make('name')
                     ->required(),
                 TextInput::make('code')
-                    ->required(),
+                    ->required()
+                    ->maxLength(20)
+                    ->unique(ignoreRecord: true),
                 Toggle::make('is_active')
                     ->required(),
             ]);

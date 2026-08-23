@@ -28,12 +28,14 @@ listed as unverified, because a test that has never failed is not evidence.
 | `inventories` outliving an erased variation | FK `NO ACTION` | child deleted before parent, plus four refusals | `ForceDeleteProductVariation` |
 | `products.sku`, `products.slug`, `product_variations.sku` | duplicate insert | `UNIQUE` constraint (ADR-0005) | schema |
 | one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
+| a variation's ordered gallery | set-vs-set across two requests | `lockForUpdate` on `products`, whole set replaced inside it; the loser's set is discarded entire | `SetVariationImages` |
+| a gallery row outliving its image | delete-vs-write | FK `CASCADE` on both pivot columns, plus the shared `products` lock order | `SetVariationImages`, `RemoveProductImage` |
 | `cart_items` via `UNIQUE(cart_id, product_variation_id)` | insert-vs-insert across two requests | catch `UniqueConstraintViolationException`, retry as `increment()` — no lock, since a row that does not exist yet cannot be locked | `AddToCart`, `MergeGuestCart` |
 | `coupons.total_usage_limit` / `usage_limit_per_customer` vs `coupon_redemptions` | cross-table invariant, no constraint possible | `lockForUpdate` on `coupons` before either `COUNT` | `RedeemCoupon` |
 | `coupon_redemptions` via `UNIQUE(coupon_id, order_id)` | insert-vs-insert, same order retried or double-submitted | catch `UniqueConstraintViolationException`, return the existing row | `RedeemCoupon` |
 | `orders` via `UNIQUE(cart_id)` | insert-vs-insert, the same cart checked out twice | catch `UniqueConstraintViolationException`, throw `CartAlreadyCheckedOutException` | `CreateOrder` |
 | `product_categories` deleted while a subcategory is created underneath it | delete-vs-insert, asymmetric — one side has no Action to lose through | `lockForUpdate` on the category, backstopped by `parent_id`'s foreign key either way | `DeleteProductCategory` |
-| two orders reserving the same variation(s) | row contention across several `inventories` rows in one transaction | `ReserveStock`'s own lock, called once per line, sorted by `product_variation_id` first | `CreateOrder` |
+| 2 orders reserving the same variation(s) | row contention across several `inventories` rows in one transaction | `ReserveStock`'s own lock, called once per line, sorted by `product_variation_id` first | `CreateOrder` |
 | `orders.status` | row contention inside one request; idempotency across two identical requests | `lockForUpdate` on `orders`, re-read from the locked row, plus `UNIQUE(order_id, new_status)` as backstop | `TransitionOrderStatus` |
 | `inventories.reserved_quantity`/`sold_quantity`/`current_quantity` via a status transition | row contention, composed inside `TransitionOrderStatus`'s own `orders` lock | `CompleteSale`/`RestockReturn`'s own `lockForUpdate` on `inventories`, same shape as `ReserveStock`/`ReleaseStock` | `TransitionOrderStatus` |
 
@@ -50,7 +52,7 @@ same transaction — the `products` half of the declared order is still
 unexercised.
 
 `CreateOrder` locks several `inventories` rows at once — one per cart
-line, via `ReserveStock` — sorted by `product_variation_id` first, so two
+line, via `ReserveStock` — sorted by `product_variation_id` first, so 2
 orders sharing lines never acquire in opposite sequence. Unverified by any
 test: `cart_items`'s own `UNIQUE(cart_id, product_variation_id)` index
 happens to return rows pre-sorted by `product_variation_id` for this query
@@ -122,12 +124,12 @@ than a guard.
 - Two processes creating a product with the same SKU. The `UNIQUE` constraint
   makes the outcome certain, so there is nothing a race test would add.
 
-The first is slice 7 in the working plan. Two staff transitioning one order
+The first is slice 7 in the working plan. Two staff transitioning 1 order
 is covered as of `TransitionOrderStatus` — see
 `reference/write-rules/order.md`, "Two actors at once", and
 `tests/Concurrency/TransitionOrderStatusConcurrencyTest.php`.
 
-`orders.serial_number` allocation and deadlock between two orders locking
+`orders.serial_number` allocation and deadlock between 2 orders locking
 the same variations in opposite order are no longer open — both are settled
 by `CreateOrder`'s design: the serial number is derived from the row's own
 auto-increment id rather than a separately-allocated sequence, and lines
@@ -137,7 +139,7 @@ live test (see the lock-order section above), which is a gap in
 
 ## The enum layer, verified by mutation
 
-`tests/Unit/Enums/` covers the four transition matrices and sweeps all twelve
+`tests/Unit/Enums/` covers the four transition matrices and sweeps all 12
 enums. No database, no application: 91 tests in under a second.
 
 ADR-0004 justified putting legality on the enum partly because "the matrix is

@@ -346,7 +346,7 @@ Every composed Action that passes an actor down can reintroduce it, and
 ADR-0007 requires them all to.
 
 **Prevention.** Delete the check under test and confirm the test goes red.
-Grant the actor exactly one permission short of success rather than granting
+Grant the actor exactly 1 permission short of success rather than granting
 none — an actor with no permissions at all is denied by whichever check runs
 first, which is rarely the one being tested.
 
@@ -790,7 +790,7 @@ constraints grouped into one `ALTER TABLE` per table took 39s.
 **Why it recurs.** Writing one statement per constraint is the obvious shape,
 reads more clearly, and is what a loop over a list produces naturally.
 
-**Prevention.** In any migration touching more than a handful of columns on one
+**Prevention.** In any migration touching more than a handful of columns on 1
 table, build the clauses and issue a single `ALTER TABLE`.
 
 ---
@@ -1074,7 +1074,7 @@ caller handles one failure mode — and the subsumption is a property of a
 `CHECK` constraint in a migration, not of either guard. Nothing at the call
 site or in the test hints that one range contains the other.
 
-**Prevention.** When one Action raises the same exception class from more than
+**Prevention.** When 1 Action raises the same exception class from more than
 one place, the tests for those places assert the message. A shared exception
 class with distinct static factories (`notPositive()`,
 `belowMinimumOrder()`) is the signal to check for.
@@ -1296,3 +1296,88 @@ when using `--parallel`; never point it at `Concurrency` or leave
 `--testsuite` unset. `run-the-tests.md`'s "Running in parallel" section
 states this as the first rule, not a caveat at the bottom, for the same
 reason.
+
+---
+
+## A background test run fails after being "stopped," and a later `docker exec` path silently resolves to Windows
+
+**Symptom.** Two unrelated-looking failures on a Windows host running Docker
+through WSL2/Docker Desktop, both from the same underlying cause and both
+capable of wasting real time chasing a phantom code defect:
+
+1. A test run backgrounded through the harness is stopped, a database reset
+   is done, and the *next* run still fails — sometimes with a plain
+   assertion failure in an unrelated seeder, sometimes with `SQLSTATE[40001]:
+   Serialization failure: 1213 Deadlock found`, sometimes with `SQLSTATE
+   [HY000]: General error: 1412 Table definition has changed, please retry
+   transaction` — and the specific error changes between re-runs of the exact
+   same command.
+2. `docker compose exec app cat /tmp/some-file.txt` (or any command
+   referencing an absolute Unix path as an argument, not a heredoc) fails with
+   `cat: 'C:/Users/.../AppData/Local/Temp/some-file.txt': No such file or
+   directory` — a path that was never on the host at all.
+
+**Cause.** Two separate mechanisms, easy to mistake for one bug:
+
+For (1): stopping a background task by its harness-assigned ID kills the
+*shell wrapper* the command was launched under, not necessarily every child
+process it spawned. `sh -c "./vendor/bin/pest --coverage > out.txt; tail out.txt"`
+spawns `pest` as a child of the `sh -c` process; killing the wrapper does not
+guarantee the child dies with it. The orphaned `pest` process keeps running
+inside the container — invisible to the harness, which believes it stopped
+the task — and races every subsequent command against the same MySQL
+container. The failure signatures above (`1213`, `1412`, an assertion that
+should already be true) are exactly what two independent transactions
+fighting over the same tables and a mid-flight `migrate:fresh` look like,
+and they change between runs because the race is non-deterministic. `ps`
+inside the container's PID namespace does not show it either if queried at
+the wrong moment relative to `docker compose top`, which reports host-side
+PIDs — `docker compose top app` is the reliable check; `ps aux` inside the
+container frequently is not installed at all on this image.
+
+For (2): Git Bash (MSYS2) rewrites any argument that looks like a POSIX
+absolute path — `/tmp/...`, `/var/...` — into its Windows equivalent *before*
+handing it to the program being run, including arguments meant for a command
+running inside a Linux container that has never heard of `C:\`. `docker
+compose exec app cat /tmp/coverage-run.txt` becomes, by the time Docker sees
+it, a request for a file at a Windows path that does not exist inside the
+container's filesystem at all — the container itself is unaffected and the
+file is exactly where it should be.
+
+**Fix.** For (1): after stopping a background task, verify the container is
+actually idle before trusting the next result — `docker compose top app`
+should show only the long-lived `php-fpm`/`boost:mcp` processes, nothing
+matching the command just "stopped." If a stray process is still listed,
+`docker compose exec app php -r 'posix_kill(<pid>, 9);'` (`kill` is not on
+`$PATH` on this image); re-check `docker compose top` afterward, since the
+PID `docker compose top` reports is the host-side one and may not be visible
+or killable from inside the container's own PID namespace via a plain `kill`
+call — `posix_kill` from PHP running as root in an `exec` does reach it. Once
+confirmed idle, reset (`migrate:fresh --seed`) before trusting any test run
+that follows.
+
+For (2): prefix the command with `MSYS_NO_PATHCONV=1` —
+`MSYS_NO_PATHCONV=1 docker compose exec -T app cat /tmp/coverage-run.txt`
+disables the rewrite for that invocation. Heredocs and `sh -c "..."` strings
+passed as a single quoted argument are not affected, since MSYS only rewrites
+argv entries that look like standalone paths — the bug is specific to a bare
+path as its own argument.
+
+**Why it recurs.** Both are invisible from the output alone. (1) produces
+error messages that look exactly like the kind of environment/schema bug
+`troubleshooting.md`'s other entries describe, so the instinct is to debug
+the code under test rather than check for a second live process — burning a
+full clean-reset-and-rerun cycle (minutes, on this suite) before the real
+cause is even suspected. (2) fails with a Linux-shaped error message
+(`cat: ... No such file or directory`) that gives no hint the path was ever
+rewritten, so it reads as "the file doesn't exist" rather than "the path was
+translated" — the Windows path in the error is the only tell, and it is easy
+to skim past.
+
+**Prevention.** Treat "stopped" as a claim to verify, not a fact, for any
+background task that runs inside a container — `docker compose top app`
+before trusting the next result against that container, every time,
+not just after an unusual-looking failure. For any `docker compose exec`
+argument that is a bare absolute path rather than a quoted string or
+heredoc, reach for `MSYS_NO_PATHCONV=1` by default on this host rather than
+after the first confusing "No such file" error.

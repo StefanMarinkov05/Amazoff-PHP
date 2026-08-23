@@ -140,6 +140,6 @@ an ownership check in a policy, not a permission.
 | May they touch this record? | Ownership branch in the policy |
 | Is this the administrator? | `Gate::before` in `AppServiceProvider` |
 
-Twenty policies exist, one per resource above. Nineteen are resolved by
+20 policies exist, one per resource above. Nineteen are resolved by
 convention; `RolePolicy` is registered by hand in `AppServiceProvider` because
 `Spatie\Permission\Models\Role` lives outside `App\Models`.

@@ -166,7 +166,7 @@ final class CreateOrder
             }
 
             // Sorted by the locked resource's own primary key, not insertion
-            // order, so two orders sharing lines never acquire in opposite
+            // order, so 2 orders sharing lines never acquire in opposite
             // sequence.
             $sorted = $lines->sortBy(fn (array $line): int => $line['variation']->getKey());
 

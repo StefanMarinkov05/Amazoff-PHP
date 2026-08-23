@@ -6,7 +6,7 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Twenty-nine Actions across six areas, fifteen domain exceptions.
+Twenty-9 Actions across six areas, fifteen domain exceptions.
 
 ## Naming
 
@@ -71,7 +71,8 @@ at stock that no longer exists.
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
 | `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
 | `SetMainProductImage` | `product_images` | optional, `update_product` | — |
-| `RemoveProductImage` | `product_images`, and the file on disk | optional, `update_product` | `ProductImageInUseException` |
+| `RemoveProductImage` | `product_images`, and the file on disk; gallery rows cascade | optional, `update_product` | — |
+| `SetVariationImages` | `product_image_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `ImageNotOnProductException` |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
 
 `ProductCategory` is otherwise default Filament CRUD, per CLAUDE.md's plain-
@@ -94,7 +95,7 @@ construction rather than by a lock; `AddProductImage` and `RemoveProductImage`
 compose it. Images are not soft-deleted, and `RemoveProductImage` deletes the
 file only after the transaction commits.
 
-`ProductSpecification` has no Action: one table, no invariant, so ADR-0007
+`ProductSpecification` has no Action: 1 table, no invariant, so ADR-0007
 leaves it as default Filament CRUD.
 
 `ForceDeleteProductVariation` deletes the stock row **before** the variation.
@@ -250,7 +251,7 @@ own reasoning for the same deadlock-avoidance sort.
 |---|---|---|---|
 | `PublishArticle` | `articles.status`, `articles.published_at` | required — no non-human caller exists | `ArticleTransitionNotAllowedException` |
 
-Below ADR-0007's usual bar for an Action — one column, one table — built
+Below ADR-0007's usual bar for an Action — one column, 1 table — built
 anyway because the authorization is the entire point. `publish_article` is a
 permission distinct from `update_article` (`content_editor` holds both), so
 the check has to be `publish`, not `update`; a `Select` on `status` in
@@ -352,7 +353,7 @@ today takes both in the opposite order.
 `UpdateProduct`, `RemoveProductVariation`, and `ForceDeleteProductVariation`
 take `lockForUpdate()` on the `products` row — the aggregate root — rather
 than on the rows they write.
-§6–7's invariant spans two tables, which MySQL cannot express as a constraint
+§6–7's invariant spans 2 tables, which MySQL cannot express as a constraint
 and ADR-0004 rejected triggers for, so nothing catches an unlocked race:
 without the lock both Actions commit and the invariant is gone. Locking each
 Action's own target would have them contend on different rows and wait for
@@ -365,7 +366,7 @@ order.
 
 `RedeemCoupon` takes `lockForUpdate()` on the `coupons` row before either
 usage-cap `COUNT` against `coupon_redemptions` — no `CHECK` can span the
-two tables, so without the lock two concurrent redemptions both read the
+2 tables, so without the lock two concurrent redemptions both read the
 pre-redemption count and both insert. Declared lock order is `products`,
 then `coupons`, then `inventories` (decision 5).
 
@@ -401,9 +402,9 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `SetVariationImages`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
-| `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
+| `ImageNotOnProductException` | `SetVariationImages` | the variation, the offending image ids |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
 | `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon`, `CreateOrder` | the coupon (nullable — `noLongerExists()` has none to carry); seven named constructors, one per refusal reason |
 | `EmptyCartException` | `CreateOrder` | the cart |
@@ -486,7 +487,7 @@ Restoring cannot break the invariant, so it stays.
 
 Each Action's guards have a test that has been observed failing with the
 mechanism deleted. Twenty-three were verified for the catalogue slice: the
-authorization check on each of the five Actions, the actor passed down from
+authorization check on each of the 5 Actions, the actor passed down from
 `CreateProduct`, the transaction on `CreateProduct` and `AddProductVariation`,
 the inventory row, the required-variation rule at creation, the sellability
 rule on update, the last-variation and reserved-stock guards on removal, the

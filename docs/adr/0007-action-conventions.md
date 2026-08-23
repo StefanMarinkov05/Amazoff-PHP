@@ -103,7 +103,7 @@ no matter which Action fires it or how deeply nested the call is.
 ### An Action is required where a rule exists, not everywhere
 
 A rule exists when a write spans more than one table, or enforces an invariant
-the schema cannot: a product needs at least one variation and each variation
+the schema cannot: a product needs at least 1 variation and each variation
 an inventory row; an order needs items and addresses; a status change needs a
 history row.
 

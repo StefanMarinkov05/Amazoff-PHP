@@ -7,10 +7,12 @@ namespace App\Filament\Resources\Products\RelationManagers;
 use App\Actions\Catalogue\AddProductVariation;
 use App\Actions\Catalogue\ForceDeleteProductVariation;
 use App\Actions\Catalogue\RemoveProductVariation;
+use App\Actions\Catalogue\SetVariationImages;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -18,12 +20,15 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ViewField;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Operation;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
@@ -43,9 +48,6 @@ class ProductVariationsRelationManager extends RelationManager
     {
         return $schema
             ->components([
-                Select::make('image_id')
-                    ->relationship('image', 'path')
-                    ->nullable(),
                 TextInput::make('sku')
                     ->label('SKU')
                     ->required()
@@ -88,9 +90,10 @@ class ProductVariationsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('sku')
             ->columns([
-                TextColumn::make('image.path')
-                    ->label('Image')
-                    ->searchable(),
+                TextColumn::make('images_count')
+                    ->label('Images')
+                    ->counts('images')
+                    ->badge(),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable(),
@@ -122,7 +125,7 @@ class ProductVariationsRelationManager extends RelationManager
                 TrashedFilter::make(),
             ])
             ->headerActions([
-                // A variation and its stock row are two tables and one
+                // A variation and its stock row are 2 tables and one
                 // invariant. Filament's default create wrote the variation
                 // alone, and every inventory Action reads the missing row with
                 // firstOrFail().
@@ -144,6 +147,73 @@ class ProductVariationsRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make(),
+                // Filament relation managers cannot nest, so the gallery is a
+                // row action and modal rather than a relation manager of its
+                // own — which happens to fit SetVariationImages anyway: the
+                // modal submits the whole set in one call.
+                Action::make('manageImages')
+                    ->label('Images')
+                    ->icon(Heroicon::OutlinedPhoto)
+                    ->modalSubmitActionLabel('Save gallery')
+                    // Row order is the whole point: fillForm must hand the
+                    // Repeater the gallery in position order, or "save with no
+                    // changes" would silently rewrite position to array order
+                    // on the very first open.
+                    ->fillForm(fn (ProductVariation $record): array => [
+                        'images' => $record->images()
+                            ->pluck('product_images.id')
+                            ->map(fn (int $id): array => ['image_id' => $id])
+                            ->all(),
+                    ])
+                    ->schema([
+                        Repeater::make('images')
+                            ->label('Gallery')
+                            ->hiddenLabel()
+                            ->reorderableWithDragAndDrop()
+                            ->addActionLabel('Add image')
+                            ->defaultItems(0)
+                            ->schema([
+                                ViewField::make('thumbnail')
+                                    ->view('filament.forms.components.variation-image-thumbnail')
+                                    // Redraws when the row's own image_id
+                                    // changes, not just on open — otherwise
+                                    // picking a different photo would leave
+                                    // the old one showing until save.
+                                    ->live(),
+                                Select::make('image_id')
+                                    ->label('Image')
+                                    ->hiddenLabel()
+                                    ->live()
+                                    ->searchable()
+                                    ->required()
+                                    // Scoped to the variation's own product.
+                                    // The Action refuses anything else with
+                                    // ImageNotOnProductException; this keeps
+                                    // an administrator from having to
+                                    // discover that.
+                                    ->options(function (ProductVariation $record): array {
+                                        /** @var Product $product */
+                                        $product = $record->product;
+
+                                        return $product->productImages()
+                                            ->orderBy('sort_order')
+                                            ->orderBy('id')
+                                            ->pluck('path', 'id')
+                                            ->all();
+                                    }),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->helperText('Drag to reorder. Row order becomes display order. Leave empty to inherit the main product image.'),
+                    ])
+                    ->action(fn (ProductVariation $record, array $data) => $this->reportingDomainFailures(
+                        fn () => app(SetVariationImages::class)->handle(
+                            $record,
+                            array_column($data['images'] ?? [], 'image_id'),
+                            $this->actor(),
+                        ),
+                        'Gallery could not be saved',
+                    )),
                 DeleteAction::make()
                     ->using(fn (Model $record): bool => $this->reportingDomainFailures(
                         function () use ($record): bool {

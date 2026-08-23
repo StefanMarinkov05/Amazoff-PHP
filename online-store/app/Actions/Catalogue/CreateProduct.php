@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Gate;
 /**
  * Creates a product with the variations and stock rows it cannot exist without.
  *
- * Three tables in one operation, which is ADR-0007's threshold for an Action.
- * At least one variation is required unconditionally here, while
+ * 3 tables in one operation, which is ADR-0007's threshold for an Action.
+ * At least 1 variation is required unconditionally here, while
  * `UpdateProduct` enforces §6–7's invariant only for an available product.
  *
  * Composes `AddProductVariation` so both creation paths produce identical

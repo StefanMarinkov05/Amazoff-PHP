@@ -23,13 +23,22 @@ more than one vertical slice, it's two PRs.
 
 ```bash
 docker compose exec app ./vendor/bin/pint --test
-docker compose exec app ./vendor/bin/phpstan analyse
-docker compose exec app ./vendor/bin/pest
+docker compose exec app ./vendor/bin/phpstan analyse --memory-limit=1G
+docker compose exec app ./vendor/bin/pest --parallel --processes=4 --testsuite=Feature
+docker compose exec app ./vendor/bin/pest --testsuite=Concurrency
 ```
 
-All three run in CI too (`.github/workflows/ci.yml`), against a real MySQL
-service container. A red check blocks the merge once branch protection is
-turned on — don't rely on catching failures after the fact.
+`--memory-limit=1G` is required, not optional — the container's default 128M
+crashes Larastan's parallel workers and reports a fake `Found 1 error`;
+`docs/how-to/troubleshooting.md` has the full symptom. `tests/Concurrency`
+must never run under `--parallel` — it spawns real subprocesses and needs a
+database of its own; `docs/how-to/run-the-tests.md` has the reasoning.
+
+Pint, Larastan, and Pest all run in CI too (`.github/workflows/ci.yml`),
+against a real MySQL service container — Feature and Concurrency each
+sharded across parallel jobs rather than run as the two local passes above.
+A red check blocks the merge once branch protection is turned on — don't
+rely on catching failures after the fact.
 
 ## Commit messages
 
@@ -37,6 +46,16 @@ Type, then a short present-tense summary: `feat: add stock reservation to
 checkout`, `fix: webhook signature check bypassed on retry`, `docs: adr for
 translation storage`. One logical change per commit — not one commit per
 file, not one commit for the whole feature.
+
+Written by whoever or whatever is doing the committing at the time, following
+the shape above — a human writing their own commit is not the default this
+file assumes, only an option to state explicitly when it matters for that
+particular commit.
+
+No `Co-Authored-By` trailer, on this repo or any fork/branch of it, even
+where AI assistance was used to write the change. `CONTRIBUTIONS.md` is
+where that is disclosed — as a record of who built what, not as a per-commit
+trailer.
 
 ## Changelog
 

@@ -75,7 +75,6 @@ models:
 
   ProductVariation:
     product_id: id:Product
-    image_id: id:ProductImage nullable
     sku: string:64 unique
     price: decimal:10,2 nullable
     discount_price: decimal:10,2 nullable

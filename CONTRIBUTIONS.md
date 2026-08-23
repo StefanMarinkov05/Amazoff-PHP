@@ -28,9 +28,10 @@ needed to touch.
 | Validation | Database-level constraints across pivot and catalogue tables |
 | Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
 | Authorization | Permissions, roles, policies, administrator bypass |
-| Admin panel | Roles and permissions screen |
+| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li></ul> |
 | Actions | Full `app/Actions` |
 | Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
+| Console | `ExpireCarts` (the project's first scheduled command) and `RaceWorker` (the concurrency test harness) |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev
@@ -63,6 +64,7 @@ been through a review pass before it reaches the repository.
   factories, scaffolding
 - Reasoning about concurrency safety, where a test can show a race is
   unlikely but not that it is impossible
+- Running tests and analyzing the results
 
 Architectural options come from the developers and the model; the decision is
 the developer's. Generated output is a first draft and is read before it is

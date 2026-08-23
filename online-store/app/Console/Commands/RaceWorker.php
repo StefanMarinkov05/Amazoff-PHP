@@ -8,8 +8,10 @@ use App\Actions\Cart\AddToCart;
 use App\Actions\Cart\MergeGuestCart;
 use App\Actions\Catalogue\DeleteProductCategory;
 use App\Actions\Catalogue\ForceDeleteProductVariation;
+use App\Actions\Catalogue\RemoveProductImage;
 use App\Actions\Catalogue\RemoveProductVariation;
 use App\Actions\Catalogue\SetMainProductImage;
+use App\Actions\Catalogue\SetVariationImages;
 use App\Actions\Catalogue\UpdateProduct;
 use App\Actions\Coupon\RedeemCoupon;
 use App\Actions\Inventory\ReleaseStock;
@@ -153,6 +155,14 @@ final class RaceWorker extends Command
                 ->handle(ProductVariation::withTrashed()->findOrFail($this->id(0)), null),
             'set-main-image' => app(SetMainProductImage::class)
                 ->handle(ProductImage::findOrFail($this->id(0)), null),
+            // --id is the variation first, then the gallery in the order it
+            // should end up in. One Action owns the whole ordered set, so a
+            // race between two of these is a race between two complete
+            // galleries, not between an attach and a detach. ADR-0013.
+            'set-variation-images' => app(SetVariationImages::class)
+                ->handle($this->variation(0), $this->idsFrom(1), null),
+            'remove-image' => app(RemoveProductImage::class)
+                ->handle(ProductImage::findOrFail($this->id(0)), null),
             'delete-category' => app(DeleteProductCategory::class)
                 ->handle(ProductCategory::findOrFail($this->id(0)), null),
             // Plain Eloquent, deliberately: this is what Filament's default
@@ -210,6 +220,20 @@ final class RaceWorker extends Command
             $address,
             null,
         );
+    }
+
+    /**
+     * Every id from `$position` onward, for actions taking a variable-length
+     * list rather than a fixed set of operands.
+     *
+     * @return list<int>
+     */
+    private function idsFrom(int $position): array
+    {
+        /** @var list<string> $ids */
+        $ids = $this->option('id');
+
+        return array_map(intval(...), array_slice($ids, $position));
     }
 
     private function id(int $position): int

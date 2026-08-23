@@ -138,9 +138,6 @@ function cartVariation(int $stock = 10, array $product = [], array $variation = 
 
     $variationModel = ProductVariation::factory()->create(array_merge([
         'product_id' => $productModel->getKey(),
-        // Null rather than the factory's ProductImage: that image belongs to a
-        // second product the test never names, and this one needs no image.
-        'image_id' => null,
         'price' => null,
         'discount_price' => null,
         'is_available' => true,

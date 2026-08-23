@@ -11,7 +11,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | Command | Purpose | Invoked by |
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
-| `race:worker` | Runs one Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
+| `race:worker` | Runs 1 Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
 ## What belongs in a command
@@ -68,8 +68,12 @@ builds the arguments and spawns one process per job.
 
 Actions available today: `reserve-stock`, `release-stock`, `add-to-cart`,
 `merge-guest-cart`, `redeem-coupon`, `publish-product`, `remove-variation`,
-`force-delete-variation`, `set-main-image`, `delete-category`,
-`create-child-category`, `transition-order-status`, `create-order`.
+`force-delete-variation`, `set-main-image`, `set-variation-images`,
+`remove-image`, `delete-category`, `create-child-category`,
+`transition-order-status`, `create-order`.
+
+`set-variation-images` is the one arm whose `--id` list is variable-length:
+the variation first, then the gallery in the order it should end up in.
 
 `create-child-category` is plain Eloquent rather than an Action, matching
 what Filament's default create does for a lookup table — the asymmetry
