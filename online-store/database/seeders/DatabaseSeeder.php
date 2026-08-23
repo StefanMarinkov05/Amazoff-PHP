@@ -22,6 +22,10 @@ class DatabaseSeeder extends Seeder
         $this->call(PermissionSeeder::class);
         $this->call(RoleSeeder::class);
 
+        // Reference data, like roles: production needs carriers to exist for
+        // delivery pricing to resolve one at all. ADR-0003.
+        $this->call(CarrierSeeder::class);
+
         // Gates itself to non-production — see the note on UserSeeder for why
         // roles seed everywhere and accounts do not.
         $this->call(UserSeeder::class);

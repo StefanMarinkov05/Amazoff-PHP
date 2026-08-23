@@ -20,6 +20,7 @@ class Carrier extends Model
     protected $fillable = [
         'name',
         'code',
+        'cod_fee',
         'is_active',
     ];
 
@@ -32,6 +33,7 @@ class Carrier extends Model
     {
         return [
             'id' => 'integer',
+            'cod_fee' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }

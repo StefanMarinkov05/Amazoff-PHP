@@ -16,6 +16,7 @@ class CarrierFactory extends Factory
         return [
             'name' => fake()->name(),
             'code' => fake()->regexify('[A-Za-z0-9]{20}'),
+            'cod_fee' => fake()->randomElement(['0.00', '1.50', '2.00']),
             'is_active' => fake()->boolean(),
         ];
     }
