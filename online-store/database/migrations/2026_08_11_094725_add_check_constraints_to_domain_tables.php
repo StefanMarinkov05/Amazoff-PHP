@@ -93,7 +93,7 @@ return new class extends Migration
             'expression' => 'weight IS NULL OR weight >= 0',
         ],
 
-        // The one that concurrency actually attacks. Two orders reserving the
+        // The one that concurrency actually attacks. 2 orders reserving the
         // last item race, and without this the loser writes a negative
         // reservation that no report would flag.
         'chk_inventories_current_quantity_non_negative' => [
@@ -324,10 +324,10 @@ return new class extends Migration
  *   database would disagree at the half-cent. §11 puts the calculation on the
  *   server; this stays there.
  * - SKU unique across products and product_variations together. A UNIQUE
- *   constraint covers one table.
- * - Every product has at least one variation. Minimum cardinality across a
+ *   constraint covers 1 table.
+ * - Every product has at least 1 variation. Minimum cardinality across a
  *   relation has no constraint form.
- * - No two variations of one product carry the same set of attribute values.
+ * - No 2 variations of 1 product carry the same set of attribute values.
  *   Set equality across pivot rows.
  * - Order status transitions follow ADR-0004. A CHECK sees one row, not the
  *   row it replaced.

@@ -8,6 +8,111 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- File upload validation on both image fields in the panel — product
+  images (`ProductImagesRelationManager`) and article images (`ArticleForm`)
+  — closing §37 standard 18's type and size half. `ProductImage` and
+  `Article` each gained named constants (`ACCEPTED_MIME_TYPES`/
+  `IMAGE_ACCEPTED_MIME_TYPES`, a JPEG/PNG/WebP allow-list; `MAX_SIZE_KB`;
+  `MIN_WIDTH_PX`/`MIN_HEIGHT_PX`, a 400px floor against an accidental
+  thumbnail upload) so both fields reference one source rather than
+  duplicating literals. `->image()`'s own MIME sniff is unchanged;
+  `->acceptedFileTypes()` narrows it from "any image" to the allow-list, and
+  `Illuminate\Validation\Rules\Dimensions` enforces the floor — a
+  validation rule, not a `FileUpload` method, applied through `->rules()`
+  the same way price fields already apply `decimal:0,2`. `->imageEditor()`
+  added to both fields too, optional crop/rotate for an admin who wants it.
+  Storage method (§37 standard 18's third leg) was already met — both
+  fields go through `ProductImage::DISK`/`Article::IMAGE_DIRECTORY`, named
+  constants rather than literals, unchanged by this entry. Standard 19
+  (unique generated filenames) stays open below — Filament's default
+  upload-naming path was not traced to an actual stored filename, so it is
+  recorded honestly as unverified rather than assumed.
+
+  Caught by Larastan, not by review: the first version called
+  `Dimensions::make()`, which does not exist on this Laravel version's
+  `Dimensions` class — it has a plain constructor, no static factory.
+  `php -l` and a first read both passed; `phpstan analyse --memory-limit=1G`
+  did not, with `Call to an undefined static method
+  Illuminate\Validation\Rules\Dimensions::make()` on both call sites.
+  Fixed to `(new Dimensions())->minWidth(...)->minHeight(...)` and
+  reconfirmed clean. Recorded in `troubleshooting.md`'s new entry as the
+  general case: verify a fluent builder's actual API against the installed
+  version before assuming a common Laravel idiom applies unchanged.
+- `docs/how-to/troubleshooting.md` — two Windows/Docker-specific traps hit
+  this session, in one entry: stopping a background test run through the
+  harness kills the shell wrapper but not a child `pest` process it
+  spawned, which then keeps racing every later command against the same
+  MySQL container (`docker compose top app` is the reliable check;
+  `docker compose exec app kill` doesn't exist on this image, `posix_kill`
+  from a PHP one-liner does reach it); and Git Bash silently rewrites a
+  bare `/tmp/...` argument to a Windows path before `docker compose exec`
+  ever sees it, producing a Linux-shaped "No such file" error for a file
+  that exists exactly where it should — `MSYS_NO_PATHCONV=1` is the fix.
+  Both cost real time this session before the actual cause was found;
+  two coverage runs and a Feature-suite run were re-run clean afterward to
+  confirm neither had left a false result behind.
+- `CLAUDE.md`'s "Working style" — when a test earns its place. Written
+  after being asked whether the file-validation constraints above needed
+  their own Pest coverage; they don't, and the rule states why: a test that
+  reasserts Filament's or Laravel's own machinery works (does
+  `->acceptedFileTypes()` reject a bad MIME type, does `Dimensions` reject
+  a too-small image) proves the framework, which is already proven
+  upstream, for a flaky, fixture-heavy cost. `ProductResourceTest.php`'s
+  `'refuses a product with no variations'` already draws the line
+  correctly — it uses Filament's own form-testing machinery, but what it
+  proves is `ProductRequiresVariationException`'s territory, a domain rule.
+  Mirrored into `.ai/guidelines/project-conventions.md`'s Testing section
+  per this file's own rule to keep the two in agreement.
+
+- Variation image galleries — `product_image_product_variation`, a
+  many-to-many between a variation and its product's own `product_images`,
+  with a `position` column and a composite primary key over the pair. A
+  variation shows some of the product's photographs in an order it chooses;
+  one photograph can sit at a different position in several galleries, so a
+  product shot in five colours across eight sizes is thirty image rows rather
+  than two hundred and forty. `product_images` is untouched — still
+  product-owned, `product_id` still NOT NULL, the whole
+  `AddProductImage`/`SetMainProductImage`/`RemoveProductImage` triad and its
+  one-main invariant unchanged. ADR-0013 has the alternatives, including the
+  attribute-value swatch model that would have been better on write and worse
+  on read.
+- `app/Actions/Catalogue/SetVariationImages.php` — 1 Action owning the whole
+  ordered set, rather than an attach/detach/reorder triad. The contested state
+  is the ordered list, so it gets one owner, the way `SetMainProductImage`
+  owns "exactly one main image" for a product. Three anticipated races collapse
+  into one: adding while another administrator removes, reordering while
+  another detaches, and two simultaneous reorders are the same operation —
+  two complete sets, serialised by the `products` lock, the later winning
+  wholesale. Position renumbering disappears with them, because nothing ever
+  writes a partial set. Verified: order preserved, duplicates collapsed to
+  their first position, empty list clears, a cross-product image refused with
+  `ImageNotOnProductException`, a variation soft-deleted since page load
+  refused with `RemovedFromCatalogueException`.
+- `app/Support/ResolveVariationImage.php` — gallery position 1, else the
+  product's main image, else null. Computed, never stored, the same shape as
+  `ResolveVariationPrice`.
+- `tests/Concurrency/SetVariationImagesConcurrencyTest.php`, plus
+  `set-variation-images` and `remove-image` arms on `race:worker` and an
+  `idsFrom()` accessor for variable-length id lists. Deletion-proofed and it
+  actually went red: removing the `products` lock fails the atomicity
+  assertion on 4 of 4 attempts, with the surviving gallery containing rows
+  from *both* submissions — `sync()` issues its detach and its attaches as
+  separate statements, and two transactions interleave between them. Worth
+  recording next to `DeleteProductCategoryConcurrencyTest`, where fourteen
+  attempts never forced the equivalent failure; this window is wide enough to
+  hit every time.
+- A gallery modal on `ProductVariationsRelationManager`, as a row action
+  rather than the nested relation manager the draft plan assumed — Filament
+  relation managers do not nest. It happens to fit the Action: the modal
+  submits the whole set, and the multi-select's selection order becomes
+  `position`.
+- `docs/adr/0013-variation-image-ownership.md`,
+  `docs/reference/write-rules/product-variation-images.md`, and
+  `docs/explanation/product-variability.md`. The last also records which
+  large-catalogue techniques this schema already uses, which one is worth
+  designing toward (a flattened listing projection, so Blade never joins 5
+  tables per row), and which two are deliberately not done.
+
 - `app/Actions/Content/PublishArticle.php`, closing §37 criterion 17. Moves
   an article through §22's lifecycle — draft, scheduled, published, archived
   — checking `ArticleStatus::canTransitionTo()` before the write.
@@ -54,6 +159,82 @@ when the work happened, not when it was committed — nothing in
   existing `@property CouponType $type`) was found rather than guessed.
   `Order::$status` has the identical gap, uncaught until whoever writes
   against it hits the same error.
+- `brianium/paratest` as a dev dependency, plus a wildcard grant in
+  `docker/mysql/init/01-test-database.sh` for the per-worker databases
+  Laravel creates. `pest --parallel --processes=4 --testsuite=Feature` runs
+  472 tests in 260s against 474s sequential. Two measured findings recorded
+  in `run-the-tests.md`: `--processes=12` (this machine's `nproc`) is
+  *slower* at 338–361s, because every worker re-runs `migrate:fresh`
+  including the ~55s schema load and twelve of them contend on one MySQL
+  container; and `Concurrency` must never run under `--parallel` — 21 of 33
+  tests fail, since Laravel only switches a test case onto its own per-worker
+  database when it uses `RefreshDatabase` or a sibling trait, which
+  `tests/Pest.php` deliberately does not apply there.
+- `app/Actions/Cart/ExpireCarts.php` and `app/Console/Commands/ExpireCarts.php`
+  — deletes carts past `expires_at`, excluding any already referenced by
+  `orders.cart_id`, scheduled `->daily()` in `routes/console.php`. The first
+  scheduled command in the project. Inert today by design: nothing in `app/`
+  writes `expires_at` yet, because the TTL policy (guest carts expire after
+  about a month; a registered customer's cart does not expire — the checkout
+  stage is what expires for them) is not built.
+- `docs/reference/console-commands.md` — every custom Artisan command, what
+  invokes it, and why a command is a caller rather than a place a rule lives.
+  Also records that nothing runs `schedule:run` locally, so a scheduled
+  command never fires on its own in Docker.
+- `app/Console/Commands/RaceWorker.php` and
+  `tests/Concurrency/RaceHelper.php` — one `race:worker` Artisan command
+  replaces the PHP nowdoc every concurrency test used to write to
+  `base_path()`, spawn, and `@unlink()`. All twelve race files now describe
+  a race as a job list (`action`, `ids`, `args`, optional `rendezvous`) and
+  call `runRaceWorkers()`. `concurrency-and-locking.md`'s "Why the worker is
+  generated, not committed" had already recorded the duplicated bootstrap as
+  a cost and named this refactor as an agreed follow-up; this is it. Roughly
+  700 lines of duplicated boilerplate removed, and the suite got faster as a
+  side effect —
+  518s against a ~695s baseline, because Artisan's bootstrap beats a
+  hand-rolled `require bootstrap/app.php` per worker. Behaviour preserved:
+  all 33 tests pass, and `ReserveStockConcurrencyTest` was re-deletion-proofed
+  against the new harness (lock removed, `QueryException` instead of the
+  clean refusal, exactly as before). The rendezvous ready-flags moved to
+  `storage/framework/testing/`, which Laravel already gitignores — a worker
+  killed between planting its flag and unlinking it used to leave an
+  untracked file in the project root.
+- `tests/Pest.php`: `Feature` now uses `LazilyRefreshDatabase` instead of
+  `RefreshDatabase` — same isolation guarantee, migrates only on first DB
+  touch. Measured back to back on this suite: 683s → 617s, 479/479 tests
+  unchanged. Verified structurally, not just measured: `LazilyRefreshDatabase`
+  `use`s `RefreshDatabase` internally, so `class_uses_recursive()` still
+  resolves it for Laravel's per-worker test-database switching —
+  `pest --parallel --testsuite=Feature` is unaffected.
+- `docs/adr/0012-laravel-boost.md` and `laravel/boost` (dev-only) — MCP
+  server (schema/query/log tools plus semantic search over
+  Laravel/Filament/Pest docs), guidelines, and skills for AI-assisted
+  development. `online-store/.ai/guidelines/project-conventions.md` is the
+  hand-written, committed source; `online-store/CLAUDE.md`, `boost.json`,
+  and `.claude/skills/` are generated and gitignored, rebuilt by
+  `php artisan boost:install`. `.mcp.json` points the MCP entry through
+  `docker compose exec app`, since this project's `vendor/` only exists
+  inside the container. Root `CLAUDE.md` now says explicitly that it is
+  hand-written and points at the generated file rather than being confused
+  for it.
+
+  ADR-0012 audits Boost's bundled guidance against this project's actual
+  architecture rather than accepting it wholesale. Three real conflicts,
+  all overridden in `.ai/guidelines/project-conventions.md`: "only create
+  documentation files if requested" (this project's docs are part of the
+  work, not an extra); "always use constructor injection, avoid `app()`"
+  (every Action in this codebase is resolved at the call site, by design —
+  checked against all 30+ existing Actions, not assumed); "code payment
+  gateways to an interface" (ADR-0001 decided the opposite, by name: two
+  courier implementations justify `App\Contracts`, one Stripe
+  implementation does not). Also records, with source-level evidence, why
+  `Illuminate\Concurrency\ProcessDriver` doesn't replace `race:worker` —
+  no barrier, no rendezvous, and no exposed way to pass per-task `DB_*`
+  environment at all.
+
+  One real, applied finding from the audit beyond the ADR itself:
+  `carts:expire`'s schedule entry gained `->withoutOverlapping()`, per a
+  Boost scheduling rule naming a genuine gap in what was already there.
 - `app/Actions/Catalogue/DeleteProductCategory.php` — the one Action
   `ProductCategory` needed despite CLAUDE.md's plain-lookup-table exemption.
   `ProductCategoryPolicy::delete()`'s own docblock had already named the
@@ -121,7 +302,7 @@ when the work happened, not when it was committed — nothing in
   `AddressType`, `DeliveryType`, `AttributeInputType`, `NewsletterStatus`.
   Each carries `values()` and implements Filament's `HasLabel`, so tables,
   filters, and select fields render them without a per-resource value map.
-- `HasColor` on the seven enums where a badge colour carries meaning —
+- `HasColor` on the 7 enums where a badge colour carries meaning —
   `OrderStatus`, `PaymentStatus`, `PaymentMethod`, `ShipmentStatus`,
   `InventoryMovementType`, `ArticleStatus`, `NewsletterStatus`. The remaining
   five classify rather than describe state, where a colour would be decoration.
@@ -178,7 +359,7 @@ when the work happened, not when it was committed — nothing in
 - `Gate::before` in `AppServiceProvider` grants `administrator` every
   ability. Returns `null` rather than `false` when the role is absent, so
   other users still reach spatie's callback and then their policy.
-- Twenty Policy classes — one per resource the permission catalogue names,
+- 20 Policy classes — one per resource the permission catalogue names,
   not one per Filament Resource built, since a missing policy fails open the
   moment a resource is scaffolded. Most methods are one
   `$user->can('{ability}_{resource}')`, checking permissions rather than role
@@ -370,7 +551,7 @@ when the work happened, not when it was committed — nothing in
   status, rather than in a `CancelOrder`/`ShipOrder` wrapper; records the
   explicit departure from ADR-0004's original illustrative example and why.
 - `tests/Concurrency/TransitionOrderStatusConcurrencyTest.php` — two staff
-  transitioning one order at once, closing the gap
+  transitioning 1 order at once, closing the gap
   `reference/write-rules/concurrency.md` had listed as "Not covered." Two
   races, not one: identical concurrent transitions (both succeed, exactly one
   write — the no-op design means this is not a winner/loser shape at all,
@@ -386,7 +567,7 @@ when the work happened, not when it was committed — nothing in
     `CartAlreadyCheckedOutException` — the same cart checked out twice, once
     a deliberately-pinned gap with its own concurrency test, now a
     guarantee. `CreateOrderConcurrencyTest`'s third race rewritten from
-    asserting two orders to asserting one order and a clean refusal for the
+    asserting 2 orders to asserting 1 order and a clean refusal for the
     loser.
   - `CheckoutActorRemovedException`, a caught `QueryException` on the
     `orders_user_id_foreign` constraint — a hard-deleted actor between being
@@ -420,6 +601,36 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- **Dropped `product_variations.image_id`**, the single optional pointer at one
+  of the product's images that the gallery replaces. Two columns answering one
+  question forces a resolver to invent a precedence rule nothing enforces on
+  write. Removed in a new migration, per the append-only rule.
+
+  Three things went with it, each a simplification. `RemoveProductImage`'s
+  in-use guard and `ProductImageInUseException`: they converted one specific
+  error 1451 into an actionable message, and that 1451 is now unreachable —
+  the only remaining reference to `product_images` from outside its own
+  product is the pivot, which cascades. Removing an image now takes it out of
+  every gallery it was in rather than being refused. `ForceDeleteProduct`'s
+  ordering constraint between variations and images, now only a comment. And
+  `ProductVariationFactory`'s `image_id`, which called `ProductImage::factory()`
+  and therefore attached an image belonging to a *second, unrelated product* to
+  every variation it built — `tests/Pest.php` already worked around it with an
+  explicit `image_id => null` and a comment saying exactly that. The pivot
+  cannot express that mistake; `SetVariationImages` refuses it by name.
+
+  One test was deleted rather than rewritten: "keeps the file when the removal
+  is refused", which proved `RemoveProductImage` leaves the file on disk when
+  it refuses. The Action has no refusal left, so nothing can reach the branch.
+  The property is still real and still commented in the Action; what is gone
+  is a way to exercise it.
+- The gallery's ordering column is `position`, not `sort_order`, though
+  `product_images` already has a `sort_order` — because it already has one.
+  The first test written against the pivot failed with `SQLSTATE[23000] ...
+  Column 'sort_order' in field list is ambiguous` on a query joining both.
+  Renamed rather than qualified at every call site; the migration docblock
+  records the failure.
+
 - CI split into three parallel jobs (ADR-0010): `lint` (Pint, Larastan, no
   database), `test` (`tests/Unit` + `tests/Feature`, 2-shard matrix), and
   `test-concurrency` (`tests/Concurrency`, 3-shard matrix). Both suites'
@@ -449,7 +660,7 @@ when the work happened, not when it was committed — nothing in
   to EUR. Filament's `money()` columns fall back to `usd` when given no
   argument, so this is set once rather than passed to every money column,
   where a new table would silently render dollars.
-- `AssociateAction` and `DissociateAction` removed from all three product
+- `AssociateAction` and `DissociateAction` removed from all 3 product
   relation managers. `--generate` scaffolds them, but `product_id` is NOT
   NULL on all three child tables, so no row is ever unattached and
   "associate" could only mean reassigning another product's image, spec, or
@@ -506,7 +717,7 @@ when the work happened, not when it was committed — nothing in
   of them; `AttributeValueForm` needed a composite rule
   (`modifyRuleUsing`) to match `attribute_values`' `UNIQUE(attribute_id,
   slug)` rather than a plain column-level check. Corrected by hand in all
-  six resources.
+  6 resources.
 - `AttributeValueForm.php` imported `Filament\Forms\Get`, which does not
   exist in Filament v4 — `Get`/`Set` moved to
   `Filament\Schemas\Components\Utilities\Get`. Pint and the IDE (which
@@ -553,7 +764,7 @@ when the work happened, not when it was committed — nothing in
   directories — the compiled assets were never published, so every asset
   request 404'd and the panel rendered unstyled. `php artisan
   filament:assets` now runs as part of setup; see `README.md`.
-- `App\Models\Order` had no `@property` docblock naming its three enum-cast
+- `App\Models\Order` had no `@property` docblock naming its 3 enum-cast
   columns, so Larastan inferred `status`/`payment_status`/`payment_method` as
   raw DB-enum string unions instead of `OrderStatus`/`PaymentStatus`/
   `PaymentMethod` the moment `TransitionOrderStatus` read one back and called
@@ -563,7 +774,7 @@ when the work happened, not when it was committed — nothing in
   matching `Coupon`'s existing precedent.
 - `docs/explanation/tech-stack-overview.md` — said "Nothing exists yet for
   `Product` or `Order`" and "no Actions" under Filament resources, both
-  several slices stale (twelve resources and 24 Actions exist). Corrected in
+  several slices stale (12 resources and 24 Actions exist). Corrected in
   the same pass as this slice, since it is the page the next session reads
   to decide what is safe to build on.
 
@@ -584,3 +795,17 @@ when the work happened, not when it was committed — nothing in
   rule, so the duplication cannot be removed retroactively. Migrations added
   from here on should use `OrderStatus::values()` rather than a literal array,
   which keeps the copy generated instead of typed.
+- §37 standard 19 (unique generated filenames on upload). Filament's default
+  naming path was not traced to an actual stored filename against this
+  version — no seeded or fixture data exercises a real upload, only
+  synthetic paths. Verify by uploading through the panel and reading back
+  `product_images.path`, then close the standard or add a
+  `getUploadedFileNameForStorageUsing()` callback if the default collides.
+- Whether Filament 4.12.6's `Repeater` with `->reorderableWithDragAndDrop()`
+  actually preserves array submission order the way `SetVariationImages`
+  assumes, and whether the `ViewField` thumbnail partial re-renders live
+  against its sibling `Select` inside a modal nested in a relation
+  manager's row action — built and statically verified, never opened in a
+  browser. Same open item for `->rules([(new Dimensions())...])`: Larastan
+  now confirms it type-checks, but nobody has uploaded an undersized image
+  through the actual form to confirm Filament surfaces the rejection.

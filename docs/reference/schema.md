@@ -21,8 +21,8 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 
 **Catalogue** — `product_categories`, `brands`, `products`, `product_images`,
 `product_variations`, `product_specifications`, `attributes`,
-`attribute_values`, and the pivots `attribute_product` and
-`attribute_value_product_variation`.
+`attribute_values`, and the pivots `attribute_product`,
+`attribute_value_product_variation`, and `product_image_product_variation`.
 
 **Inventory** — `inventories`, `inventory_movements`.
 
@@ -60,7 +60,7 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 | `wishlist_items` | `UNIQUE(user_id, product_id)` | No duplicate favourites |
 | `cart_items` | `UNIQUE(cart_id, product_variation_id)` | One line per variation; quantity changes instead |
 | `attribute_values` | `UNIQUE(attribute_id, slug)` | Value slugs unique within their axis |
-| `orders` | `UNIQUE(serial_number)`, `UNIQUE(cart_id)` (nullable, no foreign key), `INDEX(email)` | Order lookup by number; one order per cart; tracking by email |
+| `orders` | `UNIQUE(serial_number)`, `UNIQUE(cart_id)` (nullable, no foreign key), `INDEX(email)` | Order lookup by number; 1 order per cart; tracking by email |
 | `shipments` | `UNIQUE(tracking_number)` | Tracking numbers are not reused |
 | `products`, `product_variations` | `UNIQUE(sku)` | SKU identifies one sellable item |
 
@@ -70,15 +70,21 @@ Unique slugs: `products`, `product_categories`, `brands`, `articles`,
 
 ## Composite primary keys
 
-All six pivot tables carry a composite primary key over their column pair:
+All seven pivot tables carry a composite primary key over their column pair:
 `attribute_product`, `attribute_value_product_variation`, `coupon_product`,
-`coupon_product_category`, `article_tag`, `article_product`. A primary key
-rather than a unique index — InnoDB clusters by it, and these tables are always
-read by one side of the pair, never by an id of their own.
+`coupon_product_category`, `article_tag`, `article_product`, and
+`product_image_product_variation`. A primary key rather than a unique index —
+InnoDB clusters by it, and these tables are always read by one side of the
+pair, never by an id of their own.
 
-They were generated as bare foreign-key pairs with neither, so each accepted the
-same pair twice. A duplicate is not a visible error: it doubles a row in every
-join, so a product would list an attribute twice. See ADR-0005.
+The first six were generated as bare foreign-key pairs with neither, so each
+accepted the same pair twice. A duplicate is not a visible error: it doubles a
+row in every join, so a product would list an attribute twice. See ADR-0005.
+
+`product_image_product_variation` is the only one carrying a payload column —
+`position`, the order an image appears in one variation's gallery — and the
+only one with a second index, `(product_variation_id, position)`, because its
+primary key leads with the image and every read is by variation. ADR-0013.
 
 ## Check constraints
 
@@ -93,13 +99,15 @@ migration skips itself there. This is why the test suite runs on MySQL — see
 `how-to/use-ci.md`.
 
 What the database cannot express, and therefore stays an application invariant:
-cross-table SKU uniqueness, every product having at least one variation, two
+cross-table SKU uniqueness, every product having at least 1 variation, 2
 variations sharing an attribute-value set, order totals agreeing with bcmath
 rounding, and status transitions. ADR-0005 lists them; ADR-0004 owns the last.
 
 ## Soft deletes
 
-`users`, `products`, `product_variations`. Everything else deletes hard.
+`users`, `products`, `product_variations`. Everything else deletes hard —
+including `product_images` and every pivot, so a detached gallery membership is
+gone rather than hidden.
 `orders` is never deleted; `anonymized_at` marks a GDPR erasure —
 `explanation/gdpr.md`.
 

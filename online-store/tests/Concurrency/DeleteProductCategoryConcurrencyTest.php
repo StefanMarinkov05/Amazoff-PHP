@@ -7,7 +7,6 @@ use App\Models\ProductCategory;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Deleting a category while a subcategory is being created underneath it.
@@ -57,95 +56,22 @@ afterEach(function (): void {
 it('leaves the database coherent when a category is deleted and reparented-into at once', function (): void {
     $category = ProductCategory::factory()->create();
 
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $role = $argv[1];
-        $id = (int) $argv[2];
-        $startAt = (float) $argv[3];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        // A second, tighter rendezvous on top of the wall-clock barrier, so
-        // process-boot jitter is not what decides who reaches their own
-        // critical section first — see AddToCartVsMergeGuestCartConcurrencyTest
-        // for why this alone does not equalise two Actions of different
-        // internal length.
-        $readyFile = __DIR__.'/ready-'.$role;
-        $otherReadyFile = __DIR__.'/ready-'.($role === 'delete' ? 'create' : 'delete');
-        file_put_contents($readyFile, '1');
-        $waitUntil = microtime(true) + 2.0;
-        while (! file_exists($otherReadyFile) && microtime(true) < $waitUntil) {
-            usleep(50);
-        }
-        @unlink($readyFile);
-
-        try {
-            if ($role === 'delete') {
-                app(App\Actions\Catalogue\DeleteProductCategory::class)->handle(
-                    App\Models\ProductCategory::findOrFail($id),
-                    null,
-                );
-            } else {
-                // Plain Eloquent, deliberately: this is what Filament's
-                // default create does for a category today, no Action.
-                App\Models\ProductCategory::query()->create([
-                    'parent_id' => $id,
-                    'name' => 'Race child',
-                    'slug' => 'race-child-'.bin2hex(random_bytes(8)),
-                ]);
-            }
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('category-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    $env = [
-        'DB_CONNECTION' => 'mysql',
-        'DB_DATABASE' => config('database.connections.mysql.database'),
-        'DB_HOST' => config('database.connections.mysql.host'),
-        'DB_PORT' => (string) config('database.connections.mysql.port'),
-        'DB_USERNAME' => config('database.connections.mysql.username'),
-        'DB_PASSWORD' => config('database.connections.mysql.password'),
-    ];
-
-    try {
-        $processes = collect([
-            ['delete', $category->getKey()],
-            ['create', $category->getKey()],
-        ])->map(function (array $args) use ($startAt, $env): Process {
-            $process = new Process(
-                ['php', 'category-race-worker.php', $args[0], (string) $args[1], (string) $startAt],
-                base_path(),
-                $env,
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-        $outputs = $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('category-race-worker.php'));
-    }
-
-    $report = "\nWorker output was:\n".$outputs->implode("\n---\n");
+    // `rendezvous` on both sides, for the reason this file's docblock
+    // measures: without it the create side won every run, boot jitter rather
+    // than the lock deciding the outcome.
+    $outputs = runRaceWorkers([
+        [
+            'action' => 'delete-category',
+            'ids' => [$category->getKey()],
+            'rendezvous' => 'delete',
+        ],
+        [
+            'action' => 'create-child-category',
+            'ids' => [$category->getKey()],
+            'rendezvous' => 'create',
+        ],
+    ]);
+    $report = raceReport($outputs);
 
     [$deleteOutput, $createOutput] = $outputs->all();
 

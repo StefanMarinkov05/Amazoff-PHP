@@ -81,7 +81,7 @@ wins" shape before assuming the same pattern applies here.
 | Two simultaneous `MergeGuestCart` calls, same guest cart | both succeed; quantity sums to 2; guest cart does not survive either | `MergeGuestCartConcurrencyTest` |
 | A direct `AddToCart` racing a `MergeGuestCart` of the same variation into the same cart | both succeed; quantity sums to 2 | `AddToCartVsMergeGuestCartConcurrencyTest` — proves `AddToCart`'s retry only; see "Known gaps" |
 
-`AddToCartVsMergeGuestCartConcurrencyTest` races the two Actions directly
+`AddToCartVsMergeGuestCartConcurrencyTest` races the 2 Actions directly
 against each other, six times per run, with a file-flag rendezvous on top of
 the usual wall-clock barrier so process-boot jitter isn't deciding the
 outcome. Both fold cleanly every time. What it could not do, across 24
@@ -99,7 +99,7 @@ namespace. No Action here calls `lockForUpdate()`.
 
 **1. `MergeGuestCart`'s retry is unverified in the add-vs-merge pairing
 specifically** — not for lack of trying. `AddToCartVsMergeGuestCartConcurrencyTest`
-races the two Actions directly, repeatedly, with tighter synchronization
+races the 2 Actions directly, repeatedly, with tighter synchronization
 than the wall-clock barrier alone provides, and `MergeGuestCart` won every
 attempt. Its `applyLine()` does no domain validation before the insert;
 `AddToCart` checks `min_order_quantity` and `available()` first — a real,

@@ -104,7 +104,7 @@ coding agent and compresses their output.
 ### astrotomic/laravel-translatable, spatie/laravel-activitylog
 
 Both installed. The decisions behind them — content translation storage
-shape, audit log shape — are not made. Supporting files (`lang/`, one
+shape, audit log shape — are not made. Supporting files (`lang/`, 1
 migration) were set aside.
 
 ### Docker, local dev

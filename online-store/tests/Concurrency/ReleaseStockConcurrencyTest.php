@@ -8,7 +8,6 @@ use App\Models\ProductVariation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Concurrency test for stock release — `ReleaseStock`'s counterpart to
@@ -73,62 +72,11 @@ function reservedVariation(int $current, int $reserved): ProductVariation
 it('fails the loser of a release race cleanly rather than at the database', function (): void {
     $variation = reservedVariation(current: 10, reserved: 1);
 
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $variation = App\Models\ProductVariation::findOrFail((int) $argv[1]);
-        $startAt = (float) $argv[2];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        try {
-            app(App\Actions\Inventory\ReleaseStock::class)->handle($variation, 1, null);
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('release-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    try {
-        $processes = collect(range(1, 2))->map(function () use ($variation, $startAt): Process {
-            $process = new Process(
-                ['php', 'release-race-worker.php', (string) $variation->getKey(), (string) $startAt],
-                base_path(),
-                [
-                    'DB_CONNECTION' => 'mysql',
-                    'DB_DATABASE' => config('database.connections.mysql.database'),
-                    'DB_HOST' => config('database.connections.mysql.host'),
-                    'DB_PORT' => (string) config('database.connections.mysql.port'),
-                    'DB_USERNAME' => config('database.connections.mysql.username'),
-                    'DB_PASSWORD' => config('database.connections.mysql.password'),
-                ],
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-        $outputs = $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('release-race-worker.php'));
-    }
-
-    $report = "\nWorker output was:\n".$outputs->implode("\n---\n");
+    $outputs = runRaceWorkers([
+        ['action' => 'release-stock', 'ids' => [$variation->getKey()], 'args' => [1]],
+        ['action' => 'release-stock', 'ids' => [$variation->getKey()], 'args' => [1]],
+    ]);
+    $report = raceReport($outputs);
 
     expect($outputs->filter(fn (string $o) => $o === 'OK'))->toHaveCount(
         1,

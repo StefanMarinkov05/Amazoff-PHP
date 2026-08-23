@@ -82,3 +82,15 @@ self-referencing foreign key must not cycle." Not closed here: this page
 covers deletion, which is what has an Action; reassignment is still default
 Filament CRUD, and closing this needs either a validation rule or an Action
 of its own, whichever is decided first.
+
+**3. `Attribute` has the identical pre-fix shape this page's own subject
+used to.** `attribute_values.attribute_id` is a bare `FOREIGN KEY` — no
+cascade, same as `parent_id` was here — and `EditAttribute.php` has a
+completely unguarded `DeleteAction::make()`, no `visible()`/`disabled()`
+closure at all. Deleting an `Attribute` with existing `AttributeValue` rows
+throws a raw `QueryException` (500), not a clean refusal. `Brand`, `Tag`,
+`ArticleCategory`, and `Carrier` were checked and have no equivalent
+parent-child FK, so this is not a pattern across every lookup table — just
+this one, found by checking rather than assumed. Not built here: this page
+is about `ProductCategory` specifically; a `DeleteAttribute` Action mirroring
+this one's shape is the natural fix, its own vertical slice.

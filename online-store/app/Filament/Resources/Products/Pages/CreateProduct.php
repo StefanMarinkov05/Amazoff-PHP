@@ -20,7 +20,7 @@ class CreateProduct extends CreateRecord
 
     /**
      * ADR-0007: where a rule exists the resource calls the Action rather than
-     * letting the page write the model. A product spans three tables and
+     * letting the page write the model. A product spans 3 tables and
      * `CreateRecord` writes one.
      *
      * @param  array<string, mixed>  $data

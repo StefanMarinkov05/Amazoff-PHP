@@ -31,7 +31,7 @@ unique index: it expresses the same guarantee, InnoDB clusters the rows by it,
 and these tables are always read by one side of the pair and never by an id of
 their own.
 
-Forty-five `CHECK` constraints across eleven tables, covering money that cannot
+Forty-five `CHECK` constraints across 11 tables, covering money that cannot
 be negative, quantities that cannot be negative, discounts below the price they
 reduce, VAT rates that are percentages, reservations not exceeding stock on
 hand, refunds not exceeding the payment, date windows that end after they
@@ -44,7 +44,7 @@ produces a readable message for the person filling in a form. The constraint
 holds regardless of which code path wrote the row — a seeder, a queued job, a
 fixture import, a console command, or an Action whose author forgot to
 validate. Under concurrency the application check is advisory and the constraint
-is not: two orders reserving the last item both read the same available
+is not: 2 orders reserving the last item both read the same available
 quantity, and only the constraint stops the loser writing a negative one.
 
 ### What the database cannot do
@@ -55,10 +55,10 @@ Recorded so it is not assumed:
   subtotal minus discount plus shipping plus VAT. Expressible, but the rounding
   is bcmath's and MySQL would disagree at the half-cent. §11 puts the
   calculation on the server and it stays there.
-- Uniqueness spanning two tables, such as a SKU unique across products and
+- Uniqueness spanning 2 tables, such as a SKU unique across products and
   variations together.
-- Minimum cardinality, such as every product having at least one variation.
-- Set equality across rows, such as two variations of one product carrying the
+- Minimum cardinality, such as every product having at least 1 variation.
+- Set equality across rows, such as 2 variations of 1 product carrying the
   same attribute values.
 - Status transitions, which compare a row against the row it replaced. ADR-0004
   owns those.
@@ -101,7 +101,7 @@ difference is the point.
 
 Ten of the thirty-two factories generated data that violated the new
 constraints, and the dev database held twenty-two rows that did — eleven of
-nineteen products had a discount price at or above the regular price. None of
+19 products had a discount price at or above the regular price. None of
 it had ever failed a check, because Pint, Larastan, and Pest all pass on data
 that only the database rejects.
 

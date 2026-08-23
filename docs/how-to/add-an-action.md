@@ -6,7 +6,7 @@ read it there rather than expecting this page to restate the argument.
 
 ## 1. Check that it needs to be an Action
 
-An Action is required where a rule exists: the write spans more than one
+An Action is required where a rule exists: the write spans more than 1
 table, or it enforces an invariant the schema cannot express. A single-table
 save has neither, so a lookup table keeps Filament's default CRUD.
 
@@ -64,7 +64,7 @@ one, and `php -l` reports it.
 
 Omit the parameter entirely if the Action has no non-human caller.
 
-When one Action calls another, pass the actor on. Passing `null` from a caller
+When 1 Action calls another, pass the actor on. Passing `null` from a caller
 that has a real actor is now the only way to weaken a security check by
 accident — forgetting the parameter no longer compiles, but writing `null`
 where `$actor` belonged still grants system privileges, and only review

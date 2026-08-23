@@ -108,7 +108,7 @@ constraint making that certain.**
 | Race | Outcome | Evidence |
 |---|---|---|
 | Two different customers redeeming a coupon at `total_usage_limit = 1` | exactly one `CouponRedemption` row; the loser gets a clean `CouponNotApplicableException::totalLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of two different customers redeem" |
-| Two orders from the same customer (same `email_hash`, e.g. two tabs, a double-submitted "place order") redeeming at `usage_limit_per_customer = 1` | exactly one `CouponRedemption` row; the loser gets `perCustomerLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of two orders from the same customer" |
+| 2 orders from the same customer (same `email_hash`, e.g. two tabs, a double-submitted "place order") redeeming at `usage_limit_per_customer = 1` | exactly one `CouponRedemption` row; the loser gets `perCustomerLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of 2 orders from the same customer" |
 | The same order redeeming the same coupon twice (retry, double-submit) | one row; the second call returns the first call's row rather than inserting or throwing | `RedeemCouponTest`, "returns the existing row rather than inserting twice" |
 
 The first two are **not** backstopped by a `CHECK` constraint — no

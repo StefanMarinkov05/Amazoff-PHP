@@ -16,7 +16,7 @@ return new class extends Migration
         // The `users` table itself is created by the Blueprint-generated
         // 2026_08_09_..._create_users_table migration, which has the real
         // column set (first_name/last_name, phone, avatar_path, softdeletes,
-        // ...). This migration only owns the two tables Laravel's default
+        // ...). This migration only owns the 2 tables Laravel's default
         // auth scaffolding needs alongside it.
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

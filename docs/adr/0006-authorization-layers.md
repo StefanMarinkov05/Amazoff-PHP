@@ -108,7 +108,7 @@ form for either would be a way to author history rather than record it.
 false and the administrator bypass never consults a permission that does not
 exist.
 
-One policy is registered by hand. `Spatie\Permission\Models\Role` lives in
+1 policy is registered by hand. `Spatie\Permission\Models\Role` lives in
 the package's namespace, so convention finds nothing for it — and it is the
 model that decides what every other role may do.
 

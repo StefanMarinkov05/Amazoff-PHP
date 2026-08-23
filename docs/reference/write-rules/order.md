@@ -99,9 +99,9 @@ reads a few lines apart.
 
 | Race | Outcome | Evidence |
 |---|---|---|
-| Two customers checking out the last unit of the same variation | exactly one order succeeds; the loser gets a clean `InsufficientStockException`, not a `QueryException` — no half-written order | `CreateOrderConcurrencyTest` |
-| Two customers redeeming a coupon at its total usage limit, through `CreateOrder` | exactly one order succeeds; the loser gets a clean `CouponNotApplicableException` — proves composing `RedeemCoupon` inside `CreateOrder`'s larger transaction does not weaken the guarantee `RedeemCoupon` already proves alone | `CreateOrderConcurrencyTest` |
-| The same cart checked out twice at once — a double-submitted "place order," or two tabs | exactly one order succeeds; the loser gets a clean `CartAlreadyCheckedOutException`, not a raw `QueryException` | `CreateOrderConcurrencyTest`, "fails the loser of a double-submitted checkout cleanly, producing exactly one order" |
+| Two customers checking out the last unit of the same variation | exactly 1 order succeeds; the loser gets a clean `InsufficientStockException`, not a `QueryException` — no half-written order | `CreateOrderConcurrencyTest` |
+| Two customers redeeming a coupon at its total usage limit, through `CreateOrder` | exactly 1 order succeeds; the loser gets a clean `CouponNotApplicableException` — proves composing `RedeemCoupon` inside `CreateOrder`'s larger transaction does not weaken the guarantee `RedeemCoupon` already proves alone | `CreateOrderConcurrencyTest` |
+| The same cart checked out twice at once — a double-submitted "place order," or two tabs | exactly 1 order succeeds; the loser gets a clean `CartAlreadyCheckedOutException`, not a raw `QueryException` | `CreateOrderConcurrencyTest`, "fails the loser of a double-submitted checkout cleanly, producing exactly 1 order" |
 
 All three share the same assertion shape: a constraint makes exactly one
 winner certain regardless of whether the application-level guard holds

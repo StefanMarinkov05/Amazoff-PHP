@@ -88,8 +88,9 @@ final class ForceDeleteProduct
                     productIsBeingErased: true,
                 ));
 
-            // Images last of the two: product_variations.image_id references
-            // them, so they can only go once every variation has.
+            // Order between these two no longer matters: ADR-0013 dropped
+            // product_variations.image_id, and the gallery pivot that replaced
+            // it cascades. Left as it was rather than reshuffled for nothing.
             $product->productSpecifications()->delete();
             $product->productImages()->delete();
 

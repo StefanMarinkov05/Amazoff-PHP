@@ -107,7 +107,7 @@ calls pass a retry count) it rolls back and rethrows the original
 `QueryException` — no automatic retry, since Laravel only retries when
 `DB::transaction($callback, $attempts)` is called with `$attempts > 1`, which
 nothing here does. Only when the failure happens on a **nested** transaction —
-one Action's `DB::transaction()` running as a savepoint inside another's, per
+One Action's `DB::transaction()` running as a savepoint inside another's, per
 ADR-0007's composition — does Laravel instead throw a distinct
 `Illuminate\Database\DeadlockException` (still a `PDOException`, not a
 `QueryException`) so the outer transaction knows the savepoint, not the whole
@@ -142,7 +142,7 @@ increment()          B evaluates 1 + 1 = 2 at write time
 
 read-modify-write    A writes reserved = 1
                      B writes reserved = 1, from its own stale read of 0
-                     → reserved = 1 for two orders. The constraint is
+                     → reserved = 1 for 2 orders. The constraint is
                        satisfied. The oversell is silent.
 ```
 
@@ -206,9 +206,9 @@ Stock is row contention inside a single request, and the lock above is the
 right tool for it. Two other shapes appear in the catalogue, and applying the
 same tool to either produces something wrong. ADR-0008 records the choice.
 
-### An invariant spanning two tables
+### An invariant spanning 2 tables
 
-§6–7 requires every sellable product to have at least one variation.
+§6–7 requires every sellable product to have at least 1 variation.
 `UpdateProduct` publishes a product after counting its variations;
 `RemoveProductVariation` deletes a variation after checking the product is not
 available. Both are check-then-act, and run concurrently they both read the
@@ -272,7 +272,7 @@ the same reason stock is not held from the moment a customer opens checkout.
 
 `CreateOrder` reserves every line of a multi-item order, and
 `TransitionOrderStatus` locks `inventories` again for each line on
-`=> Cancelled`/`=> Shipped`/`=> Returned`. Two orders — or two transitions —
+`=> Cancelled`/`=> Shipped`/`=> Returned`. 2 orders — or 2 transitions —
 locking the same pair of variations in opposite orders deadlock:
 
 ```
@@ -312,41 +312,44 @@ the second connection — and asking for one makes that connection queue behind
 the test's own uncommitted write. These tests commit their fixtures and
 truncate afterwards.
 
-### Why the worker is generated, not committed
+### The worker is one Artisan command, not a generated script
 
-Every test in `tests/Concurrency/` builds its worker as a PHP nowdoc
-(`<<<'PHP'`, no interpolation — the content is identical on every run of a
-given test), writes it to `base_path()` with `file_put_contents()`, spawns
-it, then `@unlink()`s it. Not a static file committed alongside the test.
+Both halves of a race run as `php artisan race:worker <action>`, spawned by
+`runRaceWorkers()` in `tests/Concurrency/RaceHelper.php`. The command
+(`app/Console/Commands/RaceWorker.php`) owns the bootstrap, the connection
+warm-up, the barrier, the optional rendezvous, and the
+`OK`/`FAILED:<exception class>` protocol the assertions read. Each test
+supplies only what differs: which action, which model ids, which scalar
+arguments.
 
-Two reasons, one deliberate and one a cost not yet paid off:
+Until slice 6c each test instead built its worker as a PHP nowdoc, wrote it
+to `base_path()` with `file_put_contents()`, spawned `php <name>.php`, and
+`@unlink()`ed it in a `finally`. That kept the worker colocated with the
+assertions reading its outcome, at the cost of duplicating the
+Laravel-bootstrap preamble — `require autoload.php`, boot the kernel,
+`DB::select('SELECT 1')`, the busy-wait barrier — across twelve files, and
+of leaving an untracked file in the project root whenever a run died before
+its `finally` (a fatal mid-spawn, a killed test process).
 
-- **Colocation.** The worker's exact behaviour — which Action it calls, with
-  what arguments, what it does on failure — sits in the same file as the
-  assertions reading its outcome. Auditing whether a race test proves what
-  it claims (`how-to/run-the-tests.md`'s "checking that a test can fail")
-  means reading one file, not cross-referencing a test against a separate
-  worker it was written to match.
-- **The file is treated as disposable, not as source.** It lands in the
-  project root next to `artisan` and `composer.json` — deliberately outside
-  `tests/`, so it never looks like a permanent part of the suite — and
-  `@unlink()` removes it once the process exits. Nothing gitignores it: if
-  a run aborts before reaching that line (a fatal error mid-spawn, a killed
-  test process), the generated file is left behind, untracked, in the
-  project root. Rare in practice, not impossible.
+What the command form gives up, and why it is acceptable: the exact call a
+worker makes is now one `match` arm away rather than inline in the test.
+Auditing a race still means reading the test's job list — action name, ids,
+args — and one short arm in `dispatchAction()`, which is type-checked by
+Larastan in a way a nowdoc string never was. Colocation was the original
+justification and it did not require the bootstrap to be duplicated to
+obtain.
 
-The cost: since the nowdoc never varies per run, the Laravel-bootstrap
-boilerplate at the top of every worker (`require autoload.php`, boot the
-kernel, `DB::select('SELECT 1')` to warm the connection, the busy-wait
-barrier) is copy-pasted near-verbatim across all ten files rather than
-written once. A static, committed worker file per test would read
-identically and cost nothing at runtime that generating it doesn't already
-cost. Colocation was the reason this wasn't done that way from the start;
-it does not require the bootstrap boilerplate to be duplicated to get that
-benefit. Moving the shared bootstrap into `tests/Concurrency/helpers/` and
-keeping each worker's unique Action-call line inline is an agreed follow-up
-PR, deferred until after the change that prompted this note merges — not
-done here.
+Measured on the change itself: the full `Concurrency` suite went from ~695s
+to 518s, because Artisan's bootstrap is cheaper than the hand-rolled
+`require bootstrap/app.php` each worker was doing.
+
+The `DB_*` environment still has to be passed explicitly to every spawned
+worker (`raceWorkerEnvironment()`), for the same reason as before — a child
+process reads `.env`, not `phpunit.xml`, so without it a race silently runs
+against the *development* database. That is also what makes each worker
+follow paratest's per-worker database when one is active, though
+`Concurrency` must not be run under `--parallel` for a separate reason:
+`how-to/run-the-tests.md`, "Running in parallel".
 
 ### A cross-Action race needs a fourth thing: a rendezvous
 
@@ -369,8 +372,14 @@ The fix is a second, tighter synchronization layered on top of the
 wall-clock one: each worker writes its own ready-flag file once it reaches
 the barrier, then polls for the other's flag before calling its Action, so
 neither proceeds until both have arrived. This removes process-boot jitter
-specifically — it cannot equalise the two Actions' own internal work, only
+specifically — it cannot equalise the 2 Actions' own internal work, only
 the time it took each process to get to the starting line.
+
+In code this is `'rendezvous' => '<name>'` on **both** jobs passed to
+`runRaceWorkers()`; the helper pairs each side with the other's flag file
+and `race:worker` does the handshake. One-sided is a mistake that blocks
+until its two-second timeout and then proves nothing — the pairing is what
+makes it a rendezvous.
 
 A cross-Action test should also race more than once — `->repeat(n)` in
 Pest — since a single run of "delete one side's mechanism, check once" can
@@ -408,7 +417,7 @@ differs per mechanism. Ask what catches the failure if the mechanism is gone:
 Stock is the first row: `chk_inventories_reserved_not_above_current` produces
 one winner either way, so counting winners proves nothing and
 `InsufficientStockException` against `QueryException` is the signal. The
-product invariant is the second: MySQL cannot express it across two tables, so
+product invariant is the second: MySQL cannot express it across 2 tables, so
 without the lock both processes genuinely succeed. Promoting a main image is
 the third: it reads nothing to decide anything, so there is no window and no
 mechanism to remove.
@@ -421,7 +430,7 @@ None of the three rows above fit two identical concurrent requests against an
 Action whose repeat is a designed no-op rather than a refusal.
 `TransitionOrderStatus` is the case: `$from === $to` returns the order
 unchanged rather than throwing, because a double-submitted status change is
-not an error. Racing two identical transitions against one order therefore
+not an error. Racing two identical transitions against 1 order therefore
 does not produce a winner and a refused loser — it produces **two successes**,
 because the second call's lock-serialized re-read finds the order already at
 its target and takes the no-op path deliberately, not by accident.
