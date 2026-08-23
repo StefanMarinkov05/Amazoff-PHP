@@ -60,6 +60,14 @@
     animation: card-in 0.45s var(--ease-out-quart) both;
 }
 
+/*
+ * Alpine ships with Livewire 3. Without this, anything x-show="false" renders
+ * for one frame before Alpine boots — the mobile menu flashes open on load.
+ */
+[x-cloak] {
+    display: none !important;
+}
+
 /* Honour the OS setting — motion is a preference, not a decoration. */
 @media (prefers-reduced-motion: reduce) {
     *,
