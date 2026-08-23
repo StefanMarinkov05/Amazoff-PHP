@@ -31,6 +31,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class MergeGuestCart
 {
+    public function __construct(private readonly TouchCartExpiry $touchExpiry) {}
+
     public function handle(Cart $guestCart, Cart $userCart): Cart
     {
         if ($guestCart->is($userCart)) {
@@ -46,6 +48,11 @@ final class MergeGuestCart
             }
 
             $guestCart->delete();
+
+            // Inside the transaction, and load-bearing: the surviving cart
+            // now belongs to a user, so its guest expiry must be cleared or
+            // carts:expire deletes a registered customer's cart a day later.
+            $this->touchExpiry->handle($userCart);
         });
 
         return $userCart->refresh();

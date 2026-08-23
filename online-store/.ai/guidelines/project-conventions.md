@@ -45,8 +45,9 @@ follows is the short version.
   (`canTransitionTo()`) only where illegal moves exist. ADR-0004.
   Exception: roles are `spatie/laravel-permission` rows, not an enum — §3.5
   requires them editable at runtime.
-- **Money: `decimal(10,2)` columns, `decimal:2` casts, `bcmath` arithmetic.
-  Never float.**
+- **Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes
+  through `App\Support\Money`, never raw `bc*` calls or float.** See
+  `docs/explanation/money.md`.
 - Contested state (stock, coupon caps, order status): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. See

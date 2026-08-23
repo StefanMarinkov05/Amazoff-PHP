@@ -1,0 +1,15 @@
+{
+  "title": "Choosing the Right Drill for Your Project",
+  "slug": "choosing-the-right-drill",
+  "author": "editor@example.com",
+  "category": "buying-guides",
+  "summary": "Corded or cordless, and how much torque you actually need.",
+  "content": "Corded drills win on sustained torque and never need charging mid-job. Cordless wins on reach — no cable to fight on a ladder or in a crawl space.\n\nFor most home projects, an 18V cordless drill with two batteries covers both cases well enough that the corded advantage rarely matters.",
+  "main_image_path": "demo/articles/drill-guide.jpg",
+  "featured": false,
+  "seo_title": "Choosing the Right Drill | Amazoff",
+  "seo_description": "A buying guide comparing corded and cordless drills for home projects.",
+  "tags": ["buying-guides", "power-tools"],
+  "related_products": ["18v-cordless-drill-driver"],
+  "status": "published"
+}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Actions\Catalogue\CreateProduct as CreateProductAction;
+use App\Filament\Concerns\ConvertsMeasurementInput;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Filament\Resources\Products\ProductResource;
 use App\Models\User;
@@ -14,6 +15,7 @@ use Illuminate\Support\Arr;
 
 class CreateProduct extends CreateRecord
 {
+    use ConvertsMeasurementInput;
     use ReportsDomainFailures;
 
     protected static string $resource = ProductResource::class;
@@ -29,6 +31,9 @@ class CreateProduct extends CreateRecord
     {
         // Repeater state is keyed by item UUID; the Action takes a list.
         $variations = array_values(Arr::pull($data, 'variations', []));
+
+        $data = $this->convertMeasurements($data);
+        $variations = array_map($this->convertMeasurements(...), $variations);
 
         /** @var User $actor */
         $actor = auth()->user();

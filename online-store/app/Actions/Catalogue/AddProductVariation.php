@@ -11,6 +11,7 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -25,13 +26,23 @@ use Illuminate\Support\Facades\Gate;
  * Opening stock arrives as an `InitialStock` movement — §20 forbids writing a
  * quantity behind the ledger's back. Zero writes no movement.
  *
+ * The first variation becomes default whether or not it was asked for, the
+ * same reasoning `AddProductImage` gives for promoting a product's first
+ * image: a product with variations and none marked default has nothing to
+ * present on a listing card, and leaving that to whoever ticks the box first
+ * is how it stays unset. Composes `SetDefaultVariation` rather than writing
+ * the column directly, so the demote-siblings step is never skipped.
+ *
  * Authorizes `create_product_variation`. Locks nothing: adding can only move
  * §6–7's invariant in the safe direction.
  * reference/write-rules/product.md
  */
 final class AddProductVariation
 {
-    public function __construct(private readonly RecordInventoryMovement $recordMovement) {}
+    public function __construct(
+        private readonly RecordInventoryMovement $recordMovement,
+        private readonly SetDefaultVariation $setDefault,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $attributes  Variation columns. `product_id`
@@ -68,6 +79,14 @@ final class AddProductVariation
                 throw RemovedFromCatalogueException::product($product);
             }
 
+            $isFirst = $product->productVariations()->count() === 0;
+            $wantsDefault = (bool) ($attributes['is_default'] ?? false);
+
+            // is_default is stripped rather than set: the column defaults to
+            // false, and promotion goes through SetDefaultVariation so the
+            // demote-siblings step is never skipped.
+            $attributes = Arr::except($attributes, ['is_default']);
+
             /** @var ProductVariation $variation */
             $variation = $product->productVariations()->create($attributes);
 
@@ -85,7 +104,20 @@ final class AddProductVariation
                 );
             }
 
-            return $variation;
+            if ($isFirst || $wantsDefault) {
+                // null, not $actor: this Action's own gate above already
+                // authorized the whole write. Passing $actor through would
+                // additionally demand update_product_variation — a real actor
+                // holding only create_product_variation could create a
+                // variation but not have it become the product's first
+                // default, which is not a second discretionary act, it is a
+                // structural consequence of the first one. RecordInventoryMovement
+                // states the same precedent explicitly: "authorizes nothing —
+                // the caller has already authorized what this records."
+                $this->setDefault->handle($variation, null);
+            }
+
+            return $variation->refresh();
         });
     }
 }

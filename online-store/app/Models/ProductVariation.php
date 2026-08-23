@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\WeightUnit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,8 +26,13 @@ class ProductVariation extends Model
         'sku',
         'price',
         'discount_price',
-        'weight',
+        'weight_g',
+        'weight_display_unit',
+        'length_mm',
+        'width_mm',
+        'height_mm',
         'is_available',
+        'is_default',
     ];
 
     /**
@@ -41,8 +47,13 @@ class ProductVariation extends Model
             'product_id' => 'integer',
             'price' => 'decimal:2',
             'discount_price' => 'decimal:2',
-            'weight' => 'decimal:2',
+            'weight_g' => 'integer',
+            'weight_display_unit' => WeightUnit::class,
+            'length_mm' => 'integer',
+            'width_mm' => 'integer',
+            'height_mm' => 'integer',
             'is_available' => 'boolean',
+            'is_default' => 'boolean',
         ];
     }
 

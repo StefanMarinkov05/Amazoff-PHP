@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Products\Pages;
 use App\Actions\Catalogue\DeleteProduct;
 use App\Actions\Catalogue\ForceDeleteProduct;
 use App\Actions\Catalogue\UpdateProduct;
+use App\Filament\Concerns\ConvertsMeasurementInput;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Filament\Resources\Products\ProductResource;
 use App\Models\Product;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditProduct extends EditRecord
 {
+    use ConvertsMeasurementInput;
     use ReportsDomainFailures;
 
     protected static string $resource = ProductResource::class;
@@ -61,6 +63,8 @@ class EditProduct extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Product $record */
+        $data = $this->convertMeasurements($data);
+
         return $this->reportingDomainFailures(
             fn (): Model => app(UpdateProduct::class)->handle($record, $data, $this->actor()),
             'Product could not be saved',

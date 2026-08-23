@@ -106,9 +106,9 @@ reused as many times as needed.
 
 | Piece | Table(s) | Written by | Read by |
 |---|---|---|---|
-| Product images | `product_images` | `AddProductImage`, `SetMainProductImage`, `RemoveProductImage` | `reference/write-rules/product.md` |
+| Product images | `product_images` | `AddProductImage`, `SetMainProductImage`, `RemoveProductImage` | `reference/../write-rules/product.md` |
 | Variation identity | `attribute_value_product_variation` | plain Eloquent, attached via `AddProductVariation` | `attributeValues()` on `ProductVariation` |
-| Variation gallery | `product_image_product_variation` | `SetVariationImages` (the whole ordered set, one call) | `ResolveVariationImage`, `reference/write-rules/product-variation-images.md` |
+| Variation gallery | `product_image_product_variation` | `SetVariationImages` (the whole ordered set, one call) | `ResolveVariationImage`, `reference/../write-rules/product-variation-images.md` |
 
 `explanation/product-variability.md` has the reasoning behind each of these
 shapes — why the differentiator is a pivot and not columns, why images are

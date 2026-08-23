@@ -522,7 +522,7 @@ complete — the gap is only visible against the migration, which nothing
 forces a reviewer to open.
 
 **Prevention.** After generating any resource, diff its unique/composite
-indexes (`docs/reference/schema.md`, "Constraints that carry a rule") against
+indexes (`docs/reference/schema/schema.md`, "Constraints that carry a rule") against
 the form's validation rules before treating the resource as done.
 
 ---

@@ -38,8 +38,8 @@ final class CalculateCartTotals
         /** @var Collection<int, CartItem> $items */
         $items = $cart->cartItems()->with('productVariation.product')->get();
 
-        $subtotal = '0.00';
-        $vat = '0.00';
+        $subtotal = Money::zero();
+        $vat = Money::zero();
 
         foreach ($items as $item) {
             /** @var ProductVariation|null $variation */
@@ -52,28 +52,21 @@ final class CalculateCartTotals
                 continue;
             }
 
-            $price = ResolveVariationPrice::current($variation);
-            $lineTotal = bcmul($price, (string) $item->quantity, 2);
+            $lineTotal = Money::of(ResolveVariationPrice::current($variation))
+                ->multiply($item->quantity);
 
-            $subtotal = bcadd($subtotal, $lineTotal, 2);
+            $subtotal = $subtotal->add($lineTotal);
 
             // VAT is stored gross (CLAUDE.md), so it is extracted from the
-            // line total rather than added on top: rate / (100 + rate).
-            $vatRate = (string) $product->vat_rate;
-
-            $lineVat = bcdiv(
-                bcmul($lineTotal, $vatRate, 4),
-                bcadd('100', $vatRate, 4),
-                2,
-            );
-
-            $vat = bcadd($vat, $lineVat, 2);
+            // line total rather than added on top — which is what
+            // percentageOf() means, and why it is not a plain multiply.
+            $vat = $vat->add($lineTotal->percentageOf((string) $product->vat_rate));
         }
 
         return [
-            'subtotal' => $subtotal,
-            'vat' => $vat,
-            'total' => $subtotal,
+            'subtotal' => (string) $subtotal,
+            'vat' => (string) $vat,
+            'total' => (string) $subtotal,
         ];
     }
 }

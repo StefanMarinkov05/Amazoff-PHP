@@ -162,6 +162,22 @@ it('allows an actor holding create_product_variation', function (): void {
     expect($variation->exists)->toBeTrue();
 });
 
+it('promotes the first variation to default for an actor holding only create_product_variation', function (): void {
+    // Regression: SetDefaultVariation authorizes update_product_variation,
+    // a permission distinct from create_product_variation on this policy
+    // (unlike ProductImagePolicy, where create and update collapse to the
+    // same update_product). Composing it with $actor passed through would
+    // demand a second permission this actor never held, for an internal
+    // structural consequence of the create this actor was already
+    // authorized for — not a second discretionary act.
+    $product = Product::factory()->create();
+    $actor = catalogueActor('create_product_variation');
+
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, $actor);
+
+    expect($variation->is_default)->toBeTrue();
+});
+
 it('skips the policy for a null actor', function (): void {
     $product = Product::factory()->create();
 
