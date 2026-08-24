@@ -18,6 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 class ProductReviewsTable
@@ -25,6 +26,9 @@ class ProductReviewsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // product/user/orderItem columns below each cross a relation;
+            // see CLAUDE.md's N+1 rule.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['product', 'user', 'orderItem']))
             ->columns([
                 TextColumn::make('product.name')
                     ->label('Product')

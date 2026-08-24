@@ -20,12 +20,16 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ArticlesTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // articleCategory/author columns below cross a relation each;
+            // see CLAUDE.md's N+1 rule.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['articleCategory', 'author']))
             ->columns([
                 ImageColumn::make('main_image_path')
                     ->label('Image'),
