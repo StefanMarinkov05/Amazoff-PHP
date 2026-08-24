@@ -278,7 +278,6 @@ final class CreateOrder
                 'first_name' => $customer['first_name'],
                 'last_name' => $customer['last_name'],
                 'status' => OrderStatus::New,
-                'payment_status' => PaymentStatus::Pending,
                 'payment_method' => $customer['payment_method'],
                 'subtotal_amount' => $subtotal,
                 'discount_amount' => $discount,

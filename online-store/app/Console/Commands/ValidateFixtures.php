@@ -139,6 +139,7 @@ final class ValidateFixtures extends Command
 
         $this->assertUniqueSlug($path, (string) $document['slug']);
         $this->assertUniqueSku($path, (string) $document['sku'], 'product');
+        $this->assertLengths($path, $document);
 
         if (! in_array($document['category'], $categorySlugs, true)) {
             $this->recordFailure($path, "references unknown category slug [{$document['category']}]");
@@ -151,6 +152,67 @@ final class ValidateFixtures extends Command
         $this->assertPrices($path, $document);
         $imageKeys = $this->assertImages($path, $document);
         $this->assertVariations($path, $document, $imageKeys, $attributeValueKeys);
+    }
+
+    /**
+     * SKELETON.md rule 10 promises these are validator-checked; until this
+     * method existed, nothing checked them — an overlength `name` reached
+     * `CreateProduct` and failed as a raw `QueryException` (1406, "Data too
+     * long for column"), inside `DemoSeeder`'s single transaction, discarding
+     * every product that had already loaded in the same run. The validator's
+     * whole purpose is catching exactly this before a row is written.
+     *
+     * Limits match each column's own `string(n)` definition in
+     * `create_products_table` — kept here rather than introspected from the
+     * schema, the same tradeoff `assertPrices()` and `assertImages()` already
+     * make: a hardcoded number that could drift from a migration versus a
+     * schema query on every validate run. `mb_strlen`, not `strlen`: a
+     * multi-byte character (the em dash used for coverage's ≥90-char name
+     * case) is one column character but several bytes, and `strlen` would
+     * flag a name MySQL accepts.
+     *
+     * @param  array<string, mixed>  $document
+     */
+    private function assertLengths(string $path, array $document): void
+    {
+        $this->assertMaxLength($path, 'name', (string) $document['name'], 100);
+        $this->assertMaxLength($path, 'slug', (string) $document['slug'], 100);
+        $this->assertMaxLength($path, 'sku', (string) $document['sku'], 64);
+
+        if (isset($document['short_description'])) {
+            $this->assertMaxLength($path, 'short_description', (string) $document['short_description'], 255);
+        }
+
+        if (isset($document['seo_title'])) {
+            $this->assertMaxLength($path, 'seo_title', (string) $document['seo_title'], 100);
+        }
+
+        if (isset($document['seo_description'])) {
+            $this->assertMaxLength($path, 'seo_description', (string) $document['seo_description'], 255);
+        }
+
+        foreach ($document['variations'] ?? [] as $index => $variation) {
+            if (isset($variation['sku'])) {
+                $this->assertMaxLength(
+                    "{$path}.variations[{$index}]",
+                    'sku',
+                    (string) $variation['sku'],
+                    64,
+                );
+            }
+        }
+    }
+
+    private function assertMaxLength(string $path, string $field, string $value, int $max): void
+    {
+        $length = mb_strlen($value);
+
+        if ($length > $max) {
+            $this->recordFailure(
+                $path,
+                "[{$field}] is {$length} characters, over the {$max}-character column limit"
+            );
+        }
     }
 
     /**

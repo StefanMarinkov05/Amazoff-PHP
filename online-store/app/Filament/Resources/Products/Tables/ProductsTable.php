@@ -13,12 +13,16 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // productCategory/brand columns below cross a relation each; see
+            // CLAUDE.md's N+1 rule and explanation/filament-resources.md.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['productCategory', 'brand']))
             ->columns([
                 TextColumn::make('productCategory.name')
                     ->searchable(),
@@ -51,11 +55,27 @@ class ProductsTable
                 TextColumn::make('min_order_quantity')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('weight')
+                TextColumn::make('weight_g')
+                    ->label('Weight')
+                    ->suffix(' g')
                     ->numeric()
-                    ->sortable(),
-                TextColumn::make('dimensions')
-                    ->searchable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('length_mm')
+                    ->label('L')
+                    ->suffix(' mm')
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('width_mm')
+                    ->label('W')
+                    ->suffix(' mm')
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('height_mm')
+                    ->label('H')
+                    ->suffix(' mm')
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_available')
                     ->boolean(),
                 IconColumn::make('is_featured')

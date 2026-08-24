@@ -45,7 +45,7 @@ in agreement: if a rule here changes, change it there too.
   together *today*, updated as it changes. `concurrency-and-locking.md`,
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
   `db-schema-design.md`, `inventory.md`, `product-variability.md`,
-  `money.md`, `tech-stack-overview.md`.
+  `money.md`, `tech-stack-overview.md`, `demo-seeding.md`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
@@ -62,8 +62,10 @@ in agreement: if a rule here changes, change it there too.
   `article-fixture-format.md` (the two seed-document shapes),
   `product-catalogue-worked-example.md` (one product's rows, table by table,
   for when the product/variation/attribute/image relationships need to be
-  seen rather than reasoned about), and `open-schema-questions.md` (deferred
-  schema decisions, each with what would trigger revisiting it).
+  seen rather than reasoned about), `demo-data.md` (what's actually in the
+  seeded catalogue — exact SKUs for every notable state, for a live demo or
+  a presentation), and `open-schema-questions.md` (deferred schema
+  decisions, each with what would trigger revisiting it).
 - **[`docs/how-to/troubleshooting.md`](docs/how-to/troubleshooting.md)** —
   check this **before** proposing a fix for any error. Several of this
   project's errors look like ordinary bugs and are not — a green Larastan
@@ -114,15 +116,28 @@ in agreement: if a rule here changes, change it there too.
 - Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes through
   `App\Support\Money`, never raw `bc*` calls or float. See
   `docs/explanation/money.md`.
+- **A table column crossing a relation gets that relation eager-loaded**, via
+  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does no
+  eager-loading of its own — a `make('brand.name')` column is one extra query
+  per row, and the page still renders, so it goes unnoticed. Applies equally
+  to an accessor that reads a relation (`Order::$payment_status`), where the
+  column name contains no dot to hint at it. `preventLazyLoading()` is
+  deliberately still off (ADR-0012); the rule is enforced by review and by
+  query-count tests. `docs/explanation/filament-resources.md`, "Eager
+  loading, and the N+1 rule".
 - Contested state (stock reservation, coupon usage caps): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. The transaction alone does not
   prevent the race; `docs/reference/write-rules/concurrency.md` has the
   full contested-resource map and lock order.
-- Order status changes will go through a `TransitionOrderStatus` Action —
-  designed in ADR-0004, **not yet built.** Until it exists, nothing writes
-  `orders.status` at all; don't assign `->status` directly once it does, or
-  invent a workaround now.
+- Order status changes go through the `TransitionOrderStatus` Action —
+  designed in ADR-0004, routed by `OrderPolicy::updateStatus()` per
+  ADR-0011, and built. It is the **only** writer of `orders.status` and of
+  `order_status_histories`; never assign `->status` directly, and never
+  compose the inventory effect yourself — the Action already picks
+  `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status.
+  `CreateOrder` still lands every order at `New` regardless of payment
+  method; moving it from there is a separate, deliberate call.
 - External APIs sit behind a Saloon connector plus an interface in
   `App\Contracts`. Abstract the courier (two implementations); do not
   abstract Stripe (one).

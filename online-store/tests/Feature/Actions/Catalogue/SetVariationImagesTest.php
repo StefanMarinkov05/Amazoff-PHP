@@ -13,7 +13,7 @@ use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariation;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;

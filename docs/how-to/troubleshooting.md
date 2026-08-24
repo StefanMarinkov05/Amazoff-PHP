@@ -225,7 +225,7 @@ every account.
 have no seeder, so a fresh database has none, and `canAccessPanel()` gates the
 panel on holding one.
 
-**Fix.** `database/seeders/RoleSeeder.php` creates the three
+**Fix.** `database/seeders/System/RoleSeeder.php` creates the three
 `User::STAFF_ROLES` rows and runs in every environment, called from
 `DatabaseSeeder` after `PermissionSeeder`. `UserSeeder` then creates one
 account per role plus a plain customer, but only outside production
@@ -1146,7 +1146,7 @@ codebase has taken so far — a `tests/Concurrency/` test with two OS processes.
 ## Several unrelated tests fail at `UserSeeder`, then pass on re-run
 
 **Symptom.** A handful of tests across unrelated files fail together, each
-stack ending in `database/seeders/UserSeeder.php` with an SQLSTATE error.
+stack ending in `database/seeders/System/UserSeeder.php` with an SQLSTATE error.
 Re-running the suite unchanged is green. Distinct from the "every concurrency
 test fails at once" entry above: the failures here are scattered across Feature
 files rather than confined to `tests/Concurrency/`, and the trace points at

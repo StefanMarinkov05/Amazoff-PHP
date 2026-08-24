@@ -11,7 +11,7 @@ use App\Exceptions\VariationHasReservedStockException;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

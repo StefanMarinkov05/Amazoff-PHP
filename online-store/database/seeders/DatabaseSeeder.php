@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use Database\Seeders\System\CarrierSeeder;
+use Database\Seeders\System\PermissionSeeder;
+use Database\Seeders\System\RoleSeeder;
+use Database\Seeders\System\UserSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

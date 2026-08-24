@@ -49,6 +49,9 @@ final class FixtureLoader
     /** @var array<string, int>|null */
     private ?array $attributeValues = null;
 
+    /** @var array<string, int>|null */
+    private ?array $attributes = null;
+
     public function __construct(
         private readonly CreateProduct $createProduct,
         private readonly SetVariationImages $setVariationImages,
@@ -75,9 +78,33 @@ final class FixtureLoader
 
         $this->attachGalleries($variationsBySku, $document['variations'], $imageKeyToId);
         $this->insertSpecifications($product, $document['specifications'] ?? []);
+        $this->attachAttributes($product, $document['attributes'] ?? []);
         $this->attachAttributeValues($variationsBySku, $document['variations']);
 
         return $product;
+    }
+
+    /**
+     * `document['attributes']` names which axes the product varies by — the
+     * vocabulary `variations[].attribute_values` draws its keys from. Was
+     * read out of the document by `productColumns()`'s `Arr::except()` and
+     * then never used anywhere: `attribute_product` stayed empty for every
+     * fixture-loaded product, silently, because nothing else in the app
+     * reads that pivot either — so no test and no panel screen caught it.
+     * A Filament-created product still gets it, through `ProductForm`'s own
+     * multiselect syncing `attributes()` directly.
+     *
+     * @param  list<string>  $attributeSlugs
+     */
+    private function attachAttributes(Product $product, array $attributeSlugs): void
+    {
+        if ($attributeSlugs === []) {
+            return;
+        }
+
+        $ids = array_map(fn (string $slug): int => $this->attributeId($slug), $attributeSlugs);
+
+        $product->attributes()->syncWithoutDetaching($ids);
     }
 
     /**
@@ -253,6 +280,14 @@ final class FixtureLoader
 
         return $this->brands[$slug]
             ?? throw new RuntimeException("Fixture references unknown brand slug [{$slug}].");
+    }
+
+    private function attributeId(string $slug): int
+    {
+        $this->attributes ??= Attribute::query()->pluck('id', 'slug')->all();
+
+        return $this->attributes[$slug]
+            ?? throw new RuntimeException("Fixture references unknown attribute slug [{$slug}].");
     }
 
     private function attributeValueId(string $attributeSlug, string $valueSlug): int

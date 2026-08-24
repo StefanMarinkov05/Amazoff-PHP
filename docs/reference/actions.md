@@ -192,8 +192,42 @@ a `Coupon` row is single-table with no second writer, decision 10.
 |---|---|---|---|
 | `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
+| `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
+| `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
+| `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
+| `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
+| `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
 
 `reference/write-rules/order.md` is the outcomes page.
+
+The payment and shipment Actions are the *domain* halves of slices 6 and 8,
+deliberately split from their connectors: every Stripe and courier column is
+nullable, so a payment or shipment can be opened, transitioned, refunded and
+reported on before any Saloon connector exists. `CreateStripeIntent` will
+later fill `stripe_payment_intent_id` on a row `RecordPayment` opened rather
+than creating its own.
+
+Two of them intentionally break the symmetry their siblings follow:
+
+- **`TransitionPaymentStatus` has no `$from === $to` no-op**, unlike
+  `TransitionOrderStatus`. `PaymentStatus` is cyclic —
+  `PartiallyRefunded` lists itself — so a repeat is a second real refund and
+  a shortcut would silently swallow it. The cost is losing free
+  double-submit protection, which is why webhook idempotency must key on
+  `payment_events.stripe_event_id` instead; `write-rules/order.md`'s known
+  gap 3 covers what is still missing there.
+- **`TransitionShipmentStatus` puts its no-op *before* the legality check**,
+  the reverse of where you would expect it. A courier polling loop repeats
+  `Delivered` constantly, and `Delivered` does not list itself, so checking
+  legality first would raise on every poll. The no-op also appends no
+  tracking event, which is what keeps the table from filling with duplicate
+  "still in transit" rows.
+
+`CreateProductReview` requires the reviewer rather than accepting a null
+actor, unlike every other Action here: §24's verified-purchase rule has
+nothing to check against without one, and `UNIQUE(user_id, product_id)` does
+not constrain nulls in MySQL, so a guest could review the same product
+indefinitely. A guest path needs its own rule and its own ADR.
 
 Recomputes `subtotal_amount`/`vat_amount`/`total_amount` from the cart's
 current contents — the signature carries no total input at all, so §28's
@@ -298,6 +332,11 @@ to decide anything.
 | `RestockReturn` | yes |
 | `RecordDamage` | yes |
 | `DeleteProductCategory` | yes |
+| `RecordPayment` | yes — the `orders` lock and the existence check are the same window |
+| `TransitionPaymentStatus` | yes — the refund cap is read and written inside one `payments` lock |
+| `CreateShipment` | yes — same shape as `RecordPayment` |
+| `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
+| `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.

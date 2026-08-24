@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
 use App\Models\Cart;
 use App\Models\Inventory;
 use App\Models\Order;
@@ -217,10 +216,10 @@ function variationWithStock(int $current, int $reserved = 0, int $sold = 0, int 
  */
 function orderWithVariationLine(ProductVariation $variation, OrderStatus $status, int $quantity = 2): Order
 {
-    $order = Order::factory()->create([
-        'status' => $status,
-        'payment_status' => PaymentStatus::Pending,
-    ]);
+    // No payment_status: it is derived from the payment relation since
+    // 2026-08-24, not a column. An order with no payment row reads Pending,
+    // which is what this helper used to set explicitly.
+    $order = Order::factory()->create(['status' => $status]);
 
     OrderItem::factory()->create([
         'order_id' => $order->getKey(),
