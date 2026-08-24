@@ -45,7 +45,7 @@ in agreement: if a rule here changes, change it there too.
   together *today*, updated as it changes. `concurrency-and-locking.md`,
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
   `db-schema-design.md`, `inventory.md`, `product-variability.md`,
-  `money.md`, `tech-stack-overview.md`.
+  `money.md`, `tech-stack-overview.md`, `demo-seeding.md`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it

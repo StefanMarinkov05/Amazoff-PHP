@@ -35,6 +35,7 @@ backslash is a shell escape character.
 | `RoleSeeder` | `Database\Seeders\System\RoleSeeder` | CI, local, production | The three staff roles and what each holds |
 | `UserSeeder` | `Database\Seeders\System\UserSeeder` | Local, deployed demo (gated non-production) | One account per role, plus a plain customer |
 | `StressSeeder` | `Database\Seeders\Stress\StressSeeder` | Local only | 2000 (default) additional orders via the same engine as `DemoOrderSeeder`, for query-plan/pagination testing — never in CI, never presented |
+| `CatalogueStressSeeder` | `Database\Seeders\Stress\CatalogueStressSeeder` | Local only | 5000 (default) additional products, each with 1 variation, 1 inventory row, and 1 shared-placeholder image row, for catalogue-scale browsing/pagination/search testing — never in CI, never presented |
 
 Example: `docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"`.
 
