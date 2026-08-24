@@ -191,3 +191,78 @@ The thumbnail's fallback — when a row has no `image_id` selected yet, or (in
 `urlOrDefault`, used wherever a resolved image is displayed rather than
 edited) when a variation has no gallery and its product has no main image
 either — is the static asset table above, not a broken `<img>` tag.
+
+## Eager loading, and the N+1 rule
+
+**A table column that crosses a relation must have that relation eager-loaded
+on the table's own query.** Filament does not do it for you: there is no
+automatic eager-loading anywhere in `filament/tables`, verified by reading it.
+A `TextColumn::make('brand.name')` on a 50-row page is 50 extra queries, one
+per row, and the page still renders correctly — which is exactly why it goes
+unnoticed.
+
+The two shapes that need it:
+
+- **Dot-notation columns** — `TextColumn::make('productCategory.name')`,
+  `make('user.email')`, `make('orderItem.product_sku')`.
+- **Accessors that read a relation** — `Order::$payment_status` derives from
+  the `payment` relation, so a column showing it lazy-loads once per row
+  unless `payment` is loaded. This is the less obvious half: the column name
+  contains no dot, so nothing about the call site suggests a relation is
+  involved.
+
+Both are fixed the same way, on the table rather than per column:
+
+```php
+->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['brand', 'productCategory']))
+```
+
+`OrdersTable` is the worked example — it loads `payment` for the derived
+`payment_status` column.
+
+### Measuring it rather than guessing
+
+`DB::enableQueryLog()` around the read is the whole technique, and it belongs
+in a test when the cost is structural rather than incidental:
+
+```php
+DB::enableQueryLog();
+$orders = Order::query()->with('payment')->get();
+$orders->each(fn (Order $o) => $o->payment_status);
+expect(count(DB::getQueryLog()))->toBe(2); // one for orders, one for payments
+```
+
+`OrderPaymentStatusTest`'s last case does exactly this. Measured on five
+product rows reading `brand`: **6 queries lazy, 2 eager** — the ratio is
+`N + 1` against `2`, so it grows with page size while the fix does not.
+
+A query-count assertion earns its place only where the relation is *hidden*,
+as with a derived accessor. Asserting it for an ordinary dot-notation column
+tests Filament's own rendering, which CLAUDE.md's testing rule excludes.
+
+### Why `preventLazyLoading()` is still off
+
+ADR-0012 identified `Model::preventLazyLoading(! app()->isProduction())` and
+deliberately did not enable it. That reasoning has not changed: Filament's
+internals lazy-load relationships in render paths this project has not
+audited one by one, and a `LazyLoadingViolationException` thrown from inside
+a vendor package is a worse failure than the N+1 it replaces. Turning it on
+is its own slice — audit every resource and relation manager first, then flip
+it — not a drive-by change.
+
+Until then the rule above is enforced by review and by the query-count tests,
+not by the framework.
+
+### Known unfixed
+
+These tables carry a relation column with no eager-loading today. None is a
+correctness bug; each is `N + 1` queries per page render:
+
+`ArticlesTable` (`articleCategory`, `author`), `AttributeValuesTable`
+(`attribute`), `ContactMessagesTable` (`user`), `NewsletterSubscribersTable`
+(`user`), `ProductCategoriesTable` (`parent`), `ProductReviewsTable`
+(`product`, `user`, `orderItem`), `ProductsTable` (`productCategory`,
+`brand`).
+
+Worth fixing as one pass rather than piecemeal, and worth doing before the
+demo catalogue makes these pages long enough for it to be felt.

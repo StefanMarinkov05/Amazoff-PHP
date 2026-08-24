@@ -48,6 +48,13 @@ follows is the short version.
 - **Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes
   through `App\Support\Money`, never raw `bc*` calls or float.** See
   `docs/explanation/money.md`.
+- **A table column crossing a relation gets that relation eager-loaded**, via
+  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does none of its
+  own — `make('brand.name')` is one extra query per row and the page still
+  renders, so nothing surfaces it. Same for an accessor that reads a relation
+  (`Order::$payment_status`), where no dot in the column name hints at it.
+  `preventLazyLoading()` is deliberately off (ADR-0012). See
+  `docs/explanation/filament-resources.md`, "Eager loading, and the N+1 rule".
 - Contested state (stock, coupon caps, order status): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. See

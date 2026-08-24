@@ -6,6 +6,33 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Documentation
+
+- **The N+1 rule is now written down** — `CLAUDE.md`'s architecture list,
+  `project-conventions.md`, and a new "Eager loading, and the N+1 rule"
+  section in `explanation/filament-resources.md`.
+
+  Filament does **no** eager-loading of its own — verified by reading
+  `filament/tables`, which contains no `->with()` anywhere. So a
+  `TextColumn::make('brand.name')` is one extra query per row and the page
+  still renders correctly, which is why it goes unnoticed. Measured on five
+  product rows: 6 queries lazy, 2 eager.
+
+  The less obvious half is an accessor that reads a relation:
+  `Order::$payment_status` derives from `payment`, so a column showing it
+  lazy-loads per row even though the column name contains no dot to hint at
+  it. Both are fixed on the table via `modifyQueryUsing()`.
+
+  Records that `preventLazyLoading()` is still deliberately off per ADR-0012,
+  and that the rule is enforced by review and query-count tests instead — a
+  query-count assertion earning its place only where the relation is hidden,
+  since asserting it for a plain dot-notation column would be testing
+  Filament's rendering.
+
+  Also lists the ten tables that currently carry a relation column with no
+  eager-loading, as one pass worth doing before the demo catalogue makes
+  those pages long.
+
 ### Changed
 
 - **`orders.payment_status` is derived, not stored.** The column is dropped;

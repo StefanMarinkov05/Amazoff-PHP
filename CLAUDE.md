@@ -114,6 +114,15 @@ in agreement: if a rule here changes, change it there too.
 - Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes through
   `App\Support\Money`, never raw `bc*` calls or float. See
   `docs/explanation/money.md`.
+- **A table column crossing a relation gets that relation eager-loaded**, via
+  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does no
+  eager-loading of its own — a `make('brand.name')` column is one extra query
+  per row, and the page still renders, so it goes unnoticed. Applies equally
+  to an accessor that reads a relation (`Order::$payment_status`), where the
+  column name contains no dot to hint at it. `preventLazyLoading()` is
+  deliberately still off (ADR-0012); the rule is enforced by review and by
+  query-count tests. `docs/explanation/filament-resources.md`, "Eager
+  loading, and the N+1 rule".
 - Contested state (stock reservation, coupon usage caps): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. The transaction alone does not
