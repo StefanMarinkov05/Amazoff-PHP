@@ -6,7 +6,7 @@ use App\Actions\Catalogue\DeleteProductCategory;
 use App\Exceptions\ProductCategoryCannotBeDeletedException;
 use App\Models\Product;
 use App\Models\ProductCategory;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

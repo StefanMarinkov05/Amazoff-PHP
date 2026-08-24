@@ -7,7 +7,7 @@ use App\Enums\ShipmentStatus;
 use App\Exceptions\IllegalShipmentStatusTransitionException;
 use App\Models\Shipment;
 use App\Models\User;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

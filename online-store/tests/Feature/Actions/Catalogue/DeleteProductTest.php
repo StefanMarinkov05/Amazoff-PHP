@@ -19,7 +19,7 @@ use App\Models\ProductReview;
 use App\Models\ProductSpecification;
 use App\Models\ProductVariation;
 use App\Models\WishlistItem;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

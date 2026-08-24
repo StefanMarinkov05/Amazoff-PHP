@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Support\FixtureLoader;
 use Illuminate\Database\Seeder;
@@ -19,7 +19,7 @@ use RuntimeException;
  *
  * Run it explicitly:
  *
- *     php artisan db:seed --class=DemoSeeder
+ *     php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
  *
  * `fixtures:validate` should pass first. This does not call it: a validator
  * invoked from inside the thing it validates cannot be trusted to have run,

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Support\ArticleFixtureLoader;
 use Illuminate\Database\Seeder;
@@ -23,7 +23,7 @@ use RuntimeException;
  *
  * Run explicitly:
  *
- *     php artisan db:seed --class=DemoArticleSeeder
+ *     php artisan db:seed --class="Database\Seeders\Demo\DemoArticleSeeder"
  */
 class DemoArticleSeeder extends Seeder
 {

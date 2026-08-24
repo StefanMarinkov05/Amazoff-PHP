@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Enums\CouponScope;
 use App\Enums\CouponType;

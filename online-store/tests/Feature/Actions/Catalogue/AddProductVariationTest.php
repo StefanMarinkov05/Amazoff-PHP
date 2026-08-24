@@ -9,7 +9,7 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

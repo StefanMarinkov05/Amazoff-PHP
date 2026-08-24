@@ -7,7 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\IllegalPaymentStatusTransitionException;
 use App\Models\Payment;
 use App\Models\User;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

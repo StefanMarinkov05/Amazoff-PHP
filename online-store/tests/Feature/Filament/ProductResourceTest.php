@@ -13,9 +13,9 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariation;
 use App\Models\User;
-use Database\Seeders\PermissionSeeder;
-use Database\Seeders\RoleSeeder;
-use Database\Seeders\UserSeeder;
+use Database\Seeders\System\PermissionSeeder;
+use Database\Seeders\System\RoleSeeder;
+use Database\Seeders\System\UserSeeder;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 

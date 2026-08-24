@@ -11,7 +11,7 @@ use App\Models\Carrier;
 use App\Models\Order;
 use App\Models\Shipment;
 use App\Models\User;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Permission\PermissionRegistrar;
 

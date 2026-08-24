@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\ArticleCategory;
 use App\Models\Tag;
@@ -36,7 +36,16 @@ class ContentReferenceSeeder extends Seeder
         'workshop-tips' => 'Workshop Tips',
     ];
 
-    /** @var array<string, string> */
+    /**
+     * Hardware-store tags from before the catalogue became a general
+     * marketplace (`power-tools`, `hand-tools`, `garden`, `cordless`), plus
+     * marketplace-wide additions covering the domains
+     * `sonnet-phase1-data-brief.md`'s taxonomy actually spans — added, not
+     * restructured, so the original four still resolve for any article that
+     * keeps discussing the hardware branch.
+     *
+     * @var array<string, string>
+     */
     private const TAGS = [
         'buying-guides' => 'Buying Guides',
         'power-tools' => 'Power Tools',
@@ -46,6 +55,15 @@ class ContentReferenceSeeder extends Seeder
         'maintenance' => 'Maintenance',
         'beginner' => 'Beginner',
         'cordless' => 'Cordless',
+        'clothing' => 'Clothing',
+        'electronics' => 'Electronics',
+        'kitchen' => 'Kitchen',
+        'home' => 'Home',
+        'sports' => 'Sports',
+        'beauty' => 'Beauty',
+        'workwear' => 'Workwear',
+        'gift-guides' => 'Gift Guides',
+        'seasonal' => 'Seasonal',
     ];
 
     public function run(): void

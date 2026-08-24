@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Actions\Cart\TouchCartExpiry;
 use App\Models\Cart;

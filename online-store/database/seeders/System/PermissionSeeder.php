@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Database\Seeders;
+namespace Database\Seeders\System;
 
 use App\Support\PermissionCatalogue;
 use Illuminate\Database\Seeder;
