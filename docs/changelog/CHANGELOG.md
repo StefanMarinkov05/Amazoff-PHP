@@ -8,7 +8,27 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
-- The demo catalogue: 169 products, 218 variations, spanning 122 of the
+- `docs/reference/schema/demo-data.md` — the presenter-facing index of what
+  the seeded catalogue actually contains: the exact SKU for every coverage
+  state (out of stock, one left, each discount phase, unavailable, 5+
+  variations, ≥90-char name, min-order-quantity, zero-attribute products),
+  the two variation-gallery shapes (`PWR-0012` — one image shared by three
+  variations; `PWR-0001` — one variation carrying two images) with a
+  reproduction query, the coupon table, and what's deliberately absent
+  (orders, images, a discount at exactly the boundary). Verified against a
+  live seed, not the fixture JSON — every count and SKU on the page was
+  read back from the database after `migrate:fresh --seed` plus every demo
+  seeder.
+
+  Two demo-data gaps surfaced and were closed while building it: no product
+  had a *scheduled* discount despite the coverage matrix requiring one
+  (`KIT-0011` now does), and no product had 5+ variations despite the same
+  requirement (`CLM-0001` gained a fifth). `PWR-0010`'s ≥90-character name
+  was also short by 2 characters — `wc -c` had counted UTF-8 bytes for a
+  name containing an em dash, not characters; `mb_strlen`, matching what
+  `ValidateFixtures::assertMaxLength()` actually checks, was the correct
+  measure and is now what was used to fix it.
+- The demo catalogue: 169 products, 219 variations, spanning 122 of the
   173 leaf/branch categories in `catalogue.json` and 33 of 34 brands, in
   `database/fixtures/demo/`. Nine batches (`power-tools`,
   `hand-tools-garden`, `workwear`, `clothing-men`, `clothing-women`,
@@ -125,6 +145,23 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- `FixtureLoader` silently dropped a product's `attributes` field.
+  `productColumns()`'s `Arr::except()` stripped it out to build the
+  `products` insert, and nothing ever used it afterward — `attribute_product`
+  stayed empty for every fixture-loaded product, for every fixture ever
+  loaded before this session, invisibly: nothing else in `app/` reads that
+  pivot yet, so no test and no panel screen surfaced the gap. Found while
+  auditing the 169-product demo catalogue for `demo-data.md` — a
+  `whereDoesntHave('attributes')` count that should have matched only the
+  genuinely single-SKU products instead matched all 169.
+
+  Fixed with `FixtureLoader::attachAttributes()`, mirroring
+  `attachAttributeValues()`'s existing pattern exactly: resolve the fixture's
+  attribute slugs against real `attributes.id` rows and
+  `syncWithoutDetaching()`. Verified:
+  `Product::where('sku','CLM-0001')->first()->attributes()->pluck('slug')`
+  now returns `colour, size`; the zero-attribute count correctly dropped to
+  48 (matching the products actually authored with `"attributes": []`).
 - `AddProductVariation`/`RemoveProductVariation` composing `SetDefaultVariation`
   with `$actor` passed through, rather than `null`. `ProductVariationPolicy`
   gives `create`/`update`/`delete` three separate permissions (unlike

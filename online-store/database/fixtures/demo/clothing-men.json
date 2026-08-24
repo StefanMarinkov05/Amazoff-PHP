@@ -34,7 +34,8 @@
       { "sku": "CLM-0001-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "back"], "initial_quantity": 60, "attribute_values": { "size": "m", "colour": "black" } },
       { "sku": "CLM-0001-L-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 55, "attribute_values": { "size": "l", "colour": "black" } },
       { "sku": "CLM-0001-M-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "size": "m", "colour": "white" } },
-      { "sku": "CLM-0001-XL-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 18, "attribute_values": { "size": "xl", "colour": "navy" } }
+      { "sku": "CLM-0001-XL-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 18, "attribute_values": { "size": "xl", "colour": "navy" } },
+      { "sku": "CLM-0001-S-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "size": "s", "colour": "grey" } }
     ]
   },
   {

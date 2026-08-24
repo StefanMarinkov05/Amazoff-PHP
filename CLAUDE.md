@@ -62,8 +62,10 @@ in agreement: if a rule here changes, change it there too.
   `article-fixture-format.md` (the two seed-document shapes),
   `product-catalogue-worked-example.md` (one product's rows, table by table,
   for when the product/variation/attribute/image relationships need to be
-  seen rather than reasoned about), and `open-schema-questions.md` (deferred
-  schema decisions, each with what would trigger revisiting it).
+  seen rather than reasoned about), `demo-data.md` (what's actually in the
+  seeded catalogue — exact SKUs for every notable state, for a live demo or
+  a presentation), and `open-schema-questions.md` (deferred schema
+  decisions, each with what would trigger revisiting it).
 - **[`docs/how-to/troubleshooting.md`](docs/how-to/troubleshooting.md)** —
   check this **before** proposing a fix for any error. Several of this
   project's errors look like ordinary bugs and are not — a green Larastan
