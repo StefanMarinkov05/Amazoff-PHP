@@ -130,10 +130,14 @@ in agreement: if a rule here changes, change it there too.
   not necessarily the row being written. The transaction alone does not
   prevent the race; `docs/reference/write-rules/concurrency.md` has the
   full contested-resource map and lock order.
-- Order status changes will go through a `TransitionOrderStatus` Action —
-  designed in ADR-0004, **not yet built.** Until it exists, nothing writes
-  `orders.status` at all; don't assign `->status` directly once it does, or
-  invent a workaround now.
+- Order status changes go through the `TransitionOrderStatus` Action —
+  designed in ADR-0004, routed by `OrderPolicy::updateStatus()` per
+  ADR-0011, and built. It is the **only** writer of `orders.status` and of
+  `order_status_histories`; never assign `->status` directly, and never
+  compose the inventory effect yourself — the Action already picks
+  `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status.
+  `CreateOrder` still lands every order at `New` regardless of payment
+  method; moving it from there is a separate, deliberate call.
 - External APIs sit behind a Saloon connector plus an interface in
   `App\Contracts`. Abstract the courier (two implementations); do not
   abstract Stripe (one).

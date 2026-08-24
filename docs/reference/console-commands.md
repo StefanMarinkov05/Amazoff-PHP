@@ -12,6 +12,9 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
 | `race:worker` | Runs 1 Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
+| `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
+| `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |
+| `demo:fetch-images` | Downloads real Unsplash photos for `product_images` rows still pointing at a placeholder path that does not exist on disk. Resumable — Unsplash's free tier is 50 requests/hour, one search per product, so a full catalogue needs several runs. `how-to/seed-the-database.md`, "Product images" | A human, once, after the catalogue is seeded |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
 ## What belongs in a command

@@ -3,23 +3,54 @@
 A lookup table for a live demo or a presentation: every notable state in the
 seeded catalogue, with the exact SKU to pull up. Everything below was
 verified against a real seeded database — not the JSON fixture shape, the
-actual rows — on 2026-08-24. Re-seeding on the current fixture set should
-reproduce all of it; if a number here stops matching, the fixture set moved
-and this page is what's stale.
+actual rows — on 2026-08-24 for the catalogue and on 2026-08-24 for the
+transactional pass (orders, payments, shipments, reviews, articles) added
+in the same session. Re-seeding on the current fixture set should reproduce
+all of it; if a number here stops matching, the fixture set moved and this
+page is what's stale.
 
 ## Load it
 
+Run order matters past `DemoSeeder` — `DemoOrderSeeder` redeems coupons
+(needs `DemoCouponSeeder` first) and reads saved addresses (needs
+`DemoAddressSeeder` first); `DemoReviewSeeder` needs delivered orders
+(needs `DemoOrderSeeder` first); articles need the product catalogue
+(`DemoSeeder`) but nothing else on this list.
+
 ```bash
 docker compose exec app php artisan migrate:fresh --seed
-docker compose exec app php artisan db:seed --class=DemoSeeder
-docker compose exec app php artisan db:seed --class=DemoCustomerSeeder
-docker compose exec app php artisan db:seed --class=DemoCartSeeder
-docker compose exec app php artisan db:seed --class=DemoCouponSeeder
-docker compose exec app php artisan db:seed --class=DemoWishlistSeeder
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCustomerSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoAddressSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoEngagementSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCartSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCouponSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoWishlistSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoOrderSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoReviewSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\ContentReferenceSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoArticleSeeder"
 ```
 
-`docs/how-to/seed-the-database.md` is the full reference for these commands
-and their run-order constraints.
+Every `Demo*` and reference seeder now lives under
+`database/seeders/Demo/`, `System/` (permissions, roles, carriers, staff
+accounts), or `Stress/` — `db:seed --class=` needs the fully-qualified
+class name once a seeder is namespaced under a subfolder; a bare basename
+no longer resolves. `docs/how-to/seed-the-database.md` is the full
+reference for these commands and their run-order constraints.
+
+**`StressSeeder` is not part of this list.** It exists for query-plan and
+pagination testing against a large table, produces no narrative demo
+states, is never wired into `DatabaseSeeder`, and is never run in CI. Run
+it, if at all, after everything above:
+
+```bash
+docker compose exec app php artisan db:seed --class="Database\Seeders\Stress\StressSeeder"
+```
+
+Default 2000 orders; override with `STRESS_SEED_COUNT`
+(`docker compose exec -e STRESS_SEED_COUNT=500 app php artisan db:seed
+--class="Database\Seeders\Stress\StressSeeder"`).
 
 ## Scale, at a glance
 
@@ -27,15 +58,123 @@ and their run-order constraints.
 |---|---|
 | `products` | 169 |
 | `product_variations` | 219 |
-| `product_images` | 182 |
+| `product_images` | 182 (159 distinct files, 23 legitimate category re-uses — all real, verified) |
 | `product_categories` | 173 (122 hold at least one product) |
 | `brands` | 34 (33 used) |
 | `attributes` / `attribute_values` | 9 / 55 |
 | customers (`DemoCustomerSeeder`) | 100 |
-| `carts` | 44 (8 guest) |
-| `cart_items` | 116 |
+| `addresses` (`DemoAddressSeeder`) | 78, across 60 of 100 customers |
+| `newsletter_subscribers` | 80 (66 subscribed, 14 unsubscribed) |
+| `contact_messages` | 25 (16 handled, 9 open) |
+| `carts` | 44 pre-checkout demo carts (8 guest) + 140 checked-out by `DemoOrderSeeder` |
+| `cart_items` | 116 on the pre-checkout carts |
 | `wishlist_items` | 62 |
 | `coupons` | 6 |
+| `orders` | 140, distribution below |
+| `order_items` | 344 |
+| `order_addresses` | 280 |
+| `order_status_histories` | 612 |
+| `payments` | 110 |
+| `shipments` | 81 |
+| `shipment_tracking_events` | 194 |
+| `coupon_redemptions` | 19 |
+| `product_reviews` | 90 (62 approved, 28 pending) |
+| `articles` | 24 (16 published, 4 draft, 3 scheduled, 1 archived) |
+
+## Order and payment states
+
+The 140 orders `DemoOrderSeeder` produces, by status — exact, not
+approximate, and asserted by the seeder's own verification pass against
+the live database after it runs:
+
+| `OrderStatus` | Count |
+|---|---:|
+| `Delivered` | 62 |
+| `Shipped` | 12 |
+| `Cancelled` | 12 |
+| `Confirmed` | 10 |
+| `AwaitingPayment` | 9 |
+| `Preparing` | 8 |
+| `New` | 7 |
+| `ReadyForShipment` | 6 |
+| `Paid` | 6 |
+| `Returned` | 5 |
+| `Refunded` | 3 |
+
+Every `PaymentStatus` and `ShipmentStatus` case appears at least once,
+including the two least likely to occur by chance: `Failed` (a payment
+that failed and, for 2 of them, recovered to `Paid` — a legal edge easy to
+assume impossible) and `PartiallyRefunded` (2 single partial refunds, 2
+stacked pairs that together still fit under the payment total — the only
+accumulating transition in the enum).
+
+**Guest orders**: 25 of 140, `user_id` null throughout — this is what
+makes the public order-tracking page (order number **and** email, per
+CLAUDE.md) demonstrable at all, since sequential numbers alone would
+enumerate every customer's address.
+
+**Cash on delivery**: 56 of 140. COD orders skip `AwaitingPayment`/`Paid`
+entirely (`New => Confirmed` directly, the edge that case exists in
+`OrderStatus` for) and open their payment only after `Delivered`, marked
+paid on remittance — never before, since nothing was actually collected
+until the courier did.
+
+**Coupons redeemed**: 19 orders. `ONEUSEONLY` (the `total_usage_limit: 1`
+coupon `DemoCouponSeeder` left deliberately unredeemed) now has its one
+redemption — a further checkout against it demonstrates
+`CouponNotApplicableException` live. `WELCOME10` (8), `FLAT15` (6), and
+`TOOLDEAL` (4, product-scoped to 3 products chosen randomly at seed time —
+see the coupon table below for how to read the current set live) account
+for the rest. `SUMMER20` and `WINTER25` are never redeemed here — their
+windows (expired, scheduled) make that impossible; they exist to
+demonstrate the boundary on the coupon fixture side, not to be redeemed.
+
+**Pull-up examples for a live demo**, verified against this seed run —
+re-seeding reshuffles which orders land where, so treat these as "this
+shape exists," not as durable serials:
+
+| State | Order | Notes |
+|---|---|---|
+| Partially refunded payment | `ORD-000035` | one of 4 `PartiallyRefunded` payments this run produced |
+| Failed payment | `ORD-000006` | `Pending => Failed`; some, not this one specifically, recover to `Paid` |
+| Fully refunded, order and payment both `Refunded` | `ORD-000022` | the clean case — money collected, then given back in full |
+| Guest, delivered | `ORD-000012` | for the public tracking page demo — needs this serial **and** its email, never the serial alone |
+
+No `PartiallyRefunded` payment happened to land on a COD order this run —
+the 4 partial refunds are picked randomly from whatever's `Paid` when
+`DemoOrderSeeder` reaches that step, not filtered by payment method, so
+which specific orders they land on varies run to run. The *state* — a COD
+order with a partially refunded payment — is legal and reachable; this
+particular seed just didn't produce one. Query live if a demo specifically
+needs that combination:
+
+```php
+Order::where('payment_method', 'cash_on_delivery')
+    ->whereHas('payment', fn ($q) => $q->where('status', 'partially_refunded'))
+    ->first();
+```
+
+## Product images — done
+
+The catalogue fixtures were authored with placeholder `product_images.path`
+values on the assumption real files would be added later; nothing did until
+`demo:fetch-images` (`docs/how-to/seed-the-database.md`, "Product images").
+**All 182 rows now have a real file on disk**, sourced from Pexels in one
+run (0 failures) — 159 distinct photos, 23 rows legitimately sharing a
+generic category photo where Pexels had nothing more specific (e.g. several
+power-drill products sharing one drill-in-use photo).
+
+Verified by more than "the command said success": duplicate-file hashing
+found the 23 legitimate re-uses and nothing else, and every duplicate
+cluster plus a spread of singles across categories was opened and confirmed
+to be a real, on-topic photo — not the corrupted-placeholder problem an
+earlier attempt with a different source had (see the command's own
+docblock for that history; worth reading before reaching for a scraper
+instead of a licensed photo API here again).
+
+If `product_images` ever grows past 182 (a fixture batch added later, say),
+re-run `demo:fetch-images` — it only touches rows still pointing at a
+missing file, so it is safe to run again at any time.
 
 ## Product and variation states
 
@@ -56,6 +195,31 @@ SKU that demonstrates it.
 | Name ≥ 90 characters | `PWR-0010` (91 chars) — "18V Cordless 4-Piece Combo Kit — Drill, Driver, Grinder, Sander, for a Full Home Renovation" | card-layout stress test |
 | `min_order_quantity > 1` | `HND-0007` (3), `KIT-0005` (2), `PWR-0017` (2), `WRK-0002` (2), `WRK-0008` (2) | quantity-floor validation |
 | Zero variable attributes | 48 of 169 products | single-SKU products with `"attributes": []` — no size/colour picker on the product page |
+
+### These stock states are fragile, and something now protects them
+
+The "out of stock" and "exactly one left" rows above are not durable facts
+about the catalogue — they are stock levels, and any seeder that places an
+order can consume them. `TransitionOrderStatus` on `=> Shipped` composes
+`CompleteSale`, which moves stock from reserved to sold and permanently
+drops `current_quantity`; `CreateOrder` reserves at creation. So a
+transactional seeder sampling order lines at random destroys exactly the
+states this page exists to document, and does it silently — the seeder
+succeeds, the orders look right, and the page is wrong.
+
+`database/fixtures/reference/protected-skus.json` is the machine-readable
+form of that constraint, and `App\Support\ProtectedSkus` is the guard.
+A seeder calls `assertSelectable()` on every line before building a cart;
+it throws rather than returning false, so a protected line cannot be
+quietly skipped into a set smaller than its own distribution claims.
+
+The `min_order_quantity` products are listed in that file too, under a
+section that is explicitly **not** an exclusion — they belong in seeded
+orders, and the floor is recorded so a seeder honours it instead of
+tripping over `AddToCart`'s refusal.
+
+If a SKU here changes, change it there in the same pass. The JSON file is
+the one a machine reads; this page is the one a person reads.
 
 ### Known coincidence, not a rule
 
@@ -120,20 +284,70 @@ convention.
 
 | Code | Type | Scope | Value | Notes |
 |---|---|---|---|---|
-| `WELCOME10` | percentage | entire order | 10% | active, no window |
-| `SUMMER20` | percentage | entire order | 20% | **expired** — window ended before seeding |
-| `WINTER25` | percentage | entire order | 25% | **scheduled** — window starts after seeding |
-| `FLAT15` | fixed | entire order | 15.00 | active, no window |
-| `TOOLDEAL` | percentage | products | 15% | scoped to `CLM-0010`, `HOM-0010`, `KIT-0007` — the only coupon that refuses on an out-of-scope cart |
-| `ONEUSEONLY` | fixed | entire order | 10.00 | `total_usage_limit: 1`, never redeemed — the narrow-limit boundary, **not** an exhausted coupon; see the note below |
+| `WELCOME10` | percentage | entire order | 10% | active, no window — 8 redemptions |
+| `SUMMER20` | percentage | entire order | 20% | **expired** — window ended before seeding; never redeemed, and never can be |
+| `WINTER25` | percentage | entire order | 25% | **scheduled** — window starts after seeding; never redeemed, and never can be |
+| `FLAT15` | fixed | entire order | 15.00 | active, no window — 6 redemptions |
+| `TOOLDEAL` | percentage | products | 15% | scoped to 3 random products, re-rolled every seed run — read live via `Coupon::where('code','TOOLDEAL')->first()->products` rather than trusting a SKU list here — 4 redemptions |
+| `ONEUSEONLY` | fixed | entire order | 10.00 | `total_usage_limit: 1` — **redeemed exactly once** by `DemoOrderSeeder`. A further checkout attempt against it now demonstrates `CouponNotApplicableException` live, closing the gap `DemoCouponSeeder`'s own docblock left open. |
 
-**`ONEUSEONLY` cannot demo "coupon already used"** — `coupons.times_used`
-doesn't exist as a column (`RedeemCoupon` counts real `coupon_redemptions`
-rows instead), and a redemption needs a real `order_id`, which orders are
-out of scope for this seed. To show a coupon actually refusing at its
-cap, redeem it once through `RedeemCoupon` live during the demo, or wait
-for whichever session seeds orders. `schema/open-schema-questions.md`
-and `write-rules/order.md` have the fuller account.
+`minimum_order_value` on every coupon is a `CouponFactory` default and is
+**randomized per seed run** — do not quote a specific minimum from a past
+run; read it live if a demo needs the exact figure.
+
+`coupons.times_used` does not exist as a column — `RedeemCoupon` counts
+real `coupon_redemptions` rows instead. `write-rules/order.md` has the
+fuller account of why.
+
+## Reviews
+
+90 reviews, drawn only from `DemoOrderSeeder`'s 62 delivered orders — every
+review's product is a real line item on a real order belonging to the
+reviewing customer, enforced by `CreateProductReview` itself, not merely
+by how the fixture was written.
+
+| Rating | Count |
+|---|---:|
+| 5 | 34 |
+| 4 | 27 |
+| 3 | 15 |
+| 2 | 9 |
+| 1 | 5 |
+
+62 approved (via `ApproveProductReview`), 28 left pending — a populated
+moderation queue, not an empty one, and the approved set deliberately
+includes low ratings rather than only the flattering ones: `ELC-0002` (a
+5-star example), `CLM-0019` (an approved 1-star). `KIT-0009` has a
+pending review, for the moderation-queue screen.
+
+## Articles
+
+24 articles across 4 fixture batches (`buying-guides`, `product-news`,
+`how-to`, `company`), independent of the order/review pass — articles
+reference products by slug, which only needs the catalogue.
+
+| `ArticleStatus` | Count |
+|---|---:|
+| `Published` | 16 |
+| `Draft` | 4 |
+| `Scheduled` | 3 |
+| `Archived` | 1 |
+
+`Scheduled` has no future `published_at` to point at — the fixture format
+carries no such field, and `PublishArticle` only stamps `published_at` the
+first time an article reaches `Published`; a scheduled article's is simply
+`null` until then. `how-much-torque-do-you-need` is a scheduled example;
+`how-to-store-winter-duvet-summer` is the one archived article, reached by
+the loader's `Draft => Published => Archived` detour since the enum has no
+direct edge into `Archived`.
+
+15 of 24 reference at least one product via `related_products`; 9
+reference none. `ContentReferenceSeeder`'s tag vocabulary was extended in
+this pass to cover the general-marketplace catalogue (`clothing`,
+`electronics`, `kitchen`, `home`, `sports`, `beauty`, `workwear`,
+`gift-guides`, `seasonal`) — added alongside the original hardware-store
+tags (`power-tools`, `hand-tools`, `garden`, `cordless`), not replacing
+them.
 
 ## Carts and wishlists
 

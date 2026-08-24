@@ -76,7 +76,7 @@ left for a fixture author to rediscover via
 
 ```bash
 docker compose exec app php artisan fixtures:validate-articles
-docker compose exec app php artisan db:seed --class=DemoArticleSeeder
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoArticleSeeder"
 ```
 
 Same ordering trap as the product fixtures: an author email or category

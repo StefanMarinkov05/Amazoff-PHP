@@ -104,3 +104,28 @@ which is code that does not exist because no public route does.
 
 **Trigger.** When the storefront cart is built. Until then a guest cart is
 only reachable by primary key, which is fine for seeding and tests.
+
+## 6. No category- or tag-driven attribute assignment
+
+**Today.** Which attributes a product carries is decided entirely by
+whoever authors that product's fixture document — nothing in the system
+infers "this category implies these attributes" or "this tag implies that
+attribute." `CatalogueStressSeeder`
+(`database/seeders/Stress/CatalogueStressSeeder.php`) hit this directly: its
+generated products attach no `attribute_values` at all, which is fine for a
+stress-only dataset (`CreateOrder`'s `variationName()` falls back to the
+SKU when a variation carries none) but would be a real gap for actual
+catalogue content — a real "T-Shirt" product with no size or colour
+attribute is a broken listing, not a stress artifact.
+
+**The decision that is actually open.** Whether attribute assignment stays
+manual per product (current behaviour, works, does not scale to
+machine-generated or bulk-imported catalogue content) or the system starts
+deriving a default attribute set from a product's category and/or tags —
+and if the latter, whether that derivation is a fixed mapping table, a
+rule engine, or something simpler.
+
+**Trigger.** Any catalogue-authoring path that is not a human hand-writing
+one fixture document at a time — bulk import, a supplier feed, or scaling
+`CatalogueStressSeeder` itself into something that produces
+presentation-quality (not just row-count) stress data.

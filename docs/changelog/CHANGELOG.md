@@ -8,6 +8,197 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `CatalogueStressSeeder` (`database/seeders/Stress/`) — thousands of
+  additional products for catalogue-scale query-plan, pagination, and
+  search testing, companion to the existing order-volume `StressSeeder`.
+  Inserts directly (`DB::table(...)->insert()`) rather than through
+  `CreateProduct`/`AddProductVariation`, at chunked-batch scale; every
+  generated product still gets exactly one `is_default` variation and
+  starts with `reserved_quantity = 0`, verified by placing a real order
+  against a stress-generated product through `CreateOrder` directly, not
+  assumed. Every product's single image row points at one shared
+  placeholder file (copied from `public/images/logo.png` on first run,
+  not a real photo) — catalogue-scale testing needs row count and query
+  shape, not visual fidelity, and an API call per stress product would
+  exhaust any free-tier image source in minutes. Categories and brands
+  are reused from the existing pool rather than created per product.
+  Opt-in only, like `StressSeeder`: never wired into `DatabaseSeeder`,
+  never run in CI. Recorded as a deferred decision, not an oversight:
+  generated variations carry no `attribute_values`
+  (`docs/reference/schema/open-schema-questions.md` #6 — category/tag-driven
+  attribute assignment does not exist for real catalogue content either).
+
+### Fixed
+
+- **`phpstan.neon` only ever scanned `app/`** — every "Larastan clean"
+  claim made about `database/seeders/` this session was checking nothing,
+  since the seeder reorg into `Demo/`/`System/`/`Stress/` and every seeder
+  written or edited since landed outside Larastan's actual scan path.
+  Added `database/seeders` to `paths`. Running it for real immediately
+  found genuine bugs that had shipped silently: `DemoOrderSeeder` accessed
+  `$item->productVariation`/`$item->quantity`/`$event->status` on
+  untyped `Model` instances from an unannotated `foreach`, and carried an
+  unused `TOTAL_ORDERS` constant; `DemoReviewSeeder`'s declared array
+  shape for its (reviewer, product) pairs didn't match what the code
+  actually built — it claimed `order_item_id` and never set it, and used
+  `order_created_at` without declaring it, which `Carbon::parse()` was
+  silently tolerating at runtime but is exactly the kind of drift static
+  analysis exists to catch. All fixed; re-seeded the full demo pass
+  afterward and confirmed every table still lands on its exact target
+  numbers — the type annotations were wrong, not the runtime behaviour.
+
+  Also added a scoped `ignoreErrors` entry for `database/seeders/*`:
+  `Illuminate\Database\Seeder`'s `$command` property is declared
+  `@var \Illuminate\Console\Command` (non-nullable) but is never
+  initialized until `setCommand()` runs — the framework's own `run()`
+  guards every use with `isset($this->command)` for exactly that reason.
+  Every seeder in this codebase already uses `$this->command?->`
+  correctly; Larastan trusts the docblock literally and flagged all of
+  them as a redundant nullsafe call. A stub inaccuracy in one base class,
+  suppressed by name and scoped to seeders only — not a blanket allowance
+  for nullsafe operators elsewhere.
+
+- `demo:fetch-images` — closes the gap where every one of the 182
+  `product_images` rows pointed at a placeholder path with no real file on
+  disk, breaking every product image in the browser. Downloads a real
+  photo per row from Pexels, re-validated by hand against the exact
+  constants `ProductImagesRelationManager`'s form enforces (the checks
+  live only in the Filament form layer; this command bypasses that form
+  the same way `FixtureLoader` does for the rest of the catalogue).
+
+  Went through three sources before landing on one that actually works,
+  and the command's own docblock keeps that record so nobody repeats it:
+  Unsplash worked correctly (0 contamination across 25 files) but its
+  50-requests/hour free tier meant several runs spread across a day to
+  cover ~162 products; an Apify `hooli/google-images-scraper` actor was
+  tried next for its lack of an hourly cap, and a real run showed roughly
+  40% of "downloaded images" were actually a hotlink-protection
+  placeholder graphic that arbitrary scraped CDN hosts serve instead of
+  the real photo — a real, valid, correctly-sized image, just not a
+  product photo. A GD colour-variance detector was built to catch this
+  and still missed most of them on a second full run, because JPEG
+  compression and antialiased rotated placeholder text manufacture enough
+  colour variety to defeat that kind of heuristic — confirmed by
+  duplicate-hash analysis on real output, not assumed. Pexels (25,000
+  requests/hour, own CDN rather than arbitrary hosts) finished the full
+  162-product set in one run, 0 failures, verified clean by the same
+  duplicate-hash method plus direct visual inspection across every
+  duplicate cluster and a spread of singles: 159 distinct photos, 23 rows
+  legitimately sharing a generic category photo where Pexels had nothing
+  more specific.
+
+### Changed
+
+- **`database/seeders/` split into `Demo/`, `System/`, and `Stress/`
+  subfolders**, namespaced accordingly (`Database\Seeders\Demo\...`,
+  `Database\Seeders\System\...`, `Database\Seeders\Stress\...`).
+  `DatabaseSeeder` stays at the root — it is Laravel's entry point and
+  `migrate:fresh --seed`'s implicit target. Grouping: `Demo/` is every
+  seeder that produces presenter-facing demo content plus the two
+  reference seeders its fixtures resolve against (`CatalogueReferenceSeeder`,
+  `ContentReferenceSeeder`); `System/` is what CI, local, and production all
+  need regardless of demo content (`CarrierSeeder`, `PermissionSeeder`,
+  `RoleSeeder`, `UserSeeder`); `Stress/` is `StressSeeder` alone, kept
+  separate from `Demo/` despite subclassing `DemoOrderSeeder` because it
+  produces no narrative content and must never be mistaken for something
+  the demo run needs.
+
+  **`db:seed --class=` needs the fully-qualified class name now** — a bare
+  basename like `--class=DemoSeeder` no longer resolves once a seeder is
+  namespaced under a subfolder; every doc and script has to pass
+  `--class="Database\Seeders\Demo\DemoSeeder"` (quoted, since an unquoted
+  backslash is a shell escape character). Updated everywhere this was
+  found: `seed-the-database.md`, `demo-data.md`, `article-fixture-format.md`,
+  `edit-a-role.md`, `troubleshooting.md`, `tech-stack-overview.md`, the
+  docblocks inside `DemoSeeder`/`DemoArticleSeeder`/`StressSeeder`
+  themselves, and 18 test files (`use Database\Seeders\PermissionSeeder;`
+  and siblings) that imported the pre-move classes directly — those were
+  silently broken until fixed, since a missing class only surfaces when the
+  test file actually runs, not at edit time. `misc/`'s two session briefs
+  (gitignored, not shipped) were left as historical record with a note at
+  the top rather than rewritten, since they document a plan already
+  executed under the old paths.
+
+### Added
+
+- `App\Support\ProtectedSkus` and
+  `database/fixtures/reference/protected-skus.json` — a guard against a
+  silent data-destruction trap found while planning the transactional
+  seeding pass. `TransitionOrderStatus` on `=> Shipped` composes
+  `CompleteSale`, which moves stock from reserved to sold and permanently
+  drops `current_quantity`, and `CreateOrder` reserves at creation. So any
+  seeder that samples order lines at random consumes exactly the SKUs
+  `demo-data.md` documents as "out of stock" and "exactly one left" — and
+  the failure is invisible: the seeder succeeds, the orders look correct,
+  and the presenter's lookup table is quietly wrong.
+
+  The list is JSON rather than a PHP const so it is readable by anything
+  that needs it, not only by the one class that must not violate it.
+  `assertSelectable()` throws rather than returning false, so a protected
+  line cannot be silently skipped into a set smaller than the distribution
+  it claims to have written. `floorFor()` carries the `min_order_quantity`
+  floors, which are deliberately *not* an exclusion — those products
+  belong in seeded orders.
+
+  Verified against a freshly seeded catalogue rather than by reading the
+  code: all 19 excluded SKUs resolve to real rows (14 products, 5
+  variations), all 5 `min_order_quantity` floors match the database, the
+  guard blocks exactly 19 of 219 variations and leaves 200 selectable,
+  `assertSelectable()` throws on a protected line and passes an ordinary
+  one, and the states being protected are real (`current_quantity` 0 and 1
+  respectively, `CLM-0016.is_available` false). A protected variation may
+  be blocked through its parent product rather than its own SKU —
+  `CLM-0016-STD` is refused because `CLM-0016` is unavailable — so callers
+  pass the variation and let the guard do both lookups.
+
+  Not yet exercised by a caller: no seeder consumes it, because
+  `DemoOrderSeeder` does not exist yet.
+
+- The transactional demo-data pass: `DemoAddressSeeder` (78 addresses
+  across 60 of 100 customers), `DemoEngagementSeeder` (80 newsletter
+  subscribers, 25 hand-written contact messages), `DemoOrderSeeder` (140
+  orders built by checking out real carts through `CreateOrder` and
+  `TransitionOrderStatus`, never fabricated with `Order::factory()`),
+  `DemoReviewSeeder` (90 reviews drawn only from delivered orders' own
+  purchases), `ContentReferenceSeeder`'s tag vocabulary extended for the
+  general-marketplace catalogue, and 24 article fixtures across 4 batches.
+  `StressSeeder` for table-size testing, built as a thin subclass of
+  `DemoOrderSeeder` reusing its `loadPools()`/`seedOneOrder()` rather than
+  a second implementation.
+
+  Verified against the live database, not the seeders' own output: 140/140
+  orders on the exact status distribution planned, every `PaymentStatus`
+  and `ShipmentStatus` case represented at least once (including `Failed`
+  with 2 of 4 recovering to `Paid`, and `PartiallyRefunded` with 2 stacked
+  refunds), 19 coupon redemptions including `ONEUSEONLY`'s first-ever one,
+  90 reviews on the exact rating distribution with 62 approved / 28
+  pending, 24 articles on the exact status distribution. `StressSeeder` run
+  at 2000 orders: 1734 succeeded, 266 refused cleanly via
+  `RuntimeException` as the ~200-variation selectable pool ran low against
+  2000 orders' demand — zero protected-SKU violations and zero inventory
+  overdraw (`reserved_quantity > current_quantity`) across the resulting
+  1922 total orders, confirming `ProtectedSkus` holds under real load, not
+  only the 140-order demo scale it was designed for.
+
+  Two real bugs found only by running against live data, not by reading
+  the code: `CreateOrder`'s `$actor` parameter is not an authorization gate
+  like every other Action's — it is the checking-out customer, written to
+  `orders.user_id` and used to scope `source_address_id`. Passing `null`
+  for a registered customer (the pattern correct everywhere else in this
+  pass) threw `ModelNotFoundException` on every order using a saved
+  address. And a `Refunded` order-status walk that went `Shipped =>
+  Returned` directly, skipping `Delivered`, left a COD order with no
+  payment ever opened (COD is marked paid on remittance, i.e. at
+  `Delivered`, never before) — so a `Refunded` order-status target with no
+  refundable payment is a contradiction the walk now avoids by routing
+  every path through `Delivered`.
+
+  Not built in this pass: a real Stripe test-mode round trip. No
+  checkout-session controller or webhook route exists yet — `RecordPayment`
+  and `TransitionPaymentStatus` are called directly, proving those two
+  Actions' locking and status-transition rules, but not a real Stripe API
+  call. `stripe/stripe-php` is installed; nothing in `app/` calls it yet.
+
 - `docs/reference/schema/demo-data.md` — the presenter-facing index of what
   the seeded catalogue actually contains: the exact SKU for every coverage
   state (out of stock, one left, each discount phase, unavailable, 5+
@@ -144,6 +335,27 @@ when the work happened, not when it was committed — nothing in
   `ReviewNotAllowedException`: a 500 on a review form.
 
 ### Fixed
+
+- Two documents still claimed `TransitionOrderStatus` was unbuilt, months
+  after it shipped. Root `CLAUDE.md` said *"designed in ADR-0004, **not yet
+  built**"* under a non-negotiable architecture rule, and
+  `reference/write-rules/order.md` said *"`TransitionOrderStatus` does not
+  exist yet"* in its "what does not get written" section. Both now describe
+  the Action as built and the only writer of `orders.status` and
+  `order_status_histories`.
+
+  The surviving half of each claim was kept rather than deleted with the
+  false half: `CreateOrder` really does still land every order at `New`
+  regardless of payment method, and nothing calls `TransitionOrderStatus`
+  from checkout — because the Stripe and cash-on-delivery first hops
+  diverge (`New => AwaitingPayment` against `New => Confirmed`) and
+  `CreateOrder` is blind to which applies. That is a deliberate decoupling,
+  not a gap, and the correction says so.
+
+  `online-store/.ai/guidelines/project-conventions.md` needed no change —
+  the condensed form had always stated the rule correctly. The other four
+  pages referencing the Action (`actions.md`, `inventory.md`,
+  `concurrency-and-locking.md`, `security-model.md`) were already accurate.
 
 - `FixtureLoader` silently dropped a product's `attributes` field.
   `productColumns()`'s `Arr::except()` stripped it out to build the

@@ -77,12 +77,16 @@ reads a few lines apart.
 - **A pre-order stock hold.** Stock is reserved once, at order creation,
   rather than held provisionally earlier and transferred. Zero hold
   window, zero abuse surface.
-- **`OrderStatus::New => AwaitingPayment` / `=> Confirmed`** —
-  `TransitionOrderStatus` does not exist yet. Every order is created at
-  `New` regardless of payment method. CLAUDE.md's "COD reserves stock on
-  confirmation" is read against this as a conservative superset, not a
-  gap: reserving at creation is never later than reserving on confirmation
-  would be.
+- **`OrderStatus::New => AwaitingPayment` / `=> Confirmed`** — every order
+  is created at `New` regardless of payment method, and `CreateOrder` does
+  not advance it. `TransitionOrderStatus` exists and is the only thing that
+  moves an order off `New`, but nothing calls it from checkout: a caller
+  decides the first hop, because the Stripe and cash-on-delivery paths
+  diverge there (`New => AwaitingPayment` against `New => Confirmed`) and
+  `CreateOrder` is blind to which one applies. CLAUDE.md's "COD reserves
+  stock on confirmation" is read against this as a conservative superset,
+  not a gap: reserving at creation is never later than reserving on
+  confirmation would be.
 
 ## What changes underneath checkout
 
