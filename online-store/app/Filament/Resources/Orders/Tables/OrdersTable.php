@@ -13,12 +13,18 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class OrdersTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // payment_status is derived from the payment relation since
+            // 2026-08-24 (it was a column that silently went stale). Reading
+            // it per row would be one query per row, so it is eager-loaded
+            // here rather than left to the accessor.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('payment'))
             ->columns([
                 TextColumn::make('serial_number')
                     ->label('Order')
@@ -43,9 +49,13 @@ class OrdersTable
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                // Reads through the payment relation, so it cannot be
+                // ->sortable(): there is no orders column to ORDER BY.
+                // Sorting by it would need a join, which is not worth adding
+                // until someone asks for it.
                 TextColumn::make('payment_status')
-                    ->badge()
-                    ->sortable(),
+                    ->label('Payment')
+                    ->badge(),
                 TextColumn::make('payment_method')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -80,9 +90,33 @@ class OrdersTable
                 SelectFilter::make('status')
                     ->options(OrderStatus::class)
                     ->multiple(),
+                // Filters through the relation rather than an orders column.
+                // An order with no payment row counts as Pending, matching
+                // the accessor — otherwise "Pending" would silently exclude
+                // every order that has not been paid for yet, which is the
+                // majority of them.
                 SelectFilter::make('payment_status')
+                    ->label('Payment')
                     ->options(PaymentStatus::class)
-                    ->multiple(),
+                    ->multiple()
+                    ->query(function (Builder $query, array $data): Builder {
+                        $values = $data['values'] ?? [];
+
+                        if ($values === []) {
+                            return $query;
+                        }
+
+                        return $query->where(function (Builder $query) use ($values): void {
+                            $query->whereHas(
+                                'payment',
+                                fn (Builder $q): Builder => $q->whereIn('status', $values),
+                            );
+
+                            if (in_array(PaymentStatus::Pending->value, $values, true)) {
+                                $query->orWhereDoesntHave('payment');
+                            }
+                        });
+                    }),
                 SelectFilter::make('payment_method')
                     ->options(PaymentMethod::class),
                 TernaryFilter::make('user_id')

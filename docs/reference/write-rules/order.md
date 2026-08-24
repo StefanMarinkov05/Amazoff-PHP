@@ -42,7 +42,7 @@ because a customer completed checkout).
 
 | Table | What |
 |---|---|
-| `orders` | One row. `status = New`, `payment_status = Pending`, regardless of payment method. `cart_id` set from the checking-out cart — `UNIQUE`, nullable, no foreign key (see "Two actors at once" and the migration's own docblock). `serial_number` derived from the row's own auto-increment id (`ORD-%06d`), written in a second update inside the same transaction, before commit — no dedicated counter, no extra lock. `subtotal_amount`/`vat_amount`/`total_amount` recomputed from the cart's current contents; nothing from a caller is trusted (§28, obligation 3) — the signature carries no total input at all, so there is no field to bypass through. |
+| `orders` | One row. `status = New`, regardless of payment method. No `payment_status` — it was dropped 2026-08-24 and is derived from the `payment` relation, reading `Pending` while no payment row exists. `cart_id` set from the checking-out cart — `UNIQUE`, nullable, no foreign key (see "Two actors at once" and the migration's own docblock). `serial_number` derived from the row's own auto-increment id (`ORD-%06d`), written in a second update inside the same transaction, before commit — no dedicated counter, no extra lock. `subtotal_amount`/`vat_amount`/`total_amount` recomputed from the cart's current contents; nothing from a caller is trusted (§28, obligation 3) — the signature carries no total input at all, so there is no field to bypass through. |
 | `order_items` | One row per priceable cart line. Snapshots `product_name`, `product_sku`, `variation_name` (joined from the variation's attribute values, falling back to the SKU if it has none), `unit_price`, `line_total`, `vat_rate`, `vat_amount` — frozen at creation, immune to a later product edit (§19). `discount_amount` is always `'0.00'`: the coupon discount is an order-level deduction, never a rewrite of line prices. |
 | `order_addresses` | Two rows, `UNIQUE(order_id, type)` — one `billing`, one `delivery`. A given `source_address_id` is scoped to the actor the same way CLAUDE.md requires everywhere else (`$actor->addresses()->findOrFail($id)`) rather than trusted as-is; a guest has no saved addresses to own, so any `source_address_id` from a guest is refused the same way. Verified: `CreateOrderTest`, "accepts a source_address_id that belongs to the checking-out actor," "refuses a source_address_id that belongs to another user," "refuses any source_address_id from a guest." |
 | `coupon_redemptions` | One row, only if `cart.coupon_id` was set, written by `RedeemCoupon` — re-validated independently, nothing trusted from the cart's provisional state. |
@@ -199,27 +199,7 @@ actor skips the policy check entirely, which is correct for a system caller
 and is exactly why the webhook's whole perimeter has to be signature
 verification in middleware rather than anything inside these Actions.
 
-**4. `orders.payment_status` is written once and never updated.**
-`CreateOrder` sets it to `Pending`; **nothing else in `app/` ever writes it**
-— not `TransitionPaymentStatus`, not `TransitionOrderStatus`. Meanwhile
-`payments.status` moves independently, and `OrdersTable` and `OrderInfolist`
-both *display and filter on* `orders.payment_status`.
-
-So a payment that has been paid, or fully refunded, still shows its order as
-`Pending` in the panel. This is a live correctness gap rather than an unbuilt
-slice: the data to render it correctly exists on `payments`, and the column
-showing it is stale by construction.
-
-Two columns holding the same fact is the shape ADR-0005 warns about, and the
-resolution is a decision rather than a patch. Either `orders.payment_status`
-becomes derived (read through the `payment` relation, drop the column — the
-`inventories.available()` precedent, where §20 explicitly forbids storing a
-second copy), or `TransitionPaymentStatus` writes both inside its existing
-transaction and something enforces they cannot diverge. Deriving is the safer
-default; the column is worth keeping only if a query needs to filter on it
-without joining, which the panel currently does.
-
-**5. Payments, shipments, and orders are not wired to each other.**
+**4. Payments, shipments, and orders are not wired to each other.**
 Deliberate, per each Action's own docblock — coupling them would let a
 webhook move an order with nobody authorising it — but the consequences are
 worth stating plainly, because they are invisible from any one Action:

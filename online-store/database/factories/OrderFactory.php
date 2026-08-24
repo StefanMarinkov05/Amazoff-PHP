@@ -6,7 +6,6 @@ namespace Database\Factories;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
-use App\Enums\PaymentStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -31,7 +30,6 @@ class OrderFactory extends Factory
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'status' => fake()->randomElement(OrderStatus::cases()),
-            'payment_status' => fake()->randomElement(PaymentStatus::cases()),
             'payment_method' => fake()->randomElement(PaymentMethod::cases()),
             // char(3): randomLetter() wrote one character and MySQL padded it.
             'currency' => 'EUR',

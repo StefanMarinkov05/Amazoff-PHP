@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
-use App\Enums\PaymentStatus;
 use App\Models\Carrier;
 use App\Models\Order;
 use App\Models\Shipment;
@@ -40,7 +39,6 @@ afterEach(function (): void {
 it('lets exactly one of two simultaneous shipment creations through', function (): void {
     $order = Order::factory()->create([
         'status' => OrderStatus::Paid,
-        'payment_status' => PaymentStatus::Paid,
         'payment_method' => PaymentMethod::Stripe,
         'total_amount' => '80.00',
     ]);
@@ -67,7 +65,6 @@ it('never produces two cod consignments for one cash-on-delivery order', functio
     // assertion: two rows here means the courier collects the total twice.
     $order = Order::factory()->create([
         'status' => OrderStatus::New,
-        'payment_status' => PaymentStatus::Pending,
         'payment_method' => PaymentMethod::CashOnDelivery,
         'total_amount' => '64.50',
     ]);

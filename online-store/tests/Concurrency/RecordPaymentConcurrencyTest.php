@@ -51,7 +51,6 @@ it('has no unique index standing in for the lock', function (): void {
 it('lets exactly one of two simultaneous checkouts open a payment', function (): void {
     $order = Order::factory()->create([
         'status' => OrderStatus::New,
-        'payment_status' => PaymentStatus::Pending,
         'total_amount' => '120.00',
     ]);
 

@@ -6,6 +6,33 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Changed
+
+- **`orders.payment_status` is derived, not stored.** The column is dropped;
+  `Order::$payment_status` now reads through the `payment` relation, falling
+  back to `Pending` when no payment row exists.
+
+  It was written exactly once, by `CreateOrder`, and never again — nothing
+  else in `app/` ever wrote it — while `payments.status` moved independently
+  through `TransitionPaymentStatus`. So the two diverged the moment a payment
+  was paid or refunded, and the stale one was what `OrdersTable` and
+  `OrderInfolist` displayed and filtered on. Confirmed by walking it: a
+  payment reading `paid` left its order reporting `pending`.
+
+  §20 forbids storing `inventories.available()` for exactly this reason, and
+  this is the same shape with the same resolution. Not backfilled before
+  dropping: the column's values were wrong wherever a payment had moved and
+  right only where nothing had happened, so copying them onto `payments`
+  would have overwritten correct data with stale data.
+
+  `OrdersTable` eager-loads `payment` in `modifyQueryUsing()` (deriving it
+  per row would be one query per row), its filter queries through the
+  relation and counts a missing payment as `Pending`, and the column is no
+  longer `->sortable()` — there is no `orders` column left to sort by.
+  `OrderPaymentStatusTest` covers the derivation, including a structural
+  assertion that the column does not exist, so reintroducing it in a later
+  migration fails loudly rather than silently shadowing the accessor.
+
 ### Added
 
 - Tests for the five previously-untested Actions — `RecordPayment`,
