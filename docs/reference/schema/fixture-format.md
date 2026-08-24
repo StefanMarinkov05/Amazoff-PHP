@@ -196,6 +196,9 @@ left to the LLM authoring prose:
 - no images
 - `name` ≥ 90 characters (card-layout stress)
 - `min_order_quantity > 1`
+- one image shared across ≥2 variations' galleries (the common case — a
+  colourway's `main` shot reused on a variant that has no photo of its own)
+- one variation with ≥2 images in its own gallery
 
 ## What a fixture file actually contains
 

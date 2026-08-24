@@ -1,0 +1,667 @@
+[
+  {
+    "name": "High-Speed Blender 1200W",
+    "slug": "high-speed-blender-1200w-kit0001",
+    "sku": "KIT-0001",
+    "category": "kitchen-appliances-blenders",
+    "brand": "kitchenhale",
+    "short_description": "1200W high-speed blender with pulse and ice-crush settings.",
+    "description": "A 1200W motor pulverises ice and frozen fruit in seconds rather than the minute-plus grind a weaker blender needs.\n\nThe tamper tool clears air pockets during thick smoothie blends without stopping the machine mid-cycle.",
+    "regular_price": "99.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3200,
+    "length_mm": 220,
+    "width_mm": 200,
+    "height_mm": 420,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "High-Speed Blender 1200W | Amazoff",
+    "seo_description": "1200W high-speed blender, pulse and ice-crush settings.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0001-main.jpg", "alt_text": "Blender", "is_main": true, "sort_order": 0 },
+      { "key": "jug", "path": "demo/kit0001-jug.jpg", "alt_text": "Blender jug detail", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Power", "value": "1200W", "sort_order": 0 },
+      { "name": "Jug capacity", "value": "1.5L", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "KIT-0001-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "jug"], "initial_quantity": 24, "attribute_values": { "colour": "black" } },
+      { "sku": "KIT-0001-SLV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 15, "attribute_values": { "colour": "silver" } }
+    ]
+  },
+  {
+    "name": "Espresso Machine with Milk Frother",
+    "slug": "espresso-machine-milk-frother-kit0002",
+    "sku": "KIT-0002",
+    "category": "kitchen-appliances-coffee-machines",
+    "brand": "brewmark",
+    "short_description": "15-bar espresso machine with integrated milk frother.",
+    "description": "15 bars of pump pressure extracts a proper crema, and the integrated steam wand froths milk without a separate jug and stovetop.\n\nA removable drip tray and water tank make daily cleaning genuinely quick rather than a chore that gets skipped.",
+    "regular_price": "249.00",
+    "discount_price": "219.00",
+    "discount_starts_at": "-3 days",
+    "discount_ends_at": "+11 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 5800,
+    "length_mm": 280,
+    "width_mm": 320,
+    "height_mm": 350,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Espresso Machine with Milk Frother | Amazoff",
+    "seo_description": "15-bar espresso machine, integrated frother. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/kit0002-main.jpg", "alt_text": "Espresso machine", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pressure", "value": "15 bar", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0002-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 8, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Drip Coffee Maker 12-Cup",
+    "slug": "drip-coffee-maker-12-cup-kit0003",
+    "sku": "KIT-0003",
+    "category": "kitchen-appliances-coffee-machines",
+    "brand": "brewmark",
+    "short_description": "12-cup drip coffee maker with programmable timer.",
+    "description": "A straightforward 12-cup drip maker with a programmable timer, so coffee is ready the moment you're up rather than five minutes later.\n\nThe glass carafe's warming plate keeps the pot hot for the length of a typical breakfast.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1900,
+    "length_mm": 250,
+    "width_mm": 200,
+    "height_mm": 320,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Drip Coffee Maker 12-Cup | Amazoff",
+    "seo_description": "12-cup drip coffee maker, programmable timer.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/kit0003-main.jpg", "alt_text": "Drip coffee maker", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "12 cups", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 30, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "4-Slice Toaster Stainless Steel",
+    "slug": "4-slice-toaster-stainless-kit0004",
+    "sku": "KIT-0004",
+    "category": "kitchen-appliances-toasters",
+    "brand": "hearthglow",
+    "short_description": "4-slice stainless steel toaster with wide slots and defrost setting.",
+    "description": "Wide slots take a thick artisan slice without needing to squeeze it in, and the defrost setting handles bread straight from the freezer.\n\nSeven browning levels give real control past the usual light-medium-dark guesswork.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1600,
+    "length_mm": 320,
+    "width_mm": 260,
+    "height_mm": 200,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "4-Slice Toaster | Amazoff",
+    "seo_description": "4-slice stainless steel toaster, wide slots, defrost setting.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0004-main.jpg", "alt_text": "Toaster", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Slices", "value": "4", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0004-SLV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 22, "attribute_values": { "colour": "silver" } }
+    ]
+  },
+  {
+    "name": "Electric Kettle 1.7L Rapid Boil",
+    "slug": "electric-kettle-1-7l-rapid-boil-kit0005",
+    "sku": "KIT-0005",
+    "category": "kitchen-appliances-kettles",
+    "brand": "hearthglow",
+    "short_description": "1.7L electric kettle with rapid boil and auto shut-off.",
+    "description": "A 3000W element brings 1.7L to boil noticeably faster than a stovetop kettle, with an auto shut-off that ends the walk-away-and-forget habit.\n\nThe concealed element makes descaling and cleaning easier than an exposed-coil kettle.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 2,
+    "weight_g": 1100,
+    "length_mm": 220,
+    "width_mm": 150,
+    "height_mm": 240,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Electric Kettle 1.7L Rapid Boil | Amazoff",
+    "seo_description": "1.7L electric kettle, rapid boil, auto shut-off.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0005-main.jpg", "alt_text": "Electric kettle", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "1.7L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0005-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 55, "attribute_values": { "colour": "white" } },
+      { "sku": "KIT-0005-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 48, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Countertop Microwave 25L",
+    "slug": "countertop-microwave-25l-kit0006",
+    "sku": "KIT-0006",
+    "category": "kitchen-appliances-microwaves",
+    "brand": "hearthglow",
+    "short_description": "25L countertop microwave with grill function.",
+    "description": "25L is enough for a full dinner plate or a family-size dish, and the grill function browns the top of a gratin a plain microwave cannot.\n\nTen power levels plus preset auto-cook programs handle the meals that need more than a single reheat button.",
+    "regular_price": "119.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 13000,
+    "length_mm": 480,
+    "width_mm": 380,
+    "height_mm": 290,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Countertop Microwave 25L | Amazoff",
+    "seo_description": "25L countertop microwave with grill function.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/kit0006-main.jpg", "alt_text": "Microwave", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "25L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0006-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Digital Air Fryer 5.5L",
+    "slug": "digital-air-fryer-5-5l-kit0007",
+    "sku": "KIT-0007",
+    "category": "kitchen-appliances-air-fryers",
+    "brand": "kitchenhale",
+    "short_description": "5.5L digital air fryer with 8 preset cooking modes.",
+    "description": "5.5L feeds a family without a second batch, and eight preset modes cover fries to whole chicken without guessing times.\n\nA dishwasher-safe basket is what actually determines whether an air fryer gets used weekly or ends up in a cupboard.",
+    "regular_price": "84.90",
+    "discount_price": "69.90",
+    "discount_starts_at": "-9 days",
+    "discount_ends_at": "+5 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 4800,
+    "length_mm": 320,
+    "width_mm": 290,
+    "height_mm": 340,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Digital Air Fryer 5.5L | Amazoff",
+    "seo_description": "5.5L digital air fryer, 8 preset modes. On sale now.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0007-main.jpg", "alt_text": "Air fryer", "is_main": true, "sort_order": 0 },
+      { "key": "basket", "path": "demo/kit0007-basket.jpg", "alt_text": "Air fryer basket", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "5.5L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0007-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "basket"], "initial_quantity": 19, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Stainless Steel Cookware Set 10-Piece",
+    "slug": "stainless-steel-cookware-set-10pc-kit0008",
+    "sku": "KIT-0008",
+    "category": "kitchen-cookware-pots",
+    "brand": "cutcraft",
+    "short_description": "10-piece stainless steel cookware set with glass lids.",
+    "description": "A tri-ply stainless steel construction that heats evenly rather than developing hot spots, in the sizes that cover most everyday cooking.\n\nGlass lids let you check on a simmer without lifting the lid and losing heat.",
+    "regular_price": "179.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 8200,
+    "length_mm": 500,
+    "width_mm": 400,
+    "height_mm": 300,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Stainless Steel Cookware Set 10-Piece | Amazoff",
+    "seo_description": "10-piece tri-ply stainless steel cookware set.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0008-main.jpg", "alt_text": "Cookware set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "10", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0008-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 6, "attribute_values": { "material": "stainless-steel" } }
+    ]
+  },
+  {
+    "name": "Non-Stick Frying Pan 28cm",
+    "slug": "non-stick-frying-pan-28cm-kit0009",
+    "sku": "KIT-0009",
+    "category": "kitchen-cookware-pans",
+    "brand": "cutcraft",
+    "short_description": "28cm non-stick frying pan with induction-compatible base.",
+    "description": "A ceramic-reinforced non-stick coating that outlasts standard Teflon coatings by several seasons of regular use.\n\nThe induction-compatible base means this pan works on every hob type, not just gas and electric coil.",
+    "regular_price": "29.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 950,
+    "length_mm": 480,
+    "width_mm": 280,
+    "height_mm": 60,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Non-Stick Frying Pan 28cm | Amazoff",
+    "seo_description": "28cm non-stick frying pan, induction compatible.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/kit0009-main.jpg", "alt_text": "Frying pan", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Diameter", "value": "28cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0009-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 41, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Non-Stick Baking Tray Set 3-Piece",
+    "slug": "non-stick-baking-tray-set-3pc-kit0010",
+    "sku": "KIT-0010",
+    "category": "kitchen-cookware-bakeware",
+    "brand": "cutcraft",
+    "short_description": "3-piece non-stick baking tray set, various sizes.",
+    "description": "Three tray sizes cover a full sheet of cookies down to a small batch of muffin tops, all in one non-stick set.\n\nA heavy-gauge steel core resists warping in a hot oven, unlike thin trays that buckle after a few uses.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1300,
+    "length_mm": 420,
+    "width_mm": 320,
+    "height_mm": 40,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Non-Stick Baking Tray Set | Amazoff",
+    "seo_description": "3-piece non-stick baking tray set.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/kit0010-main.jpg", "alt_text": "Baking trays", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "3", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0010-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 37, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Chef Knife 20cm Forged Steel",
+    "slug": "chef-knife-20cm-forged-steel-kit0011",
+    "sku": "KIT-0011",
+    "category": "kitchen-tools-knives",
+    "brand": "cutcraft",
+    "short_description": "20cm forged steel chef knife with full tang and ergonomic handle.",
+    "description": "A full-tang forged blade that balances properly in the hand, the difference between a knife that fatigues the wrist and one that doesn't.\n\nHigh-carbon stainless steel holds an edge through weeks of daily prep before needing a proper sharpen.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 250,
+    "length_mm": 330,
+    "width_mm": 40,
+    "height_mm": 25,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Chef Knife 20cm Forged Steel | Amazoff",
+    "seo_description": "20cm forged steel chef knife, full tang.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0011-main.jpg", "alt_text": "Chef knife", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Blade length", "value": "20cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0011-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 28, "attribute_values": { "material": "stainless-steel" } }
+    ]
+  },
+  {
+    "name": "Kitchen Utensil Set 8-Piece Silicone",
+    "slug": "kitchen-utensil-set-8pc-silicone-kit0012",
+    "sku": "KIT-0012",
+    "category": "kitchen-tools-utensils",
+    "brand": "kitchenhale",
+    "short_description": "8-piece silicone kitchen utensil set with heat-resistant handles.",
+    "description": "Silicone heads are gentle on non-stick cookware where a metal utensil would eventually scratch the coating away.\n\nHeat-resistant to 220°C, safe against a hot pan without melting or discolouring.",
+    "regular_price": "22.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 700,
+    "length_mm": 400,
+    "width_mm": 200,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Kitchen Utensil Set 8-Piece | Amazoff",
+    "seo_description": "8-piece silicone kitchen utensil set, heat-resistant.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0012-main.jpg", "alt_text": "Utensil set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Heat resistance", "value": "220°C", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0012-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 63, "attribute_values": { "colour": "grey" } }
+    ]
+  },
+  {
+    "name": "Bamboo Cutting Board Set 3-Piece",
+    "slug": "bamboo-cutting-board-set-3pc-kit0013",
+    "sku": "KIT-0013",
+    "category": "kitchen-tools-cutting-boards",
+    "brand": "kitchenhale",
+    "short_description": "3-piece bamboo cutting board set, different sizes.",
+    "description": "Bamboo is harder on a knife edge than plastic but gentler than glass, a reasonable middle ground for daily prep.\n\nThree sizes let you dedicate one to meat and keep the others for produce, without needing a full board rotation.",
+    "regular_price": "19.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1400,
+    "length_mm": 400,
+    "width_mm": 300,
+    "height_mm": 50,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Bamboo Cutting Board Set | Amazoff",
+    "seo_description": "3-piece bamboo cutting board set.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0013-main.jpg", "alt_text": "Cutting boards", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "3", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0013-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 44, "attribute_values": { "material": "wood" } }
+    ]
+  },
+  {
+    "name": "Airtight Food Storage Containers 10-Piece",
+    "slug": "airtight-food-storage-containers-10pc-kit0014",
+    "sku": "KIT-0014",
+    "category": "kitchen-storage-containers",
+    "brand": "domusline",
+    "short_description": "10-piece airtight food storage container set, stackable.",
+    "description": "Airtight seals keep pantry staples fresher longer and stop pasta and rice from taking on fridge odours.\n\nA uniform stackable design saves cabinet space that mismatched containers waste.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2100,
+    "length_mm": 400,
+    "width_mm": 350,
+    "height_mm": 250,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Airtight Food Storage Set 10-Piece | Amazoff",
+    "seo_description": "10-piece airtight food storage container set.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0014-main.jpg", "alt_text": "Storage containers", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "10", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0014-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 50, "attribute_values": { "material": "plastic" } }
+    ]
+  },
+  {
+    "name": "Glass Storage Jars Set 6-Piece",
+    "slug": "glass-storage-jars-set-6pc-kit0015",
+    "sku": "KIT-0015",
+    "category": "kitchen-storage-jars",
+    "brand": "domusline",
+    "short_description": "6-piece glass storage jar set with bamboo lids.",
+    "description": "Clear glass jars for a pantry that stays organized by sight, with bamboo lids that add warmth over plain plastic.\n\nA silicone seal under each lid keeps contents fresh without an airtight click-lock mechanism to break.",
+    "regular_price": "29.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2600,
+    "length_mm": 300,
+    "width_mm": 250,
+    "height_mm": 200,
+    "is_available": false,
+    "is_featured": false,
+    "seo_title": "Glass Storage Jars Set 6-Piece | Amazoff",
+    "seo_description": "6-piece glass storage jars with bamboo lids. Currently unavailable.",
+    "attributes": [],
+    "images": [],
+    "specifications": [
+      { "name": "Pieces", "value": "6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0015-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Porcelain Dinner Plate Set 6-Piece",
+    "slug": "porcelain-dinner-plate-set-6pc-kit0016",
+    "sku": "KIT-0016",
+    "category": "kitchen-tableware-plates",
+    "brand": "domusline",
+    "short_description": "6-piece porcelain dinner plate set, dishwasher and microwave safe.",
+    "description": "A clean, minimal porcelain set that suits everyday dinners and sets a decent table for guests without a separate 'good' set.\n\nDishwasher and microwave safe, which is the practical test most decorative dinnerware fails.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3600,
+    "length_mm": 280,
+    "width_mm": 280,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Porcelain Dinner Plate Set 6-Piece | Amazoff",
+    "seo_description": "6-piece porcelain dinner plate set.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0016-main.jpg", "alt_text": "Dinner plates", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0016-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 34, "attribute_values": { "colour": "white" } }
+    ]
+  },
+  {
+    "name": "Drinking Glasses Set 6-Piece",
+    "slug": "drinking-glasses-set-6pc-kit0017",
+    "sku": "KIT-0017",
+    "category": "kitchen-tableware-glassware",
+    "brand": "domusline",
+    "short_description": "6-piece drinking glasses set, dishwasher safe.",
+    "description": "A no-frills set of everyday drinking glasses, thick enough at the base to survive a dishwasher cycle without chipping.\n\nA simple, straight-sided design that stacks cleanly in a cupboard.",
+    "regular_price": "16.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1800,
+    "length_mm": 250,
+    "width_mm": 200,
+    "height_mm": 180,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Drinking Glasses Set 6-Piece | Amazoff",
+    "seo_description": "6-piece drinking glasses set.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0017-main.jpg", "alt_text": "Drinking glasses", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0017-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 70, "attribute_values": { "material": "glass" } }
+    ]
+  },
+  {
+    "name": "Stainless Steel Cutlery Set 24-Piece",
+    "slug": "stainless-steel-cutlery-set-24pc-kit0018",
+    "sku": "KIT-0018",
+    "category": "kitchen-tableware-cutlery",
+    "brand": "cutcraft",
+    "short_description": "24-piece stainless steel cutlery set, service for 6.",
+    "description": "A full service for six in mirror-polished stainless steel, with balanced weight that avoids feeling flimsy in hand.\n\nDishwasher safe, and the finish resists the spotting cheaper stainless can develop after repeated cycles.",
+    "regular_price": "49.90",
+    "discount_price": "42.90",
+    "discount_starts_at": "-1 day",
+    "discount_ends_at": "+13 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2200,
+    "length_mm": 350,
+    "width_mm": 250,
+    "height_mm": 60,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Stainless Steel Cutlery Set 24-Piece | Amazoff",
+    "seo_description": "24-piece cutlery set, service for 6. On sale now.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/kit0018-main.jpg", "alt_text": "Cutlery set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "24", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0018-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 26, "attribute_values": { "material": "stainless-steel" } }
+    ]
+  },
+  {
+    "name": "Stand Mixer 5.5L with Attachments",
+    "slug": "stand-mixer-5-5l-attachments-kit0019",
+    "sku": "KIT-0019",
+    "category": "kitchen-appliances-blenders",
+    "brand": "kitchenhale",
+    "short_description": "5.5L stand mixer with dough hook, whisk, and beater attachments.",
+    "description": "A 5.5L bowl handles a full batch of bread dough or a double batch of cookies without splitting the workload.\n\nThree included attachments — dough hook, whisk, beater — cover the bulk of home baking without buying extras separately.",
+    "regular_price": "279.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 7200,
+    "length_mm": 350,
+    "width_mm": 220,
+    "height_mm": 340,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Stand Mixer 5.5L with Attachments | Amazoff",
+    "seo_description": "5.5L stand mixer, dough hook, whisk, beater included.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0019-main.jpg", "alt_text": "Stand mixer", "is_main": true, "sort_order": 0 },
+      { "key": "attachments", "path": "demo/kit0019-attachments.jpg", "alt_text": "Mixer attachments", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Bowl capacity", "value": "5.5L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0019-RED", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "attachments"], "initial_quantity": 5, "attribute_values": { "colour": "red" } },
+      { "sku": "KIT-0019-BLK", "price": "289.00", "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 4, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Cast Iron Casserole Pot 5L",
+    "slug": "cast-iron-casserole-pot-5l-kit0020",
+    "sku": "KIT-0020",
+    "category": "kitchen-cookware-pots",
+    "brand": "hearthglow",
+    "short_description": "5L enamelled cast iron casserole pot, oven and hob safe.",
+    "description": "Enamelled cast iron holds and distributes heat evenly for slow braises, and moves from hob to oven without a change of cookware.\n\nThe tight-fitting lid traps moisture, which is exactly what a long braise depends on.",
+    "regular_price": "89.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 5400,
+    "length_mm": 320,
+    "width_mm": 280,
+    "height_mm": 180,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cast Iron Casserole Pot 5L | Amazoff",
+    "seo_description": "5L enamelled cast iron casserole pot.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/kit0020-main.jpg", "alt_text": "Casserole pot", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "5L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "KIT-0020-RED", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 12, "attribute_values": { "colour": "red" } }
+    ]
+  }
+]

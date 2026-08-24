@@ -6,6 +6,38 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Added
+
+- The demo catalogue: 169 products, 218 variations, spanning 122 of the
+  173 leaf/branch categories in `catalogue.json` and 33 of 34 brands, in
+  `database/fixtures/demo/`. Nine batches (`power-tools`,
+  `hand-tools-garden`, `workwear`, `clothing-men`, `clothing-women`,
+  `electronics`, `kitchen`, `home`, `sports-beauty-toys`), each its own
+  SKU prefix per `SKELETON.md`'s collision scheme.
+
+  Verified rather than assumed: every state in `fixture-format.md`'s
+  coverage matrix appears at least once (out of stock, exactly one left,
+  discount active/expired/scheduled, 1/3/5+ variations, unavailable
+  products, no-image products, a ≥90-character name, `min_order_quantity
+  > 1`), plus two variation-gallery shapes not previously called out
+  explicitly in the matrix and added there: one product image shared
+  across ≥2 variations' galleries (39 instances across the set) and one
+  variation carrying ≥2 images in its own gallery (20 instances) — both
+  confirmed against the actual `product_image_product_variation` pivot
+  after seeding, not only against the JSON shape.
+
+  Demo images referenced under `demo/*.jpg` are not committed — item 11 of
+  `fixture-format.md`'s numbered rules states the file does not have to
+  exist for a fixture to validate and load. Actual image files, when
+  added, belong in `storage/app/public/demo/` (gitignored, already
+  reachable at `/storage/demo/...` through the existing `public` disk
+  symlink) rather than `public/demo/`, which the `Storage::disk('public')`
+  calls `ResolveVariationImage` and `RemoveProductImage` already use would
+  not serve.
+- `App\Console\Commands\ValidateFixtures::assertLengths()` — see the
+  standalone commit; folded in here because the length caps are what the
+  demo batches above are validated against.
+
 ### Documentation
 
 - **The N+1 rule is now written down** — `CLAUDE.md`'s architecture list,
