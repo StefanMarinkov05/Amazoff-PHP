@@ -201,6 +201,17 @@ in agreement: if a rule here changes, change it there too.
   already does that, by refusing to compile a typo'd or wrongly-typed
   reference. Before writing a test, name what it would prove and check
   whether that thing is ours.
+- **A new `tests/Unit` or `tests/Feature` or `tests/Concurrency` file must
+  be added to a shard in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  in the same change** — CI sharding here is a hand-maintained file list,
+  not auto-discovery, so a new test file runs nowhere until it's added to
+  one. `docs/how-to/use-ci.md` has the placement rule (shard 2 by default
+  for `tests/Unit`/`tests/Feature`, shard 1 only if the file shares
+  `RolePermissionTest`'s per-test triple-reseed cost; the lightest
+  concurrency shard by default for `tests/Concurrency`). Don't hand-time a
+  precise rebalance for one or two files — place by the rule and let a
+  shard that visibly drifts get re-measured later, per that doc's own
+  stated policy.
 - **Commits and pushes: do not, unless explicitly asked.** Commit messages
   are written by hand and reviewed as part of the project's implementation
   standards — never add a `Co-Authored-By` trailer, on this repo or any

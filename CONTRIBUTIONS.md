@@ -32,7 +32,7 @@ needed to touch.
 | Actions | Full `app/Actions` |
 | Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
 | Console | `ExpireCarts` (the project's first scheduled command), `RaceWorker` (the concurrency test harness), `fixtures:validate`/`fixtures:validate-articles`, `demo:fetch-images` |
-| Seeder | <ul><li>Demo/System/Stress seeder organization</li><li>Full transactional demo pass — orders, payments, shipments, reviews, articles, addresses, engagement data — built by walking the real Actions rather than fabricated rows</li><li>`ProtectedSkus` guard against seeded orders silently consuming documented demo stock states</li><li>Catalogue and article fixture authoring and validation</li><li>`CatalogueStressSeeder` and `StressSeeder` for volume testing</li></ul> |
+| Seeder | <ul><li>Demo/System/Stress seeder organization</li><li>Full transactional demo pass</li><li>Data Parser before seeding</li><li>`CatalogueStressSeeder` and `StressSeeder` for volume testing</li></ul> |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev
