@@ -97,6 +97,13 @@ follows is the short version.
   `--parallel --processes=4 --testsuite=Feature` is the supported form.
 - A test that has never been observed failing proves nothing. After writing
   one, break the thing it covers and confirm it goes red.
+- **A new test file must be added to a CI shard in
+  `.github/workflows/ci.yml` in the same change.** Sharding is a
+  hand-maintained file list, not auto-discovery — an unlisted file runs
+  nowhere in CI. `docs/how-to/use-ci.md` has the placement rule: shard 2
+  by default for `tests/Unit`/`tests/Feature`, shard 1 only if it shares
+  `RolePermissionTest`'s per-test triple-reseed cost; the lightest
+  concurrency shard by default for `tests/Concurrency`.
 - Verify against a running app, not by reading code. `php -l` proves syntax,
   Larastan proves types, Pest proves the paths it covers — none of them
   executes the behaviour.
