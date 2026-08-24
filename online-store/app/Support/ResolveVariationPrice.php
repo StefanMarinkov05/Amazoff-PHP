@@ -6,7 +6,7 @@ namespace App\Support;
 
 use App\Models\Product;
 use App\Models\ProductVariation;
-use Illuminate\Support\Carbon;
+use App\Support\ResolveProductPrice;
 
 /**
  * The one place §11's price rule is decided: current, never stored.
@@ -31,25 +31,10 @@ final class ResolveVariationPrice
         $base = (string) ($variation->price ?? $product->regular_price);
         $discount = $variation->discount_price ?? $product->discount_price;
 
-        if ($discount === null || ! self::windowActive($product)) {
+        if ($discount === null || ! ResolveProductPrice::windowActive($product)) {
             return $base;
         }
 
         return (string) $discount;
-    }
-
-    private static function windowActive(Product $product): bool
-    {
-        $now = Carbon::now();
-
-        if ($product->discount_starts_at !== null && $now->lt($product->discount_starts_at)) {
-            return false;
-        }
-
-        if ($product->discount_ends_at !== null && $now->gt($product->discount_ends_at)) {
-            return false;
-        }
-
-        return true;
     }
 }

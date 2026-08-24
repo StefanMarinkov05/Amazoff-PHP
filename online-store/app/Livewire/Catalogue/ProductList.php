@@ -164,34 +164,6 @@ class ProductList extends Component
         return $chips;
     }
 
-    /** Whether a product's discount price should be shown at all. */
-    public function discountIsActive(Product $product): bool
-    {
-        if ($product->discount_price === null) {
-            return false;
-        }
-
-        $now = Carbon::now();
-
-        if ($product->discount_starts_at !== null && $now->lt($product->discount_starts_at)) {
-            return false;
-        }
-
-        return ! ($product->discount_ends_at !== null && $now->gt($product->discount_ends_at));
-    }
-
-    /** Whole-percent saving, for the badge. */
-    public function discountPercent(Product $product): int
-    {
-        $regular = (float) $product->regular_price;
-
-        if ($regular <= 0.0 || ! $this->discountIsActive($product)) {
-            return 0;
-        }
-
-        return (int) round((1 - ((float) $product->discount_price / $regular)) * 100);
-    }
-
     /**
      * Sellable units across a product's available variations.
      *
