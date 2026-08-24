@@ -10,8 +10,10 @@ modelling, dimensions, weight units, cart TTL, review eligibility,
 `products.is_available`, and the superseded `dimensions`/`weight` columns
 (dropped once every reader was confirmed migrated to `*_mm`/`weight_g`).
 
-Nothing here is a defect in the sense of producing wrong output now. Each
-says which feature would turn it into one.
+Most of these are not defects in the sense of producing wrong output now —
+each says which feature would turn it into one. **Item 5 is the exception**
+and is a live wrong value rather than an absent feature; it is listed here
+rather than fixed because the fix is a schema decision, not a patch.
 
 ## 1. Multi-language has installed packages and no storage shape
 
@@ -86,7 +88,33 @@ without Stripe or a courier API.
 
 **Trigger.** Slices 6 and 8. The columns are already the right shape.
 
-## 5. `carts.session_id` has no writer
+## 5. `orders.payment_status` duplicates `payments.status`
+
+**Today.** `CreateOrder` writes `orders.payment_status = Pending` once, and
+nothing in `app/` ever writes it again — verified by grep: the only other
+references are the Filament table, filter, and infolist that *read* it.
+`payments.status` moves independently through `TransitionPaymentStatus`.
+
+The two therefore diverge the moment a payment is paid or refunded, and the
+panel shows the stale one. Unlike the other items on this page, this is not a
+feature that is merely absent — it is a column that is wrong.
+
+**The decision.** Either derive it (drop the column, read through the
+`payment` relation — the `inventories.available()` precedent, where §20
+forbids storing a second copy of a derivable fact), or have
+`TransitionPaymentStatus` write both inside its existing transaction with
+something preventing divergence. ADR-0005's own reasoning about facts stored
+twice applies directly.
+
+**Recommendation: derive it.** The column earns its place only if some query
+must filter on payment status without joining `payments`; the panel's filter
+is the sole current consumer and can join. Deriving cannot go stale.
+
+**Trigger.** Before any order-seeding pass, since seeded orders would bake in
+the wrong value — or before the panel's payment filter is trusted by anyone.
+`reference/write-rules/order.md` known gap 4 has the fuller statement.
+
+## 6. `carts.session_id` has no writer
 
 **Today.** `TouchCartExpiry` now sets `expires_at` from `user_id`, and
 `carts:expire` deletes what has passed — the TTL half is done. But nothing

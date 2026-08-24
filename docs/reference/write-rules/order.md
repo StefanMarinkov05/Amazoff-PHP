@@ -193,6 +193,52 @@ Until then, every `TransitionPaymentStatus` caller is a trusted internal one
 (tests and the panel), so there is no live exposure — but nothing in the code
 enforces that, and CLAUDE.md's rule that a Stripe webhook must be both
 CSRF-excluded and signature-verified has no implementation to check yet.
+`explanation/security-model.md`, "Where null-actor becomes genuinely
+reachable: the webhook", is the fuller treatment — including that a null
+actor skips the policy check entirely, which is correct for a system caller
+and is exactly why the webhook's whole perimeter has to be signature
+verification in middleware rather than anything inside these Actions.
+
+**4. `orders.payment_status` is written once and never updated.**
+`CreateOrder` sets it to `Pending`; **nothing else in `app/` ever writes it**
+— not `TransitionPaymentStatus`, not `TransitionOrderStatus`. Meanwhile
+`payments.status` moves independently, and `OrdersTable` and `OrderInfolist`
+both *display and filter on* `orders.payment_status`.
+
+So a payment that has been paid, or fully refunded, still shows its order as
+`Pending` in the panel. This is a live correctness gap rather than an unbuilt
+slice: the data to render it correctly exists on `payments`, and the column
+showing it is stale by construction.
+
+Two columns holding the same fact is the shape ADR-0005 warns about, and the
+resolution is a decision rather than a patch. Either `orders.payment_status`
+becomes derived (read through the `payment` relation, drop the column — the
+`inventories.available()` precedent, where §20 explicitly forbids storing a
+second copy), or `TransitionPaymentStatus` writes both inside its existing
+transaction and something enforces they cannot diverge. Deriving is the safer
+default; the column is worth keeping only if a query needs to filter on it
+without joining, which the panel currently does.
+
+**5. Payments, shipments, and orders are not wired to each other.**
+Deliberate, per each Action's own docblock — coupling them would let a
+webhook move an order with nobody authorising it — but the consequences are
+worth stating plainly, because they are invisible from any one Action:
+
+- `CreateOrder` does **not** call `RecordPayment`. An order can exist with no
+  `payments` row at all, indefinitely.
+- Nothing advances `orders.status` when a payment reaches `Paid` or a
+  shipment reaches `Delivered`. Every such move is a separate, manually
+  triggered `TransitionOrderStatus` call.
+- `CreateShipment` checks `orders.status`, never whether a payment row
+  exists — which is what makes a COD order shippable while unpaid, and also
+  means a Stripe order manually moved to `Paid` ships with no payment
+  recorded.
+
+For seeding transactional demo data this is the operative constraint: a
+realistic order needs `CreateOrder` → `RecordPayment` →
+`TransitionPaymentStatus` → `TransitionOrderStatus` → `CreateShipment` →
+`TransitionShipmentStatus` called in sequence, because no single Action
+composes the next.
 
 **Resolved, previously listed here:** the same cart being checked out twice
 (`orders.cart_id`, `UNIQUE`, nullable — see "Two actors at once"); a
