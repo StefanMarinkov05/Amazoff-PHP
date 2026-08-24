@@ -102,8 +102,40 @@ reads a few lines apart.
 | Two customers checking out the last unit of the same variation | exactly 1 order succeeds; the loser gets a clean `InsufficientStockException`, not a `QueryException` — no half-written order | `CreateOrderConcurrencyTest` |
 | Two customers redeeming a coupon at its total usage limit, through `CreateOrder` | exactly 1 order succeeds; the loser gets a clean `CouponNotApplicableException` — proves composing `RedeemCoupon` inside `CreateOrder`'s larger transaction does not weaken the guarantee `RedeemCoupon` already proves alone | `CreateOrderConcurrencyTest` |
 | The same cart checked out twice at once — a double-submitted "place order," or two tabs | exactly 1 order succeeds; the loser gets a clean `CartAlreadyCheckedOutException`, not a raw `QueryException` | `CreateOrderConcurrencyTest`, "fails the loser of a double-submitted checkout cleanly, producing exactly 1 order" |
+| Two checkouts opening a payment for one order at once | exactly 1 `payments` row; the loser gets `PaymentAlreadyRecordedException` | `RecordPaymentConcurrencyTest` |
+| Two partial refunds of one payment that individually fit but together exceed it | exactly 1 succeeds; the loser gets `InvalidArgumentException`, and `refunded_amount` never passes `amount` | `RecordPaymentConcurrencyTest` |
+| Two partial refunds that together still fit | **both** succeed and accumulate — this is a legal self-transition, not a double submit | `RecordPaymentConcurrencyTest` |
+| Two staff creating a shipment for one order at once | exactly 1 `shipments` row; the loser gets `ShipmentNotAllowedException`. For a COD order this is what stops the courier collecting the total twice | `CreateShipmentConcurrencyTest` |
+| The same customer submitting a review twice at once | exactly 1 `product_reviews` row; the loser gets `ReviewNotAllowedException`, **not** a `QueryException` | `CreateProductReviewConcurrencyTest` |
 
-All three share the same assertion shape: a constraint makes exactly one
+The last three rows do **not** share that shape, and the difference is worth
+stating because it changes what each test proves:
+
+- **Payment and shipment creation have no unique index at all.**
+  `Order::payment()` and `Order::shipment()` are `HasOne` *declarations*, not
+  constraints — nothing in the schema stops a second row, and
+  `shipments.tracking_number`'s `UNIQUE` is null at creation and so collides
+  with nothing. The `lockForUpdate()` on `orders` is the entire defence, so
+  the winner **count** is the discriminator: delete the lock and both
+  processes succeed. `RecordPaymentConcurrencyTest` asserts the absence of
+  `UNIQUE(order_id)` explicitly as its first test, so that adding one later
+  cannot silently turn the rest of the file into a test of the index instead
+  of the lock.
+- **The refund cap is a read-then-decide inside the lock,** which is why the
+  lock has to be on `payments` rather than on the order: the second refund
+  must observe the first one's write. Removing it lets a payment be refunded
+  past its own amount — money out of the door, and the only race in this
+  codebase whose failure mode is directly financial.
+- **The review race has no lock by design.** `UNIQUE(user_id, product_id)`
+  is the discriminator and `CreateProductReview` catches the violation
+  rather than reading first, per CLAUDE.md's idempotency rule. The database
+  therefore guarantees one row whatever the code does, so the count proves
+  nothing — what the test proves is *how the loser fails*. Rewriting the
+  Action as check-then-act keeps the count at 1 and still fails the test,
+  because the loser then receives a raw `QueryException`: a 500 on a review
+  form rather than a message.
+
+The first three rows share the older shape: a constraint makes exactly one
 winner certain regardless of whether the application-level guard holds
 (`chk_inventories_reserved_not_above_current` for the first,
 `coupon_redemptions`'s `UNIQUE(coupon_id, order_id)` for the second,
@@ -136,7 +168,31 @@ window between locking two rows inside one transaction is milliseconds,
 too narrow for a barrier-based test to force reliably without being flaky.
 
 **2. `shipping_amount` is hardcoded to `'0.00'`.** No delivery-price
-calculation exists yet to feed it.
+calculation exists yet to feed it. `carriers.cod_fee` exists and is seeded
+but is likewise unread, for the same reason.
+
+**3. Webhook replay is undefended, because there is no webhook.** Slice 6 is
+unbuilt: there is no Stripe route, controller, or signature check anywhere in
+`routes/` or `app/`. `payment_events.stripe_event_id` carries the `UNIQUE`
+index that is *meant* to make a replayed `charge.refunded` idempotent, and
+**nothing writes that table** — verified by grep, its only reference is the
+`hasMany` on `Payment`.
+
+This matters more than an ordinary unbuilt slice, because
+`TransitionPaymentStatus` is deliberately **not** idempotent: `PaymentStatus`
+is cyclic (`PartiallyRefunded` lists itself), so a repeated call is a second
+real refund rather than a no-op, and the Action cannot tell a retry from a
+genuine second event. That is the correct design — the alternative silently
+loses real refunds — but it means the idempotency has to live in the webhook
+handler, keyed on the Stripe event id, and **the handler is where the
+protection is currently missing entirely.** Whoever builds slice 6 must
+insert the `payment_events` row inside the same transaction as the
+transition, and treat the caught unique violation as "already processed."
+
+Until then, every `TransitionPaymentStatus` caller is a trusted internal one
+(tests and the panel), so there is no live exposure — but nothing in the code
+enforces that, and CLAUDE.md's rule that a Stripe webhook must be both
+CSRF-excluded and signature-verified has no implementation to check yet.
 
 **Resolved, previously listed here:** the same cart being checked out twice
 (`orders.cart_id`, `UNIQUE`, nullable — see "Two actors at once"); a

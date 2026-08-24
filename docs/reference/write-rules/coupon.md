@@ -8,9 +8,10 @@ rather than read off the code.
 Why the mechanisms differ is `explanation/concurrency-and-locking.md`. This
 page is the outcomes, in the same shape as its siblings,
 `reference/write-rules/cart.md` and `reference/write-rules/product.md`.
-`misc/coupon-actions-plan.md` is the design record this slice was built
-from; ten decisions, cited by number below where an outcome traces back to
-one.
+`misc/actions-plan.md`'s coupon section is the design record this slice was
+built from; ten decisions, cited by number below where an outcome traces
+back to one. (`misc/` is gitignored, so that record is local to whoever has
+it — the outcomes below are the committed form.)
 
 ## What enforces any of this
 

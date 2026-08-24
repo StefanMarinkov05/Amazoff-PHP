@@ -18,16 +18,24 @@ use App\Actions\Inventory\ReleaseStock;
 use App\Actions\Inventory\ReserveStock;
 use App\Actions\Order\CreateOrder;
 use App\Actions\Order\TransitionOrderStatus;
+use App\Actions\Payment\RecordPayment;
+use App\Actions\Payment\TransitionPaymentStatus;
+use App\Actions\ProductReview\CreateProductReview;
+use App\Actions\Shipment\CreateShipment;
 use App\Enums\DeliveryType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
+use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductImage;
 use App\Models\ProductVariation;
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -181,6 +189,43 @@ final class RaceWorker extends Command
                     null,
                 ),
             'create-order' => $this->createOrder(),
+            // --id is the order. Two checkouts of one order must produce one
+            // payment and one refusal: Order::payment() is a HasOne, but
+            // nothing in the schema stops a second row, so the orders lock is
+            // the only thing standing between them.
+            'record-payment' => app(RecordPayment::class)
+                ->handle(Order::findOrFail($this->id(0)), PaymentMethod::Stripe, null),
+            // --id is the payment, --arg the amount each side tries to refund.
+            // Two partial refunds that each fit alone but together overshoot:
+            // the cap is checked inside the payments lock precisely so the
+            // second one re-reads the first one's write.
+            'partial-refund' => app(TransitionPaymentStatus::class)
+                ->handle(
+                    Payment::findOrFail($this->id(0)),
+                    PaymentStatus::PartiallyRefunded,
+                    null,
+                    $this->stringArg(0),
+                ),
+            // --id is the order then the carrier. Same shape as
+            // record-payment: HasOne, no unique index, orders lock.
+            'create-shipment' => app(CreateShipment::class)
+                ->handle(
+                    Order::findOrFail($this->id(0)),
+                    Carrier::findOrFail($this->id(1)),
+                    null,
+                ),
+            // --id is the product then the reviewer. The discriminator here
+            // is UNIQUE(user_id, product_id) rather than a lock —
+            // CreateProductReview catches the violation instead of reading
+            // first, so this proves the caught-violation path under real
+            // contention rather than the read.
+            'create-review' => app(CreateProductReview::class)
+                ->handle(
+                    Product::findOrFail($this->id(0)),
+                    User::findOrFail($this->id(1)),
+                    5,
+                    'Race review.',
+                ),
             default => throw new \InvalidArgumentException(
                 'Unknown race action: '.(string) $this->argument('action'),
             ),

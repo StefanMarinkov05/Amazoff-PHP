@@ -105,7 +105,7 @@ it. The loader resolves the offset against `now()` at load time.
 | Field | Rule |
 |---|---|
 | `slug`, `sku` (product) | unique within the fixture set, checked cross-document by `fixtures:validate` |
-| `category`, `brand` | slugs, resolved against `product_categories.slug` / `brands.slug` |
+| `category`, `brand` | slugs, resolved against `product_categories.slug` / `brands.slug`. **Any** category resolves, leaf or not — see "Products on non-leaf categories" below |
 | `regular_price`, `discount_price`, `vat_rate` | decimal **strings**; `discount_price` must be `< regular_price` or omitted |
 | `weight_g` | whole grams, a JSON **integer** — not a string, because it is an integer column, not a decimal one |
 | `length_mm`, `width_mm`, `height_mm` | whole millimetres, JSON integers; all three or none |
@@ -158,6 +158,29 @@ one `"is_default": true` overrides that. Marking two is not a fixture error
 the validator catches — the second write simply wins, since
 `SetDefaultVariation` demotes every sibling on each promotion — so keep at
 most one `true` per document by convention, not by a check.
+
+### Products on non-leaf categories
+
+`fixtures:validate` resolves `category` with
+`ProductCategory::query()->pluck('slug')` — every row, at every depth — so a
+product may sit on a parent category like `clothing` as readily as on a leaf
+like `clothing-men-tops-t-shirts`. Nothing refuses it, and that is
+deliberate rather than an oversight.
+
+**It matches real practice.** Large catalogues routinely carry products at
+mid-depth: a gift card or a multi-pack belongs to `clothing` and to no
+specific leaf under it, and forcing a `clothing-misc` leaf into the taxonomy
+to satisfy a validator makes the tree worse rather than the data better. The
+constraint that actually matters to a storefront is the opposite one — a
+category listing has to include products from its **descendants**, not just
+its own rows — and that is a query concern, not a fixture rule.
+
+**Convention, not enforcement:** author demo products on leaves anyway,
+because a listing page that walks descendants is more convincingly exercised
+by a tree whose products sit at the bottom of it. If a leaf-only rule is
+ever wanted it belongs in `fixtures:validate` as a check against
+`children()->exists()`, and it needs a decision about the gift-card case
+first.
 
 ## Coverage the demo fixture set must include
 

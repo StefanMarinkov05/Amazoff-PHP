@@ -6,6 +6,37 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Added
+
+- Tests for the five previously-untested Actions — `RecordPayment`,
+  `TransitionPaymentStatus`, `CreateShipment`, `TransitionShipmentStatus`,
+  `CreateProductReview`. 37 feature tests and 7 concurrency tests; every
+  guard was deleted and observed failing before being restored, per
+  CLAUDE.md's rule that a test never seen red proves nothing.
+
+  Three of the concurrency tests cover money directly. Two concurrent
+  partial refunds that individually fit but together exceed the payment:
+  without `lockForUpdate()` on `payments` both read `refunded_amount = 0.00`,
+  both pass their own cap check, and the payment is refunded past its own
+  amount — verified by removing the lock. Its counterpart asserts that two
+  refunds which *do* fit together both land and accumulate, so the first
+  test cannot pass by the Action simply refusing everything. And two
+  simultaneous `CreateShipment` calls on a COD order would otherwise produce
+  two consignments, each carrying the full `cod_amount` — the courier
+  collecting the total twice on the doorstep.
+
+  `RecordPaymentConcurrencyTest` opens by asserting `payments` has **no**
+  `UNIQUE(order_id)`, because the rest of the file only proves the lock while
+  that stays true; adding such an index later would otherwise silently turn
+  those tests into a test of the index.
+
+  The review race is the odd one out and documented as such: it has no lock
+  by design, `UNIQUE(user_id, product_id)` guarantees one row whatever the
+  code does, so the count proves nothing. What it proves is *how the loser
+  fails* — rewriting the Action as check-then-act keeps the count at 1 and
+  still fails, because the loser then gets a raw `QueryException` instead of
+  `ReviewNotAllowedException`: a 500 on a review form.
+
 ### Fixed
 
 - `AddProductVariation`/`RemoveProductVariation` composing `SetDefaultVariation`
