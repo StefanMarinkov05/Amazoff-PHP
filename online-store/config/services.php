@@ -37,4 +37,10 @@ return [
         ],
     ],
 
+    // `demo:fetch-images` only — sources real photos for the demo catalogue.
+    // Not used by any app-runtime code path.
+    'pexels' => [
+        'api_key' => env('PEXELS_API_KEY'),
+    ],
+
 ];
