@@ -10,6 +10,8 @@ use App\Models\AttributeValue;
 use App\Models\Brand;
 use App\Models\ProductCategory;
 use Illuminate\Database\Seeder;
+use JsonException;
+use RuntimeException;
 
 /**
  * The lookup rows a product fixture resolves its slugs against.
@@ -24,168 +26,163 @@ use Illuminate\Database\Seeder;
  * through the panel per ADR-0003, so `DatabaseSeeder` does not call this.
  * `DemoSeeder` and the test fixtures do.
  *
+ * ## Why the vocabulary is JSON rather than a const
+ *
+ * It was a PHP const, two levels deep, because a shallow hardware-store tree
+ * fitted in one. A real marketplace taxonomy is ~100 nodes and three or four
+ * levels (`clothing > men > tops > t-shirts`), which the old
+ * `slug => [name, children: slug => name]` shape could not express at all —
+ * its children were strings, so they could not carry children of their own.
+ *
+ * Moving it to `database/fixtures/reference/catalogue.json` makes the
+ * taxonomy authorable as data rather than code: the thing that most wants
+ * regenerating in bulk is the thing least suited to being a PHP literal, and
+ * a generated `.json` cannot introduce a syntax error into `database/`.
+ * Nesting is now arbitrary-depth — `seedCategories()` recurses.
+ *
  * `updateOrCreate` on the slug throughout: re-running must not duplicate, and
- * the slug is the natural key the fixtures already use.
+ * the slug is the natural key the fixtures already use. Note that this
+ * **adds and updates but never deletes** — a category removed from the JSON
+ * keeps its row, because deleting one with products attached is
+ * `DeleteProductCategory`'s guarded decision, not a seeder's side effect.
  */
 class CatalogueReferenceSeeder extends Seeder
 {
-    /**
-     * Parent categories, then their children. Flat two levels — deep trees
-     * are a merchandising decision nobody has made, and `parent_id` supports
-     * more whenever someone does.
-     *
-     * @var array<string, array{name: string, children: array<string, string>}>
-     */
-    private const CATEGORIES = [
-        'power-tools' => [
-            'name' => 'Power Tools',
-            'children' => [
-                'drills-drivers' => 'Drills & Drivers',
-                'saws' => 'Saws',
-                'sanders-grinders' => 'Sanders & Grinders',
-            ],
-        ],
-        'hand-tools' => [
-            'name' => 'Hand Tools',
-            'children' => [
-                'wrenches' => 'Wrenches',
-                'screwdrivers' => 'Screwdrivers',
-                'measuring' => 'Measuring',
-            ],
-        ],
-        'garden' => [
-            'name' => 'Garden',
-            'children' => [
-                'mowers' => 'Mowers',
-                'watering' => 'Watering',
-            ],
-        ],
-        'workwear' => [
-            'name' => 'Workwear',
-            'children' => [
-                'gloves' => 'Gloves',
-                'footwear' => 'Footwear',
-            ],
-        ],
-    ];
-
-    /** @var array<string, string> */
-    private const BRANDS = [
-        'boschtech' => 'BoschTech',
-        'makita' => 'Makita',
-        'dewalt' => 'DeWalt',
-        'stanley' => 'Stanley',
-        'hikoki' => 'HiKOKI',
-        'einhell' => 'Einhell',
-        'gardena' => 'Gardena',
-        'husqvarna' => 'Husqvarna',
-    ];
-
-    /**
-     * Attribute slug => [input type, filterable, values as slug => [label, hex]].
-     *
-     * `colour` carries hex codes because `AttributeInputType::Color` renders a
-     * swatch from `color_hex`; the others are plain selects and leave it null.
-     *
-     * @var array<string, array{type: AttributeInputType, filterable: bool, values: array<string, array{0: string, 1: string|null}>}>
-     */
-    private const ATTRIBUTES = [
-        'colour' => [
-            'type' => AttributeInputType::Color,
-            'filterable' => true,
-            'values' => [
-                'black' => ['Black', '#111111'],
-                'red' => ['Red', '#C0392B'],
-                'blue' => ['Blue', '#2472A4'],
-                'yellow' => ['Yellow', '#F1C40F'],
-                'green' => ['Green', '#27AE60'],
-                'grey' => ['Grey', '#7F8C8D'],
-            ],
-        ],
-        'size' => [
-            'type' => AttributeInputType::Select,
-            'filterable' => true,
-            'values' => [
-                's' => ['S', null],
-                'm' => ['M', null],
-                'l' => ['L', null],
-                'xl' => ['XL', null],
-                'xxl' => ['XXL', null],
-            ],
-        ],
-        'power-source' => [
-            'type' => AttributeInputType::Select,
-            'filterable' => true,
-            'values' => [
-                'corded' => ['Corded', null],
-                'battery' => ['Battery', null],
-                'petrol' => ['Petrol', null],
-                'manual' => ['Manual', null],
-            ],
-        ],
-        'capacity' => [
-            'type' => AttributeInputType::Select,
-            'filterable' => false,
-            'values' => [
-                '2ah' => ['2.0 Ah', null],
-                '4ah' => ['4.0 Ah', null],
-                '5ah' => ['5.0 Ah', null],
-            ],
-        ],
-    ];
+    private const VOCABULARY = 'database/fixtures/reference/catalogue.json';
 
     public function run(): void
     {
-        $this->seedCategories();
-        $this->seedBrands();
-        $this->seedAttributes();
+        $vocabulary = $this->vocabulary();
+
+        $this->seedCategories($vocabulary['categories'], null);
+        $this->seedBrands($vocabulary['brands']);
+        $this->seedAttributes($vocabulary['attributes']);
     }
 
-    private function seedCategories(): void
+    /**
+     * @return array{categories: list<array<string, mixed>>, brands: array<string, string>, attributes: array<string, array<string, mixed>>}
+     */
+    private function vocabulary(): array
     {
-        foreach (self::CATEGORIES as $slug => $category) {
-            $parent = ProductCategory::updateOrCreate(
-                ['slug' => $slug],
-                ['name' => $category['name'], 'parent_id' => null],
+        $path = base_path(self::VOCABULARY);
+
+        if (! file_exists($path)) {
+            throw new RuntimeException(
+                self::VOCABULARY.' is missing — it is the vocabulary every product fixture resolves its slugs against.'
+            );
+        }
+
+        try {
+            // Deliberately typed loose here rather than as the shape this
+            // returns: the file is untrusted input, so the key check below is
+            // a real runtime guard. Annotating the narrow shape up front would
+            // make Larastan treat that guard as dead code and report it.
+            /** @var array<string, mixed> $decoded */
+            $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new RuntimeException(self::VOCABULARY.' is not valid JSON: '.$e->getMessage(), previous: $e);
+        }
+
+        foreach (['categories', 'brands', 'attributes'] as $key) {
+            if (! isset($decoded[$key])) {
+                throw new RuntimeException(self::VOCABULARY." is missing the [{$key}] key.");
+            }
+        }
+
+        /** @var array{categories: list<array<string, mixed>>, brands: array<string, string>, attributes: array<string, array<string, mixed>>} $decoded */
+        return $decoded;
+    }
+
+    /**
+     * Depth is whatever the document nests to. `parent_id` is self-referencing
+     * and unconstrained in depth, and nothing downstream cares: `FixtureLoader`
+     * resolves a product's `category` against any row, and `fixtures:validate`
+     * plucks every slug regardless of where it sits in the tree.
+     *
+     * @param  list<array<string, mixed>>  $categories
+     */
+    private function seedCategories(array $categories, ?int $parentId): void
+    {
+        foreach ($categories as $category) {
+            foreach (['slug', 'name'] as $required) {
+                if (! isset($category[$required])) {
+                    throw new RuntimeException(
+                        self::VOCABULARY.": a category is missing [{$required}]."
+                    );
+                }
+            }
+
+            $model = ProductCategory::updateOrCreate(
+                ['slug' => $category['slug']],
+                ['name' => $category['name'], 'parent_id' => $parentId],
             );
 
-            foreach ($category['children'] as $childSlug => $childName) {
-                ProductCategory::updateOrCreate(
-                    ['slug' => $childSlug],
-                    ['name' => $childName, 'parent_id' => $parent->getKey()],
-                );
+            /** @var list<array<string, mixed>> $children */
+            $children = $category['children'] ?? [];
+
+            if ($children !== []) {
+                $this->seedCategories($children, (int) $model->getKey());
             }
         }
     }
 
-    private function seedBrands(): void
+    /**
+     * @param  array<string, string>  $brands
+     */
+    private function seedBrands(array $brands): void
     {
-        foreach (self::BRANDS as $slug => $name) {
+        foreach ($brands as $slug => $name) {
             Brand::updateOrCreate(['slug' => $slug], ['name' => $name]);
         }
     }
 
-    private function seedAttributes(): void
+    /**
+     * `colour` carries hex codes because `AttributeInputType::Color` renders a
+     * swatch from `color_hex`; a plain select leaves it null.
+     *
+     * Value slugs are unique per attribute (`UNIQUE(attribute_id, slug)`), not
+     * globally — two attributes may both own an `s`.
+     *
+     * @param  array<string, array<string, mixed>>  $attributes
+     */
+    private function seedAttributes(array $attributes): void
     {
         $sortOrder = 0;
 
-        foreach (self::ATTRIBUTES as $slug => $attribute) {
+        foreach ($attributes as $slug => $attribute) {
+            $type = AttributeInputType::tryFrom((string) ($attribute['type'] ?? ''));
+
+            if ($type === null) {
+                throw new RuntimeException(
+                    self::VOCABULARY.": attribute [{$slug}] has an unknown input type [".
+                    (string) ($attribute['type'] ?? '').']. Known: '.
+                    implode(', ', array_column(AttributeInputType::cases(), 'value')).'.'
+                );
+            }
+
             $model = Attribute::updateOrCreate(
                 ['slug' => $slug],
                 [
-                    'name' => ucfirst(str_replace('-', ' ', $slug)),
-                    'input_type' => $attribute['type'],
-                    'is_filterable' => $attribute['filterable'],
+                    'name' => $attribute['name'] ?? ucfirst(str_replace('-', ' ', $slug)),
+                    'input_type' => $type,
+                    'is_filterable' => (bool) ($attribute['filterable'] ?? false),
                     'sort_order' => $sortOrder++,
                 ],
             );
 
             $valueOrder = 0;
 
-            foreach ($attribute['values'] as $valueSlug => [$label, $hex]) {
+            /** @var array<string, array<string, mixed>> $values */
+            $values = $attribute['values'] ?? [];
+
+            foreach ($values as $valueSlug => $value) {
                 AttributeValue::updateOrCreate(
                     ['slug' => $valueSlug, 'attribute_id' => $model->getKey()],
-                    ['value' => $label, 'color_hex' => $hex, 'sort_order' => $valueOrder++],
+                    [
+                        'value' => $value['label'] ?? $valueSlug,
+                        'color_hex' => $value['hex'] ?? null,
+                        'sort_order' => $valueOrder++,
+                    ],
                 );
             }
         }

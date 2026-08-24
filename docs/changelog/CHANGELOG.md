@@ -35,6 +35,21 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `database/fixtures/reference/catalogue.json` — `CatalogueReferenceSeeder`'s
+  vocabulary (categories, brands, attributes) moved out of a PHP const and
+  into a document the seeder reads. Categories now nest to **arbitrary
+  depth**: the old `slug => [name, children: slug => name]` const could not
+  express a third level at all, because its children were plain strings, so
+  `clothing > men > tops > t-shirts` was unrepresentable. Verified to depth 4.
+
+  Prompted by a ~100-node marketplace taxonomy needing to replace the 14-node
+  hardware tree — and the part most likely to be regenerated in bulk is the
+  worst candidate for being a PHP literal, where a generation slip becomes a
+  syntax error inside `database/`. The seeder validates as it loads and names
+  the offending key on a category missing `slug`/`name` or an attribute with
+  an unknown `type`. It adds and updates but never deletes: dropping a
+  category with products attached is `DeleteProductCategory`'s guarded
+  decision, not a seeder side effect.
 - `DemoCustomerSeeder`, `DemoCartSeeder`, `DemoCouponSeeder`,
   `DemoWishlistSeeder` — the four remaining pieces of the demo dataset, none
   of them fixtures. `fixture-format.md` previously documented a four-array

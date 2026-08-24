@@ -81,12 +81,31 @@ to be deliberate, and hiding one call inside the other would obscure that.
 
 ## What each seeder does and does not write
 
-`CatalogueReferenceSeeder` writes the lookup rows fixtures reference by slug:
-4 top-level categories with 10 children, 8 brands, and 4 attributes with
-their values. It is **not** called by `DatabaseSeeder` — ADR-0003 says a
-production catalogue is entered through the panel, never seeded, and these
-rows are catalogue content rather than the reference data the application
-cannot boot without.
+`CatalogueReferenceSeeder` writes the lookup rows fixtures reference by slug —
+categories, brands, and attributes with their values. It is **not** called by
+`DatabaseSeeder` — ADR-0003 says a production catalogue is entered through the
+panel, never seeded, and these rows are catalogue content rather than the
+reference data the application cannot boot without.
+
+Its vocabulary lives in
+**`online-store/database/fixtures/reference/catalogue.json`**, not in the
+seeder. That file is the single source of truth for every slug a product
+fixture may reference, and the seeder is only the loader for it. Categories
+nest to **arbitrary depth** — the seeder recurses, so
+`clothing > men > tops > t-shirts` is expressible; the shape is a list of
+`{slug, name, children?}` nodes.
+
+It was a PHP const until a real marketplace taxonomy (~100 nodes, three or
+four levels) had to fit in it: the old `slug => [name, children: slug => name]`
+shape could not express a third level at all, because its children were
+strings. Moving it to JSON also means the part most likely to be regenerated
+in bulk cannot introduce a PHP syntax error into `database/`.
+
+The seeder **adds and updates but never deletes** — a category dropped from
+the JSON keeps its row, because deleting one with products attached is
+`DeleteProductCategory`'s guarded decision, not a seeder's side effect. It
+fails loudly, naming the offending key, on a category missing `slug`/`name` or
+an attribute with an unknown `type`.
 
 `CarrierSeeder` **is** called by `DatabaseSeeder`, in production too. Econt
 and Speedy are not demo content: delivery pricing cannot resolve a carrier

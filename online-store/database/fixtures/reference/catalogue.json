@@ -1,0 +1,92 @@
+{
+  "categories": [
+    {
+      "slug": "power-tools",
+      "name": "Power Tools",
+      "children": [
+        { "slug": "drills-drivers", "name": "Drills & Drivers" },
+        { "slug": "saws", "name": "Saws" },
+        { "slug": "sanders-grinders", "name": "Sanders & Grinders" }
+      ]
+    },
+    {
+      "slug": "hand-tools",
+      "name": "Hand Tools",
+      "children": [
+        { "slug": "wrenches", "name": "Wrenches" },
+        { "slug": "screwdrivers", "name": "Screwdrivers" },
+        { "slug": "measuring", "name": "Measuring" }
+      ]
+    },
+    {
+      "slug": "garden",
+      "name": "Garden",
+      "children": [
+        { "slug": "mowers", "name": "Mowers" },
+        { "slug": "watering", "name": "Watering" }
+      ]
+    },
+    {
+      "slug": "workwear",
+      "name": "Workwear",
+      "children": [
+        { "slug": "gloves", "name": "Gloves" },
+        { "slug": "footwear", "name": "Footwear" }
+      ]
+    }
+  ],
+  "brands": {
+    "boschtech": "BoschTech",
+    "makita": "Makita",
+    "dewalt": "DeWalt",
+    "stanley": "Stanley",
+    "hikoki": "HiKOKI",
+    "einhell": "Einhell",
+    "gardena": "Gardena",
+    "husqvarna": "Husqvarna"
+  },
+  "attributes": {
+    "colour": {
+      "type": "color",
+      "filterable": true,
+      "values": {
+        "black": { "label": "Black", "hex": "#111111" },
+        "red": { "label": "Red", "hex": "#C0392B" },
+        "blue": { "label": "Blue", "hex": "#2472A4" },
+        "yellow": { "label": "Yellow", "hex": "#F1C40F" },
+        "green": { "label": "Green", "hex": "#27AE60" },
+        "grey": { "label": "Grey", "hex": "#7F8C8D" }
+      }
+    },
+    "size": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "s": { "label": "S" },
+        "m": { "label": "M" },
+        "l": { "label": "L" },
+        "xl": { "label": "XL" },
+        "xxl": { "label": "XXL" }
+      }
+    },
+    "power-source": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "corded": { "label": "Corded" },
+        "battery": { "label": "Battery" },
+        "petrol": { "label": "Petrol" },
+        "manual": { "label": "Manual" }
+      }
+    },
+    "capacity": {
+      "type": "select",
+      "filterable": false,
+      "values": {
+        "2ah": { "label": "2.0 Ah" },
+        "4ah": { "label": "4.0 Ah" },
+        "5ah": { "label": "5.0 Ah" }
+      }
+    }
+  }
+}
