@@ -116,10 +116,11 @@ in agreement: if a rule here changes, change it there too.
   not necessarily the row being written. The transaction alone does not
   prevent the race; `docs/reference/write-rules/concurrency.md` has the
   full contested-resource map and lock order.
-- Order status changes will go through a `TransitionOrderStatus` Action —
-  designed in ADR-0004, **not yet built.** Until it exists, nothing writes
-  `orders.status` at all; don't assign `->status` directly once it does, or
-  invent a workaround now.
+- `orders.status` is written **only** by `TransitionOrderStatus` — designed
+  in ADR-0004, side effects routed by ADR-0011, and now built. It locks the
+  order, re-reads the status from the locked row, and composes
+  `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status. Never
+  assign `->status` directly.
 - External APIs sit behind a Saloon connector plus an interface in
   `App\Contracts`. Abstract the courier (two implementations); do not
   abstract Stripe (one).

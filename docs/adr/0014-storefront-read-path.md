@@ -65,8 +65,13 @@ inventory, and facet counts against a partial filter set; the product detail
 page needs a variation grid and none of that. A shared `ListProducts` would
 grow a parameter per caller and be read by none of them.
 
-What *is* shared gets shared as a query scope or a small support class when
-the second caller appears — not pre-emptively, and not as an Action.
+What *is* shared gets shared as a query scope or a small support class — not
+as an Action. The project already had this answer before the storefront
+existed: `App\Support\ResolveVariationPrice` and
+`App\Support\ResolveVariationImage` are read-time resolvers called by
+`AddToCart`, `CreateOrder`, and `CalculateCartTotals`, and each says in its
+own docblock that it is "a function, not an Action, because it writes
+nothing." `app/Support/` is where a shared read rule goes.
 
 ### Why filter state goes in the URL rather than the session
 
@@ -124,14 +129,23 @@ authoritative.
   loads `productImages`, `brand`, and `productVariations.inventory` because
   the card template touches all three; a template change that reaches a fourth
   relation will silently issue a query per row.
-- `ProductList::discountIsActive()` duplicates the price-window logic in
-  `ResolveVariationPrice::windowActive()`. This is real duplication of a real
-  rule and the one place this ADR's reasoning is uncomfortable — the window is
-  a business rule, and a second implementation can disagree with the first.
-  It is accepted only until the product detail page needs the same answer,
-  at which point the shared definition is extracted rather than copied a third
-  time. Two callers is the trigger; this is a debt with a due date, not a
-  pattern to follow.
+- `ProductList::discountIsActive()` duplicates the price-window logic that
+  `ResolveVariationPrice::windowActive()` already owns. This is a straight
+  violation of the paragraph above and the one place this ADR's reasoning is
+  uncomfortable: §11's discount window is a business rule, and a second
+  implementation can disagree with the first — a card can advertise a sale
+  price the cart then refuses to honour.
+
+  It is not "extract when a second caller appears" — the shared definition
+  exists and the catalogue should be calling it. What blocks a direct call is
+  a real gap rather than an oversight: `ResolveVariationPrice::current()`
+  resolves a **variation**, and a catalogue card renders a **product**, whose
+  variations may carry different overrides. Closing this needs a
+  product-level resolver in `app/Support/` — `ResolveProductPrice`, returning
+  the display price and whether a discount is live — with
+  `windowActive()` moved into it and `ResolveVariationPrice` calling through,
+  so one definition of the window serves both. Owed on the product detail
+  page, which needs exactly the same answer at both levels.
 - `#[Url]` names appear in shareable links, so they are effectively public
   API. Renaming `categoryId` breaks every bookmark that used it.
 - Facet counts cost two extra aggregate queries per render. Acceptable at this

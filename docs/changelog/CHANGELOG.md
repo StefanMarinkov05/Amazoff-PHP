@@ -904,10 +904,14 @@ when the work happened, not when it was committed — nothing in
   browser. Same open item for `->rules([(new Dimensions())...])`: Larastan
   now confirms it type-checks, but nobody has uploaded an undersized image
   through the actual form to confirm Filament surfaces the rejection.
-- The price-discount window is implemented twice: `ResolveVariationPrice::
-  windowActive()` and `ProductList::discountIsActive()`. ADR-0014 accepts
-  this only until the product detail page needs the same answer — two
-  callers is the trigger to extract a shared definition, not three.
+- The §11 discount window is implemented twice: `ResolveVariationPrice::
+  windowActive()`, which owns it, and `ProductList::discountIsActive()`,
+  which duplicates it. A card can therefore advertise a sale price the cart
+  refuses to honour. The catalogue cannot simply call the existing resolver
+  because that one resolves a *variation* and a card renders a *product*;
+  the fix is a `ResolveProductPrice` in `app/Support/` with `windowActive()`
+  moved into it and `ResolveVariationPrice` calling through. Owed on the
+  product detail page, which needs the same answer at both levels.
 - `Catalogue\ProductList` has no tests. Storefront reads are not Actions and
   so fall outside the Action suite by design (ADR-0014); they need
   `Livewire::test(...)` feature tests, a shape this project has not written
