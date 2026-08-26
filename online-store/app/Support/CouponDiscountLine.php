@@ -52,7 +52,8 @@ final class CouponDiscountLine
                 /** @var Product $product */
                 $product = $variation->product;
 
-                $lineTotal = bcmul(ResolveVariationPrice::current($variation), (string) $item->quantity, 2);
+                $lineTotal = (string) Money::of(ResolveVariationPrice::current($variation))
+                    ->multiply($item->quantity);
 
                 return new self(
                     productId: $product->getKey(),

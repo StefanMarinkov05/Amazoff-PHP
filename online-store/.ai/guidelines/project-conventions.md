@@ -48,8 +48,16 @@ follows is the short version.
   (`canTransitionTo()`) only where illegal moves exist. ADR-0004.
   Exception: roles are `spatie/laravel-permission` rows, not an enum — §3.5
   requires them editable at runtime.
-- **Money: `decimal(10,2)` columns, `decimal:2` casts, `bcmath` arithmetic.
-  Never float.**
+- **Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes
+  through `App\Support\Money`, never raw `bc*` calls or float.** See
+  `docs/explanation/money.md`.
+- **A table column crossing a relation gets that relation eager-loaded**, via
+  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does none of its
+  own — `make('brand.name')` is one extra query per row and the page still
+  renders, so nothing surfaces it. Same for an accessor that reads a relation
+  (`Order::$payment_status`), where no dot in the column name hints at it.
+  `preventLazyLoading()` is deliberately off (ADR-0012). See
+  `docs/explanation/filament-resources.md`, "Eager loading, and the N+1 rule".
 - Contested state (stock, coupon caps, order status): `DB::transaction`
   **and** `lockForUpdate()` on the row the invariant actually lives on —
   not necessarily the row being written. See
@@ -92,6 +100,13 @@ follows is the short version.
   `--parallel --processes=4 --testsuite=Feature` is the supported form.
 - A test that has never been observed failing proves nothing. After writing
   one, break the thing it covers and confirm it goes red.
+- **A new test file must be added to a CI shard in
+  `.github/workflows/ci.yml` in the same change.** Sharding is a
+  hand-maintained file list, not auto-discovery — an unlisted file runs
+  nowhere in CI. `docs/how-to/use-ci.md` has the placement rule: shard 2
+  by default for `tests/Unit`/`tests/Feature`, shard 1 only if it shares
+  `RolePermissionTest`'s per-test triple-reseed cost; the lightest
+  concurrency shard by default for `tests/Concurrency`.
 - Verify against a running app, not by reading code. `php -l` proves syntax,
   Larastan proves types, Pest proves the paths it covers — none of them
   executes the behaviour.

@@ -20,6 +20,12 @@ class CarrierForm
                     ->required()
                     ->maxLength(20)
                     ->unique(ignoreRecord: true),
+                TextInput::make('cod_fee')
+                    ->label('Cash-on-delivery fee')
+                    ->numeric()
+                    ->default('0.00')
+                    ->prefix('€')
+                    ->required(),
                 Toggle::make('is_active')
                     ->required(),
             ]);

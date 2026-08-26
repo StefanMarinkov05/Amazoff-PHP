@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\LengthUnit;
+use App\Enums\WeightUnit;
 use App\Models\Brand;
 use App\Models\ProductCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -45,8 +47,15 @@ class ProductFactory extends Factory
             // The two Bulgarian rates: 20% standard, 9% reduced.
             'vat_rate' => fake()->randomElement([20.00, 9.00]),
             'min_order_quantity' => fake()->boolean(15) ? fake()->numberBetween(2, 6) : 1,
-            'weight' => fake()->randomFloat(2, 0.05, 40),
-            'dimensions' => fake()->regexify('[A-Za-z0-9]{100}'),
+            // Grams and millimetres — the canonical columns ADR-0013's
+            // sibling decision (open-schema-questions.md #3) replaced the
+            // free-text `dimensions` and decimal `weight` with.
+            'weight_g' => fake()->numberBetween(50, 40000),
+            'length_mm' => fake()->numberBetween(20, 2000),
+            'width_mm' => fake()->numberBetween(20, 2000),
+            'height_mm' => fake()->numberBetween(20, 2000),
+            'dimension_display_unit' => fake()->randomElement(LengthUnit::cases()),
+            'weight_display_unit' => fake()->randomElement(WeightUnit::cases()),
             'is_available' => fake()->boolean(),
             'is_featured' => fake()->boolean(),
             'seo_title' => fake()->regexify('[A-Za-z0-9]{100}'),

@@ -59,6 +59,7 @@ jobs:
           - name: "2"
             paths: >-
               tests/Unit/Enums/EnumCompletenessTest.php
+              tests/Unit/Support/MoneyTest.php
               tests/Feature/Actions/Cart
               tests/Feature/Actions/Catalogue/AddProductVariationTest.php
               tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
@@ -67,13 +68,18 @@ jobs:
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
+              tests/Feature/Actions/Catalogue/SetVariationImagesTest.php
               tests/Feature/Actions/Coupon
               tests/Feature/Actions/Inventory
               tests/Feature/Actions/Order
+              tests/Feature/Actions/Payment
+              tests/Feature/Actions/ProductReview
+              tests/Feature/Actions/Shipment
               tests/Feature/Console
               tests/Feature/ExampleTest.php
               tests/Feature/FactoryTest.php
               tests/Feature/Filament
+              tests/Feature/Models
               tests/Feature/Support
 
     services:

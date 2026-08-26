@@ -1,0 +1,564 @@
+{
+  "categories": [
+    {
+      "slug": "power-tools",
+      "name": "Power Tools",
+      "children": [
+        { "slug": "drills-drivers", "name": "Drills & Drivers" },
+        { "slug": "saws", "name": "Saws" },
+        { "slug": "sanders-grinders", "name": "Sanders & Grinders" }
+      ]
+    },
+    {
+      "slug": "hand-tools",
+      "name": "Hand Tools",
+      "children": [
+        { "slug": "wrenches", "name": "Wrenches" },
+        { "slug": "screwdrivers", "name": "Screwdrivers" },
+        { "slug": "measuring", "name": "Measuring" }
+      ]
+    },
+    {
+      "slug": "garden",
+      "name": "Garden",
+      "children": [
+        { "slug": "mowers", "name": "Mowers" },
+        { "slug": "watering", "name": "Watering" }
+      ]
+    },
+    {
+      "slug": "workwear",
+      "name": "Workwear",
+      "children": [
+        { "slug": "gloves", "name": "Gloves" },
+        { "slug": "footwear", "name": "Footwear" }
+      ]
+    },
+    {
+      "slug": "clothing",
+      "name": "Clothing",
+      "children": [
+        {
+          "slug": "clothing-men",
+          "name": "Men",
+          "children": [
+            {
+              "slug": "clothing-men-tops",
+              "name": "Tops",
+              "children": [
+                { "slug": "clothing-men-tops-t-shirts", "name": "T-Shirts" },
+                { "slug": "clothing-men-tops-shirts", "name": "Shirts" },
+                { "slug": "clothing-men-tops-tank-tops", "name": "Tank Tops" },
+                { "slug": "clothing-men-tops-sweaters", "name": "Sweaters" },
+                { "slug": "clothing-men-tops-hoodies", "name": "Hoodies" }
+              ]
+            },
+            {
+              "slug": "clothing-men-trousers",
+              "name": "Trousers",
+              "children": [
+                { "slug": "clothing-men-trousers-jeans", "name": "Jeans" },
+                { "slug": "clothing-men-trousers-chinos", "name": "Chinos" },
+                { "slug": "clothing-men-trousers-shorts", "name": "Shorts" },
+                { "slug": "clothing-men-trousers-joggers", "name": "Joggers" }
+              ]
+            },
+            {
+              "slug": "clothing-men-outerwear",
+              "name": "Outerwear",
+              "children": [
+                { "slug": "clothing-men-outerwear-jackets", "name": "Jackets" },
+                { "slug": "clothing-men-outerwear-coats", "name": "Coats" }
+              ]
+            },
+            {
+              "slug": "clothing-men-underwear",
+              "name": "Underwear",
+              "children": [
+                { "slug": "clothing-men-underwear-briefs", "name": "Briefs" },
+                { "slug": "clothing-men-underwear-boxers", "name": "Boxers" },
+                { "slug": "clothing-men-underwear-socks", "name": "Socks" }
+              ]
+            },
+            {
+              "slug": "clothing-men-footwear",
+              "name": "Footwear",
+              "children": [
+                { "slug": "clothing-men-footwear-sneakers", "name": "Sneakers" },
+                { "slug": "clothing-men-footwear-boots", "name": "Boots" },
+                { "slug": "clothing-men-footwear-sandals", "name": "Sandals" }
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "clothing-women",
+          "name": "Women",
+          "children": [
+            {
+              "slug": "clothing-women-tops",
+              "name": "Tops",
+              "children": [
+                { "slug": "clothing-women-tops-t-shirts", "name": "T-Shirts" },
+                { "slug": "clothing-women-tops-blouses", "name": "Blouses" },
+                { "slug": "clothing-women-tops-tank-tops", "name": "Tank Tops" },
+                { "slug": "clothing-women-tops-sweaters", "name": "Sweaters" },
+                { "slug": "clothing-women-tops-hoodies", "name": "Hoodies" }
+              ]
+            },
+            {
+              "slug": "clothing-women-bottoms",
+              "name": "Bottoms",
+              "children": [
+                { "slug": "clothing-women-bottoms-jeans", "name": "Jeans" },
+                { "slug": "clothing-women-bottoms-skirts", "name": "Skirts" },
+                { "slug": "clothing-women-bottoms-shorts", "name": "Shorts" },
+                { "slug": "clothing-women-bottoms-leggings", "name": "Leggings" }
+              ]
+            },
+            {
+              "slug": "clothing-women-dresses",
+              "name": "Dresses",
+              "children": [
+                { "slug": "clothing-women-dresses-casual", "name": "Casual Dresses" },
+                { "slug": "clothing-women-dresses-evening", "name": "Evening Dresses" }
+              ]
+            },
+            {
+              "slug": "clothing-women-outerwear",
+              "name": "Outerwear",
+              "children": [
+                { "slug": "clothing-women-outerwear-jackets", "name": "Jackets" },
+                { "slug": "clothing-women-outerwear-coats", "name": "Coats" }
+              ]
+            },
+            {
+              "slug": "clothing-women-underwear",
+              "name": "Underwear",
+              "children": [
+                { "slug": "clothing-women-underwear-bras", "name": "Bras" },
+                { "slug": "clothing-women-underwear-briefs", "name": "Briefs" },
+                { "slug": "clothing-women-underwear-socks", "name": "Socks" }
+              ]
+            },
+            {
+              "slug": "clothing-women-footwear",
+              "name": "Footwear",
+              "children": [
+                { "slug": "clothing-women-footwear-sneakers", "name": "Sneakers" },
+                { "slug": "clothing-women-footwear-heels", "name": "Heels" },
+                { "slug": "clothing-women-footwear-flats", "name": "Flats" },
+                { "slug": "clothing-women-footwear-boots", "name": "Boots" }
+              ]
+            }
+          ]
+        },
+        {
+          "slug": "clothing-accessories",
+          "name": "Accessories",
+          "children": [
+            { "slug": "clothing-accessories-bags", "name": "Bags" },
+            { "slug": "clothing-accessories-belts", "name": "Belts" },
+            { "slug": "clothing-accessories-hats", "name": "Hats & Caps" },
+            { "slug": "clothing-accessories-scarves", "name": "Scarves" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "electronics",
+      "name": "Electronics",
+      "children": [
+        {
+          "slug": "electronics-phones",
+          "name": "Phones & Accessories",
+          "children": [
+            { "slug": "electronics-phones-smartphones", "name": "Smartphones" },
+            { "slug": "electronics-phones-cases", "name": "Cases & Covers" },
+            { "slug": "electronics-phones-chargers", "name": "Chargers & Cables" },
+            { "slug": "electronics-phones-screen-protectors", "name": "Screen Protectors" }
+          ]
+        },
+        {
+          "slug": "electronics-computing",
+          "name": "Computing",
+          "children": [
+            { "slug": "electronics-computing-laptops", "name": "Laptops" },
+            { "slug": "electronics-computing-monitors", "name": "Monitors" },
+            { "slug": "electronics-computing-keyboards", "name": "Keyboards" },
+            { "slug": "electronics-computing-mice", "name": "Mice" },
+            { "slug": "electronics-computing-storage", "name": "External Storage" }
+          ]
+        },
+        {
+          "slug": "electronics-audio",
+          "name": "Audio",
+          "children": [
+            { "slug": "electronics-audio-headphones", "name": "Headphones" },
+            { "slug": "electronics-audio-earbuds", "name": "Earbuds" },
+            { "slug": "electronics-audio-speakers", "name": "Speakers" }
+          ]
+        },
+        {
+          "slug": "electronics-wearables",
+          "name": "Wearables",
+          "children": [
+            { "slug": "electronics-wearables-smartwatches", "name": "Smartwatches" },
+            { "slug": "electronics-wearables-fitness-trackers", "name": "Fitness Trackers" }
+          ]
+        },
+        {
+          "slug": "electronics-tv-video",
+          "name": "TV & Video",
+          "children": [
+            { "slug": "electronics-tv-video-televisions", "name": "Televisions" },
+            { "slug": "electronics-tv-video-streaming-devices", "name": "Streaming Devices" }
+          ]
+        },
+        {
+          "slug": "electronics-gaming",
+          "name": "Gaming",
+          "children": [
+            { "slug": "electronics-gaming-consoles", "name": "Consoles" },
+            { "slug": "electronics-gaming-controllers", "name": "Controllers" },
+            { "slug": "electronics-gaming-headsets", "name": "Gaming Headsets" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "kitchen",
+      "name": "Kitchen",
+      "children": [
+        {
+          "slug": "kitchen-appliances",
+          "name": "Appliances",
+          "children": [
+            { "slug": "kitchen-appliances-blenders", "name": "Blenders" },
+            { "slug": "kitchen-appliances-coffee-machines", "name": "Coffee Machines" },
+            { "slug": "kitchen-appliances-toasters", "name": "Toasters" },
+            { "slug": "kitchen-appliances-kettles", "name": "Kettles" },
+            { "slug": "kitchen-appliances-microwaves", "name": "Microwaves" },
+            { "slug": "kitchen-appliances-air-fryers", "name": "Air Fryers" }
+          ]
+        },
+        {
+          "slug": "kitchen-cookware",
+          "name": "Cookware",
+          "children": [
+            { "slug": "kitchen-cookware-pots", "name": "Pots" },
+            { "slug": "kitchen-cookware-pans", "name": "Pans" },
+            { "slug": "kitchen-cookware-bakeware", "name": "Bakeware" }
+          ]
+        },
+        {
+          "slug": "kitchen-tools",
+          "name": "Kitchen Tools",
+          "children": [
+            { "slug": "kitchen-tools-knives", "name": "Knives" },
+            { "slug": "kitchen-tools-utensils", "name": "Utensils" },
+            { "slug": "kitchen-tools-cutting-boards", "name": "Cutting Boards" }
+          ]
+        },
+        {
+          "slug": "kitchen-storage",
+          "name": "Storage & Organisation",
+          "children": [
+            { "slug": "kitchen-storage-containers", "name": "Containers" },
+            { "slug": "kitchen-storage-jars", "name": "Jars" }
+          ]
+        },
+        {
+          "slug": "kitchen-tableware",
+          "name": "Tableware",
+          "children": [
+            { "slug": "kitchen-tableware-plates", "name": "Plates" },
+            { "slug": "kitchen-tableware-glassware", "name": "Glassware" },
+            { "slug": "kitchen-tableware-cutlery", "name": "Cutlery" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "home",
+      "name": "Home",
+      "children": [
+        {
+          "slug": "home-furniture",
+          "name": "Furniture",
+          "children": [
+            { "slug": "home-furniture-sofas", "name": "Sofas" },
+            { "slug": "home-furniture-chairs", "name": "Chairs" },
+            { "slug": "home-furniture-tables", "name": "Tables" },
+            { "slug": "home-furniture-shelving", "name": "Shelving" }
+          ]
+        },
+        {
+          "slug": "home-bedding",
+          "name": "Bedding",
+          "children": [
+            { "slug": "home-bedding-sheets", "name": "Sheets" },
+            { "slug": "home-bedding-pillows", "name": "Pillows" },
+            { "slug": "home-bedding-duvets", "name": "Duvets" }
+          ]
+        },
+        {
+          "slug": "home-lighting",
+          "name": "Lighting",
+          "children": [
+            { "slug": "home-lighting-lamps", "name": "Lamps" },
+            { "slug": "home-lighting-ceiling", "name": "Ceiling Lights" }
+          ]
+        },
+        {
+          "slug": "home-decor",
+          "name": "Decor",
+          "children": [
+            { "slug": "home-decor-rugs", "name": "Rugs" },
+            { "slug": "home-decor-wall-art", "name": "Wall Art" },
+            { "slug": "home-decor-candles", "name": "Candles" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sports",
+      "name": "Sports & Outdoors",
+      "children": [
+        {
+          "slug": "sports-fitness",
+          "name": "Fitness",
+          "children": [
+            { "slug": "sports-fitness-weights", "name": "Weights" },
+            { "slug": "sports-fitness-yoga", "name": "Yoga Equipment" },
+            { "slug": "sports-fitness-cardio", "name": "Cardio Machines" }
+          ]
+        },
+        {
+          "slug": "sports-cycling",
+          "name": "Cycling",
+          "children": [
+            { "slug": "sports-cycling-bikes", "name": "Bikes" },
+            { "slug": "sports-cycling-helmets", "name": "Helmets" },
+            { "slug": "sports-cycling-accessories", "name": "Cycling Accessories" }
+          ]
+        },
+        {
+          "slug": "sports-camping",
+          "name": "Camping & Hiking",
+          "children": [
+            { "slug": "sports-camping-tents", "name": "Tents" },
+            { "slug": "sports-camping-sleeping-bags", "name": "Sleeping Bags" },
+            { "slug": "sports-camping-backpacks", "name": "Backpacks" }
+          ]
+        },
+        {
+          "slug": "sports-teamsports",
+          "name": "Team Sports",
+          "children": [
+            { "slug": "sports-teamsports-footballs", "name": "Footballs" },
+            { "slug": "sports-teamsports-basketballs", "name": "Basketballs" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "beauty",
+      "name": "Beauty & Personal Care",
+      "children": [
+        {
+          "slug": "beauty-skincare",
+          "name": "Skincare",
+          "children": [
+            { "slug": "beauty-skincare-moisturisers", "name": "Moisturisers" },
+            { "slug": "beauty-skincare-cleansers", "name": "Cleansers" },
+            { "slug": "beauty-skincare-serums", "name": "Serums" }
+          ]
+        },
+        {
+          "slug": "beauty-haircare",
+          "name": "Haircare",
+          "children": [
+            { "slug": "beauty-haircare-shampoo", "name": "Shampoo" },
+            { "slug": "beauty-haircare-conditioner", "name": "Conditioner" },
+            { "slug": "beauty-haircare-styling", "name": "Styling Tools" }
+          ]
+        },
+        {
+          "slug": "beauty-makeup",
+          "name": "Makeup",
+          "children": [
+            { "slug": "beauty-makeup-face", "name": "Face" },
+            { "slug": "beauty-makeup-eyes", "name": "Eyes" },
+            { "slug": "beauty-makeup-lips", "name": "Lips" }
+          ]
+        },
+        {
+          "slug": "beauty-fragrance",
+          "name": "Fragrance",
+          "children": [
+            { "slug": "beauty-fragrance-perfume", "name": "Perfume" },
+            { "slug": "beauty-fragrance-cologne", "name": "Cologne" }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "toys",
+      "name": "Toys & Games",
+      "children": [
+        { "slug": "toys-building", "name": "Building Sets" },
+        { "slug": "toys-boardgames", "name": "Board Games" },
+        { "slug": "toys-outdoor", "name": "Outdoor Play" },
+        { "slug": "toys-puzzles", "name": "Puzzles" }
+      ]
+    }
+  ],
+  "brands": {
+    "boschtech": "BoschTech",
+    "makita": "Makita",
+    "dewalt": "DeWalt",
+    "stanley": "Stanley",
+    "hikoki": "HiKOKI",
+    "einhell": "Einhell",
+    "gardena": "Gardena",
+    "husqvarna": "Husqvarna",
+    "urbanthread": "Urban Thread",
+    "northloom": "Northloom",
+    "carinastyle": "Carina Style",
+    "westhaven": "Westhaven",
+    "veltrix": "Veltrix",
+    "nexbyte": "NexByte",
+    "sonarapex": "Sonarapex",
+    "quantalink": "Quantalink",
+    "kitchenhale": "Kitchenhale",
+    "brewmark": "Brewmark",
+    "hearthglow": "Hearthglow",
+    "cutcraft": "Cutcraft",
+    "domusline": "Domusline",
+    "lumeraft": "Lumeraft",
+    "restfield": "Restfield",
+    "moderloft": "Moderloft",
+    "trailforge": "Trailforge",
+    "peakstride": "Peakstride",
+    "veloryde": "Veloryde",
+    "campvista": "Campvista",
+    "puravelle": "Puravelle",
+    "glownest": "Glownest",
+    "silkendale": "Silkendale",
+    "vantahue": "Vantahue",
+    "playnest": "Playnest",
+    "brixmark": "Brixmark"
+  },
+  "attributes": {
+    "colour": {
+      "type": "color",
+      "filterable": true,
+      "values": {
+        "black": { "label": "Black", "hex": "#111111" },
+        "white": { "label": "White", "hex": "#F5F5F5" },
+        "red": { "label": "Red", "hex": "#C0392B" },
+        "blue": { "label": "Blue", "hex": "#2472A4" },
+        "navy": { "label": "Navy", "hex": "#1B2A4A" },
+        "yellow": { "label": "Yellow", "hex": "#F1C40F" },
+        "green": { "label": "Green", "hex": "#27AE60" },
+        "grey": { "label": "Grey", "hex": "#7F8C8D" },
+        "beige": { "label": "Beige", "hex": "#D8C3A5" },
+        "pink": { "label": "Pink", "hex": "#E091B0" },
+        "brown": { "label": "Brown", "hex": "#6B4226" },
+        "silver": { "label": "Silver", "hex": "#C0C0C0" }
+      }
+    },
+    "size": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "xs": { "label": "XS" },
+        "s": { "label": "S" },
+        "m": { "label": "M" },
+        "l": { "label": "L" },
+        "xl": { "label": "XL" },
+        "xxl": { "label": "XXL" }
+      }
+    },
+    "shoe-size": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "eu-38": { "label": "EU 38" },
+        "eu-39": { "label": "EU 39" },
+        "eu-40": { "label": "EU 40" },
+        "eu-41": { "label": "EU 41" },
+        "eu-42": { "label": "EU 42" },
+        "eu-43": { "label": "EU 43" },
+        "eu-44": { "label": "EU 44" },
+        "eu-45": { "label": "EU 45" }
+      }
+    },
+    "material": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "cotton": { "label": "Cotton" },
+        "polyester": { "label": "Polyester" },
+        "leather": { "label": "Leather" },
+        "denim": { "label": "Denim" },
+        "wool": { "label": "Wool" },
+        "linen": { "label": "Linen" },
+        "stainless-steel": { "label": "Stainless Steel" },
+        "plastic": { "label": "Plastic" },
+        "wood": { "label": "Wood" },
+        "glass": { "label": "Glass" }
+      }
+    },
+    "power-source": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "corded": { "label": "Corded" },
+        "battery": { "label": "Battery" },
+        "petrol": { "label": "Petrol" },
+        "manual": { "label": "Manual" }
+      }
+    },
+    "capacity": {
+      "type": "select",
+      "filterable": false,
+      "values": {
+        "2ah": { "label": "2.0 Ah" },
+        "4ah": { "label": "4.0 Ah" },
+        "5ah": { "label": "5.0 Ah" }
+      }
+    },
+    "storage": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "64gb": { "label": "64 GB" },
+        "128gb": { "label": "128 GB" },
+        "256gb": { "label": "256 GB" },
+        "512gb": { "label": "512 GB" },
+        "1tb": { "label": "1 TB" }
+      }
+    },
+    "connectivity": {
+      "type": "select",
+      "filterable": true,
+      "values": {
+        "wired": { "label": "Wired" },
+        "bluetooth": { "label": "Bluetooth" },
+        "wifi": { "label": "Wi-Fi" }
+      }
+    },
+    "scent": {
+      "type": "select",
+      "filterable": false,
+      "values": {
+        "unscented": { "label": "Unscented" },
+        "floral": { "label": "Floral" },
+        "citrus": { "label": "Citrus" },
+        "woody": { "label": "Woody" }
+      }
+    }
+  }
+}

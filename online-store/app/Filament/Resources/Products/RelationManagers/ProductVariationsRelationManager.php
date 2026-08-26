@@ -7,7 +7,11 @@ namespace App\Filament\Resources\Products\RelationManagers;
 use App\Actions\Catalogue\AddProductVariation;
 use App\Actions\Catalogue\ForceDeleteProductVariation;
 use App\Actions\Catalogue\RemoveProductVariation;
+use App\Actions\Catalogue\SetDefaultVariation;
 use App\Actions\Catalogue\SetVariationImages;
+use App\Enums\LengthUnit;
+use App\Enums\WeightUnit;
+use App\Filament\Concerns\ConvertsMeasurementInput;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Models\Product;
 use App\Models\ProductVariation;
@@ -40,6 +44,7 @@ use Illuminate\Support\Arr;
 
 class ProductVariationsRelationManager extends RelationManager
 {
+    use ConvertsMeasurementInput;
     use ReportsDomainFailures;
 
     protected static string $relationship = 'productVariations';
@@ -64,11 +69,49 @@ class ProductVariationsRelationManager extends RelationManager
                     ->step('0.01')
                     ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR'),
-                TextInput::make('weight')
+                // Weight and dimensions are optional overrides — left blank,
+                // the variation inherits the product's. Weight carries its
+                // own unit column (a book's hardcover vs. paperback variant
+                // can genuinely weigh differently); dimensions have no
+                // per-variation unit column and are entered in the product's
+                // own dimension_display_unit — an XL shirt's box is bigger
+                // than S's, but typing one in inches and its sibling in cm
+                // would be a display inconsistency serving no one.
+                // reference/schema/open-schema-questions.md #3.
+                Select::make('weight_display_unit')
+                    ->label('Weight unit')
+                    ->options(WeightUnit::class)
+                    ->default(WeightUnit::default())
+                    ->selectablePlaceholder(false)
+                    ->required(),
+                TextInput::make('weight_input')
+                    ->label('Weight (blank inherits the product)')
                     ->numeric()
-                    ->step('0.01')
-                    ->rules(['decimal:0,2', 'max:999999.99'])
-                    ->nullable(),
+                    ->step('0.001')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                TextInput::make('length_input')
+                    ->label(fn (): string => 'Length, '.$this->productDimensionUnit()->value.' (blank inherits the product)')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                TextInput::make('width_input')
+                    ->label(fn (): string => 'Width, '.$this->productDimensionUnit()->value.' (blank inherits the product)')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
+                TextInput::make('height_input')
+                    ->label(fn (): string => 'Height, '.$this->productDimensionUnit()->value.' (blank inherits the product)')
+                    ->numeric()
+                    ->step('0.1')
+                    ->minValue(0)
+                    ->nullable()
+                    ->dehydrated(false),
                 // Not a column, and create-only. AddProductVariation turns it
                 // into an InitialStock movement; later corrections are their
                 // own movement types.
@@ -82,6 +125,10 @@ class ProductVariationsRelationManager extends RelationManager
                 Toggle::make('is_available')
                     ->required()
                     ->default(true),
+                // No is_default toggle, for the same reason product images
+                // has no is_main one: "exactly one default" is an invariant
+                // across the set, so promotion goes through the Make default
+                // action and SetDefaultVariation rather than a second door.
             ]);
     }
 
@@ -103,10 +150,15 @@ class ProductVariationsRelationManager extends RelationManager
                 TextColumn::make('discount_price')
                     ->money()
                     ->sortable(),
-                TextColumn::make('weight')
+                TextColumn::make('weight_g')
+                    ->label('Weight')
                     ->numeric()
+                    ->suffix(' g')
                     ->sortable(),
                 IconColumn::make('is_available')
+                    ->boolean(),
+                IconColumn::make('is_default')
+                    ->label('Default')
                     ->boolean(),
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -135,6 +187,8 @@ class ProductVariationsRelationManager extends RelationManager
                             /** @var Product $product */
                             $product = $this->getOwnerRecord();
 
+                            $data = $this->convertMeasurements($data, $this->productDimensionUnit());
+
                             return app(AddProductVariation::class)->handle(
                                 $product,
                                 Arr::except($data, ['initial_quantity']),
@@ -146,7 +200,23 @@ class ProductVariationsRelationManager extends RelationManager
                     )),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->using(function (ProductVariation $record, array $data): ProductVariation {
+                        /** @var ProductVariation $record */
+                        $data = $this->convertMeasurements($data, $this->productDimensionUnit());
+                        $record->update($data);
+
+                        return $record;
+                    }),
+                Action::make('setDefault')
+                    ->label('Make default')
+                    ->icon(Heroicon::OutlinedStar)
+                    ->visible(fn (ProductVariation $record): bool => ! $record->is_default)
+                    ->requiresConfirmation()
+                    ->action(fn (ProductVariation $record) => $this->reportingDomainFailures(
+                        fn () => app(SetDefaultVariation::class)->handle($record, $this->actor()),
+                        'Default variation could not be changed',
+                    )),
                 // Filament relation managers cannot nest, so the gallery is a
                 // row action and modal rather than a relation manager of its
                 // own — which happens to fit SetVariationImages anyway: the
@@ -256,5 +326,19 @@ class ProductVariationsRelationManager extends RelationManager
         $user = auth()->user();
 
         return $user;
+    }
+
+    /**
+     * The owning product's dimension unit — this relation manager only ever
+     * appears on that product's edit page, so `getOwnerRecord()` is always
+     * available, unlike a `Get`-based relative form path that would assume a
+     * nesting this class is never actually placed inside.
+     */
+    private function productDimensionUnit(): LengthUnit
+    {
+        /** @var Product $product */
+        $product = $this->getOwnerRecord();
+
+        return $product->dimension_display_unit;
     }
 }

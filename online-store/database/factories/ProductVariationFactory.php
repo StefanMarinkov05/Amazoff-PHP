@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\WeightUnit;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -25,8 +26,15 @@ class ProductVariationFactory extends Factory
             'discount_price' => $price !== null && fake()->boolean(25)
                 ? round($price * fake()->randomFloat(2, 0.5, 0.9), 2)
                 : null,
-            'weight' => fake()->randomFloat(2, 0.05, 40),
+            // Null inherits the product's, same as price above — most
+            // variations do not genuinely weigh or measure differently from
+            // their product. No length/width/height override here for the
+            // same reason: a factory-level default would obscure the actual
+            // decision, which is per-fixture (open-schema-questions.md #3).
+            'weight_g' => fake()->boolean(20) ? fake()->numberBetween(10, 40000) : null,
+            'weight_display_unit' => fake()->randomElement(WeightUnit::cases()),
             'is_available' => fake()->boolean(),
+            'is_default' => false,
         ];
     }
 }

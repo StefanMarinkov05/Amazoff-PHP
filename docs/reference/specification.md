@@ -254,7 +254,7 @@ courier, and revenue by category. Reports filter by date.
 
 The suggested entity list is implemented with additions — `Carrier`,
 `ProductSpecification`, `CouponRedemption`, `OrderAddress`, `WishlistItem`. See
-`reference/schema.md`.
+`reference/schema/schema.md`.
 
 The business rules are load-bearing and restated in full:
 

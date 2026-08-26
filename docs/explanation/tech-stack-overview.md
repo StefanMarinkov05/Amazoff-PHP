@@ -37,8 +37,9 @@ working — staff reach the panel, a customer does not, and a user can hold
 two roles at once.
 
 The three staff role rows (`administrator`, `content_editor`,
-`warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
-called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
+`warehouse_employee`) are seeded by
+`database/seeders/System/RoleSeeder.php`, called from `DatabaseSeeder`, so
+a fresh `migrate:fresh --seed` now produces
 them in every environment. `PermissionSeeder` runs before it with a
 catalogue of 106 permissions named `{ability}_{resource}`, where the ability
 half matches the Laravel policy method that checks it — which is what keeps

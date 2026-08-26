@@ -73,6 +73,568 @@ when the work happened, not when it was committed — nothing in
   committed `marine` blue, two radii, one easing curve. Two animations
   only — a staggered card entrance and a single hover sweep — both disabled
   under `prefers-reduced-motion`.
+- `CatalogueStressSeeder` (`database/seeders/Stress/`) — thousands of
+  additional products for catalogue-scale query-plan, pagination, and
+  search testing, companion to the existing order-volume `StressSeeder`.
+  Inserts directly (`DB::table(...)->insert()`) rather than through
+  `CreateProduct`/`AddProductVariation`, at chunked-batch scale; every
+  generated product still gets exactly one `is_default` variation and
+  starts with `reserved_quantity = 0`, verified by placing a real order
+  against a stress-generated product through `CreateOrder` directly, not
+  assumed. Every product's single image row points at one shared
+  placeholder file (copied from `public/images/logo.png` on first run,
+  not a real photo) — catalogue-scale testing needs row count and query
+  shape, not visual fidelity, and an API call per stress product would
+  exhaust any free-tier image source in minutes. Categories and brands
+  are reused from the existing pool rather than created per product.
+  Opt-in only, like `StressSeeder`: never wired into `DatabaseSeeder`,
+  never run in CI. Recorded as a deferred decision, not an oversight:
+  generated variations carry no `attribute_values`
+  (`docs/reference/schema/open-schema-questions.md` #6 — category/tag-driven
+  attribute assignment does not exist for real catalogue content either).
+
+### Fixed
+
+- **`phpstan.neon` only ever scanned `app/`** — every "Larastan clean"
+  claim made about `database/seeders/` this session was checking nothing,
+  since the seeder reorg into `Demo/`/`System/`/`Stress/` and every seeder
+  written or edited since landed outside Larastan's actual scan path.
+  Added `database/seeders` to `paths`. Running it for real immediately
+  found genuine bugs that had shipped silently: `DemoOrderSeeder` accessed
+  `$item->productVariation`/`$item->quantity`/`$event->status` on
+  untyped `Model` instances from an unannotated `foreach`, and carried an
+  unused `TOTAL_ORDERS` constant; `DemoReviewSeeder`'s declared array
+  shape for its (reviewer, product) pairs didn't match what the code
+  actually built — it claimed `order_item_id` and never set it, and used
+  `order_created_at` without declaring it, which `Carbon::parse()` was
+  silently tolerating at runtime but is exactly the kind of drift static
+  analysis exists to catch. All fixed; re-seeded the full demo pass
+  afterward and confirmed every table still lands on its exact target
+  numbers — the type annotations were wrong, not the runtime behaviour.
+
+  Also added a scoped `ignoreErrors` entry for `database/seeders/*`:
+  `Illuminate\Database\Seeder`'s `$command` property is declared
+  `@var \Illuminate\Console\Command` (non-nullable) but is never
+  initialized until `setCommand()` runs — the framework's own `run()`
+  guards every use with `isset($this->command)` for exactly that reason.
+  Every seeder in this codebase already uses `$this->command?->`
+  correctly; Larastan trusts the docblock literally and flagged all of
+  them as a redundant nullsafe call. A stub inaccuracy in one base class,
+  suppressed by name and scoped to seeders only — not a blanket allowance
+  for nullsafe operators elsewhere.
+
+- `demo:fetch-images` — closes the gap where every one of the 182
+  `product_images` rows pointed at a placeholder path with no real file on
+  disk, breaking every product image in the browser. Downloads a real
+  photo per row from Pexels, re-validated by hand against the exact
+  constants `ProductImagesRelationManager`'s form enforces (the checks
+  live only in the Filament form layer; this command bypasses that form
+  the same way `FixtureLoader` does for the rest of the catalogue).
+
+  Went through three sources before landing on one that actually works,
+  and the command's own docblock keeps that record so nobody repeats it:
+  Unsplash worked correctly (0 contamination across 25 files) but its
+  50-requests/hour free tier meant several runs spread across a day to
+  cover ~162 products; an Apify `hooli/google-images-scraper` actor was
+  tried next for its lack of an hourly cap, and a real run showed roughly
+  40% of "downloaded images" were actually a hotlink-protection
+  placeholder graphic that arbitrary scraped CDN hosts serve instead of
+  the real photo — a real, valid, correctly-sized image, just not a
+  product photo. A GD colour-variance detector was built to catch this
+  and still missed most of them on a second full run, because JPEG
+  compression and antialiased rotated placeholder text manufacture enough
+  colour variety to defeat that kind of heuristic — confirmed by
+  duplicate-hash analysis on real output, not assumed. Pexels (25,000
+  requests/hour, own CDN rather than arbitrary hosts) finished the full
+  162-product set in one run, 0 failures, verified clean by the same
+  duplicate-hash method plus direct visual inspection across every
+  duplicate cluster and a spread of singles: 159 distinct photos, 23 rows
+  legitimately sharing a generic category photo where Pexels had nothing
+  more specific.
+
+### Changed
+
+- **`database/seeders/` split into `Demo/`, `System/`, and `Stress/`
+  subfolders**, namespaced accordingly (`Database\Seeders\Demo\...`,
+  `Database\Seeders\System\...`, `Database\Seeders\Stress\...`).
+  `DatabaseSeeder` stays at the root — it is Laravel's entry point and
+  `migrate:fresh --seed`'s implicit target. Grouping: `Demo/` is every
+  seeder that produces presenter-facing demo content plus the two
+  reference seeders its fixtures resolve against (`CatalogueReferenceSeeder`,
+  `ContentReferenceSeeder`); `System/` is what CI, local, and production all
+  need regardless of demo content (`CarrierSeeder`, `PermissionSeeder`,
+  `RoleSeeder`, `UserSeeder`); `Stress/` is `StressSeeder` alone, kept
+  separate from `Demo/` despite subclassing `DemoOrderSeeder` because it
+  produces no narrative content and must never be mistaken for something
+  the demo run needs.
+
+  **`db:seed --class=` needs the fully-qualified class name now** — a bare
+  basename like `--class=DemoSeeder` no longer resolves once a seeder is
+  namespaced under a subfolder; every doc and script has to pass
+  `--class="Database\Seeders\Demo\DemoSeeder"` (quoted, since an unquoted
+  backslash is a shell escape character). Updated everywhere this was
+  found: `seed-the-database.md`, `demo-data.md`, `article-fixture-format.md`,
+  `edit-a-role.md`, `troubleshooting.md`, `tech-stack-overview.md`, the
+  docblocks inside `DemoSeeder`/`DemoArticleSeeder`/`StressSeeder`
+  themselves, and 18 test files (`use Database\Seeders\PermissionSeeder;`
+  and siblings) that imported the pre-move classes directly — those were
+  silently broken until fixed, since a missing class only surfaces when the
+  test file actually runs, not at edit time. `misc/`'s two session briefs
+  (gitignored, not shipped) were left as historical record with a note at
+  the top rather than rewritten, since they document a plan already
+  executed under the old paths.
+
+### Added
+
+- `App\Support\ProtectedSkus` and
+  `database/fixtures/reference/protected-skus.json` — a guard against a
+  silent data-destruction trap found while planning the transactional
+  seeding pass. `TransitionOrderStatus` on `=> Shipped` composes
+  `CompleteSale`, which moves stock from reserved to sold and permanently
+  drops `current_quantity`, and `CreateOrder` reserves at creation. So any
+  seeder that samples order lines at random consumes exactly the SKUs
+  `demo-data.md` documents as "out of stock" and "exactly one left" — and
+  the failure is invisible: the seeder succeeds, the orders look correct,
+  and the presenter's lookup table is quietly wrong.
+
+  The list is JSON rather than a PHP const so it is readable by anything
+  that needs it, not only by the one class that must not violate it.
+  `assertSelectable()` throws rather than returning false, so a protected
+  line cannot be silently skipped into a set smaller than the distribution
+  it claims to have written. `floorFor()` carries the `min_order_quantity`
+  floors, which are deliberately *not* an exclusion — those products
+  belong in seeded orders.
+
+  Verified against a freshly seeded catalogue rather than by reading the
+  code: all 19 excluded SKUs resolve to real rows (14 products, 5
+  variations), all 5 `min_order_quantity` floors match the database, the
+  guard blocks exactly 19 of 219 variations and leaves 200 selectable,
+  `assertSelectable()` throws on a protected line and passes an ordinary
+  one, and the states being protected are real (`current_quantity` 0 and 1
+  respectively, `CLM-0016.is_available` false). A protected variation may
+  be blocked through its parent product rather than its own SKU —
+  `CLM-0016-STD` is refused because `CLM-0016` is unavailable — so callers
+  pass the variation and let the guard do both lookups.
+
+  Not yet exercised by a caller: no seeder consumes it, because
+  `DemoOrderSeeder` does not exist yet.
+
+- The transactional demo-data pass: `DemoAddressSeeder` (78 addresses
+  across 60 of 100 customers), `DemoEngagementSeeder` (80 newsletter
+  subscribers, 25 hand-written contact messages), `DemoOrderSeeder` (140
+  orders built by checking out real carts through `CreateOrder` and
+  `TransitionOrderStatus`, never fabricated with `Order::factory()`),
+  `DemoReviewSeeder` (90 reviews drawn only from delivered orders' own
+  purchases), `ContentReferenceSeeder`'s tag vocabulary extended for the
+  general-marketplace catalogue, and 24 article fixtures across 4 batches.
+  `StressSeeder` for table-size testing, built as a thin subclass of
+  `DemoOrderSeeder` reusing its `loadPools()`/`seedOneOrder()` rather than
+  a second implementation.
+
+  Verified against the live database, not the seeders' own output: 140/140
+  orders on the exact status distribution planned, every `PaymentStatus`
+  and `ShipmentStatus` case represented at least once (including `Failed`
+  with 2 of 4 recovering to `Paid`, and `PartiallyRefunded` with 2 stacked
+  refunds), 19 coupon redemptions including `ONEUSEONLY`'s first-ever one,
+  90 reviews on the exact rating distribution with 62 approved / 28
+  pending, 24 articles on the exact status distribution. `StressSeeder` run
+  at 2000 orders: 1734 succeeded, 266 refused cleanly via
+  `RuntimeException` as the ~200-variation selectable pool ran low against
+  2000 orders' demand — zero protected-SKU violations and zero inventory
+  overdraw (`reserved_quantity > current_quantity`) across the resulting
+  1922 total orders, confirming `ProtectedSkus` holds under real load, not
+  only the 140-order demo scale it was designed for.
+
+  Two real bugs found only by running against live data, not by reading
+  the code: `CreateOrder`'s `$actor` parameter is not an authorization gate
+  like every other Action's — it is the checking-out customer, written to
+  `orders.user_id` and used to scope `source_address_id`. Passing `null`
+  for a registered customer (the pattern correct everywhere else in this
+  pass) threw `ModelNotFoundException` on every order using a saved
+  address. And a `Refunded` order-status walk that went `Shipped =>
+  Returned` directly, skipping `Delivered`, left a COD order with no
+  payment ever opened (COD is marked paid on remittance, i.e. at
+  `Delivered`, never before) — so a `Refunded` order-status target with no
+  refundable payment is a contradiction the walk now avoids by routing
+  every path through `Delivered`.
+
+  Not built in this pass: a real Stripe test-mode round trip. No
+  checkout-session controller or webhook route exists yet — `RecordPayment`
+  and `TransitionPaymentStatus` are called directly, proving those two
+  Actions' locking and status-transition rules, but not a real Stripe API
+  call. `stripe/stripe-php` is installed; nothing in `app/` calls it yet.
+
+- `docs/reference/schema/demo-data.md` — the presenter-facing index of what
+  the seeded catalogue actually contains: the exact SKU for every coverage
+  state (out of stock, one left, each discount phase, unavailable, 5+
+  variations, ≥90-char name, min-order-quantity, zero-attribute products),
+  the two variation-gallery shapes (`PWR-0012` — one image shared by three
+  variations; `PWR-0001` — one variation carrying two images) with a
+  reproduction query, the coupon table, and what's deliberately absent
+  (orders, images, a discount at exactly the boundary). Verified against a
+  live seed, not the fixture JSON — every count and SKU on the page was
+  read back from the database after `migrate:fresh --seed` plus every demo
+  seeder.
+
+  Two demo-data gaps surfaced and were closed while building it: no product
+  had a *scheduled* discount despite the coverage matrix requiring one
+  (`KIT-0011` now does), and no product had 5+ variations despite the same
+  requirement (`CLM-0001` gained a fifth). `PWR-0010`'s ≥90-character name
+  was also short by 2 characters — `wc -c` had counted UTF-8 bytes for a
+  name containing an em dash, not characters; `mb_strlen`, matching what
+  `ValidateFixtures::assertMaxLength()` actually checks, was the correct
+  measure and is now what was used to fix it.
+- The demo catalogue: 169 products, 219 variations, spanning 122 of the
+  173 leaf/branch categories in `catalogue.json` and 33 of 34 brands, in
+  `database/fixtures/demo/`. Nine batches (`power-tools`,
+  `hand-tools-garden`, `workwear`, `clothing-men`, `clothing-women`,
+  `electronics`, `kitchen`, `home`, `sports-beauty-toys`), each its own
+  SKU prefix per `SKELETON.md`'s collision scheme.
+
+  Verified rather than assumed: every state in `fixture-format.md`'s
+  coverage matrix appears at least once (out of stock, exactly one left,
+  discount active/expired/scheduled, 1/3/5+ variations, unavailable
+  products, no-image products, a ≥90-character name, `min_order_quantity
+  > 1`), plus two variation-gallery shapes not previously called out
+  explicitly in the matrix and added there: one product image shared
+  across ≥2 variations' galleries (39 instances across the set) and one
+  variation carrying ≥2 images in its own gallery (20 instances) — both
+  confirmed against the actual `product_image_product_variation` pivot
+  after seeding, not only against the JSON shape.
+
+  Demo images referenced under `demo/*.jpg` are not committed — item 11 of
+  `fixture-format.md`'s numbered rules states the file does not have to
+  exist for a fixture to validate and load. Actual image files, when
+  added, belong in `storage/app/public/demo/` (gitignored, already
+  reachable at `/storage/demo/...` through the existing `public` disk
+  symlink) rather than `public/demo/`, which the `Storage::disk('public')`
+  calls `ResolveVariationImage` and `RemoveProductImage` already use would
+  not serve.
+- `App\Console\Commands\ValidateFixtures::assertLengths()` — see the
+  standalone commit; folded in here because the length caps are what the
+  demo batches above are validated against.
+
+### Documentation
+
+- **The N+1 rule is now written down** — `CLAUDE.md`'s architecture list,
+  `project-conventions.md`, and a new "Eager loading, and the N+1 rule"
+  section in `explanation/filament-resources.md`.
+
+  Filament does **no** eager-loading of its own — verified by reading
+  `filament/tables`, which contains no `->with()` anywhere. So a
+  `TextColumn::make('brand.name')` is one extra query per row and the page
+  still renders correctly, which is why it goes unnoticed. Measured on five
+  product rows: 6 queries lazy, 2 eager.
+
+  The less obvious half is an accessor that reads a relation:
+  `Order::$payment_status` derives from `payment`, so a column showing it
+  lazy-loads per row even though the column name contains no dot to hint at
+  it. Both are fixed on the table via `modifyQueryUsing()`.
+
+  Records that `preventLazyLoading()` is still deliberately off per ADR-0012,
+  and that the rule is enforced by review and query-count tests instead — a
+  query-count assertion earning its place only where the relation is hidden,
+  since asserting it for a plain dot-notation column would be testing
+  Filament's rendering.
+
+  Also lists the ten tables that currently carry a relation column with no
+  eager-loading, as one pass worth doing before the demo catalogue makes
+  those pages long.
+
+### Changed
+
+- **`orders.payment_status` is derived, not stored.** The column is dropped;
+  `Order::$payment_status` now reads through the `payment` relation, falling
+  back to `Pending` when no payment row exists.
+
+  It was written exactly once, by `CreateOrder`, and never again — nothing
+  else in `app/` ever wrote it — while `payments.status` moved independently
+  through `TransitionPaymentStatus`. So the two diverged the moment a payment
+  was paid or refunded, and the stale one was what `OrdersTable` and
+  `OrderInfolist` displayed and filtered on. Confirmed by walking it: a
+  payment reading `paid` left its order reporting `pending`.
+
+  §20 forbids storing `inventories.available()` for exactly this reason, and
+  this is the same shape with the same resolution. Not backfilled before
+  dropping: the column's values were wrong wherever a payment had moved and
+  right only where nothing had happened, so copying them onto `payments`
+  would have overwritten correct data with stale data.
+
+  `OrdersTable` eager-loads `payment` in `modifyQueryUsing()` (deriving it
+  per row would be one query per row), its filter queries through the
+  relation and counts a missing payment as `Pending`, and the column is no
+  longer `->sortable()` — there is no `orders` column left to sort by.
+  `OrderPaymentStatusTest` covers the derivation, including a structural
+  assertion that the column does not exist, so reintroducing it in a later
+  migration fails loudly rather than silently shadowing the accessor.
+
+### Added
+
+- Tests for the five previously-untested Actions — `RecordPayment`,
+  `TransitionPaymentStatus`, `CreateShipment`, `TransitionShipmentStatus`,
+  `CreateProductReview`. 37 feature tests and 7 concurrency tests; every
+  guard was deleted and observed failing before being restored, per
+  CLAUDE.md's rule that a test never seen red proves nothing.
+
+  Three of the concurrency tests cover money directly. Two concurrent
+  partial refunds that individually fit but together exceed the payment:
+  without `lockForUpdate()` on `payments` both read `refunded_amount = 0.00`,
+  both pass their own cap check, and the payment is refunded past its own
+  amount — verified by removing the lock. Its counterpart asserts that two
+  refunds which *do* fit together both land and accumulate, so the first
+  test cannot pass by the Action simply refusing everything. And two
+  simultaneous `CreateShipment` calls on a COD order would otherwise produce
+  two consignments, each carrying the full `cod_amount` — the courier
+  collecting the total twice on the doorstep.
+
+  `RecordPaymentConcurrencyTest` opens by asserting `payments` has **no**
+  `UNIQUE(order_id)`, because the rest of the file only proves the lock while
+  that stays true; adding such an index later would otherwise silently turn
+  those tests into a test of the index.
+
+  The review race is the odd one out and documented as such: it has no lock
+  by design, `UNIQUE(user_id, product_id)` guarantees one row whatever the
+  code does, so the count proves nothing. What it proves is *how the loser
+  fails* — rewriting the Action as check-then-act keeps the count at 1 and
+  still fails, because the loser then gets a raw `QueryException` instead of
+  `ReviewNotAllowedException`: a 500 on a review form.
+
+### Fixed
+
+- Two documents still claimed `TransitionOrderStatus` was unbuilt, months
+  after it shipped. Root `CLAUDE.md` said *"designed in ADR-0004, **not yet
+  built**"* under a non-negotiable architecture rule, and
+  `reference/write-rules/order.md` said *"`TransitionOrderStatus` does not
+  exist yet"* in its "what does not get written" section. Both now describe
+  the Action as built and the only writer of `orders.status` and
+  `order_status_histories`.
+
+  The surviving half of each claim was kept rather than deleted with the
+  false half: `CreateOrder` really does still land every order at `New`
+  regardless of payment method, and nothing calls `TransitionOrderStatus`
+  from checkout — because the Stripe and cash-on-delivery first hops
+  diverge (`New => AwaitingPayment` against `New => Confirmed`) and
+  `CreateOrder` is blind to which applies. That is a deliberate decoupling,
+  not a gap, and the correction says so.
+
+  `online-store/.ai/guidelines/project-conventions.md` needed no change —
+  the condensed form had always stated the rule correctly. The other four
+  pages referencing the Action (`actions.md`, `inventory.md`,
+  `concurrency-and-locking.md`, `security-model.md`) were already accurate.
+
+- `FixtureLoader` silently dropped a product's `attributes` field.
+  `productColumns()`'s `Arr::except()` stripped it out to build the
+  `products` insert, and nothing ever used it afterward — `attribute_product`
+  stayed empty for every fixture-loaded product, for every fixture ever
+  loaded before this session, invisibly: nothing else in `app/` reads that
+  pivot yet, so no test and no panel screen surfaced the gap. Found while
+  auditing the 169-product demo catalogue for `demo-data.md` — a
+  `whereDoesntHave('attributes')` count that should have matched only the
+  genuinely single-SKU products instead matched all 169.
+
+  Fixed with `FixtureLoader::attachAttributes()`, mirroring
+  `attachAttributeValues()`'s existing pattern exactly: resolve the fixture's
+  attribute slugs against real `attributes.id` rows and
+  `syncWithoutDetaching()`. Verified:
+  `Product::where('sku','CLM-0001')->first()->attributes()->pluck('slug')`
+  now returns `colour, size`; the zero-attribute count correctly dropped to
+  48 (matching the products actually authored with `"attributes": []`).
+- `AddProductVariation`/`RemoveProductVariation` composing `SetDefaultVariation`
+  with `$actor` passed through, rather than `null`. `ProductVariationPolicy`
+  gives `create`/`update`/`delete` three separate permissions (unlike
+  `ProductImagePolicy`, where they collapse to one `update_product`), so an
+  actor holding only `create_product_variation` could create a variation but
+  then fail `AuthorizationException` on the automatic first-becomes-default
+  promotion, which demands `update_product_variation` — a permission the
+  create path never claimed to need. `RecordInventoryMovement`'s own
+  docblock states the precedent this should have followed from the start:
+  "authorizes nothing — the caller has already authorized what this
+  records." Caught by the full Feature suite, not by either Action's own
+  test file in isolation — both passed alone because their fixtures granted
+  every relevant permission together. Regression test added:
+  `AddProductVariationTest`'s "allows an actor holding create_product_variation"
+  now asserts the promotion, not just that the create succeeded.
+- `ProductResourceTest`'s `'creates a product with a stock row through the
+  panel'` — the `Repeater::make('variations')` item in `ProductForm` never
+  reached `weight_display_unit`'s own `->default()`, because filling a
+  repeater item via Livewire replaces it wholesale rather than merging over
+  per-field defaults; a live browser submit always carries the Select's
+  value, so the test's omission was under-specifying the form, not a defect
+  in it. Same root class of bug as the `is_default` one above: passing
+  green in isolation, caught only once the CLAUDE.md-mandated post-change
+  gate ran the whole suite.
+
+### Added
+
+- `database/fixtures/reference/catalogue.json` — `CatalogueReferenceSeeder`'s
+  vocabulary (categories, brands, attributes) moved out of a PHP const and
+  into a document the seeder reads. Categories now nest to **arbitrary
+  depth**: the old `slug => [name, children: slug => name]` const could not
+  express a third level at all, because its children were plain strings, so
+  `clothing > men > tops > t-shirts` was unrepresentable. Verified to depth 4.
+
+  Prompted by a ~100-node marketplace taxonomy needing to replace the 14-node
+  hardware tree — and the part most likely to be regenerated in bulk is the
+  worst candidate for being a PHP literal, where a generation slip becomes a
+  syntax error inside `database/`. The seeder validates as it loads and names
+  the offending key on a category missing `slug`/`name` or an attribute with
+  an unknown `type`. It adds and updates but never deletes: dropping a
+  category with products attached is `DeleteProductCategory`'s guarded
+  decision, not a seeder side effect.
+- `DemoCustomerSeeder`, `DemoCartSeeder`, `DemoCouponSeeder`,
+  `DemoWishlistSeeder` — the four remaining pieces of the demo dataset, none
+  of them fixtures. `fixture-format.md` previously documented a four-array
+  top-level JSON shape (`users`/`products`/`coupons`/`carts`) that
+  `FixtureLoader` never implemented — `loadProduct()` is its only entry
+  point, and a file in that shape failed validation with
+  `is missing required key [name]` before a row could load. Rather than
+  build three more loaders for data that gains nothing from being hand
+  authored, these seeders produce it directly: `DemoCustomerSeeder` (100
+  factory customers), `DemoCartSeeder` (carts for ~35% of them plus a few
+  guest carts, through `TouchCartExpiry` so `expires_at` follows the same
+  rule a real cart write does — `null` for a registered customer, `now() +
+  guest_ttl_hours` for a guest), `DemoCouponSeeder` (one coupon per required
+  state), `DemoWishlistSeeder` (wishlists for ~20% of customers). Doc
+  rewritten to match; see its own "What a fixture file actually contains"
+  section.
+
+  One coverage state could not be produced: a coupon at
+  `total_usage_limit` **reached**. `coupons.times_used` does not exist —
+  `RedeemCoupon` counts real `coupon_redemptions` rows instead
+  (`reference/actions.md`) — and a redemption needs a real `order_id`
+  (`NOT NULL`, cascade-on-delete). Orders are explicitly 0-scope for this
+  seed, so faking one just to exhaust a coupon would fabricate order data
+  nothing else in the set produces. `ONEUSEONLY` (`total_usage_limit: 1`,
+  never redeemed) covers the narrow-limit path only; "reached" belongs to
+  whichever session seeds orders.
+- `App\Support\ResolveVariationMeasurements` — the weight/dimension
+  counterpart to `ResolveVariationPrice`, and the fix for a semantic that
+  was documented without being implemented: the new nullable
+  `product_variations` measurement columns were specified as
+  "null inherits the product's" with nothing anywhere performing that
+  inheritance, so `$variation->weight_g` returned null for the common
+  inheriting variation. A null weight reaching a courier is a zero-weight
+  parcel rather than an error, which is why this is a resolver and not a
+  convention.
+
+  Inheritance is **per axis**, correcting an "all three or none" rule
+  written into three docs a day earlier. That rule forbade the most
+  realistic override there is — a hardcover edition is the same page size
+  as its paperback sibling and only thicker — and buying nothing for it,
+  since per-axis fallback is exactly what `price` already does. `isShippable()`
+  is the one all-or-nothing check, because a courier quote needs the whole
+  set even though each figure resolves on its own. 5 tests, all observed
+  failing against a broken fallback first.
+- `carriers.cod_fee` — BG couriers charge a separate cash-on-delivery
+  handling fee, priced per carrier (Econt and Speedy differ), so it lives on
+  `carriers` rather than `products` or `orders`. Not yet folded into an
+  order total: `CreateOrder` hardcodes `shipping = '0.00'` until carrier
+  selection (`CalculateDeliveryPrice`, slice 8) exists to read it from.
+  `CarrierSeeder` seeds both at placeholder figures, not a published tariff.
+- `App\Support\Money` — a readonly decimal value object, and the only place
+  `bc*` is now called. Every money column is `decimal(n,2)`, so `SCALE` is
+  internal and a caller never picks one: `bcadd($a, $b)` without a scale
+  defaults to 0 and turns 189.90 into 189, which was reachable at any of the
+  30 call sites this replaces across 6 files.
+
+  Two methods carry the calculations whose precision is not obvious.
+  `percentageOf()` is VAT extraction — prices are stored gross, so VAT is
+  `amount * rate / (100 + rate)`, not `/ 100`, and getting it backwards
+  overstates VAT on every line without failing. `shareOf()` is proportional
+  allocation for splitting a discount across matched lines. Both run their
+  intermediate at double scale and round once, because rounding each step
+  compounds across a multi-line cart.
+
+  Deliberately **not** currency-aware: `App\Enums\Currency` exists and orders
+  and payments snapshot it, but the catalogue is single-currency and a
+  currency field here would imply mixed-currency arithmetic is guarded when
+  it is not. `reference/schema/open-schema-questions.md` #2 has what real
+  multi-currency needs; the guard belongs here when it arrives.
+
+  20 unit tests, no database. `CalculateCartTotals` (15) and
+  `CalculateCouponDiscount` (17) verified unchanged after migration — the
+  latter includes the proportional-allocation cases.
+- `App\Filament\Concerns\ConvertsMeasurementInput`, shared by `CreateProduct`
+  and `EditProduct`. `ProductForm` now asks for weight and the three
+  dimensions in a chosen unit via `*_input` fields marked `dehydrated(false)`;
+  this converts them to the canonical `weight_g` and `*_mm` columns on save.
+  Shared rather than duplicated because a conversion that disagreed between
+  the two pages would store different numbers for the same typed input.
+- `product_variations.length_mm`/`width_mm`/`height_mm`, mirroring `price`'s
+  existing null-inherits-the-product pattern: `null` on a variation means
+  "same as the product", set only when a variation genuinely differs (a
+  book's hardcover edition weighing more than its paperback sibling). No
+  per-variation `dimension_display_unit` — a variation's dimensions are
+  entered and shown in the *product's* display unit, never its own, since
+  splitting the display convention across siblings buys nothing. Weight
+  keeps its own per-variation `weight_display_unit`, because weight (unlike
+  the display convention for dimensions) can genuinely differ enough between
+  variations to warrant it.
+- `product_variations.is_default` plus `App\Actions\Catalogue\SetDefaultVariation`,
+  mirroring `SetMainProductImage`/`is_main` exactly: one `UPDATE ... SET
+  is_default = (id = N)` statement, no lock needed since it's a blind write
+  rather than a check-then-act. `AddProductVariation` auto-promotes a
+  product's first variation to default the same way `AddProductImage`
+  promotes a product's first image to main, and accepts `is_default: true`
+  on a later variation to override it. `RemoveProductVariation` hands the
+  flag to a live sibling if the removed variation held it, the same
+  successor-promotion `RemoveProductImage` does for `is_main` — a product
+  never ends up with variations and no default.
+- `ProductVariationsRelationManager` — table gained an `is_default` badge
+  column and a "Make default" row action (star icon, hidden once a
+  variation is already default); the create/edit form gained weight and
+  dimension inputs in the product's display unit, converted to canonical
+  columns via `ConvertsMeasurementInput` before the Action runs.
+
+### Removed
+
+- `products.weight`, `products.dimensions`, `product_variations.weight` —
+  the pre-structured free-text/decimal columns these superseded weeks ago,
+  finally dropped now that every remaining reference to them (models,
+  factories, fixtures) was confirmed migrated to `weight_g`/`*_mm`. Kept
+  around "for one day" past the original migration pending that
+  verification; the day came.
+
+- The store is **Amazoff**. `APP_NAME` set in `.env` and `.env.example`;
+  `logo.png`/`logo2.png` and `favicon.ico`/`favicon2.ico` swapped so the
+  chosen pair is the one the app serves. `logo3.png` and `favicon3.ico` are
+  untouched alternates.
+- `App\Enums\Currency` (EUR, BGN) with `symbol()` and `minorUnitDigits()`.
+  An enum rather than a lookup table, and not the roles exception: adding a
+  currency needs a rounding rule, a symbol and a decimal count, all of which
+  are code. `minorUnitDigits()` states the assumption that 2 is not universal
+  — JPY is 0, and `decimal:2` arithmetic against a zero-decimal currency
+  silently multiplies by 100. Nothing depends on it yet.
+- `App\Enums\LengthUnit` and `App\Enums\WeightUnit`, with conversion in
+  both directions, plus `2026_08_23_120000_add_structured_dimensions_and_weight`:
+  `products.length_mm`/`width_mm`/`height_mm`/`dimension_unit`, and
+  `weight_g`/`weight_unit` on both `products` and `product_variations`.
+  Storage is canonical (whole millimetres, whole grams) with the entry unit
+  stored beside it so the panel shows back what was typed; default cm and kg.
+
+  Replaces free-text `dimensions` and `decimal(8,2)` kilogram `weight`.
+  `open-schema-questions.md` #4 argued it: a courier prices on volumetric
+  weight, needing 3 numbers, and parsing `"24 x 8 x 21 cm"` plus the
+  `24x8x21cm` and `240 x 80 x 210 mm` variants a generator will produce is a
+  bug found at API-call time rather than data entry. Verified: 5 g now stores
+  as 5 g, where `decimal(8,2)` kg rounded it to 10 g.
+
+  The superseded columns are **kept, not dropped** — dropping a merged column
+  alongside its replacement leaves no way to verify a backfill. No backfill
+  was needed (no production data, fixtures not yet authored), which is why
+  this was cheap now. `open-schema-questions.md` #3 tracks the removal.
+- `App\Actions\Cart\TouchCartExpiry` and `config/cart.php` — the missing
+  half of `ExpireCarts`, which had nothing to act on because nothing ever
+  wrote `carts.expires_at`. Guest carts expire 24 hours after the last write;
+  a registered customer's cart never expires and has the column cleared.
+  Called on every cart write so the window slides.
+
+  `MergeGuestCart` now calls it inside its transaction, and that is the
+  load-bearing case: without it a merged cart keeps the guest expiry and
+  `carts:expire` deletes a registered customer's cart a day later.
+- `docs/reference/schema/open-schema-questions.md` — deferred schema decisions, each
+  with today's state, options with costs, a recommendation, and the trigger
+  that would force revisiting. Linked from `CLAUDE.md`'s router.
 
 - File upload validation on both image fields in the panel — product
   images (`ProductImagesRelationManager`) and article images (`ArticleForm`)
@@ -667,6 +1229,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- `weight_unit` -> `weight_display_unit` and `dimension_unit` ->
+  `dimension_display_unit`. The old names claimed something false: `weight_g`
+  is **always** grams, and `weight_unit` beside it reads as "the unit this
+  value is in", which would make `weight_g = 1600, weight_unit = kg` mean
+  1600 kg. It means 1600 grams, displayed as 1.6 kg. Storage is canonical,
+  display is remembered, and the names now say so. Free to rename: nothing
+  outside the model declarations read either column.
+- `ProductForm` no longer edits the superseded `weight` decimal or the
+  free-text `dimensions`. Those columns still exist —
+  `reference/schema/open-schema-questions.md` #3 tracks their removal — but
+  the panel and the fixture format now agree on which columns matter, which
+  they did not for the few hours between the two changes.
+- `products.is_available` is confirmed **not** a derived OR of its variations,
+  and `write-rules/product.md` now says so. A product may be available while
+  every variation is not: §6 gives the merchandiser a switch, and
+  visible-but-unbuyable is how a shop signals "coming back". The consequence
+  a storefront query must carry is recorded there — an "in stock" filter needs
+  the product flag **and** a `whereHas` on variation availability, because the
+  flag alone shows products with nothing to buy.
+- Review eligibility needed no change: `CreateProductReview` already requires
+  a delivered order line for the product, `ProductReviewPolicy::create()`
+  returns false outright, and `ProductReviewResource` has no create page — so
+  the Action is the only path and it already enforces §24. Recorded rather
+  than re-implemented.
 - **Dropped `product_variations.image_id`**, the single optional pointer at one
   of the product's images that the gallery replaces. Two columns answering one
   question forces a resolver to invent a precedence rule nothing enforces on

@@ -1,0 +1,500 @@
+[
+  {
+    "name": "Combination Wrench Set 8-Piece Metric",
+    "slug": "combination-wrench-set-8pc-metric-hnd0001",
+    "sku": "HND-0001",
+    "category": "wrenches",
+    "brand": "stanley",
+    "short_description": "8-piece metric combination wrench set, 8mm to 19mm, chrome vanadium.",
+    "description": "Open end on one side, box end on the other, in the eight sizes that cover most household and automotive fixings.\n\nChrome vanadium steel resists rounding on stubborn bolts, and each wrench is size-stamped on both faces.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1200,
+    "length_mm": 300,
+    "width_mm": 150,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Combination Wrench Set 8-Piece | Amazoff",
+    "seo_description": "8-piece metric wrench set, chrome vanadium, 8mm-19mm.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0001-main.jpg", "alt_text": "Wrench set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "8", "sort_order": 0 },
+      { "name": "Material", "value": "Chrome vanadium", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "HND-0001-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 55, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Adjustable Wrench 250mm",
+    "slug": "adjustable-wrench-250mm-hnd0002",
+    "sku": "HND-0002",
+    "category": "wrenches",
+    "brand": "stanley",
+    "short_description": "250mm adjustable wrench with drop-forged steel jaw.",
+    "description": "One wrench that covers the sizes eight fixed ones would, at the cost of a slightly looser fit on rounded fasteners.\n\nThe worm-gear adjustment holds its setting under load rather than creeping open mid-turn.",
+    "regular_price": "14.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 350,
+    "length_mm": 250,
+    "width_mm": 60,
+    "height_mm": 20,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Adjustable Wrench 250mm | Amazoff",
+    "seo_description": "250mm adjustable wrench, drop-forged steel jaw.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0002-main.jpg", "alt_text": "Adjustable wrench", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Length", "value": "250mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0002-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 80, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Socket Set 46-Piece with Ratchet",
+    "slug": "socket-set-46pc-ratchet-hnd0003",
+    "sku": "HND-0003",
+    "category": "wrenches",
+    "brand": "boschtech",
+    "short_description": "46-piece 1/2-inch socket set with quick-release ratchet, in a fitted case.",
+    "description": "Metric and imperial sockets in one blow-molded case, organized so the size in hand is the size you can find again.\n\nThe quick-release ratchet head swaps sockets without pulling against the retaining ball.",
+    "regular_price": "59.90",
+    "discount_price": "49.90",
+    "discount_starts_at": "-2 days",
+    "discount_ends_at": "+12 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3400,
+    "length_mm": 400,
+    "width_mm": 250,
+    "height_mm": 60,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Socket Set 46-Piece | Amazoff",
+    "seo_description": "46-piece socket set with ratchet, fitted case. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0003-main.jpg", "alt_text": "Socket set", "is_main": true, "sort_order": 0 },
+      { "key": "case", "path": "demo/hnd0003-case.jpg", "alt_text": "Case open", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "46", "sort_order": 0 },
+      { "name": "Drive size", "value": "1/2 inch", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "HND-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "case"], "initial_quantity": 14, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Precision Screwdriver Set 32-Piece",
+    "slug": "precision-screwdriver-set-32pc-hnd0004",
+    "sku": "HND-0004",
+    "category": "screwdrivers",
+    "brand": "stanley",
+    "short_description": "32-piece precision screwdriver set for electronics repair.",
+    "description": "Phillips, flathead, Torx, and pentalobe bits for phone, laptop, and small-appliance repair.\n\nThe magnetized tips hold a screw steady while it clears the housing, which matters more than torque on work this small.",
+    "regular_price": "19.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 400,
+    "length_mm": 220,
+    "width_mm": 120,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Precision Screwdriver Set 32-Piece | Amazoff",
+    "seo_description": "32-piece precision screwdriver set for electronics repair.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0004-main.jpg", "alt_text": "Precision screwdriver set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "32", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0004-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 61, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Screwdriver Set 6-Piece Magnetic Tip",
+    "slug": "screwdriver-set-6pc-magnetic-hnd0005",
+    "sku": "HND-0005",
+    "category": "screwdrivers",
+    "brand": "dewalt",
+    "short_description": "6-piece flathead and Phillips screwdriver set with magnetic tips.",
+    "description": "The screwdrivers most households actually reach for — three flathead, three Phillips, all magnetized.\n\nCushion grips reduce hand fatigue on repeated fixings, and the tip finish resists cam-out on Phillips heads.",
+    "regular_price": "16.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 550,
+    "length_mm": 250,
+    "width_mm": 100,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Screwdriver Set 6-Piece | Amazoff",
+    "seo_description": "6-piece magnetic-tip screwdriver set.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hnd0005-main.jpg", "alt_text": "Screwdriver set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0005-YEL", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 45, "attribute_values": { "colour": "yellow" } }
+    ]
+  },
+  {
+    "name": "Digital Laser Distance Measure 40m",
+    "slug": "digital-laser-distance-measure-40m-hnd0006",
+    "sku": "HND-0006",
+    "category": "measuring",
+    "brand": "boschtech",
+    "short_description": "40m laser distance measure with area and volume calculation.",
+    "description": "Measures distance, area, and volume at a button press, accurate to 2mm over the full 40m range.\n\nThe backlit display is readable in dim rooms and direct sun alike, which is where a tape measure's printed numbers usually lose the fight.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 150,
+    "length_mm": 110,
+    "width_mm": 50,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Digital Laser Distance Measure 40m | Amazoff",
+    "seo_description": "40m laser distance measure, area and volume calculation.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0006-main.jpg", "alt_text": "Laser measure", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Range", "value": "40m", "sort_order": 0 },
+      { "name": "Accuracy", "value": "±2mm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "HND-0006-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Tape Measure 8m Locking",
+    "slug": "tape-measure-8m-locking-hnd0007",
+    "sku": "HND-0007",
+    "category": "measuring",
+    "brand": "stanley",
+    "short_description": "8m locking tape measure with rubber-clad case and belt clip.",
+    "description": "An 8m tape measure with a blade wide enough to stay rigid on horizontal reaches without folding.\n\nThe lock lever holds the blade extended one-handed, and the rubber-clad case survives the drop off a step ladder that ends most tape measures.",
+    "regular_price": "9.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 3,
+    "weight_g": 220,
+    "length_mm": 70,
+    "width_mm": 55,
+    "height_mm": 35,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Tape Measure 8m Locking | Amazoff",
+    "seo_description": "8m locking tape measure, rubber-clad, belt clip.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0007-main.jpg", "alt_text": "Tape measure", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Length", "value": "8m", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0007-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 120, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Digital Spirit Level 60cm",
+    "slug": "digital-spirit-level-60cm-hnd0008",
+    "sku": "HND-0008",
+    "category": "measuring",
+    "brand": "einhell",
+    "short_description": "60cm digital spirit level with angle readout and vial backup.",
+    "description": "A traditional vial spirit level with a digital angle readout for anything that is not exactly level or plumb — ramps, stairs, roof pitch.\n\nThe magnetic edge holds it against a steel beam hands-free.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 900,
+    "length_mm": 620,
+    "width_mm": 60,
+    "height_mm": 40,
+    "is_available": false,
+    "is_featured": false,
+    "seo_title": "Digital Spirit Level 60cm | Amazoff",
+    "seo_description": "60cm digital spirit level with angle readout. Currently unavailable.",
+    "attributes": [],
+    "images": [],
+    "specifications": [
+      { "name": "Length", "value": "60cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0008-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Cordless Lawn Mower 40V Self-Propelled",
+    "slug": "cordless-lawn-mower-40v-hnd0009",
+    "sku": "HND-0009",
+    "category": "mowers",
+    "brand": "husqvarna",
+    "short_description": "40V self-propelled cordless lawn mower, 42cm cutting width.",
+    "description": "A self-propelled mower that removes both the cord and the pull-start from mowing day.\n\nThe 42cm deck covers a mid-size lawn efficiently, and the grass box's fill indicator saves a walk to check it manually.",
+    "regular_price": "429.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 22000,
+    "length_mm": 1400,
+    "width_mm": 500,
+    "height_mm": 1000,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Cordless Lawn Mower 40V | Amazoff",
+    "seo_description": "40V self-propelled cordless mower, 42cm deck. Delivery included.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/hnd0009-main.jpg", "alt_text": "Lawn mower", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Cutting width", "value": "42cm", "sort_order": 0 },
+      { "name": "Voltage", "value": "40V", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "HND-0009-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 4, "attribute_values": { "power-source": "battery" } }
+    ]
+  },
+  {
+    "name": "Petrol Lawn Mower 4-Stroke 51cm",
+    "slug": "petrol-lawn-mower-4-stroke-51cm-hnd0010",
+    "sku": "HND-0010",
+    "category": "mowers",
+    "brand": "husqvarna",
+    "short_description": "Petrol lawn mower, 4-stroke engine, 51cm steel deck, for larger lawns.",
+    "description": "A 4-stroke petrol mower for lawns a cordless model would need three batteries to finish.\n\nThe steel deck is more resistant to stone impacts than the plastic decks on lighter mowers, and the height adjustment covers seven positions.",
+    "regular_price": "389.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 32000,
+    "length_mm": 1550,
+    "width_mm": 550,
+    "height_mm": 1050,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Petrol Lawn Mower 51cm | Amazoff",
+    "seo_description": "Petrol lawn mower, 4-stroke, 51cm steel deck.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/hnd0010-main.jpg", "alt_text": "Petrol mower", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Cutting width", "value": "51cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0010-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "power-source": "petrol" } }
+    ]
+  },
+  {
+    "name": "Expandable Garden Hose 30m",
+    "slug": "expandable-garden-hose-30m-hnd0011",
+    "sku": "HND-0011",
+    "category": "watering",
+    "brand": "gardena",
+    "short_description": "30m expandable garden hose, triples in length under pressure.",
+    "description": "Coils to a third of its working length for storage, and expands to 30m once water pressure fills the inner core.\n\nThe brass fittings resist the cracking that plastic connectors develop after a season outdoors.",
+    "regular_price": "34.90",
+    "discount_price": "27.90",
+    "discount_starts_at": "-10 days",
+    "discount_ends_at": "+4 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1800,
+    "length_mm": 300,
+    "width_mm": 300,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Expandable Garden Hose 30m | Amazoff",
+    "seo_description": "30m expandable garden hose, brass fittings. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0011-main.jpg", "alt_text": "Garden hose", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Expanded length", "value": "30m", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0011-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 27, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Battery Watering Timer Dual Outlet",
+    "slug": "battery-watering-timer-dual-outlet-hnd0012",
+    "sku": "HND-0012",
+    "category": "watering",
+    "brand": "gardena",
+    "short_description": "Battery-powered dual-outlet watering timer with programmable schedule.",
+    "description": "Two independent outlets, each with its own schedule, so a vegetable bed and a flower border get different watering routines from one tap.\n\nRuns on two AA batteries for a full season, with a manual override for an unscheduled top-up.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 400,
+    "length_mm": 150,
+    "width_mm": 100,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Battery Watering Timer Dual Outlet | Amazoff",
+    "seo_description": "Dual-outlet watering timer, programmable, battery powered.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0012-main.jpg", "alt_text": "Watering timer", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Outlets", "value": "2", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0012-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 19, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Hand Trowel and Fork Garden Set",
+    "slug": "hand-trowel-fork-garden-set-hnd0013",
+    "sku": "HND-0013",
+    "category": "garden",
+    "brand": "gardena",
+    "short_description": "Stainless steel hand trowel and fork set with soft-grip handles.",
+    "description": "The two tools most raised beds and container gardens actually need — a trowel for planting, a fork for loosening.\n\nStainless steel heads resist the pitting carbon steel develops after a wet season in the shed.",
+    "regular_price": "12.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 350,
+    "length_mm": 300,
+    "width_mm": 100,
+    "height_mm": 40,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Hand Trowel and Fork Set | Amazoff",
+    "seo_description": "Stainless steel trowel and fork set, soft-grip handles.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/hnd0013-main.jpg", "alt_text": "Trowel and fork set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "2", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0013-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 70, "attribute_values": { "material": "stainless-steel" } }
+    ]
+  },
+  {
+    "name": "Bypass Pruning Shears",
+    "slug": "bypass-pruning-shears-hnd0014",
+    "sku": "HND-0014",
+    "category": "garden",
+    "brand": "gardena",
+    "short_description": "Bypass pruning shears for live stems up to 20mm.",
+    "description": "Bypass blades shear past each other like scissors, giving a cleaner cut on living stems than anvil-style shears leave.\n\nA sap groove keeps resin from gumming the pivot, and the safety catch locks the blades closed for storage.",
+    "regular_price": "17.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 220,
+    "length_mm": 200,
+    "width_mm": 80,
+    "height_mm": 25,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Bypass Pruning Shears | Amazoff",
+    "seo_description": "Bypass pruning shears, up to 20mm stems, safety catch.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hnd0014-main.jpg", "alt_text": "Pruning shears", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Cutting capacity", "value": "20mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0014-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Cordless Hedge Trimmer 18V 50cm",
+    "slug": "cordless-hedge-trimmer-18v-50cm-hnd0015",
+    "sku": "HND-0015",
+    "category": "garden",
+    "brand": "einhell",
+    "short_description": "18V cordless hedge trimmer, 50cm double-action blade.",
+    "description": "A 50cm double-action blade cuts on both strokes rather than one, halving the passes needed to finish a run of hedge.\n\nThe blade tip guard prevents wall and fence damage on close trims.",
+    "regular_price": "89.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2600,
+    "length_mm": 720,
+    "width_mm": 150,
+    "height_mm": 120,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cordless Hedge Trimmer 18V | Amazoff",
+    "seo_description": "18V cordless hedge trimmer, 50cm double-action blade.",
+    "attributes": ["capacity"],
+    "images": [
+      { "key": "main", "path": "demo/hnd0015-main.jpg", "alt_text": "Hedge trimmer", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Blade length", "value": "50cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HND-0015-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 9, "attribute_values": { "capacity": "4ah" } }
+    ]
+  }
+]

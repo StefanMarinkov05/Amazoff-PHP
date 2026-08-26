@@ -1,6 +1,6 @@
 # Schema design, the parts the diagram does not show
 
-The column-level facts are in `docs/reference/schema.md`, the ERD alongside it,
+The column-level facts are in `docs/reference/schema/schema.md`, the ERD alongside it,
 and the migrations.
 This page covers the mechanisms those cannot convey: how the catalogue holds
 product types with nothing in common, and where stock lives. ADR-0002 has the

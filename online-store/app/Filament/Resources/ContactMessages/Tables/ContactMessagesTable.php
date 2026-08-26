@@ -12,12 +12,15 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ContactMessagesTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // user.email below crosses a relation; see CLAUDE.md's N+1 rule.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('user'))
             ->columns([
                 TextColumn::make('user.email')
                     ->label('Account')

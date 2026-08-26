@@ -10,7 +10,7 @@ use App\Actions\Catalogue\SetVariationImages;
 use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Product;
 use App\Models\ProductImage;
-use Database\Seeders\PermissionSeeder;
+use Database\Seeders\System\PermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
