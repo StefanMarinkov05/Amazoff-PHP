@@ -9,6 +9,8 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariation;
+use App\Support\ProductPrice;
+use App\Support\ResolveProductPrice;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -162,6 +164,19 @@ class ProductList extends Component
         }
 
         return $chips;
+    }
+
+    /**
+     * Display price, struck-through original, and the saving — resolved once
+     * per card rather than re-derived per template expression.
+     *
+     * The window rule itself lives in `ResolveProductPrice`, shared with
+     * `ResolveVariationPrice`, so a card cannot advertise a sale the cart
+     * then refuses to honour. ADR-0014.
+     */
+    public function price(Product $product): ProductPrice
+    {
+        return ResolveProductPrice::current($product);
     }
 
     /**

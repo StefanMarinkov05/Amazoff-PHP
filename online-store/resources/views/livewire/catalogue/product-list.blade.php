@@ -193,8 +193,7 @@
                     <div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 lg:grid-cols-3 xl:grid-cols-4">
                         @forelse ($products as $index => $product)
                             @php($image = $product->productImages->firstWhere('is_main', true) ?? $product->productImages->first())
-                            @php($onSale = $this->discountIsActive($product))
-                            @php($percent = $this->discountPercent($product))
+                            @php($price = $this->price($product))
                             @php($stock = $this->availableStock($product))
                             @php($rating = $product->rating_avg ? round((float) $product->rating_avg, 1) : null)
 
@@ -230,9 +229,9 @@
                                     {{-- Badges: saving first, then scarcity. Both are facts
                                          from the data, never decoration. --}}
                                     <div class="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
-                                        @if ($percent > 0)
+                                        @if ($price->percent > 0)
                                             <span class="rounded bg-marine-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white">
-                                                −{{ $percent }}%
+                                                −{{ $price->percent }}%
                                             </span>
                                         @endif
 
@@ -285,16 +284,16 @@
 
                                     <div class="mt-auto pt-3">
                                         <div class="flex items-baseline gap-1.5">
-                                            @if ($onSale)
+                                            @if ($price->onSale)
                                                 <span class="text-base font-bold tabular-nums text-marine-700">
-                                                    €{{ number_format((float) $product->discount_price, 2) }}
+                                                    €{{ number_format((float) $price->current, 2) }}
                                                 </span>
                                                 <span class="text-xs tabular-nums text-ink-400 line-through">
-                                                    €{{ number_format((float) $product->regular_price, 2) }}
+                                                    €{{ number_format((float) $price->regular, 2) }}
                                                 </span>
                                             @else
                                                 <span class="text-base font-bold tabular-nums">
-                                                    €{{ number_format((float) $product->regular_price, 2) }}
+                                                    €{{ number_format((float) $price->current, 2) }}
                                                 </span>
                                             @endif
                                         </div>

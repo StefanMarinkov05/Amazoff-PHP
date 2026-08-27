@@ -8,6 +8,63 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- The product detail page — `Catalogue\ProductDetails` at
+  `/products/{product:slug}`, closing §37 criterion 4's product side. Gallery
+  with thumbnails and prev/next arrows, an attribute picker that resolves a
+  selection to a variation, price and stock for that variation,
+  specifications, approved reviews, an arbitrary-depth category breadcrumb,
+  and add-to-basket through the existing `AddToCart` Action.
+
+  The selection is held as **one** value — `variationId`, in the URL as `?v=`
+  — and which attribute values are picked is derived from it. An earlier
+  draft stored both a `selectedValues` map and the variation id; they can
+  disagree the moment a shared link arrives with `?v=` and nothing has
+  populated the map. One source of truth removes the failure rather than
+  synchronising it. `variation()` is the validation gate: an id resolves only
+  if it is in `variations()`, which is already scoped to this product and to
+  `is_available`, so an id belonging to another product returns null instead
+  of leaking its price. Same reasoning as the catalogue's sort allow-list,
+  and for the same reason — `#[Url]` makes a property attacker-controlled.
+
+  Two decisions worth naming. `gallery()` returns the variation's own images
+  **followed by** the product's remaining ones rather than one or the other:
+  ADR-0013 makes an image with no pivot row a product-level image,
+  legitimately shown for any variation, and returning only the variation's
+  own set collapsed the thumbnail strip and the arrows together whenever a
+  variation owned a single photo — which reads as the page breaking rather
+  than as a shorter gallery. And `addToCart()` does not pre-check stock:
+  `AddToCart` re-validates availability, minimum quantity and stock inside a
+  transaction, while `$this->stock` is read outside one and is stale on
+  render. Two checks would be two answers that can disagree, and only one of
+  them is authoritative.
+
+- `App\Support\ResolveProductPrice` and `App\Support\ProductPrice` — the
+  product-level counterpart to `ResolveVariationPrice`, and the value object
+  both now return. `ProductPrice::make()` derives all four display values
+  (price to charge, price to strike through, whether a sale is live, and the
+  whole-percent saving) from one reading of the discount window, so nothing
+  downstream can hold a `percent` that disagrees with its `current`.
+
+  This removed a real duplication: `ProductList::discountIsActive()` had its
+  own copy of §11's discount-window rule, which `ResolveVariationPrice`
+  already owned. Two implementations of one rule can disagree, and the way
+  they disagree is expensive — a card advertising a sale price the cart then
+  refuses to honour. The window now lives in
+  `ResolveProductPrice::windowActive()` and `ResolveVariationPrice` calls
+  through to it.
+
+  The percentage is computed with `bcmath` rather than float. The rounding
+  boundary is reachable with ordinary prices: 200.00 down to 189.00 is
+  exactly 5.5%, and in binary floating point that lands either side of the
+  boundary depending on representation error, so the badge would read −5% or
+  −6% unpredictably.
+
+- `App\Support\ResolveCurrentCart` — finds or opens the current visitor's
+  cart, keyed by `user_id` when signed in and `session_id` when not.
+  `expires_at` is deliberately left null: `ExpireCarts` skips null rows, so
+  this preserves today's behaviour exactly rather than choosing a guest-cart
+  lifetime, which is a policy call belonging with the cart page.
+
 - The storefront — first customer-facing slice, and the first code in this
   project outside the Filament panel. Livewire 3 + Tailwind 4, with
   `Catalogue\ProductList` at `/catalogue` covering §37 criteria 2 and 3
@@ -1507,3 +1564,20 @@ when the work happened, not when it was committed — nothing in
   mid-word. Named as a placeholder in ADR-0014 rather than a design;
   full-text or Scout is a decision to make when search quality is the work,
   not underneath the first catalogue page.
+- Per-variation product images are a fixture gap, not a code gap. The detail
+  page swaps the gallery when a variation is selected and leads with that
+  variation's own photographs — verified on `PWR-0001`, where picking Red
+  changes the main image to `pwr0001-side.jpg`. But only one product in the
+  demo catalogue has variations whose *leading* image differs: 142 of 169
+  products carry a single image, and the remaining multi-variation products
+  point every colourway at the same file. Selecting a colour therefore looks
+  like it does nothing on almost every product, while doing exactly the right
+  thing. Closing this means authoring per-colour images into
+  `database/fixtures/demo/*.json` and fetching them with `demo:fetch-images`,
+  which is fixture work rather than component work.
+- `App\Support\ResolveVariationImage` has a full test suite and no production
+  caller. It answers "which single image represents this variation", which is
+  what a cart line, an order line, a wishlist row, or a listing thumbnail
+  needs — the detail page is the one screen that wants the whole ordered set,
+  so it deliberately does not use it. Not dead code, but ahead of its
+  callers; the cart page is where it should land.
