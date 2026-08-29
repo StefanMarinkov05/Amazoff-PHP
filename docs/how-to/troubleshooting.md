@@ -1512,3 +1512,108 @@ curl -s http://localhost:8080/catalogue | grep -c '@font-face'
 ```
 
 Zero means it is not wired, regardless of what is in `public/`.
+
+## Every route 500s with `tempnam(): file created in the system's temporary directory`
+
+**Symptom.** Every page — storefront and `/admin` alike — returns 500 with
+`tempnam(): file created in the system's temporary directory`. Nothing is
+written to `storage/logs/laravel.log`; the file does not even exist. The
+stack trace runs through `Illuminate\View\Compilers\BladeCompiler:199` into
+`Illuminate\Filesystem\Filesystem:222`. `df` shows plenty of free space and
+inodes, `/tmp` is `1777`, and `ls -ld storage` from `docker compose exec`
+looks fine — `drwxrwxr-x`, owner `1000`.
+
+**Cause.** `Filesystem::replace()` calls `tempnam()` against the *target*
+directory, not the system temp dir, so the message names `/tmp` while the
+directory actually refused is `storage/framework/views`. `docker compose
+exec` runs as **root**, which can write anywhere and makes the permissions
+look correct; PHP-FPM's request workers drop to **`www-data` (uid 33)**,
+per the pool config the image ships. The bind-mounted `online-store/` keeps
+its host ownership — uid 1000, mode `drwxrwxr-x` — so `www-data` is neither
+the owner nor in the owning group, and has no write bit.
+
+This appears after anything that recreates `storage/` with host ownership:
+a fresh clone, a restore from backup, or a machine migration where files
+arrive owned by the host user.
+
+**Fix.** Give the group to `www-data` and make it writable, with setgid so
+newly created files inherit the group rather than reintroducing the problem:
+
+```bash
+docker compose exec app sh -c '
+chgrp -R www-data storage bootstrap/cache
+chmod -R g+w storage bootstrap/cache
+find storage bootstrap/cache -type d -exec chmod g+s {} \;
+'
+```
+
+Verify as the user that actually serves requests, not as root:
+
+```bash
+docker compose exec app su -s /bin/sh www-data -c \
+  'touch /var/www/html/storage/framework/views/__probe && echo WRITABLE'
+```
+
+**Why it recurs.** Three things each hide it independently. The error names
+`/tmp`, which is world-writable and therefore the first thing ruled out.
+`docker compose exec` runs as root, so every manual permission check passes
+while every real request fails. And Laravel cannot log the failure — the log
+write needs the same `storage/` it has just been denied — so
+`storage/logs/laravel.log` is absent rather than informative, which reads
+like "logging is misconfigured" instead of "storage is unwritable."
+
+**Prevention.** When a permission error is suspected inside this container,
+check as `www-data` (`su -s /bin/sh www-data -c '…'`), never from the
+default root shell — the root shell cannot reproduce the failure by
+construction. Treat an absent `laravel.log` on a 500 as evidence about
+`storage/` itself rather than about logging config.
+
+## A Filament TableWidget with a grouped query fails `only_full_group_by`
+
+**Symptom.** A `TableWidget`'s custom `->query()` — a `GROUP BY` aggregate
+over a model that isn't itself the primary subject, e.g. best-sellers summed
+from `order_items` — throws `SQLSTATE[42000]: ... 1055 Expression #N of
+ORDER BY clause is not in GROUP BY clause and contains nonaggregated column
+'...id' which is not functionally dependent on columns in GROUP BY clause;
+this is incompatible with sql_mode=only_full_group_by`. The query looks
+correct read on its own — every selected column is either grouped or
+aggregated — and the error names a column (`id`) that was never written in
+the query at all.
+
+**Cause.** Filament appends its own `ORDER BY <primary key>` as a
+stable-sort tiebreaker after whatever ordering the query or a sortable
+column applies (`Filament\Tables\Concerns\HasRecords`'s
+`applyDefaultSortToTableQuery`, gated by `hasDefaultKeySort()` — true by
+default). That extra `ORDER BY` is what MySQL is complaining about, not
+anything hand-written: the widget's own `MIN(order_items.id) as id` alias
+satisfies Eloquent's hydration, but the appended `ORDER BY` targets the raw
+qualified column `order_items.id`, which is genuinely absent from the
+`GROUP BY` clause. `only_full_group_by` is MySQL's default mode and ADR-0005
+is explicit the suite runs against real MySQL specifically so constraints
+like this stay live rather than passing silently under SQLite.
+
+**Fix.** Turn off the appended tiebreaker on a widget whose query is already
+fully ordered by its own aggregate:
+
+```php
+return $table
+    ->query(/* ... grouped, already ->orderByDesc(...) ... */)
+    ->defaultKeySort(false)
+    ->columns([...]);
+```
+
+**Why it recurs.** The query is correct by every check that runs before a
+real request: `php -l`, Larastan, and reading the SQL by eye. Nothing in
+the widget class mentions `order_items.id` in an `ORDER BY` — Filament adds
+it after the fact, from a method most of the codebase never has reason to
+call directly. `CLAUDE.md`'s "verify against a running app, not by reading
+code" is this exact case: a table widget test with real factory-created
+rows (not an empty table) is what surfaced it, and an empty table would not
+have — MySQL only enforces `only_full_group_by` once a query actually
+executes against rows to order.
+
+**Prevention.** Any custom `TableWidget` or Filament `Table` query that
+`GROUP BY`s on something other than the model's own primary key should
+default to `->defaultKeySort(false)` and supply its own `orderBy`/
+`orderByDesc` explicitly — do not rely on Filament's implicit key sort to
+break the tie for an aggregate row that has no single natural primary key.
