@@ -69,6 +69,7 @@ jobs:
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
               tests/Feature/Actions/Catalogue/SetVariationImagesTest.php
+              tests/Feature/Actions/Contact
               tests/Feature/Actions/Coupon
               tests/Feature/Actions/Inventory
               tests/Feature/Actions/Order
