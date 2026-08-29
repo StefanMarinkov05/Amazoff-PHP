@@ -50,6 +50,16 @@
     --color-marine-700: oklch(0.44 0.15 250);
     --color-marine-900: oklch(0.3 0.1 254);
 
+    /*
+     * A deliberate second accent, scoped to one place: the "off" half of the
+     * Amazoff wordmark in the header and footer, echoing public/images/logo.png
+     * (an Amazon-parody mark — dark "Amaz" + Amazon-orange "off"). Sampled
+     * directly from the logo's lettering, not eyeballed. Nowhere else on the
+     * storefront should reach for this — the marine accent above is still the
+     * one committed color for everything that isn't this specific joke.
+     */
+    --color-brand-orange: oklch(0.78 0.17 68);
+
     /* Two radii only. More reads as indecision. */
     --radius-card: 0.5rem;
     --radius-control: 0.375rem;

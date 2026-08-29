@@ -4,10 +4,15 @@
     $cartCount = 0;
 
     $links = [
-        ['label' => 'Catalogue', 'href' => '/catalogue', 'match' => 'catalogue*'],
         ['label' => 'Journal', 'href' => '/journal', 'match' => 'journal*'],
         ['label' => 'About', 'href' => '/about', 'match' => 'about'],
     ];
+
+    // Queried on every page, not only /catalogue — the mega-menu lives in
+    // the header, which every page includes. 11 top-level rows with their
+    // children eager-loaded (~50 rows total in the seeded catalogue) is one
+    // cheap query; nothing here justifies a cache layer yet.
+    $categoryMenu = \App\Support\ResolveCategoryFamily::topLevelWithChildren();
 @endphp
 
 <header
@@ -16,27 +21,145 @@
 >
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
 
-        {{-- Logo. A drawn mark, not an emoji — the "A" aperture doubles as a
-             shopping bag handle. --}}
+        {{-- Logo. Wordmark echoes public/images/logo.png's own two-tone split
+             ("Amaz" dark, "off" in the sampled brand orange) plus its curled
+             underline — this is the one place --color-brand-orange is used. --}}
         <a
             href="/"
             class="group flex shrink-0 items-center gap-2.5 rounded-control
                    focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20"
-            aria-label="Online Shop — home"
+            aria-label="Amazoff — home"
         >
-            <span class="grid h-9 w-9 place-items-center rounded-card bg-ink-900
-                         transition-colors duration-200 group-hover:bg-marine-700">
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M7 9V7a5 5 0 0 1 10 0v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                    <path d="M4.5 9h15l-1.2 10.2a2 2 0 0 1-2 1.8H7.7a2 2 0 0 1-2-1.8L4.5 9Z"
-                          stroke="white" stroke-width="2" stroke-linejoin="round"/>
+            <img
+                src="{{ asset('images/logo.png') }}"
+                alt=""
+                class="h-9 w-9 rounded-card object-cover"
+            >
+            <span class="relative text-[1.05rem] font-extrabold italic tracking-tight text-ink-900">
+                Amaz<span class="text-brand-orange not-italic">off</span>
+                <svg
+                    class="pointer-events-none absolute -bottom-1.5 left-[0.2em] h-2 w-[4.4em]"
+                    viewBox="0 0 100 18" fill="none" aria-hidden="true"
+                >
+                    <path
+                        d="M2 4c22 14 68 14 92 4"
+                        stroke="var(--color-brand-orange)" stroke-width="4" stroke-linecap="round"
+                    />
+                    <path
+                        d="M84 3.5 96 8l-9 8"
+                        stroke="var(--color-brand-orange)" stroke-width="4"
+                        stroke-linecap="round" stroke-linejoin="round"
+                    />
                 </svg>
             </span>
-            <span class="text-[0.95rem] font-semibold tracking-tight">Online&nbsp;Shop</span>
         </a>
 
         {{-- Desktop nav --}}
         <nav class="hidden md:flex md:items-center md:gap-1" aria-label="Primary">
+
+            {{-- Catalogue mega-menu. Hover (or focus, or tap on touch)
+                 reveals every top-level category on the left; hovering one
+                 shows its own children on the right — the "master category,
+                 then its subnodes" shape, not the old flat leaf-only
+                 dropdown. Clicking a top-level row with no highlighted
+                 child still navigates it directly: a category can hold
+                 products of its own alongside its children's (Garden holds
+                 3 directly, on top of Mowers' and Watering's — §ResolveCategoryFamily). --}}
+            <div
+                x-data="{ open: false, hovered: {{ $categoryMenu->first()?->id ?? 'null' }} }"
+                x-on:mouseleave="open = false"
+                class="relative"
+            >
+                <a
+                    href="/catalogue"
+                    x-on:mouseenter="open = true"
+                    x-on:focus="open = true"
+                    @if (request()->is('catalogue*')) aria-current="page" @endif
+                    aria-haspopup="true"
+                    x-bind:aria-expanded="open ? 'true' : 'false'"
+                    class="relative flex items-center gap-1 rounded-control px-3 py-2 text-sm font-medium
+                           transition-colors duration-200 focus:outline-none
+                           focus-visible:ring-4 focus-visible:ring-marine-600/20
+                           {{ request()->is('catalogue*') ? 'text-ink-900' : 'text-ink-500 hover:text-ink-900' }}"
+                >
+                    Catalogue
+                    <svg class="h-3.5 w-3.5 text-ink-400" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                    </svg>
+                    <span
+                        aria-hidden="true"
+                        class="absolute inset-x-3 -bottom-px h-0.5 origin-center rounded-full bg-marine-600
+                               transition-transform duration-300
+                               {{ request()->is('catalogue*') ? 'scale-x-100' : 'scale-x-0' }}"
+                    ></span>
+                </a>
+
+                <div
+                    x-cloak x-show="open" x-transition.opacity.duration.150ms
+                    class="absolute left-0 top-full z-50 flex w-[36rem] overflow-hidden rounded-card
+                           border border-ink-200 bg-white shadow-xl"
+                >
+                    <ul class="w-56 shrink-0 border-r border-ink-100 bg-ink-50/60 py-2">
+                        @foreach ($categoryMenu as $topCategory)
+                            <li>
+                                <a
+                                    href="/catalogue?category={{ $topCategory->slug }}"
+                                    x-on:mouseenter="hovered = {{ $topCategory->id }}"
+                                    x-bind:class="hovered === {{ $topCategory->id }}
+                                        ? 'bg-white text-ink-900'
+                                        : 'text-ink-600 hover:bg-white/70 hover:text-ink-900'"
+                                    class="flex items-center justify-between px-4 py-2 text-sm font-medium
+                                           transition-colors duration-150"
+                                >
+                                    {{ $topCategory->name }}
+                                    @if ($topCategory->children->isNotEmpty())
+                                        <svg class="h-3.5 w-3.5 text-ink-300" viewBox="0 0 24 24" fill="none"
+                                             stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m9 6 6 6-6 6" />
+                                        </svg>
+                                    @endif
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="flex-1 p-4">
+                        @foreach ($categoryMenu as $topCategory)
+                            <div x-show="hovered === {{ $topCategory->id }}" x-cloak>
+                                @if ($topCategory->children->isNotEmpty())
+                                    <p class="px-2 text-[0.7rem] font-semibold uppercase tracking-wider text-ink-400">
+                                        {{ $topCategory->name }}
+                                    </p>
+                                    <ul class="mt-1 grid grid-cols-2 gap-x-4">
+                                        @foreach ($topCategory->children as $child)
+                                            <li>
+                                                <a
+                                                    href="/catalogue?category={{ $child->slug }}"
+                                                    class="block rounded-control px-2 py-1.5 text-sm text-ink-600
+                                                           transition-colors duration-150
+                                                           hover:bg-ink-50 hover:text-marine-700"
+                                                >
+                                                    {{ $child->name }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p class="px-2 py-1.5 text-sm text-ink-500">
+                                        No subcategories — browse
+                                        <a href="/catalogue?category={{ $topCategory->slug }}"
+                                           class="font-medium text-marine-700 hover:underline">
+                                            all of {{ $topCategory->name }}
+                                        </a>.
+                                    </p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
             @foreach ($links as $link)
                 @php($active = request()->is($link['match']))
                 <a
@@ -84,16 +207,70 @@
                 <span class="hidden sm:inline">Cart</span>
             </a>
 
-            {{-- Account. Filament's panel gate already refuses non-staff, so this
-                 points at the customer area rather than /admin. --}}
-            <a
-                href="/login"
-                class="hidden rounded-control px-3 py-2 text-sm font-medium text-ink-600
-                       transition-colors duration-200 hover:bg-ink-100 hover:text-ink-900
-                       focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20 sm:inline-flex"
-            >
-                Sign in
-            </a>
+            {{-- Account. The admin link is gated by the very same
+                 canAccessPanel() that guards the panel, not by a separate role
+                 check — one source of truth, so the link cannot advertise a
+                 door the gate then refuses. A hidden button is not security;
+                 this is only the affordance. --}}
+            @auth
+                <div class="relative hidden sm:block" x-data="{ menu: false }">
+                    <button
+                        type="button"
+                        x-on:click="menu = ! menu"
+                        :aria-expanded="menu ? 'true' : 'false'"
+                        class="inline-flex items-center gap-2 rounded-control px-3 py-2 text-sm font-medium
+                               text-ink-600 transition-colors duration-200 hover:bg-ink-100 hover:text-ink-900
+                               focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20"
+                    >
+                        <span class="grid h-6 w-6 place-items-center rounded-full bg-ink-900 text-[0.65rem] font-semibold text-white">
+                            {{ mb_strtoupper(mb_substr(auth()->user()->first_name, 0, 1)) }}
+                        </span>
+                        <span class="max-w-[8rem] truncate">{{ auth()->user()->first_name }}</span>
+                    </button>
+
+                    <div
+                        x-cloak x-show="menu" x-on:click.outside="menu = false" x-transition
+                        class="absolute right-0 mt-2 w-56 overflow-hidden rounded-card border border-ink-200
+                               bg-white py-1 shadow-lg"
+                    >
+                        @if (auth()->user()->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')))
+                            <a href="/admin"
+                               class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-marine-700
+                                      hover:bg-ink-50">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-width="1.75" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                          d="M4 5h16M4 12h16M4 19h10" />
+                                </svg>
+                                Admin panel
+                            </a>
+                            <div class="my-1 border-t border-ink-100"></div>
+                        @endif
+
+                        <a href="/account/password" wire:navigate
+                           class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                            Change password
+                        </a>
+
+                        <form method="POST" action="/logout">
+                            @csrf
+                            <button type="submit"
+                                    class="block w-full px-4 py-2.5 text-left text-sm text-ink-700 hover:bg-ink-50">
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @else
+                <a
+                    href="/login"
+                    class="hidden rounded-control px-3 py-2 text-sm font-medium text-ink-600
+                           transition-colors duration-200 hover:bg-ink-100 hover:text-ink-900
+                           focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20 sm:inline-flex"
+                >
+                    Sign in
+                </a>
+            @endauth
 
             {{-- Mobile toggle --}}
             <button
@@ -136,11 +313,36 @@
                 </a>
             @endforeach
 
-            <a href="/login"
-               class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
-                      transition-colors duration-200 hover:bg-ink-100 hover:text-ink-900">
-                Sign in
-            </a>
+            @auth
+                <div class="mt-2 border-t border-ink-200 pt-2">
+                    @if (auth()->user()->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')))
+                        <a href="/admin"
+                           class="block rounded-control px-3 py-2.5 text-sm font-medium text-marine-700
+                                  hover:bg-ink-100">
+                            Admin panel
+                        </a>
+                    @endif
+                    <a href="/account/password"
+                       class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                              hover:bg-ink-100 hover:text-ink-900">
+                        Change password
+                    </a>
+                    <form method="POST" action="/logout">
+                        @csrf
+                        <button type="submit"
+                                class="block w-full rounded-control px-3 py-2.5 text-left text-sm font-medium
+                                       text-ink-600 hover:bg-ink-100 hover:text-ink-900">
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            @else
+                <a href="/login"
+                   class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                          transition-colors duration-200 hover:bg-ink-100 hover:text-ink-900">
+                    Sign in
+                </a>
+            @endauth
         </nav>
     </div>
 </header>

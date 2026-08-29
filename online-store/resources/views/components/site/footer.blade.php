@@ -26,14 +26,30 @@
 
             <div>
                 <div class="flex items-center gap-2.5">
-                    <span class="grid h-9 w-9 place-items-center rounded-card bg-marine-600">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M7 9V7a5 5 0 0 1 10 0v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M4.5 9h15l-1.2 10.2a2 2 0 0 1-2 1.8H7.7a2 2 0 0 1-2-1.8L4.5 9Z"
-                                  stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    <img
+                        src="{{ asset('images/logo.png') }}"
+                        alt=""
+                        class="h-9 w-9 rounded-card object-cover"
+                    >
+                    {{-- Same two-tone wordmark as the header, white instead of
+                         ink-900 for the dark footer background. --}}
+                    <span class="relative text-[1.05rem] font-extrabold italic tracking-tight text-white">
+                        Amaz<span class="text-brand-orange not-italic">off</span>
+                        <svg
+                            class="pointer-events-none absolute -bottom-1.5 left-[0.2em] h-2 w-[4.4em]"
+                            viewBox="0 0 100 18" fill="none" aria-hidden="true"
+                        >
+                            <path
+                                d="M2 4c22 14 68 14 92 4"
+                                stroke="var(--color-brand-orange)" stroke-width="4" stroke-linecap="round"
+                            />
+                            <path
+                                d="M84 3.5 96 8l-9 8"
+                                stroke="var(--color-brand-orange)" stroke-width="4"
+                                stroke-linecap="round" stroke-linejoin="round"
+                            />
                         </svg>
                     </span>
-                    <span class="text-[0.95rem] font-semibold tracking-tight text-white">Online&nbsp;Shop</span>
                 </div>
 
                 <p class="mt-4 max-w-xs text-sm leading-relaxed text-ink-400">
@@ -81,7 +97,7 @@
         </div>
 
         <div class="mt-12 flex flex-col gap-3 border-t border-ink-800 pt-6 text-xs text-ink-500 sm:flex-row sm:items-center sm:justify-between">
-            <p>&copy; {{ date('Y') }} Online Shop. All prices include VAT.</p>
+            <p>&copy; {{ date('Y') }} Amazoff. All prices include VAT.</p>
             <p>Built for Lumen101 — Team B.</p>
         </div>
     </div>
