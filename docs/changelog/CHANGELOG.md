@@ -8,6 +8,128 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- The product detail page — `Catalogue\ProductDetails` at
+  `/products/{product:slug}`, closing §37 criterion 4's product side. Gallery
+  with thumbnails and prev/next arrows, an attribute picker that resolves a
+  selection to a variation, price and stock for that variation,
+  specifications, approved reviews, an arbitrary-depth category breadcrumb,
+  and add-to-basket through the existing `AddToCart` Action.
+
+  The selection is held as **one** value — `variationId`, in the URL as `?v=`
+  — and which attribute values are picked is derived from it. An earlier
+  draft stored both a `selectedValues` map and the variation id; they can
+  disagree the moment a shared link arrives with `?v=` and nothing has
+  populated the map. One source of truth removes the failure rather than
+  synchronising it. `variation()` is the validation gate: an id resolves only
+  if it is in `variations()`, which is already scoped to this product and to
+  `is_available`, so an id belonging to another product returns null instead
+  of leaking its price. Same reasoning as the catalogue's sort allow-list,
+  and for the same reason — `#[Url]` makes a property attacker-controlled.
+
+  Two decisions worth naming. `gallery()` returns the variation's own images
+  **followed by** the product's remaining ones rather than one or the other:
+  ADR-0013 makes an image with no pivot row a product-level image,
+  legitimately shown for any variation, and returning only the variation's
+  own set collapsed the thumbnail strip and the arrows together whenever a
+  variation owned a single photo — which reads as the page breaking rather
+  than as a shorter gallery. And `addToCart()` does not pre-check stock:
+  `AddToCart` re-validates availability, minimum quantity and stock inside a
+  transaction, while `$this->stock` is read outside one and is stale on
+  render. Two checks would be two answers that can disagree, and only one of
+  them is authoritative.
+
+- `App\Support\ResolveProductPrice` and `App\Support\ProductPrice` — the
+  product-level counterpart to `ResolveVariationPrice`, and the value object
+  both now return. `ProductPrice::make()` derives all four display values
+  (price to charge, price to strike through, whether a sale is live, and the
+  whole-percent saving) from one reading of the discount window, so nothing
+  downstream can hold a `percent` that disagrees with its `current`.
+
+  This removed a real duplication: `ProductList::discountIsActive()` had its
+  own copy of §11's discount-window rule, which `ResolveVariationPrice`
+  already owned. Two implementations of one rule can disagree, and the way
+  they disagree is expensive — a card advertising a sale price the cart then
+  refuses to honour. The window now lives in
+  `ResolveProductPrice::windowActive()` and `ResolveVariationPrice` calls
+  through to it.
+
+  The percentage is computed with `bcmath` rather than float. The rounding
+  boundary is reachable with ordinary prices: 200.00 down to 189.00 is
+  exactly 5.5%, and in binary floating point that lands either side of the
+  boundary depending on representation error, so the badge would read −5% or
+  −6% unpredictably.
+
+- `App\Support\ResolveCurrentCart` — finds or opens the current visitor's
+  cart, keyed by `user_id` when signed in and `session_id` when not.
+  `expires_at` is deliberately left null: `ExpireCarts` skips null rows, so
+  this preserves today's behaviour exactly rather than choosing a guest-cart
+  lifetime, which is a policy call belonging with the cart page.
+
+- The storefront — first customer-facing slice, and the first code in this
+  project outside the Filament panel. Livewire 3 + Tailwind 4, with
+  `Catalogue\ProductList` at `/catalogue` covering §37 criteria 2 and 3
+  (browse, search, filter, sort): search across name and short description,
+  category and brand facets with live counts, in-stock and on-sale toggles,
+  three sort columns, dismissible filter chips, and pagination. Every
+  filter is `#[Url]`, so a filtered catalogue is a shareable link and the
+  back button works.
+
+  `ADR-0014` records the decisions this slice sets precedent for, because
+  every remaining page copies its shape: reads query Eloquent directly from
+  the component while writes still go through Actions (ADR-0007 is a rule
+  about writes and stays one); filter state lives in the URL, never the
+  session; a page that filters *and* counts holds one definition of
+  "filtered"; and anything a URL-bound property reaches into a query is
+  allow-listed, because `#[Url]` makes every public property
+  attacker-controlled — `?sortBy=` lands in `orderBy()` otherwise.
+
+  Two details worth naming separately. Facet counts are computed against
+  every filter *except* the facet's own dimension (`applyFilters($q, skip:
+  'categoryId')`), because counting against all of them makes every
+  unselected category read zero the moment one is picked, and counting
+  against none of them promises results the grid will not show; options
+  that would count zero are dropped rather than shown greyed. And the
+  availability figure subtracts `reserved_quantity` from
+  `current_quantity` — a unit held for someone mid-checkout is not one this
+  customer can buy, and showing it is how a catalogue promises stock that
+  `ReserveStock` then refuses at the last step of checkout. The catalogue
+  figure is explicitly not authoritative; it is read outside a transaction
+  and stale on render. `ReserveStock` under ADR-0008's lock remains the only
+  thing that decides.
+
+- `DemoSeeder` — a catalogue that looks like a shop rather than a fixture.
+  15 curated products across 16 categories (two levels) and 10 brands, with
+  4 attributes / 15 values, articles, tags, coupons, and reviews. Products
+  are created through `CreateProduct` and `AddProductVariation` rather than
+  written directly, so the seeder exercises the same invariants the panel
+  does and cannot produce a product the application considers invalid.
+
+  It deviates from ADR-0003's JSON-fixture format deliberately and says so
+  in its own docblock: the fixture format exists so test data is reviewable
+  and diffable, and 15 hand-curated products with prose descriptions are
+  neither improved by being moved into JSON nor covered by the tests that
+  format serves. `purge()` truncates catalogue tables only, with
+  `SET FOREIGN_KEY_CHECKS=0`, and explicitly leaves users and orders alone.
+
+- `App\Support\PlaceholderImage` — deterministic SVG product imagery, drawn
+  from the product's own name and category. ADR-0003 rules that no image
+  binaries enter git; scraping a real shop would republish someone else's
+  photographs and an external placeholder service would make seeding need
+  network access. Hue comes from `crc32($name) % 360`, so the same product
+  is the same colour on every re-seed, and one of 13 category silhouettes
+  (headphones, speaker, turntable, keyboard, mouse, monitor, pan, kettle,
+  lamp, backpack, tent, tool, box) gives the grid enough shape to read as
+  merchandise. A contact shadow rather than a floating shape, because a
+  grid of initials-in-a-box reads as a wireframe.
+
+- Storefront chrome and design tokens — `x-site.header` (sticky, blurred,
+  drawn SVG logo, category nav, cart badge, Alpine mobile drawer) and
+  `x-site.footer`, on a layout with a skip link and a real `<main>`
+  landmark. `resources/css/app.css` defines the palette as `@theme` tokens:
+  an `ink` neutral ramp tinted toward the accent rather than pure grey, one
+  committed `marine` blue, two radii, one easing curve. Two animations
+  only — a staggered card entrance and a single hover sweep — both disabled
+  under `prefers-reduced-motion`.
 - `CatalogueStressSeeder` (`database/seeders/Stress/`) — thousands of
   additional products for catalogue-scale query-plan, pagination, and
   search testing, companion to the existing order-volume `StressSeeder`.
@@ -1257,6 +1379,35 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- Three asset-pipeline failures, all silent, all found only by looking at
+  the rendered page. Each has a full entry in
+  `docs/how-to/troubleshooting.md`; the short version:
+
+  Tailwind was scanning the **compiled Blade cache**, not Blade source.
+  Tailwind 4 anchors automatic source detection at the git root, `.git` sits
+  one level above `online-store/`, and the container mounts only
+  `online-store/` — so detection collapsed to the two `@source` lines the
+  starter kit shipped, one of which is `storage/framework/views`. A class
+  therefore existed in the stylesheet only if some page carrying it had
+  already been rendered and the cache had not been cleared since, which made
+  `php artisan view:clear` actively break working styles. The failure is
+  partial rather than total and that is what made it expensive: `grid-cols-2`
+  compiled while `lg:grid-cols-3` beside it in the same attribute did not, so
+  it read as bad markup for far longer than it should have. Fixed by scanning
+  `../views/**/*.blade.php` and `../../app/Livewire/**/*.php`; 16 media
+  queries compile now where there had been none.
+
+  Vite wrote `http://0.0.0.0:5173` into `public/hot` — a bind-all address,
+  meaningful to a listening socket and meaningless to a browser, so every
+  asset request failed at the network layer with nothing in the PHP log.
+  `curl` from the host succeeded throughout, which is what made it look like
+  the assets were fine. Fixed with `server.origin` and `hmr.host`.
+
+  `Vite::fonts()` was never called. `@vite([...])` does not inject the font
+  manifest, so `public/fonts-manifest.dev.json` was generated correctly and
+  then referenced by nothing, and Instrument Sans silently fell back to the
+  system font. Fixed in the layout head.
+
 - `MergeGuestCart` had no collision handling at all — unlike `AddToCart`,
   which it otherwise mirrors, a concurrent merge or an unrelated `AddToCart`
   landing on the same line surfaced as an uncaught `QueryException`. Now
@@ -1396,3 +1547,37 @@ when the work happened, not when it was committed — nothing in
   browser. Same open item for `->rules([(new Dimensions())...])`: Larastan
   now confirms it type-checks, but nobody has uploaded an undersized image
   through the actual form to confirm Filament surfaces the rejection.
+- The §11 discount window is implemented twice: `ResolveVariationPrice::
+  windowActive()`, which owns it, and `ProductList::discountIsActive()`,
+  which duplicates it. A card can therefore advertise a sale price the cart
+  refuses to honour. The catalogue cannot simply call the existing resolver
+  because that one resolves a *variation* and a card renders a *product*;
+  the fix is a `ResolveProductPrice` in `app/Support/` with `windowActive()`
+  moved into it and `ResolveVariationPrice` calling through. Owed on the
+  product detail page, which needs the same answer at both levels.
+- `Catalogue\ProductList` has no tests. Storefront reads are not Actions and
+  so fall outside the Action suite by design (ADR-0014); they need
+  `Livewire::test(...)` feature tests, a shape this project has not written
+  yet. The sort allow-list is the first thing that warrants one, being the
+  guard on attacker-controlled input.
+- Catalogue search is `LIKE '%term%'` — unindexable, and it matches
+  mid-word. Named as a placeholder in ADR-0014 rather than a design;
+  full-text or Scout is a decision to make when search quality is the work,
+  not underneath the first catalogue page.
+- Per-variation product images are a fixture gap, not a code gap. The detail
+  page swaps the gallery when a variation is selected and leads with that
+  variation's own photographs — verified on `PWR-0001`, where picking Red
+  changes the main image to `pwr0001-side.jpg`. But only one product in the
+  demo catalogue has variations whose *leading* image differs: 142 of 169
+  products carry a single image, and the remaining multi-variation products
+  point every colourway at the same file. Selecting a colour therefore looks
+  like it does nothing on almost every product, while doing exactly the right
+  thing. Closing this means authoring per-colour images into
+  `database/fixtures/demo/*.json` and fetching them with `demo:fetch-images`,
+  which is fixture work rather than component work.
+- `App\Support\ResolveVariationImage` has a full test suite and no production
+  caller. It answers "which single image represents this variation", which is
+  what a cart line, an order line, a wishlist row, or a listing thumbnail
+  needs — the detail page is the one screen that wants the whole ordered set,
+  so it deliberately does not use it. Not dead code, but ahead of its
+  callers; the cart page is where it should land.

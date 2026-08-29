@@ -1,9 +1,111 @@
 @import 'tailwindcss';
 
+/*
+ * Sources are declared explicitly because automatic detection does not work
+ * here: Tailwind anchors its scan at the git root, `.git` lives one level
+ * above `online-store/`, and the container mounts only `online-store/`. With
+ * no git root visible the scan collapses to almost nothing.
+ *
+ * The symptom is nasty because it is partial rather than total — a class
+ * already present in the compiled-view cache keeps working while a newly
+ * added one silently does not, so `grid-cols-2` renders and
+ * `lg:grid-cols-3` beside it in the same attribute does not. Clearing the
+ * view cache then breaks classes that worked a minute earlier.
+ *
+ * `../views` is the fix: scan the Blade source itself, not the compiled
+ * output of whichever pages happen to have been rendered.
+ */
+@source '../views/**/*.blade.php';
+@source '../../app/Livewire/**/*.php';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /*
+     * Storefront palette. One committed accent, and a neutral ramp tinted
+     * toward it rather than pure grey — greys next to a saturated blue read
+     * as dirty. `ink` is the near-black used for headings and the primary
+     * button; nothing on the storefront is pure #000.
+     */
+    --color-ink-50: oklch(0.97 0.008 250);
+    --color-ink-100: oklch(0.94 0.012 250);
+    --color-ink-200: oklch(0.88 0.018 250);
+    --color-ink-300: oklch(0.76 0.024 250);
+    --color-ink-400: oklch(0.62 0.03 250);
+    --color-ink-500: oklch(0.5 0.035 252);
+    --color-ink-600: oklch(0.4 0.045 254);
+    --color-ink-700: oklch(0.31 0.05 256);
+    --color-ink-800: oklch(0.23 0.05 258);
+    --color-ink-900: oklch(0.17 0.045 260);
+    --color-ink-950: oklch(0.12 0.04 262);
+
+    /* The accent. Deliberately a real blue, not the default indigo-violet. */
+    --color-marine-50: oklch(0.96 0.02 240);
+    --color-marine-100: oklch(0.92 0.04 240);
+    --color-marine-300: oklch(0.76 0.11 242);
+    --color-marine-500: oklch(0.6 0.16 245);
+    --color-marine-600: oklch(0.52 0.17 248);
+    --color-marine-700: oklch(0.44 0.15 250);
+    --color-marine-900: oklch(0.3 0.1 254);
+
+    /* Two radii only. More reads as indecision. */
+    --radius-card: 0.5rem;
+    --radius-control: 0.375rem;
+
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/*
+ * Entrance for grid cards. Staggered in the template via inline delay so a
+ * filter change reads as "these results arrived" rather than a hard swap.
+ */
+@keyframes card-in {
+    from {
+        opacity: 0;
+        transform: translateY(1.25rem) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@utility animate-card-in {
+    animation: card-in 0.55s var(--ease-out-quart) both;
+}
+
+/* Sweeps once across a card's image on hover — the single flourish. */
+@keyframes shine {
+    from {
+        transform: translateX(-140%) skewX(-18deg);
+    }
+    to {
+        transform: translateX(320%) skewX(-18deg);
+    }
+}
+
+@utility animate-shine {
+    animation: shine 0.9s var(--ease-out-quart);
+}
+
+/*
+ * Alpine ships with Livewire 3. Without this, anything x-show="false" renders
+ * for one frame before Alpine boots — the mobile menu flashes open on load.
+ */
+[x-cloak] {
+    display: none !important;
+}
+
+/* Honour the OS setting — motion is a preference, not a decoration. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

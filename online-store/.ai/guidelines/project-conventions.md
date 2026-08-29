@@ -33,7 +33,10 @@ follows is the short version.
 - Business logic lives in `app/Actions/{Area}/{Verb}{Noun}.php`. One command
   per class, a single `handle()`, grouped by the aggregate the write belongs
   to. Controllers, Livewire components, Filament pages, and console commands
-  are thin callers: validate, call the Action, respond.
+  are thin callers **on the write path**: validate, call the Action, respond.
+  Reads do not go through Actions — a storefront Livewire component queries
+  Eloquent directly, because a read has no invariant for an Action to own.
+  ADR-0014, and `docs/explanation/storefront-pages.md` for the page shape.
 - **No repository pattern.** Eloquent is the repository. Do not introduce
   one.
 - Filament resources call the same Actions as the storefront wherever a rule
