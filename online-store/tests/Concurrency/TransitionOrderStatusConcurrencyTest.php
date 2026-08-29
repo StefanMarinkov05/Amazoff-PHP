@@ -11,7 +11,6 @@ use App\Models\ProductVariation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * Two staff transitioning one order at once — the case
@@ -81,70 +80,14 @@ function statusRaceOrder(OrderStatus $status, int $quantity = 2): Order
  */
 function runOrderStatusRaceWorkers(array $jobs): Collection
 {
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $orderId = (int) $argv[1];
-        $to = App\Enums\OrderStatus::from($argv[2]);
-        $startAt = (float) $argv[3];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        try {
-            app(App\Actions\Order\TransitionOrderStatus::class)->handle(
-                App\Models\Order::findOrFail($orderId),
-                $to,
-                null,
-            );
-            echo 'OK';
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('order-status-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    $env = [
-        'DB_CONNECTION' => 'mysql',
-        'DB_DATABASE' => config('database.connections.mysql.database'),
-        'DB_HOST' => config('database.connections.mysql.host'),
-        'DB_PORT' => (string) config('database.connections.mysql.port'),
-        'DB_USERNAME' => config('database.connections.mysql.username'),
-        'DB_PASSWORD' => config('database.connections.mysql.password'),
-    ];
-
-    try {
-        $processes = collect($jobs)->map(function (array $job) use ($startAt, $env): Process {
-            [$orderId, $to] = $job;
-
-            $process = new Process(
-                ['php', 'order-status-race-worker.php', (string) $orderId, $to->value, (string) $startAt],
-                base_path(),
-                $env,
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-
-        return $processes->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()));
-    } finally {
-        @unlink(base_path('order-status-race-worker.php'));
-    }
+    return runRaceWorkers(array_map(
+        fn (array $job): array => [
+            'action' => 'transition-order-status',
+            'ids' => [$job[0]],
+            'args' => [$job[1]->value],
+        ],
+        $jobs,
+    ));
 }
 
 it('makes two identical concurrent transitions idempotent: both succeed, exactly one write happens', function (): void {

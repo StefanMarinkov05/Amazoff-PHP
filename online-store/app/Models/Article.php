@@ -15,6 +15,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Article extends Model
 {
+    /** Directory within the default `public` disk. Mirrors `ProductImage::DIRECTORY`. */
+    public const IMAGE_DIRECTORY = 'articles';
+
+    /** See `ProductImage::ACCEPTED_MIME_TYPES` — same reasoning, no SVG in user-facing content. */
+    public const IMAGE_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    public const IMAGE_MAX_SIZE_KB = 2048;
+
+    public const IMAGE_MIN_WIDTH_PX = 400;
+
+    public const IMAGE_MIN_HEIGHT_PX = 400;
+
     use HasFactory;
 
     /**

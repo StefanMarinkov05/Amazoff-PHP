@@ -4,34 +4,33 @@ declare(strict_types=1);
 
 namespace App\Actions\Catalogue;
 
-use App\Exceptions\ProductImageInUseException;
 use App\Models\Product;
 use App\Models\ProductImage;
-use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Removes an image, refusing while a variation points at it and handing the
- * main flag on if it had it.
+ * Removes an image and hands the main flag on if it had it.
  *
- * `product_images` does not soft-delete, and `product_variations.image_id` is
- * `NO ACTION`, so removing a referenced image is error 1451. Promoting a
- * successor keeps the listing intact — a product that still has images must
- * still have a main one.
+ * `product_images` does not soft-delete. Promoting a successor keeps the
+ * listing intact — a product that still has images must still have a main one.
+ *
+ * Nothing refuses any more. Until ADR-0013 this guarded against
+ * `product_variations.image_id`, a `NO ACTION` foreign key that turned removing
+ * a referenced image into error 1451; that column is gone and the variation
+ * gallery that replaced it cascades, so removing an image now simply takes it
+ * out of every gallery it was in. A gallery membership is not a dependency —
+ * the pairing is gone with nothing left to repair.
  *
  * Authorizes `update_product` via `ProductImagePolicy`. Locks `products`.
- * reference/write-rules/product.md
+ * ADR-0013 · reference/write-rules/product.md
  */
 final class RemoveProductImage
 {
     public function __construct(private readonly SetMainProductImage $setMain) {}
 
-    /**
-     * @throws ProductImageInUseException
-     */
     public function handle(ProductImage $image, ?User $actor): void
     {
         if ($actor !== null) {
@@ -45,16 +44,6 @@ final class RemoveProductImage
                 ->whereKey($image->product_id)
                 ->lockForUpdate()
                 ->first();
-
-            // withTrashed(): a soft-deleted variation still holds the foreign
-            // key, so the scope would hide exactly the rows that cause 1451.
-            $variations = ProductVariation::withTrashed()
-                ->where('image_id', $image->getKey())
-                ->count();
-
-            if ($variations > 0) {
-                throw new ProductImageInUseException($image, $variations);
-            }
 
             $wasMain = (bool) $image->is_main;
 

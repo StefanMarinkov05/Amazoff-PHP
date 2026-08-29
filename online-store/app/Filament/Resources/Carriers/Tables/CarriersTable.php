@@ -21,6 +21,8 @@ class CarriersTable
                     ->searchable(),
                 TextColumn::make('code')
                     ->searchable(),
+                TextColumn::make('cod_fee')
+                    ->money('EUR'),
                 IconColumn::make('is_active')
                     ->boolean(),
                 TextColumn::make('created_at')

@@ -25,6 +25,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rules\Dimensions;
 
 class ProductImagesRelationManager extends RelationManager
 {
@@ -39,9 +40,19 @@ class ProductImagesRelationManager extends RelationManager
                 FileUpload::make('path')
                     ->label('Image')
                     ->image()
+                    ->imageEditor()
                     ->disk(ProductImage::DISK)
                     ->directory(ProductImage::DIRECTORY)
-                    ->maxSize(4096)
+                    ->acceptedFileTypes(ProductImage::ACCEPTED_MIME_TYPES)
+                    ->maxSize(ProductImage::MAX_SIZE_KB)
+                    // ->image() sniffs MIME only. Dimensions are a Laravel
+                    // validation rule, not a FileUpload method, applied the
+                    // same way price fields below apply `decimal:0,2`.
+                    ->rules([
+                        (new Dimensions)
+                            ->minWidth(ProductImage::MIN_WIDTH_PX)
+                            ->minHeight(ProductImage::MIN_HEIGHT_PX),
+                    ])
                     ->required(),
                 TextInput::make('alt_text')
                     ->maxLength(255)
@@ -88,7 +99,7 @@ class ProductImagesRelationManager extends RelationManager
                     )),
             ])
             ->recordActions([
-                // Editing touches alt_text and sort_order only — one table, no
+                // Editing touches alt_text and sort_order only — 1 table, no
                 // invariant, so ADR-0007 leaves it as default CRUD.
                 EditAction::make(),
                 Action::make('setMain')

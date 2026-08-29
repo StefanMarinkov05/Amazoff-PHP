@@ -1,0 +1,613 @@
+[
+  {
+    "name": "18V Cordless Drill Driver",
+    "slug": "18v-cordless-drill-driver-pwr0001",
+    "sku": "PWR-0001",
+    "category": "drills-drivers",
+    "brand": "makita",
+    "short_description": "Compact 18V drill driver with two batteries and a carry case.",
+    "description": "A two-speed drill driver built for cabinet work and light construction.\n\nThe brushless motor holds torque under load where a brushed motor fades, and the 13mm keyless chuck takes both round and hex shanks.",
+    "regular_price": "189.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1600,
+    "length_mm": 240,
+    "width_mm": 80,
+    "height_mm": 210,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "18V Cordless Drill Driver | Amazoff",
+    "seo_description": "Buy the 18V Cordless Drill Driver online. Two batteries, carry case, next-day delivery.",
+    "attributes": ["colour", "power-source", "capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0001-main.jpg", "alt_text": "Drill, front view", "is_main": true, "sort_order": 0 },
+      { "key": "side", "path": "demo/pwr0001-side.jpg", "alt_text": "Drill, side view", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Voltage", "value": "18V", "sort_order": 0 },
+      { "name": "Chuck", "value": "13mm keyless", "sort_order": 1 },
+      { "name": "Max torque", "value": "65 Nm", "sort_order": 2 }
+    ],
+    "variations": [
+      { "sku": "PWR-0001-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "side"], "initial_quantity": 42, "attribute_values": { "colour": "black", "power-source": "battery", "capacity": "2ah" } },
+      { "sku": "PWR-0001-RED", "price": "199.90", "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["side"], "initial_quantity": 15, "attribute_values": { "colour": "red", "power-source": "battery", "capacity": "4ah" } }
+    ]
+  },
+  {
+    "name": "Corded Impact Drill 750W",
+    "slug": "corded-impact-drill-750w-pwr0002",
+    "sku": "PWR-0002",
+    "category": "drills-drivers",
+    "brand": "boschtech",
+    "short_description": "750W impact drill for masonry, wood, and metal.",
+    "description": "A budget-friendly corded impact drill that never needs charging.\n\nThe hammer function switches on with a collar twist, and the variable-speed trigger makes starting a hole in tile as controllable as finishing one in pine.",
+    "regular_price": "64.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2100,
+    "length_mm": 280,
+    "width_mm": 90,
+    "height_mm": 220,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Corded Impact Drill 750W | Amazoff",
+    "seo_description": "750W corded impact drill for masonry, wood and metal. Fast delivery.",
+    "attributes": ["colour", "power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0002-main.jpg", "alt_text": "Impact drill", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Power", "value": "750W", "sort_order": 0 },
+      { "name": "Chuck", "value": "13mm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0002-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 30, "attribute_values": { "colour": "blue", "power-source": "corded" } }
+    ]
+  },
+  {
+    "name": "Compact Angle Drill for Tight Spaces",
+    "slug": "compact-angle-drill-tight-spaces-pwr0003",
+    "sku": "PWR-0003",
+    "category": "drills-drivers",
+    "brand": "hikoki",
+    "short_description": "Right-angle drill for plumbing and electrical work in tight cavities.",
+    "description": "Built for the jobs where a standard drill simply does not fit — between joists, behind cabinets, inside wall cavities.\n\nThe right-angle head is under 60mm tall, and the keyless chuck still takes standard 10mm bits.",
+    "regular_price": "129.00",
+    "discount_price": "109.00",
+    "discount_starts_at": "-3 days",
+    "discount_ends_at": "+11 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1350,
+    "length_mm": 310,
+    "width_mm": 60,
+    "height_mm": 180,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Compact Angle Drill | Amazoff",
+    "seo_description": "Right-angle drill for tight spaces. Discounted for a limited time.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0003-main.jpg", "alt_text": "Angle drill", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Head height", "value": "58mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 8, "attribute_values": { "power-source": "battery" } }
+    ]
+  },
+  {
+    "name": "18V Cordless Circular Saw",
+    "slug": "18v-cordless-circular-saw-pwr0004",
+    "sku": "PWR-0004",
+    "category": "saws",
+    "brand": "makita",
+    "short_description": "165mm cordless circular saw for framing and sheet stock.",
+    "description": "A 165mm blade cuts a stud in one pass, and the tool-free depth and bevel adjustments mean fewer trips back to the bench to reset an angle.\n\nRuns on the same 18V battery platform as the rest of the drill-driver line.",
+    "regular_price": "249.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3100,
+    "length_mm": 380,
+    "width_mm": 220,
+    "height_mm": 260,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "18V Cordless Circular Saw | Amazoff",
+    "seo_description": "165mm cordless circular saw, tool-free depth and bevel. Buy online.",
+    "attributes": ["power-source", "capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0004-main.jpg", "alt_text": "Circular saw", "is_main": true, "sort_order": 0 },
+      { "key": "blade", "path": "demo/pwr0004-blade.jpg", "alt_text": "Blade close-up", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Blade diameter", "value": "165mm", "sort_order": 0 },
+      { "name": "Max cut depth", "value": "57mm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0004-5AH", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "blade"], "initial_quantity": 12, "attribute_values": { "power-source": "battery", "capacity": "5ah" } },
+      { "sku": "PWR-0004-BARE", "price": "159.00", "discount_price": null, "weight_g": 2600, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 20, "attribute_values": { "power-source": "battery", "capacity": "2ah" } }
+    ]
+  },
+  {
+    "name": "Petrol Chainsaw 45cc",
+    "slug": "petrol-chainsaw-45cc-pwr0005",
+    "sku": "PWR-0005",
+    "category": "saws",
+    "brand": "husqvarna",
+    "short_description": "45cc petrol chainsaw with 40cm bar for felling and firewood.",
+    "description": "A mid-size petrol chainsaw that handles everything from firewood processing to felling small trees.\n\nThe anti-vibration mounts and automatic chain oiler are what keep this comfortable through a full afternoon of cutting, not just the first ten minutes.",
+    "regular_price": "349.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 5200,
+    "length_mm": 450,
+    "width_mm": 250,
+    "height_mm": 280,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Petrol Chainsaw 45cc | Amazoff",
+    "seo_description": "45cc petrol chainsaw, 40cm bar, automatic oiler. Delivery across Bulgaria.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0005-main.jpg", "alt_text": "Chainsaw", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Engine", "value": "45cc, 2-stroke", "sort_order": 0 },
+      { "name": "Bar length", "value": "40cm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0005-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 6, "attribute_values": { "power-source": "petrol" } }
+    ]
+  },
+  {
+    "name": "Compact Jigsaw with Laser Guide",
+    "slug": "compact-jigsaw-laser-guide-pwr0006",
+    "sku": "PWR-0006",
+    "category": "saws",
+    "brand": "einhell",
+    "short_description": "Corded jigsaw with laser cut-line guide and tool-free blade change.",
+    "description": "A jigsaw for curved and straight cuts alike, with a laser line that projects the blade path onto the workpiece before the cut starts.\n\nTool-free blade change means switching from wood to metal blades takes seconds, not a hex key hunt.",
+    "regular_price": "54.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1900,
+    "length_mm": 250,
+    "width_mm": 80,
+    "height_mm": 190,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Compact Jigsaw with Laser Guide | Amazoff",
+    "seo_description": "Corded jigsaw with laser guide, tool-free blade change.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0006-main.jpg", "alt_text": "Jigsaw", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Power", "value": "600W", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0006-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 0, "attribute_values": { "power-source": "corded" } }
+    ]
+  },
+  {
+    "name": "Random Orbital Sander 5-inch",
+    "slug": "random-orbital-sander-5-inch-pwr0007",
+    "sku": "PWR-0007",
+    "category": "sanders-grinders",
+    "brand": "dewalt",
+    "short_description": "5-inch random orbital sander with dust collection bag.",
+    "description": "A finishing sander that leaves no swirl marks, thanks to the random orbit motion rather than a fixed circular pattern.\n\nThe hook-and-loop disc system means changing grits takes seconds between passes.",
+    "regular_price": "79.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1100,
+    "length_mm": 200,
+    "width_mm": 130,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Random Orbital Sander 5-inch | Amazoff",
+    "seo_description": "5-inch random orbital sander, dust bag included.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0007-main.jpg", "alt_text": "Orbital sander", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Disc size", "value": "125mm", "sort_order": 0 },
+      { "name": "Orbit rate", "value": "12,000 OPM", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0007-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "power-source": "corded" } }
+    ]
+  },
+  {
+    "name": "Angle Grinder 115mm 850W",
+    "slug": "angle-grinder-115mm-850w-pwr0008",
+    "sku": "PWR-0008",
+    "category": "sanders-grinders",
+    "brand": "boschtech",
+    "short_description": "850W angle grinder for cutting, grinding, and rust removal.",
+    "description": "A workhorse angle grinder for metal fabrication, tile cutting, and rust removal, with a two-position side handle for either grip.\n\nThe spindle lock makes disc changes a one-hand job.",
+    "regular_price": "44.90",
+    "discount_price": "36.90",
+    "discount_starts_at": "-30 days",
+    "discount_ends_at": "-2 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1800,
+    "length_mm": 270,
+    "width_mm": 100,
+    "height_mm": 110,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Angle Grinder 115mm 850W | Amazoff",
+    "seo_description": "850W angle grinder, 115mm disc, spindle lock.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0008-main.jpg", "alt_text": "Angle grinder", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Disc size", "value": "115mm", "sort_order": 0 },
+      { "name": "Power", "value": "850W", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0008-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "power-source": "corded" } }
+    ]
+  },
+  {
+    "name": "Bench Grinder Twin Wheel 200W",
+    "slug": "bench-grinder-twin-wheel-200w-pwr0009",
+    "sku": "PWR-0009",
+    "category": "sanders-grinders",
+    "brand": "einhell",
+    "short_description": "Twin-wheel bench grinder for sharpening and deburring.",
+    "description": "A stationary bench grinder with a coarse wheel for shaping and a fine wheel for finishing, on the same shaft.\n\nCast-iron tool rests keep chisels and drill bits steady against the wheel at a consistent angle.",
+    "regular_price": "69.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 8500,
+    "length_mm": 350,
+    "width_mm": 220,
+    "height_mm": 250,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Bench Grinder Twin Wheel | Amazoff",
+    "seo_description": "Twin-wheel bench grinder, 200W, coarse and fine wheels.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/pwr0009-main.jpg", "alt_text": "Bench grinder", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Wheel diameter", "value": "150mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0009-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "images": ["main"], "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "18V Cordless 4-Piece Combo Kit — Drill, Driver, Grinder, Sander, for a Full Home Renovation",
+    "slug": "18v-multi-tool-combo-kit-pwr0010",
+    "sku": "PWR-0010",
+    "category": "power-tools",
+    "brand": "makita",
+    "short_description": "4-piece 18V combo kit: drill, impact driver, grinder, sander.",
+    "description": "Four tools, one battery platform, one charger. This kit covers the bulk of a home renovation without buying four separate chargers or juggling four battery types.\n\nEach tool ships in its own molded case, all four nest into the outer kit box.",
+    "regular_price": "449.00",
+    "discount_price": "399.00",
+    "discount_starts_at": "-1 day",
+    "discount_ends_at": "+20 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 7200,
+    "length_mm": 500,
+    "width_mm": 400,
+    "height_mm": 200,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "18V Cordless Combo Kit | Amazoff",
+    "seo_description": "4-piece 18V combo kit: drill, driver, grinder, sander. Save 50 EUR this month.",
+    "attributes": ["capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0010-main.jpg", "alt_text": "Combo kit", "is_main": true, "sort_order": 0 },
+      { "key": "open", "path": "demo/pwr0010-open.jpg", "alt_text": "Case open", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Tools included", "value": "4", "sort_order": 0 },
+      { "name": "Batteries included", "value": "2", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0010-4AH", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "open"], "initial_quantity": 5, "attribute_values": { "capacity": "4ah" } },
+      { "sku": "PWR-0010-5AH", "price": "479.00", "discount_price": null, "weight_g": 7800, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "capacity": "5ah" } }
+    ]
+  },
+  {
+    "name": "Cordless Rotary Hammer Drill SDS+",
+    "slug": "cordless-rotary-hammer-drill-sds-pwr0011",
+    "sku": "PWR-0011",
+    "category": "drills-drivers",
+    "brand": "hikoki",
+    "short_description": "SDS+ rotary hammer for concrete and masonry drilling.",
+    "description": "The SDS+ chuck lets bits float slightly under impact, which is what makes hammer drilling through concrete efficient rather than just loud.\n\nA depth stop rod is included for repeatable anchor-hole depths.",
+    "regular_price": "219.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2900,
+    "length_mm": 360,
+    "width_mm": 100,
+    "height_mm": 230,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cordless Rotary Hammer Drill SDS+ | Amazoff",
+    "seo_description": "SDS+ rotary hammer, cordless, depth stop rod included.",
+    "attributes": ["power-source", "capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0011-main.jpg", "alt_text": "Rotary hammer", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Chuck", "value": "SDS+", "sort_order": 0 },
+      { "name": "Impact energy", "value": "2.0 J", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0011-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": { "power-source": "battery", "capacity": "5ah" } }
+    ]
+  },
+  {
+    "name": "Cordless Screwdriver Compact 3.6V",
+    "slug": "cordless-screwdriver-compact-3-6v-pwr0012",
+    "sku": "PWR-0012",
+    "category": "drills-drivers",
+    "brand": "stanley",
+    "short_description": "Pocket-size 3.6V screwdriver for furniture assembly and small fixings.",
+    "description": "Small enough for a toolbox side pocket, strong enough for flat-pack furniture and picture hanging.\n\nCharges over USB-C, ships with a 12-piece bit set in the handle.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 250,
+    "length_mm": 180,
+    "width_mm": 40,
+    "height_mm": 40,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Compact Cordless Screwdriver | Amazoff",
+    "seo_description": "3.6V cordless screwdriver, USB-C charging, 12-bit set included.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0012-main.jpg", "alt_text": "Compact screwdriver", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Charging", "value": "USB-C", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0012-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 60, "attribute_values": { "colour": "black" } },
+      { "sku": "PWR-0012-YEL", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 22, "attribute_values": { "colour": "yellow" } },
+      { "sku": "PWR-0012-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 1, "attribute_values": { "colour": "grey" } }
+    ]
+  },
+  {
+    "name": "Table Saw 254mm with Stand",
+    "slug": "table-saw-254mm-with-stand-pwr0013",
+    "sku": "PWR-0013",
+    "category": "saws",
+    "brand": "dewalt",
+    "short_description": "254mm table saw on a folding leg stand, for site and workshop use.",
+    "description": "A site table saw that rips sheet stock cleanly and folds down for transport between jobs.\n\nThe rip fence locks parallel to the blade without the drift cheaper fences develop after a few months.",
+    "regular_price": "599.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 24000,
+    "length_mm": 700,
+    "width_mm": 650,
+    "height_mm": 900,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Table Saw 254mm with Stand | Amazoff",
+    "seo_description": "254mm table saw, folding stand, precision rip fence.",
+    "attributes": ["power-source"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0013-main.jpg", "alt_text": "Table saw", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Blade diameter", "value": "254mm", "sort_order": 0 },
+      { "name": "Rip capacity", "value": "600mm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0013-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 2, "attribute_values": { "power-source": "corded" } }
+    ]
+  },
+  {
+    "name": "Mitre Saw 216mm Sliding",
+    "slug": "mitre-saw-216mm-sliding-pwr0014",
+    "sku": "PWR-0014",
+    "category": "saws",
+    "brand": "boschtech",
+    "short_description": "216mm sliding compound mitre saw for trim and framing.",
+    "description": "The sliding rail extends crosscut capacity well past what a fixed-head mitre saw manages, useful for skirting boards and wide trim.\n\nBevel and mitre scales are laser-etched, not printed stickers that wear off.",
+    "regular_price": "279.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 14500,
+    "length_mm": 600,
+    "width_mm": 500,
+    "height_mm": 450,
+    "is_available": false,
+    "is_featured": false,
+    "seo_title": "Sliding Mitre Saw 216mm | Amazoff",
+    "seo_description": "216mm sliding compound mitre saw. Currently unavailable.",
+    "attributes": [],
+    "images": [],
+    "specifications": [
+      { "name": "Blade diameter", "value": "216mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0014-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Belt Sander 75mm",
+    "slug": "belt-sander-75mm-pwr0015",
+    "sku": "PWR-0015",
+    "category": "sanders-grinders",
+    "brand": "hikoki",
+    "short_description": "75mm belt sander for fast stock removal on wood and paint.",
+    "description": "For rough shaping and paint stripping where an orbital sander is too slow.\n\nThe dust bag catches most of the debris, and the front roller has a small parking stand so the belt does not contact the bench.",
+    "regular_price": "94.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3200,
+    "length_mm": 310,
+    "width_mm": 110,
+    "height_mm": 170,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Belt Sander 75mm | Amazoff",
+    "seo_description": "75mm belt sander, dust bag included, fast stock removal.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/pwr0015-main.jpg", "alt_text": "Belt sander", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Belt size", "value": "75 x 533mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0015-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 17, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Cordless Impact Wrench 1/2-inch",
+    "slug": "cordless-impact-wrench-half-inch-pwr0016",
+    "sku": "PWR-0016",
+    "category": "power-tools",
+    "brand": "dewalt",
+    "short_description": "18V impact wrench with 1/2-inch square drive for automotive and site use.",
+    "description": "High-torque impact wrench for lug nuts, suspension bolts, and structural steel connections.\n\nThe hog-ring anvil holds sockets securely without a detent pin to lose.",
+    "regular_price": "299.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2400,
+    "length_mm": 220,
+    "width_mm": 90,
+    "height_mm": 240,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cordless Impact Wrench | Amazoff",
+    "seo_description": "18V impact wrench, 1/2-inch drive, hog-ring anvil.",
+    "attributes": ["capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0016-main.jpg", "alt_text": "Impact wrench", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Max torque", "value": "700 Nm", "sort_order": 0 },
+      { "name": "Drive size", "value": "1/2 inch", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "PWR-0016-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 9, "attribute_values": { "capacity": "5ah" } }
+    ]
+  },
+  {
+    "name": "Heat Gun 2000W Dual Temperature",
+    "slug": "heat-gun-2000w-dual-temperature-pwr0017",
+    "sku": "PWR-0017",
+    "category": "power-tools",
+    "brand": "einhell",
+    "short_description": "2000W heat gun with two temperature settings for stripping and shrink-wrap.",
+    "description": "Strips old paint, softens adhesive, and shrinks heat-shrink tubing on the low setting without scorching it.\n\nComes with two nozzle attachments — a wide fan for paint, a narrow cone for precise heat on small parts.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 2,
+    "weight_g": 700,
+    "length_mm": 250,
+    "width_mm": 80,
+    "height_mm": 90,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Heat Gun 2000W | Amazoff",
+    "seo_description": "2000W dual-temperature heat gun, two nozzle attachments included.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/pwr0017-main.jpg", "alt_text": "Heat gun", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Power", "value": "2000W", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0017-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 33, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Cordless Nail Gun 18V Brad",
+    "slug": "cordless-nail-gun-18v-brad-pwr0018",
+    "sku": "PWR-0018",
+    "category": "power-tools",
+    "brand": "makita",
+    "short_description": "Cordless brad nailer, 18-gauge, no compressor required.",
+    "description": "A cordless brad nailer for trim work and light carpentry, with no hose and no compressor to drag around.\n\nTool-free jam clearing and a depth-of-drive dial for flush or countersunk finishes.",
+    "regular_price": "179.00",
+    "discount_price": "159.00",
+    "discount_starts_at": "-5 days",
+    "discount_ends_at": "+9 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1500,
+    "length_mm": 280,
+    "width_mm": 90,
+    "height_mm": 260,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cordless Brad Nail Gun 18V | Amazoff",
+    "seo_description": "18V cordless brad nailer, no compressor needed. On sale now.",
+    "attributes": ["capacity"],
+    "images": [
+      { "key": "main", "path": "demo/pwr0018-main.jpg", "alt_text": "Nail gun", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Nail gauge", "value": "18-gauge", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "PWR-0018-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 11, "attribute_values": { "capacity": "2ah" } }
+    ]
+  }
+]

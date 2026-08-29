@@ -9,12 +9,15 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProductCategoriesTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            // parent.name below crosses a relation; see CLAUDE.md's N+1 rule.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('parent'))
             ->columns([
                 TextColumn::make('parent.name')
                     ->searchable(),

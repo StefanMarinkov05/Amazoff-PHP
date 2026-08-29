@@ -54,7 +54,7 @@ final class CalculateCouponDiscount
         $matchedSubtotal = '0.00';
 
         foreach ($matched as $line) {
-            $matchedSubtotal = bcadd($matchedSubtotal, $line->lineTotal, 2);
+            $matchedSubtotal = (string) Money::of($matchedSubtotal)->add(Money::of($line->lineTotal));
         }
 
         $discount = self::discountAmount($coupon, $matchedSubtotal);
@@ -95,7 +95,7 @@ final class CalculateCouponDiscount
             return;
         }
 
-        if (bccomp($subtotal, (string) $coupon->minimum_order_value, 2) < 0) {
+        if (Money::of($subtotal)->isLessThan(Money::of((string) $coupon->minimum_order_value))) {
             throw CouponNotApplicableException::belowMinimum($coupon, $subtotal);
         }
     }
@@ -129,19 +129,24 @@ final class CalculateCouponDiscount
 
     private static function discountAmount(Coupon $coupon, string $matchedSubtotal): string
     {
+        $matched = Money::of($matchedSubtotal);
+
+        // A percentage coupon takes a share *of* the matched subtotal, so it
+        // is shareOf against a 100 total rather than percentageOf, which
+        // extracts a portion already included in the amount.
         $raw = $coupon->type === CouponType::Percentage
-            ? bcdiv(bcmul($matchedSubtotal, (string) $coupon->value, 4), '100', 2)
-            : (string) $coupon->value;
+            ? Money::of((string) $coupon->value)->shareOf($matched, Money::of('100'))
+            : Money::of((string) $coupon->value);
 
         // A fixed-amount coupon, or a percentage coupon with no cap, never
         // discounts more than the lines it matched.
-        $capped = bccomp($raw, $matchedSubtotal, 2) > 0 ? $matchedSubtotal : $raw;
+        $capped = $raw->cappedAt($matched);
 
-        if ($coupon->max_discount_amount !== null && bccomp($capped, (string) $coupon->max_discount_amount, 2) > 0) {
-            return (string) $coupon->max_discount_amount;
+        if ($coupon->max_discount_amount !== null) {
+            $capped = $capped->cappedAt(Money::of((string) $coupon->max_discount_amount));
         }
 
-        return $capped;
+        return (string) $capped;
     }
 
     /**
@@ -149,28 +154,26 @@ final class CalculateCouponDiscount
      */
     private static function vatAfterDiscount(Collection $matched, string $discount, string $matchedSubtotal): string
     {
-        if (bccomp($matchedSubtotal, '0.00', 2) === 0) {
-            return '0.00';
+        $total = Money::of($matchedSubtotal);
+
+        if ($total->isZero()) {
+            return (string) Money::zero();
         }
 
-        $vat = '0.00';
+        $vat = Money::zero();
+        $pool = Money::of($discount);
 
         foreach ($matched as $line) {
+            $lineTotal = Money::of($line->lineTotal);
+
             // This line's share of the discount, proportional to its share
             // of the matched subtotal — computed here only, never persisted
             // per line (decision 3).
-            $lineDiscount = bcdiv(bcmul($discount, $line->lineTotal, 4), $matchedSubtotal, 2);
-            $lineAfterDiscount = bcsub($line->lineTotal, $lineDiscount, 2);
+            $lineAfterDiscount = $lineTotal->subtract($lineTotal->shareOf($pool, $total));
 
-            $lineVat = bcdiv(
-                bcmul($lineAfterDiscount, $line->vatRate, 4),
-                bcadd('100', $line->vatRate, 4),
-                2,
-            );
-
-            $vat = bcadd($vat, $lineVat, 2);
+            $vat = $vat->add($lineAfterDiscount->percentageOf($line->vatRate));
         }
 
-        return $vat;
+        return (string) $vat;
     }
 }

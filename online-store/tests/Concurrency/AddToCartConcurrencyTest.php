@@ -8,7 +8,6 @@ use App\Models\CartItem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Symfony\Component\Process\Process;
 
 /*
  * `AddToCart` takes no lock. One owner is not one request: two tabs, a
@@ -47,76 +46,14 @@ afterEach(function (): void {
 });
 
 /**
- * @return array<int, string> one entry per worker, 'OK:<quantity>' or 'FAILED:<class>'
+ * @return array<int, string> one entry per worker, 'OK' or 'FAILED:<class>'
  */
 function raceTwoAddsToOneCart(int $cartId, int $variationId, int $quantity): array
 {
-    $script = <<<'PHP'
-        <?php
-        require __DIR__.'/vendor/autoload.php';
-        $app = require __DIR__.'/bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        $cart = App\Models\Cart::findOrFail((int) $argv[1]);
-        $variation = App\Models\ProductVariation::findOrFail((int) $argv[2]);
-        $quantity = (int) $argv[3];
-        $startAt = (float) $argv[4];
-
-        Illuminate\Support\Facades\DB::select('SELECT 1');
-
-        if (($remaining = $startAt - microtime(true)) > 0.01) {
-            usleep((int) (($remaining - 0.01) * 1_000_000));
-        }
-        while (microtime(true) < $startAt) {
-            // busy-wait to microsecond alignment
-        }
-
-        try {
-            $item = app(App\Actions\Cart\AddToCart::class)->handle($cart, $variation, $quantity);
-            echo 'OK:'.$item->quantity;
-        } catch (Throwable $e) {
-            echo 'FAILED:'.get_class($e);
-        }
-        PHP;
-
-    file_put_contents(base_path('cart-race-worker.php'), $script);
-
-    $startAt = microtime(true) + (float) (getenv('RACE_BARRIER_SECONDS') ?: 8.0);
-
-    try {
-        $processes = collect(range(1, 2))->map(function () use ($cartId, $variationId, $quantity, $startAt): Process {
-            $process = new Process(
-                [
-                    'php',
-                    'cart-race-worker.php',
-                    (string) $cartId,
-                    (string) $variationId,
-                    (string) $quantity,
-                    (string) $startAt,
-                ],
-                base_path(),
-                [
-                    'DB_CONNECTION' => 'mysql',
-                    'DB_DATABASE' => config('database.connections.mysql.database'),
-                    'DB_HOST' => config('database.connections.mysql.host'),
-                    'DB_PORT' => (string) config('database.connections.mysql.port'),
-                    'DB_USERNAME' => config('database.connections.mysql.username'),
-                    'DB_PASSWORD' => config('database.connections.mysql.password'),
-                ],
-            );
-            $process->start();
-
-            return $process;
-        });
-
-        $processes->each(fn (Process $p) => $p->wait());
-
-        return $processes
-            ->map(fn (Process $p) => trim($p->getOutput().$p->getErrorOutput()))
-            ->all();
-    } finally {
-        @unlink(base_path('cart-race-worker.php'));
-    }
+    return runRaceWorkers([
+        ['action' => 'add-to-cart', 'ids' => [$cartId, $variationId], 'args' => [$quantity]],
+        ['action' => 'add-to-cart', 'ids' => [$cartId, $variationId], 'args' => [$quantity]],
+    ])->all();
 }
 
 it('keeps both of two simultaneous adds of the same variation', function (): void {
@@ -130,7 +67,7 @@ it('keeps both of two simultaneous adds of the same variation', function (): voi
     // insert; the unique key rejects the second insert, and that process
     // retries as an update against the row its rival just created. Neither
     // process surfaces the collision to the caller.
-    expect($outputs->filter(fn (string $o) => str_starts_with($o, 'OK:')))->toHaveCount(
+    expect($outputs->filter(fn (string $o) => $o === 'OK'))->toHaveCount(
         2,
         'Expected both adds to succeed. Fewer than two usually means the retry '.
         'was removed and one process saw the exception surface.'.$report,

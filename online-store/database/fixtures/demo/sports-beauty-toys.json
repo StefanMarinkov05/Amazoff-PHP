@@ -1,0 +1,763 @@
+[
+  {
+    "name": "Adjustable Dumbbell Set 2x20kg",
+    "slug": "adjustable-dumbbell-set-2x20kg-spt0001",
+    "sku": "SPT-0001",
+    "category": "sports-fitness-weights",
+    "brand": "peakstride",
+    "short_description": "Adjustable dumbbell pair, 2.5-20kg each, quick-dial change.",
+    "description": "A quick-dial mechanism swaps weight plates in seconds, replacing a full rack of fixed dumbbells with two adjustable ones.\n\nEach dumbbell adjusts from 2.5kg to 20kg in 2.5kg increments, covering warm-up through heavy sets.",
+    "regular_price": "249.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 40000,
+    "length_mm": 400,
+    "width_mm": 200,
+    "height_mm": 200,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Adjustable Dumbbell Set 2x20kg | Amazoff",
+    "seo_description": "Adjustable dumbbell pair, 2.5-20kg, quick-dial change.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/spt0001-main.jpg", "alt_text": "Adjustable dumbbells", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Weight range", "value": "2.5-20kg each", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0001-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 10, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Non-Slip Yoga Mat 6mm",
+    "slug": "non-slip-yoga-mat-6mm-spt0002",
+    "sku": "SPT-0002",
+    "category": "sports-fitness-yoga",
+    "brand": "peakstride",
+    "short_description": "6mm non-slip yoga mat with carry strap.",
+    "description": "A 6mm thickness that cushions joints on a hard floor without sacrificing the stability a thicker mat can compromise.\n\nA textured, non-slip surface holds through a sweaty session, and the included strap makes carrying it to a studio easy.",
+    "regular_price": "29.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1100,
+    "length_mm": 1800,
+    "width_mm": 600,
+    "height_mm": 6,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Non-Slip Yoga Mat 6mm | Amazoff",
+    "seo_description": "6mm non-slip yoga mat, carry strap included.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/spt0002-main.jpg", "alt_text": "Yoga mat", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Thickness", "value": "6mm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0002-PUR", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 60, "attribute_values": { "colour": "pink" } },
+      { "sku": "SPT-0002-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 45, "attribute_values": { "colour": "blue" } }
+    ]
+  },
+  {
+    "name": "Folding Treadmill Compact",
+    "slug": "folding-treadmill-compact-spt0003",
+    "sku": "SPT-0003",
+    "category": "sports-fitness-cardio",
+    "brand": "peakstride",
+    "short_description": "Folding treadmill with 12 preset programs, compact storage.",
+    "description": "Folds upright on a wheeled base for storage against a wall, solving the biggest objection to a home treadmill.\n\n12 preset programs and incline adjustment add variety past flat-belt walking.",
+    "regular_price": "399.00",
+    "discount_price": "349.00",
+    "discount_starts_at": "-6 days",
+    "discount_ends_at": "+8 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 45000,
+    "length_mm": 1600,
+    "width_mm": 750,
+    "height_mm": 1300,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Folding Treadmill Compact | Amazoff",
+    "seo_description": "Folding treadmill, 12 programs. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/spt0003-main.jpg", "alt_text": "Folding treadmill", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Programs", "value": "12 preset", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 3, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Aluminium Road Bike 21-Speed",
+    "slug": "aluminium-road-bike-21-speed-spt0004",
+    "sku": "SPT-0004",
+    "category": "sports-cycling-bikes",
+    "brand": "veloryde",
+    "short_description": "Aluminium frame road bike, 21-speed, drop handlebars.",
+    "description": "A lightweight aluminium frame keeps this quick off the line without the cost of carbon fibre.\n\n21 speeds across a wide gear range handle flat commutes and hillier weekend routes alike.",
+    "regular_price": "449.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 11000,
+    "length_mm": 1750,
+    "width_mm": 550,
+    "height_mm": 1050,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Aluminium Road Bike 21-Speed | Amazoff",
+    "seo_description": "Aluminium frame road bike, 21-speed.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/spt0004-main.jpg", "alt_text": "Road bike", "is_main": true, "sort_order": 0 },
+      { "key": "gears", "path": "demo/spt0004-gears.jpg", "alt_text": "Gear detail", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Speeds", "value": "21", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0004-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "gears"], "initial_quantity": 2, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Cycling Helmet Adjustable Fit",
+    "slug": "cycling-helmet-adjustable-fit-spt0005",
+    "sku": "SPT-0005",
+    "category": "sports-cycling-helmets",
+    "brand": "veloryde",
+    "short_description": "Cycling helmet with 18-vent ventilation and adjustable dial fit.",
+    "description": "18 vents keep airflow moving on a warm ride, and the rear dial fit system adjusts the fit finely without swapping pads.\n\nMeets EN 1078 safety standard, the minimum any road cyclist should look for.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 280,
+    "length_mm": 250,
+    "width_mm": 200,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Cycling Helmet Adjustable Fit | Amazoff",
+    "seo_description": "Cycling helmet, 18-vent, adjustable dial fit.",
+    "attributes": ["size", "colour"],
+    "images": [
+      { "key": "main", "path": "demo/spt0005-main.jpg", "alt_text": "Cycling helmet", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Standard", "value": "EN 1078", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0005-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 30, "attribute_values": { "size": "m", "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Bike Rear Rack and Pannier Bag",
+    "slug": "bike-rear-rack-pannier-bag-spt0006",
+    "sku": "SPT-0006",
+    "category": "sports-cycling-accessories",
+    "brand": "veloryde",
+    "short_description": "Bike rear rack with waterproof pannier bag, 20L.",
+    "description": "A rear rack rated for real cargo, paired with a 20L waterproof pannier that clips on and off in seconds.\n\nReflective strips on the pannier add visibility for a commute that runs into dusk.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1600,
+    "length_mm": 400,
+    "width_mm": 300,
+    "height_mm": 250,
+    "is_available": false,
+    "is_featured": false,
+    "seo_title": "Bike Rear Rack and Pannier Bag | Amazoff",
+    "seo_description": "Bike rear rack, waterproof pannier, 20L. Currently unavailable.",
+    "attributes": [],
+    "images": [],
+    "specifications": [
+      { "name": "Pannier capacity", "value": "20L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0006-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "4-Person Camping Tent Waterproof",
+    "slug": "4-person-camping-tent-waterproof-spt0007",
+    "sku": "SPT-0007",
+    "category": "sports-camping-tents",
+    "brand": "campvista",
+    "short_description": "4-person waterproof camping tent, quick-pitch design.",
+    "description": "A quick-pitch design gets this up in under ten minutes, versus the twenty-plus a traditional pole tent often takes.\n\nA 3000mm waterproof rating and taped seams hold up through a genuinely wet weekend, not just light drizzle.",
+    "regular_price": "129.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 5200,
+    "length_mm": 600,
+    "width_mm": 250,
+    "height_mm": 250,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "4-Person Camping Tent | Amazoff",
+    "seo_description": "4-person waterproof camping tent, quick-pitch.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/spt0007-main.jpg", "alt_text": "Camping tent", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "4 people", "sort_order": 0 },
+      { "name": "Waterproof rating", "value": "3000mm", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "SPT-0007-GRN", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 14, "attribute_values": { "colour": "green" } }
+    ]
+  },
+  {
+    "name": "3-Season Sleeping Bag",
+    "slug": "3-season-sleeping-bag-spt0008",
+    "sku": "SPT-0008",
+    "category": "sports-camping-sleeping-bags",
+    "brand": "campvista",
+    "short_description": "3-season mummy sleeping bag, rated to -5°C.",
+    "description": "A mummy shape traps heat more efficiently than a rectangular bag, rated to -5°C for spring through autumn camping.\n\nCompresses into its own stuff sack to roughly the size of a loaf of bread for packing.",
+    "regular_price": "54.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1400,
+    "length_mm": 300,
+    "width_mm": 200,
+    "height_mm": 200,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "3-Season Sleeping Bag | Amazoff",
+    "seo_description": "3-season mummy sleeping bag, rated to -5°C.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/spt0008-main.jpg", "alt_text": "Sleeping bag", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Rating", "value": "-5°C", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0008-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 24, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Hiking Backpack 40L",
+    "slug": "hiking-backpack-40l-spt0009",
+    "sku": "SPT-0009",
+    "category": "sports-camping-backpacks",
+    "brand": "campvista",
+    "short_description": "40L hiking backpack with hip belt and rain cover.",
+    "description": "40L covers a multi-day hike without excess, with a padded hip belt that shifts load off the shoulders onto the hips where it belongs.\n\nAn included rain cover means an unexpected shower doesn't soak everything inside.",
+    "regular_price": "79.90",
+    "discount_price": "67.90",
+    "discount_starts_at": "-7 days",
+    "discount_ends_at": "+7 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1700,
+    "length_mm": 700,
+    "width_mm": 350,
+    "height_mm": 250,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Hiking Backpack 40L | Amazoff",
+    "seo_description": "40L hiking backpack, hip belt, rain cover. On sale now.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/spt0009-main.jpg", "alt_text": "Hiking backpack", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Capacity", "value": "40L", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0009-GRN", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 19, "attribute_values": { "colour": "green" } }
+    ]
+  },
+  {
+    "name": "Match-Quality Football Size 5",
+    "slug": "match-quality-football-size-5-spt0010",
+    "sku": "SPT-0010",
+    "category": "sports-teamsports-footballs",
+    "brand": "playnest",
+    "short_description": "Size 5 match-quality football, thermally bonded panels.",
+    "description": "Thermally bonded panels rather than stitched seams shed less water and hold shape better through a full season of use.\n\nSize 5 is the regulation adult size, suited to club and casual play alike.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 430,
+    "length_mm": 220,
+    "width_mm": 220,
+    "height_mm": 220,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Match-Quality Football Size 5 | Amazoff",
+    "seo_description": "Size 5 match-quality football, thermally bonded.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/spt0010-main.jpg", "alt_text": "Football", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Size", "value": "5", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0010-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 66, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Indoor/Outdoor Basketball Size 7",
+    "slug": "indoor-outdoor-basketball-size-7-spt0011",
+    "sku": "SPT-0011",
+    "category": "sports-teamsports-basketballs",
+    "brand": "playnest",
+    "short_description": "Size 7 basketball for indoor and outdoor courts.",
+    "description": "A composite leather cover that grips well both on an indoor court and rougher outdoor asphalt.\n\nDeep channel grooves improve handling and control over a smoother, cheaper ball.",
+    "regular_price": "27.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 620,
+    "length_mm": 240,
+    "width_mm": 240,
+    "height_mm": 240,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Indoor/Outdoor Basketball Size 7 | Amazoff",
+    "seo_description": "Size 7 basketball, indoor and outdoor use.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/spt0011-main.jpg", "alt_text": "Basketball", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Size", "value": "7", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "SPT-0011-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Hydrating Face Moisturiser SPF 30",
+    "slug": "hydrating-face-moisturiser-spf30-bty0001",
+    "sku": "BTY-0001",
+    "category": "beauty-skincare-moisturisers",
+    "brand": "puravelle",
+    "short_description": "Daily hydrating moisturiser with SPF 30 sun protection.",
+    "description": "A lightweight, non-greasy formula that absorbs quickly enough to layer makeup over it without pilling.\n\nSPF 30 built in means one less step in a morning routine, and one less product to remember.",
+    "regular_price": "19.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 90,
+    "length_mm": 60,
+    "width_mm": 60,
+    "height_mm": 100,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Hydrating Moisturiser SPF 30 | Amazoff",
+    "seo_description": "Daily hydrating moisturiser with SPF 30.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/bty0001-main.jpg", "alt_text": "Face moisturiser", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "SPF", "value": "30", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0001-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 90, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Gentle Foaming Cleanser",
+    "slug": "gentle-foaming-cleanser-bty0002",
+    "sku": "BTY-0002",
+    "category": "beauty-skincare-cleansers",
+    "brand": "puravelle",
+    "short_description": "Gentle foaming face cleanser, sulfate-free.",
+    "description": "A sulfate-free foaming cleanser that lifts makeup and daily grime without the tight, stripped feeling harsher cleansers leave.\n\nSuited to daily use on most skin types, including sensitive skin that reacts to stronger formulas.",
+    "regular_price": "14.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 150,
+    "length_mm": 50,
+    "width_mm": 50,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Gentle Foaming Cleanser | Amazoff",
+    "seo_description": "Gentle foaming face cleanser, sulfate-free.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/bty0002-main.jpg", "alt_text": "Foaming cleanser", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Formula", "value": "Sulfate-free", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0002-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 75, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Vitamin C Brightening Serum",
+    "slug": "vitamin-c-brightening-serum-bty0003",
+    "sku": "BTY-0003",
+    "category": "beauty-skincare-serums",
+    "brand": "glownest",
+    "short_description": "Vitamin C brightening serum, 15% concentration.",
+    "description": "A 15% vitamin C concentration that balances visible results against the irritation higher concentrations can cause on sensitive skin.\n\nStored in an amber glass bottle to slow the oxidation that degrades vitamin C serums in clear packaging.",
+    "regular_price": "29.90",
+    "discount_price": "24.90",
+    "discount_starts_at": "-2 days",
+    "discount_ends_at": "+12 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 60,
+    "length_mm": 40,
+    "width_mm": 40,
+    "height_mm": 110,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Vitamin C Brightening Serum | Amazoff",
+    "seo_description": "Vitamin C brightening serum, 15%. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/bty0003-main.jpg", "alt_text": "Vitamin C serum", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Concentration", "value": "15% vitamin C", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 48, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Sulfate-Free Shampoo 400ml",
+    "slug": "sulfate-free-shampoo-400ml-bty0004",
+    "sku": "BTY-0004",
+    "category": "beauty-haircare-shampoo",
+    "brand": "glownest",
+    "short_description": "Sulfate-free shampoo, colour-safe, 400ml.",
+    "description": "A sulfate-free formula that cleans without stripping colour treatment, extending the life of a fresh dye job.\n\n400ml lasts through months of regular washing before needing a refill.",
+    "regular_price": "17.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 420,
+    "length_mm": 60,
+    "width_mm": 60,
+    "height_mm": 200,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Sulfate-Free Shampoo 400ml | Amazoff",
+    "seo_description": "Sulfate-free colour-safe shampoo, 400ml.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/bty0004-main.jpg", "alt_text": "Shampoo bottle", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Volume", "value": "400ml", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0004-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 58, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Ceramic Hair Straightener",
+    "slug": "ceramic-hair-straightener-bty0005",
+    "sku": "BTY-0005",
+    "category": "beauty-haircare-styling",
+    "brand": "glownest",
+    "short_description": "Ceramic hair straightener with adjustable temperature, 230°C max.",
+    "description": "Ceramic plates heat evenly and glide without snagging, unlike metal plates that can catch and pull.\n\nAdjustable temperature up to 230°C covers fine hair on the low end and coarse hair on the high end.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 350,
+    "length_mm": 280,
+    "width_mm": 40,
+    "height_mm": 40,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Ceramic Hair Straightener | Amazoff",
+    "seo_description": "Ceramic hair straightener, adjustable temperature.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/bty0005-main.jpg", "alt_text": "Hair straightener", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Max temperature", "value": "230°C", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0005-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Matte Liquid Lipstick",
+    "slug": "matte-liquid-lipstick-bty0006",
+    "sku": "BTY-0006",
+    "category": "beauty-makeup-lips",
+    "brand": "glownest",
+    "short_description": "Long-wear matte liquid lipstick, transfer-resistant.",
+    "description": "A liquid-to-matte formula that sets without the tacky feel some matte lipsticks leave, and resists transfer onto cups and masks.\n\nOne coat gives full coverage, so this doesn't need the layering some liquid lipsticks demand.",
+    "regular_price": "12.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 20,
+    "length_mm": 130,
+    "width_mm": 20,
+    "height_mm": 20,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Matte Liquid Lipstick | Amazoff",
+    "seo_description": "Long-wear matte liquid lipstick, transfer-resistant.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/bty0006-main.jpg", "alt_text": "Liquid lipstick", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Finish", "value": "Matte", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0006-RED", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 80, "attribute_values": { "colour": "red" } },
+      { "sku": "BTY-0006-PNK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 62, "attribute_values": { "colour": "pink" } }
+    ]
+  },
+  {
+    "name": "Longwear Foundation Full Coverage",
+    "slug": "longwear-foundation-full-coverage-bty0007",
+    "sku": "BTY-0007",
+    "category": "beauty-makeup-face",
+    "brand": "glownest",
+    "short_description": "Full coverage longwear liquid foundation, 12hr wear.",
+    "description": "Full coverage that still reads as skin rather than a mask, with a 12-hour wear claim that holds up through a normal workday.\n\nA pump dispenser controls product output precisely, avoiding the waste a dropper bottle causes.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 60,
+    "length_mm": 40,
+    "width_mm": 40,
+    "height_mm": 130,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Longwear Full Coverage Foundation | Amazoff",
+    "seo_description": "Full coverage longwear foundation, 12hr wear.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/bty0007-main.jpg", "alt_text": "Foundation bottle", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Wear time", "value": "12 hours", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0007-BEI", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "colour": "beige" } }
+    ]
+  },
+  {
+    "name": "Eau de Parfum Floral Bouquet 50ml",
+    "slug": "eau-de-parfum-floral-bouquet-50ml-bty0008",
+    "sku": "BTY-0008",
+    "category": "beauty-fragrance-perfume",
+    "brand": "glownest",
+    "short_description": "50ml eau de parfum, floral bouquet scent.",
+    "description": "A floral bouquet built around jasmine and rose, with a base that lingers rather than fading within the hour.\n\nEau de parfum concentration outlasts an eau de toilette, so this needs fewer reapplications through the day.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 200,
+    "length_mm": 60,
+    "width_mm": 60,
+    "height_mm": 120,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Eau de Parfum Floral Bouquet 50ml | Amazoff",
+    "seo_description": "50ml eau de parfum, floral bouquet.",
+    "attributes": ["scent"],
+    "images": [
+      { "key": "main", "path": "demo/bty0008-main.jpg", "alt_text": "Perfume bottle", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Volume", "value": "50ml", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "BTY-0008-FLR", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 20, "attribute_values": { "scent": "floral" } }
+    ]
+  },
+  {
+    "name": "1000-Piece Landscape Jigsaw Puzzle",
+    "slug": "1000-piece-landscape-jigsaw-puzzle-toy0001",
+    "sku": "TOY-0001",
+    "category": "toys-puzzles",
+    "brand": "playnest",
+    "short_description": "1000-piece landscape jigsaw puzzle for adults.",
+    "description": "A 1000-piece puzzle at a landscape scene detailed enough to reward patience, with pieces that interlock firmly rather than sliding apart.\n\nFinished size fits standard puzzle frames for anyone wanting to mount it afterward.",
+    "regular_price": "14.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 700,
+    "length_mm": 300,
+    "width_mm": 220,
+    "height_mm": 50,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "1000-Piece Landscape Jigsaw Puzzle | Amazoff",
+    "seo_description": "1000-piece landscape jigsaw puzzle.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/toy0001-main.jpg", "alt_text": "Jigsaw puzzle box", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "1000", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "TOY-0001-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 35, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Building Block Set 500-Piece City",
+    "slug": "building-block-set-500pc-city-toy0002",
+    "sku": "TOY-0002",
+    "category": "toys-building",
+    "brand": "playnest",
+    "short_description": "500-piece building block set, city theme, compatible with major brands.",
+    "description": "A 500-piece city-themed set with figures, vehicles, and buildings, compatible with the major building block brands already in most toy boxes.\n\nInstructions guide a first build, but the real value is in the freeform building afterward.",
+    "regular_price": "39.90",
+    "discount_price": "34.90",
+    "discount_starts_at": "-3 days",
+    "discount_ends_at": "+11 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1100,
+    "length_mm": 380,
+    "width_mm": 280,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Building Block Set 500-Piece City | Amazoff",
+    "seo_description": "500-piece city building block set. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/toy0002-main.jpg", "alt_text": "Building block set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "500", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "TOY-0002-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 27, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Family Strategy Board Game",
+    "slug": "family-strategy-board-game-toy0003",
+    "sku": "TOY-0003",
+    "category": "toys-boardgames",
+    "brand": "playnest",
+    "short_description": "Family strategy board game, 2-6 players, ages 10+.",
+    "description": "A resource-trading strategy game for 2-6 players, with enough depth to stay interesting after a dozen plays.\n\nGames run 45-60 minutes, short enough for a regular game night without eating the whole evening.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1000,
+    "length_mm": 300,
+    "width_mm": 300,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Family Strategy Board Game | Amazoff",
+    "seo_description": "Family strategy board game, 2-6 players.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/toy0003-main.jpg", "alt_text": "Board game box", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Players", "value": "2-6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "TOY-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 22, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Outdoor Trampoline 3m with Safety Net",
+    "slug": "outdoor-trampoline-3m-safety-net-toy0004",
+    "sku": "TOY-0004",
+    "category": "toys-outdoor",
+    "brand": "playnest",
+    "short_description": "3m outdoor trampoline with enclosed safety net.",
+    "description": "A 3m trampoline with a fully enclosed safety net, the feature that matters most for unsupervised backyard play.\n\nGalvanized steel frame resists rust through repeated exposure to rain and seasonal weather.",
+    "regular_price": "199.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 32000,
+    "length_mm": 3000,
+    "width_mm": 3000,
+    "height_mm": 2200,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Outdoor Trampoline 3m with Safety Net | Amazoff",
+    "seo_description": "3m outdoor trampoline, enclosed safety net.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/toy0004-main.jpg", "alt_text": "Outdoor trampoline", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Diameter", "value": "3m", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "TOY-0004-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 5, "attribute_values": {} }
+    ]
+  }
+]

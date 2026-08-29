@@ -7,9 +7,9 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * How a coupon's `value` column is interpreted. The arithmetic itself lives in
- * the discount Action, where it can use bcmath — an enum is the wrong place
- * for money handling.
+ * How a coupon's `value` column is interpreted. The arithmetic itself lives
+ * in `CalculateCouponDiscount`, through `App\Support\Money` — an enum is the
+ * wrong place for money handling.
  */
 enum CouponType: string implements HasLabel
 {

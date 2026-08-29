@@ -11,17 +11,20 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. Twelve Resources exist:
+`canAccessPanel()` on `User` gates it by role. 15 Resources exist:
 the catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
 `ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
 `make:filament-resource --generate` and corrected by hand where the
 generator didn't infer unique-index validation from the schema; `Product`,
 with `ProductVariation`/`ProductImage`/`ProductSpecification` as relation
 managers rather than resources of their own; `Coupon`; the read-mostly
-`ContactMessage` and `NewsletterSubscriber`; and one over spatie's `Role`,
-described under authorization below. Nothing exists yet for `Order` — the
-Actions that write it (`CreateOrder`, `TransitionOrderStatus`) are built and
-tested, but the panel surface is a later slice (6b in the working plan).
+`ContactMessage` and `NewsletterSubscriber`; `Article`, full CRUD, with its
+status-change menu generated from `ArticleStatus`'s transition matrix rather
+than hand-written; `ProductReview`, moderation only (approve/unapprove,
+no create); `Order`, read-only pending the status-transition Action's own
+panel surface — `CreateOrder` and `TransitionOrderStatus` are built and
+tested, but nothing writes `orders.status` from the panel yet; and one over
+spatie's `Role`, described under authorization below.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
@@ -34,8 +37,9 @@ working — staff reach the panel, a customer does not, and a user can hold
 two roles at once.
 
 The three staff role rows (`administrator`, `content_editor`,
-`warehouse_employee`) are seeded by `database/seeders/RoleSeeder.php`,
-called from `DatabaseSeeder`, so a fresh `migrate:fresh --seed` now produces
+`warehouse_employee`) are seeded by
+`database/seeders/System/RoleSeeder.php`, called from `DatabaseSeeder`, so
+a fresh `migrate:fresh --seed` now produces
 them in every environment. `PermissionSeeder` runs before it with a
 catalogue of 106 permissions named `{ability}_{resource}`, where the ability
 half matches the Laravel policy method that checks it — which is what keeps
@@ -51,7 +55,7 @@ permissions are added. The cost is that a policy can no longer deny an
 administrator anything, which pushes "nobody may do X" rules into the
 Actions as domain invariants.
 
-Twenty Policy classes exist — one per resource the permission catalogue
+20 Policy classes exist — one per resource the permission catalogue
 names, rather than one per Resource that happens to be built, since a
 missing policy fails open the moment someone scaffolds the resource. Most
 methods are a single `$user->can('{ability}_{resource}')`; they check
@@ -74,7 +78,7 @@ that controls what every role may do would be the one ungated model in the
 system.
 
 `tests/Feature/RolePermissionTest.php` covers the matrix, weighted toward
-the denials, and asserts that all twenty models resolve a policy at all.
+the denials, and asserts that all 20 models resolve a policy at all.
 
 A Filament resource over spatie's `Role` model makes §3.5 true rather than
 architectural: an administrator changes what a role may do from
@@ -91,10 +95,11 @@ Actions. `reference/permissions.md` lists the catalogue;
 not equivalent.
 
 Blueprint generated the schema from `online-store/draft.yaml`: 32 models, 32
-factories. Migrations now number 48 — the generated set plus hand-written
+factories. Migrations now number 51 — the generated set plus hand-written
 ones added since (check constraints, composite pivot keys, the `contact_
 messages` handling columns, dropping `coupons.times_used`, the
-`order_status_histories` unique constraint) — so this count moves often and
+`order_status_histories` unique constraint, the variation image pivot and
+dropping `product_variations.image_id`) — so this count moves often and
 is worth recounting (`ls database/migrations | wc -l`) rather than trusting a
 stale figure here. `migrate:fresh` applies cleanly and every factory
 persists a row, which `tests/Feature/FactoryTest.php` asserts rather than
@@ -109,7 +114,7 @@ the state machine is meant to live. `OrderStatus::canTransitionTo()` is now
 called, by `TransitionOrderStatus` — the other three matrices still have no
 caller.
 
-24 Actions exist across five areas (`reference/actions.md`).
+31 Actions exist across five areas (`reference/actions.md`).
 Business logic lives there now, not on the models — the models remain data
 structures with enum casts and relations, exactly as CLAUDE.md's
 Actions-own-the-rules architecture requires.
@@ -130,3 +135,11 @@ hasn't been tested against real code yet.
 Content translation storage shape and audit log shape are undecided. PHP
 version (`^8.3` declared, `8.4` actually required by the lockfile) is
 unresolved.
+
+Nothing calls `schedule:run` locally — no cron, no supervisor loop, in
+`docker-compose.yml` or the `app` image. `routes/console.php`'s `Schedule::`
+entries (`carts:expire`) are correct and tested, but won't fire in a local
+container on their own; run `docker compose exec app php artisan
+schedule:run` by hand to trigger due tasks, or `schedule:work` for a
+foreground loop, while developing against one. Forge registers this
+automatically in production per ADR-0001, so this only affects local dev.

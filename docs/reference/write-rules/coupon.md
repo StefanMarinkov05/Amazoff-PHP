@@ -8,9 +8,10 @@ rather than read off the code.
 Why the mechanisms differ is `explanation/concurrency-and-locking.md`. This
 page is the outcomes, in the same shape as its siblings,
 `reference/write-rules/cart.md` and `reference/write-rules/product.md`.
-`misc/coupon-actions-plan.md` is the design record this slice was built
-from; ten decisions, cited by number below where an outcome traces back to
-one.
+`misc/actions-plan.md`'s coupon section is the design record this slice was
+built from; ten decisions, cited by number below where an outcome traces
+back to one. (`misc/` is gitignored, so that record is local to whoever has
+it — the outcomes below are the committed form.)
 
 ## What enforces any of this
 
@@ -108,7 +109,7 @@ constraint making that certain.**
 | Race | Outcome | Evidence |
 |---|---|---|
 | Two different customers redeeming a coupon at `total_usage_limit = 1` | exactly one `CouponRedemption` row; the loser gets a clean `CouponNotApplicableException::totalLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of two different customers redeem" |
-| Two orders from the same customer (same `email_hash`, e.g. two tabs, a double-submitted "place order") redeeming at `usage_limit_per_customer = 1` | exactly one `CouponRedemption` row; the loser gets `perCustomerLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of two orders from the same customer" |
+| 2 orders from the same customer (same `email_hash`, e.g. two tabs, a double-submitted "place order") redeeming at `usage_limit_per_customer = 1` | exactly one `CouponRedemption` row; the loser gets `perCustomerLimitReached()` | `RedeemCouponConcurrencyTest`, "lets exactly one of 2 orders from the same customer" |
 | The same order redeeming the same coupon twice (retry, double-submit) | one row; the second call returns the first call's row rather than inserting or throwing | `RedeemCouponTest`, "returns the existing row rather than inserting twice" |
 
 The first two are **not** backstopped by a `CHECK` constraint — no
@@ -149,10 +150,12 @@ is independent of which products are in the cart, so it sits between the
 (possibly multiple, PK-sorted) `products`/`inventories` locks rather than
 racing either.
 
-No Action today takes both `coupons` and another locked table in the same
-transaction — this is a rule for whoever composes `RedeemCoupon` with
-`ReserveStock` inside `CreateOrder` (not yet built), not a currently
-exercised path.
+`CreateOrder` is exactly that composition, built and exercised — it locks
+`coupons` (via `RedeemCoupon`) before `inventories` (via `ReserveStock`),
+matching the declared order above. `write-rules/order.md`'s "Lock order"
+section is the current, authoritative account of that path; this page's
+description of the rule stands independently of which Action first needed
+it.
 
 `ApplyCoupon` and `RemoveCoupon` take no lock at all — nothing they do is
 contested state; see "Two actors at once" above for why `ApplyCoupon`'s
@@ -160,16 +163,14 @@ blind overwrite needs none.
 
 ## Known gaps
 
-**1. `RedeemCoupon` has no caller.** `CreateOrder` does not exist yet
-(slice 5). Every fact on this page is verified against `OrderFactory`-made
-orders and `Coupon`/`CouponRedemption` factories directly, not against a
-real checkout flow.
-
-**2. No storefront entry point for `ApplyCoupon` or `RemoveCoupon`.** Same
+**1. No storefront entry point for `ApplyCoupon` or `RemoveCoupon`.** Same
 gap `cart.md` names for the Cart Actions — no Livewire component or
-controller calls either yet.
+controller calls either yet. `RedeemCoupon` itself is no longer gapless in
+this way: `CreateOrder` calls it directly, and `write-rules/order.md`'s
+"Two actors at once" table covers the concurrency shape that composition
+produces.
 
-**3. Mixed-VAT-rate apportionment is notional, not stored.** A
+**2. Mixed-VAT-rate apportionment is notional, not stored.** A
 `categories`-scoped coupon spanning lines at different `vat_rate`s has its
 discount apportioned per line, proportional to each line's share of the
 matched subtotal, purely inside `CalculateCouponDiscount::vatAfterDiscount()`
@@ -178,7 +179,7 @@ letter ("one number stored once on the order, not allocated back per
 line") but is an extension of it the plan itself left open ("Open, not
 settled here"), not something decision 3 states outright.
 
-**4. Same-order double redemption is proven single-process only.** The
+**3. Same-order double redemption is proven single-process only.** The
 `UNIQUE(coupon_id, order_id)` retry path (`RedeemCouponTest`, "returns the
 existing row") is not raced across two real connections — per the plan's
 own test-obligations table, no window between two connections needs

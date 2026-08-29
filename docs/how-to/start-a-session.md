@@ -30,7 +30,7 @@ Then, only as the task requires:
 
 - docs/adr/ — a decision and its rejected alternatives. Read the one covering
   the area you are about to touch. Do not re-litigate an accepted ADR.
-- docs/reference/schema.md and permissions.md — the schema and the
+- docs/reference/schema/schema.md and permissions.md — the schema and the
   authorization catalogue, as facts rather than reasoning.
 - docs/how-to/troubleshooting.md — read BEFORE proposing a fix for any error.
   Several errors this project produces look like ordinary bugs and are not.

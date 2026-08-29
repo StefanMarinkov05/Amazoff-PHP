@@ -48,10 +48,10 @@ Use this when the change should apply to every environment and survive a fresh
 database — a permission the role should always have had, rather than a local
 adjustment.
 
-Edit the list in `database/seeders/RoleSeeder.php`, then:
+Edit the list in `database/seeders/System/RoleSeeder.php`, then:
 
 ```bash
-docker compose exec app php artisan db:seed --class=RoleSeeder
+docker compose exec app php artisan db:seed --class="Database\Seeders\System\RoleSeeder"
 ```
 
 `RoleSeeder` uses `syncPermissions()`, so the role is reset to exactly the
@@ -77,7 +77,8 @@ If a panel change should be permanent, make the same change in `RoleSeeder`.
 2. Add the matching method to the policy, if it is a new ability rather than a
    new resource.
 3. Grant it to whichever roles should hold it in `RoleSeeder`.
-4. Re-seed: `php artisan db:seed --class=PermissionSeeder`, then `RoleSeeder`.
+4. Re-seed: `php artisan db:seed --class="Database\Seeders\System\PermissionSeeder"`,
+   then `--class="Database\Seeders\System\RoleSeeder"`.
 
 A permission with no policy method behind it is inert — nothing checks it. A
 policy method with no permission is worse: `$user->can('typo_product')` is

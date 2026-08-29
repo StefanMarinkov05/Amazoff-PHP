@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property OrderStatus $status
- * @property PaymentStatus $payment_status
  * @property PaymentMethod $payment_method
+ * @property-read PaymentStatus $payment_status
  */
 class Order extends Model
 {
@@ -36,7 +37,6 @@ class Order extends Model
         'first_name',
         'last_name',
         'status',
-        'payment_status',
         'payment_method',
         'currency',
         'subtotal_amount',
@@ -65,7 +65,6 @@ class Order extends Model
             'user_id' => 'integer',
             'cart_id' => 'integer',
             'status' => OrderStatus::class,
-            'payment_status' => PaymentStatus::class,
             'payment_method' => PaymentMethod::class,
             'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
@@ -105,6 +104,50 @@ class Order extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    /**
+     * The order's payment status, derived from `payments` rather than stored.
+     *
+     * This was a column until 2026-08-24, written once by `CreateOrder` and
+     * never again while `payments.status` moved independently — so it read
+     * `pending` on an order whose payment was already `paid`, and that was
+     * the value the panel displayed and filtered on. §20 forbids storing
+     * `inventories.available()` for the same reason; a derivable fact in a
+     * column goes wrong the first time something writes one side and not the
+     * other.
+     *
+     * `Pending` when no payment row exists yet: `CreateOrder` does not open
+     * one (see `reference/write-rules/order.md` known gap 5), so "no payment
+     * recorded" and "payment not yet processed" are the same state from an
+     * order's point of view, and both are what `Pending` already meant.
+     *
+     * **Eager-load `payment` before reading this in a list.** It is a
+     * relation access, so N rows without `with('payment')` is N queries —
+     * `OrdersTable` does that in its `modifyQueryUsing()`.
+     *
+     * Declared as an Eloquent accessor rather than a plain method so that
+     * `$order->payment_status` keeps working unchanged for the panel and for
+     * anything that already read it as an attribute. The annotation on this
+     * class marks it `@property-read`: nothing may assign it any more.
+     */
+    protected function paymentStatus(): Attribute
+    {
+        return Attribute::get(function (): PaymentStatus {
+            /** @var Payment|null $payment */
+            $payment = $this->payment;
+
+            // Explicit null check rather than `?->status ?? Pending`:
+            // Larastan resolves the relation property as non-nullable and
+            // reports the nullsafe as redundant, but it genuinely is null
+            // for an order with no payment row — which is the common case,
+            // since CreateOrder does not open one.
+            if ($payment === null) {
+                return PaymentStatus::Pending;
+            }
+
+            return $payment->status;
+        });
     }
 
     public function user(): BelongsTo

@@ -111,14 +111,14 @@ into a toast would hide exactly the failures that should stay loud.
 
 ## Which children need an Action, and which do not
 
-ADR-0007's threshold is a write spanning more than one table, or an invariant
+ADR-0007's threshold is a write spanning more than 1 table, or an invariant
 the schema cannot express. Applied to the product's three children:
 
 | Relation manager | Routes through Actions | Why |
 |---|---|---|
 | Variations | yes | a variation needs an `inventories` row; removal must not strand held stock |
-| Images | yes | exactly one `is_main` per product, and `product_variations.image_id` is `NO ACTION` |
-| Specifications | **no** | one table, no invariant, no second writer — default CRUD, per CLAUDE.md's rule that wrapping a single-table save in an Action buys nothing |
+| Images | yes | exactly one `is_main` per product; removal cascades out of every variation gallery |
+| Specifications | **no** | 1 table, no invariant, no second writer — default CRUD, per CLAUDE.md's rule that wrapping a single-table save in an Action buys nothing |
 
 Specifications being plain CRUD is a decision, not an omission. It is the same
 call as `Brand`, `Tag` and the other lookup tables.
@@ -136,3 +136,133 @@ disk with object storage; nothing outside `ProductImage::DISK` needs to change.
 `RemoveProductImage` deletes the file **after** the transaction commits. A
 rollback would otherwise leave the row intact and the file gone, which is the
 one combination nothing can repair.
+
+## Static, checked-in assets
+
+Not every image is user-uploaded. `public/` holds files that ship with the app
+and are never written by an Action or a Filament form. Laravel serves anything
+under `public/` directly; nothing runs `storage:link` for these, and nothing
+purges them.
+
+| File | Path | Used by |
+|---|---|---|
+| Logo | `public/images/logo.png` | Filament panel branding (`brandLogo()`) and, once built, the storefront header |
+| Favicon | `public/favicon.ico` | The browser tab icon, at the conventional root path — overwrites Laravel's own default `favicon.ico`, not placed under `images/` |
+| Default product image | `public/images/default-product.png` | `ResolveVariationImage::urlOrDefault()` — see below |
+
+The favicon's path is not a free choice the way the other two are: browsers
+request `/favicon.ico` at the domain root without being told to, so anywhere
+else requires an explicit `<link rel="icon">` in a layout — and no non-`welcome`
+layout exists yet for one to live in. Placing it at the root is what makes it
+work with zero additional code.
+
+None of these three exist in the repository yet; the paths are reserved so
+code can reference them ahead of the files landing.
+
+## The variation gallery modal
+
+`ProductVariationsRelationManager`'s "Images" row action opens a `Repeater`
+rather than the plain multi-select an earlier draft used — `reference/write-
+rules/product-variation-images.md` has the write behaviour;
+this is the admin surface built on top of it, ADR-0013's gallery-as-a-set
+Action.
+
+Each repeater row is two form components, not a table column: a `ViewField`
+rendering `resources/views/filament/forms/components/variation-image-
+thumbnail.blade.php`, and a `Select` scoped to the variation's own product's
+images. The thumbnail is a live preview, not a stored value — it reads
+whatever the row's `Select` currently holds and re-renders on change via
+`->live()`, so picking a different photo swaps the thumbnail before the
+gallery is saved. Both must set `->live()` for this to work: the `Select`
+to *emit* the change, the `ViewField` to *react* to it.
+
+Array order in the Repeater becomes gallery `position` — dragging a row
+(`->reorderableWithDragAndDrop()`) is the entire reorder mechanism; there is
+no separate move-up/move-down control and no `orderColumn` binding to the
+database, because the modal always submits the whole set through
+`SetVariationImages` in one call rather than writing incrementally.
+
+`fillForm` matters more here than in a typical Filament form: it has to hand
+the Repeater the gallery already in `position` order, or opening the modal
+and saving with no changes would silently rewrite every position to
+whatever order Eloquent happened to load the pivot rows in.
+
+The thumbnail's fallback — when a row has no `image_id` selected yet, or (in
+`urlOrDefault`, used wherever a resolved image is displayed rather than
+edited) when a variation has no gallery and its product has no main image
+either — is the static asset table above, not a broken `<img>` tag.
+
+## Eager loading, and the N+1 rule
+
+**A table column that crosses a relation must have that relation eager-loaded
+on the table's own query.** Filament does not do it for you: there is no
+automatic eager-loading anywhere in `filament/tables`, verified by reading it.
+A `TextColumn::make('brand.name')` on a 50-row page is 50 extra queries, one
+per row, and the page still renders correctly — which is exactly why it goes
+unnoticed.
+
+The two shapes that need it:
+
+- **Dot-notation columns** — `TextColumn::make('productCategory.name')`,
+  `make('user.email')`, `make('orderItem.product_sku')`.
+- **Accessors that read a relation** — `Order::$payment_status` derives from
+  the `payment` relation, so a column showing it lazy-loads once per row
+  unless `payment` is loaded. This is the less obvious half: the column name
+  contains no dot, so nothing about the call site suggests a relation is
+  involved.
+
+Both are fixed the same way, on the table rather than per column:
+
+```php
+->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['brand', 'productCategory']))
+```
+
+`OrdersTable` is the worked example — it loads `payment` for the derived
+`payment_status` column.
+
+### Measuring it rather than guessing
+
+`DB::enableQueryLog()` around the read is the whole technique, and it belongs
+in a test when the cost is structural rather than incidental:
+
+```php
+DB::enableQueryLog();
+$orders = Order::query()->with('payment')->get();
+$orders->each(fn (Order $o) => $o->payment_status);
+expect(count(DB::getQueryLog()))->toBe(2); // one for orders, one for payments
+```
+
+`OrderPaymentStatusTest`'s last case does exactly this. Measured on five
+product rows reading `brand`: **6 queries lazy, 2 eager** — the ratio is
+`N + 1` against `2`, so it grows with page size while the fix does not.
+
+A query-count assertion earns its place only where the relation is *hidden*,
+as with a derived accessor. Asserting it for an ordinary dot-notation column
+tests Filament's own rendering, which CLAUDE.md's testing rule excludes.
+
+### Why `preventLazyLoading()` is still off
+
+ADR-0012 identified `Model::preventLazyLoading(! app()->isProduction())` and
+deliberately did not enable it. That reasoning has not changed: Filament's
+internals lazy-load relationships in render paths this project has not
+audited one by one, and a `LazyLoadingViolationException` thrown from inside
+a vendor package is a worse failure than the N+1 it replaces. Turning it on
+is its own slice — audit every resource and relation manager first, then flip
+it — not a drive-by change.
+
+Until then the rule above is enforced by review and by the query-count tests,
+not by the framework.
+
+### Known unfixed
+
+These tables carry a relation column with no eager-loading today. None is a
+correctness bug; each is `N + 1` queries per page render:
+
+`ArticlesTable` (`articleCategory`, `author`), `AttributeValuesTable`
+(`attribute`), `ContactMessagesTable` (`user`), `NewsletterSubscribersTable`
+(`user`), `ProductCategoriesTable` (`parent`), `ProductReviewsTable`
+(`product`, `user`, `orderItem`), `ProductsTable` (`productCategory`,
+`brand`).
+
+Worth fixing as one pass rather than piecemeal, and worth doing before the
+demo catalogue makes these pages long enough for it to be felt.

@@ -96,7 +96,7 @@ Variations may vary by size, colour, weight, material, or package type, each
 with its own SKU, price, discount price, stock, image, and availability. Stock
 is managed per variation.
 
-**[Changed]** Every sellable product has at least one variation, including
+**[Changed]** Every sellable product has at least 1 variation, including
 products with nothing to vary, because stock hangs off the variation. See
 `explanation/db-schema-design.md`.
 
@@ -254,7 +254,7 @@ courier, and revenue by category. Reports filter by date.
 
 The suggested entity list is implemented with additions — `Carrier`,
 `ProductSpecification`, `CouponRedemption`, `OrderAddress`, `WishlistItem`. See
-`reference/schema.md`.
+`reference/schema/schema.md`.
 
 The business rules are load-bearing and restated in full:
 
@@ -444,8 +444,8 @@ invariant, and the ten factories this forced fixing.
 
 | # | Requirement | Status |
 |---|---|---|
-| 18 | Check size, type, and storage method for images, video, and PDFs | Pending |
-| 19 | Generate unique names for uploaded files so they cannot collide | Pending |
+| 18 | Check size, type, and storage method for images, video, and PDFs | Met for images — `ProductImage`/`Article` upload fields: MIME allow-list, size cap, a dimension floor, named disk constants |
+| 19 | Generate unique names for uploaded files so they cannot collide | Open — Filament's default naming path was not traced to a stored filename; see the changelog |
 
 §34 already requires secure file validation with restricted types and sizes, and
 `explanation/gdpr.md` covers where user-uploaded content lives. Both apply the

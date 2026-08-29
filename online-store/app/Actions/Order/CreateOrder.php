@@ -26,6 +26,7 @@ use App\Models\ProductVariation;
 use App\Models\User;
 use App\Support\CalculateCouponDiscount;
 use App\Support\CouponDiscountLine;
+use App\Support\Money;
 use App\Support\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -101,8 +102,14 @@ final class CreateOrder
         // own header does not sum to its own lines.
         $lines = $priceable->map(fn (CartItem $item): array => $this->resolveLine($item));
 
-        $subtotal = $lines->reduce(fn (string $carry, array $line): string => bcadd($carry, $line['lineTotal'], 2), '0.00');
-        $vat = $lines->reduce(fn (string $carry, array $line): string => bcadd($carry, $line['vatAmount'], 2), '0.00');
+        $subtotal = (string) $lines->reduce(
+            fn (Money $carry, array $line): Money => $carry->add(Money::of($line['lineTotal'])),
+            Money::zero(),
+        );
+        $vat = (string) $lines->reduce(
+            fn (Money $carry, array $line): Money => $carry->add(Money::of($line['vatAmount'])),
+            Money::zero(),
+        );
 
         $coupon = null;
 
@@ -136,7 +143,9 @@ final class CreateOrder
         }
 
         $shipping = '0.00'; // CalculateDeliveryPrice is slice 8, not built.
-        $total = bcadd(bcsub($subtotal, $discount, 2), $shipping, 2);
+        $total = (string) Money::of($subtotal)
+            ->subtract(Money::of($discount))
+            ->add(Money::of($shipping));
 
         return DB::transaction(function () use (
             $cart,
@@ -166,7 +175,7 @@ final class CreateOrder
             }
 
             // Sorted by the locked resource's own primary key, not insertion
-            // order, so two orders sharing lines never acquire in opposite
+            // order, so 2 orders sharing lines never acquire in opposite
             // sequence.
             $sorted = $lines->sortBy(fn (array $line): int => $line['variation']->getKey());
 
@@ -198,9 +207,9 @@ final class CreateOrder
         $product = $variation->product;
 
         $price = ResolveVariationPrice::current($variation);
-        $lineTotal = bcmul($price, (string) $item->quantity, 2);
+        $lineTotal = (string) Money::of($price)->multiply($item->quantity);
         $vatRate = (string) $product->vat_rate;
-        $vatAmount = bcdiv(bcmul($lineTotal, $vatRate, 4), bcadd('100', $vatRate, 4), 2);
+        $vatAmount = (string) Money::of($lineTotal)->percentageOf($vatRate);
 
         return [
             'item' => $item,
@@ -269,7 +278,6 @@ final class CreateOrder
                 'first_name' => $customer['first_name'],
                 'last_name' => $customer['last_name'],
                 'status' => OrderStatus::New,
-                'payment_status' => PaymentStatus::Pending,
                 'payment_method' => $customer['payment_method'],
                 'subtotal_amount' => $subtotal,
                 'discount_amount' => $discount,

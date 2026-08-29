@@ -225,7 +225,7 @@ every account.
 have no seeder, so a fresh database has none, and `canAccessPanel()` gates the
 panel on holding one.
 
-**Fix.** `database/seeders/RoleSeeder.php` creates the three
+**Fix.** `database/seeders/System/RoleSeeder.php` creates the three
 `User::STAFF_ROLES` rows and runs in every environment, called from
 `DatabaseSeeder` after `PermissionSeeder`. `UserSeeder` then creates one
 account per role plus a plain customer, but only outside production
@@ -258,9 +258,9 @@ asks for one, it queues behind the test's own uncommitted write.
 The failure looks like a locking bug in the code under test. It is the test
 harness locking against itself.
 
-**Fix.** Keep concurrency tests out of `RefreshDatabase`. `tests/Concurrency/`
+**Fix.** Keep concurrency tests out of the refresh trait. `tests/Concurrency/`
 is registered as its own suite in `phpunit.xml` and is excluded from the
-`->use(RefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
+`->use(LazilyRefreshDatabase::class)` binding in `tests/Pest.php`. Those tests commit
 their fixtures and truncate in `afterEach`, with
 `Schema::disableForeignKeyConstraints()` around the truncation so the order of
 tables does not have to track whatever the factories currently create.
@@ -346,7 +346,7 @@ Every composed Action that passes an actor down can reintroduce it, and
 ADR-0007 requires them all to.
 
 **Prevention.** Delete the check under test and confirm the test goes red.
-Grant the actor exactly one permission short of success rather than granting
+Grant the actor exactly 1 permission short of success rather than granting
 none — an actor with no permissions at all is denied by whichever check runs
 first, which is rarely the one being tested.
 
@@ -400,9 +400,13 @@ inside the locking transaction, where the lock is not supposed to stop it and
 does not. The test therefore behaves identically with the lock and without it.
 
 **Fix.** Two real OS processes with a barrier, in `tests/Concurrency/`.
-`ReserveStockConcurrencyTest` and `PublishProductConcurrencyTest` are the two
-worked examples; the second differs in asserting the winner *count*, which is
-possible only because no `CHECK` constraint backs that invariant up.
+Both halves run as `php artisan race:worker`, spawned by `runRaceWorkers()`
+in `tests/Concurrency/RaceHelper.php` — add a `match` arm to
+`App\Console\Commands\RaceWorker::dispatchAction()` for the Action being
+raced, then pass its job list. `ReserveStockConcurrencyTest` and
+`PublishProductConcurrencyTest` are the two worked examples; the second
+differs in asserting the winner *count*, which is possible only because no
+`CHECK` constraint backs that invariant up.
 
 **Why it recurs.** Fault injection is the right technique for the neighbouring
 problem — proving a `DB::transaction` rolls back — and it works there for the
@@ -518,7 +522,7 @@ complete — the gap is only visible against the migration, which nothing
 forces a reviewer to open.
 
 **Prevention.** After generating any resource, diff its unique/composite
-indexes (`docs/reference/schema.md`, "Constraints that carry a rule") against
+indexes (`docs/reference/schema/schema.md`, "Constraints that carry a rule") against
 the form's validation rules before treating the resource as done.
 
 ---
@@ -786,7 +790,7 @@ constraints grouped into one `ALTER TABLE` per table took 39s.
 **Why it recurs.** Writing one statement per constraint is the obvious shape,
 reads more clearly, and is what a loop over a list produces naturally.
 
-**Prevention.** In any migration touching more than a handful of columns on one
+**Prevention.** In any migration touching more than a handful of columns on 1
 table, build the clauses and issue a single `ALTER TABLE`.
 
 ---
@@ -1070,7 +1074,7 @@ caller handles one failure mode — and the subsumption is a property of a
 `CHECK` constraint in a migration, not of either guard. Nothing at the call
 site or in the test hints that one range contains the other.
 
-**Prevention.** When one Action raises the same exception class from more than
+**Prevention.** When 1 Action raises the same exception class from more than
 one place, the tests for those places assert the message. A shared exception
 class with distinct static factories (`notPositive()`,
 `belowMinimumOrder()`) is the signal to check for.
@@ -1142,7 +1146,7 @@ codebase has taken so far — a `tests/Concurrency/` test with two OS processes.
 ## Several unrelated tests fail at `UserSeeder`, then pass on re-run
 
 **Symptom.** A handful of tests across unrelated files fail together, each
-stack ending in `database/seeders/UserSeeder.php` with an SQLSTATE error.
+stack ending in `database/seeders/System/UserSeeder.php` with an SQLSTATE error.
 Re-running the suite unchanged is green. Distinct from the "every concurrency
 test fails at once" entry above: the failures here are scattered across Feature
 files rather than confined to `tests/Concurrency/`, and the trace points at
@@ -1215,3 +1219,296 @@ does not mean Larastan agrees. Add the `@property` annotation to the model at
 the same time, rather than reaching for `treatPhpDocTypesAsCertain: false` in
 `phpstan.neon`, which would silence this class of check project-wide instead
 of fixing the one model's missing type information.
+
+---
+
+## `pest --parallel` fails with `Access denied ... to database 'online_shop_test_test_N'`
+
+**Symptom.** `SQLSTATE[HY000] [1044] Access denied for user 'sail'@'%' to
+database 'online_shop_test_test_1'` (or `_2`, `_3`, …), only under
+`--parallel`, on a Docker volume that has never run it before. `pest` without
+`--parallel` works fine against the same volume.
+
+**Cause.** `docker/mysql/init/01-test-database.sh` grants the app user access
+to `online_shop_test` by name, once, on first container init. It predates
+`--parallel` existing in this project, so the grant never covered the
+per-process databases (`online_shop_test_test_1`, `_2`, …) Laravel creates on
+demand for each paratest worker — the app user has no privilege to create or
+touch a database it was never granted, wildcard or otherwise.
+
+**Fix.** The init script now also grants a wildcard pattern,
+`` `online\_shop\_test\_test\_%` ``, which covers any token paratest assigns
+without listing them by hand. This only runs on a fresh volume, though — an
+existing one needs the grant applied once by hand:
+
+```bash
+docker compose exec db mysql -u root -ppassword -e "GRANT ALL PRIVILEGES ON \`online\_shop\_test\_test\_%\`.* TO 'sail'@'%'; FLUSH PRIVILEGES;"
+```
+
+**Why it recurs.** Anyone who set up their dev volume before this grant
+existed hits it the first time they try `--parallel`, no matter how long ago
+their volume was created — the init script only ever runs once, at first
+creation, so an old volume never picks up a later addition to it on its own.
+
+**Prevention.** The wildcard grant is now permanent in the init script for
+every new volume. If this reappears, the volume predates the grant — apply
+the one-line fix above rather than debugging further; there is nothing else
+this error means.
+
+---
+
+## `pest --parallel --testsuite=Concurrency` corrupts its own fixtures
+
+**Symptom.** Run `Concurrency` tests under `--parallel` (or omit `--testsuite`
+entirely while `--parallel` is on, which includes them by default) and a
+large fraction fail — measured 21 of 33 — with `ModelNotFoundException` or a
+raw `QueryException` surfacing from inside a race worker's captured output,
+plus assertion-count mismatches like "expected size 1, actual size 0". The
+same tests pass reliably run sequentially or under `--parallel
+--testsuite=Feature`.
+
+**Cause.** Laravel's automatic per-process test database
+(`Illuminate\Testing\Concerns\TestDatabases::bootTestDatabase()`) only
+switches a test case onto its own suffixed database
+(`online_shop_test_test_N`) when that test case uses `RefreshDatabase`,
+`DatabaseMigrations`, `DatabaseTransactions`, or `DatabaseTruncation`.
+`tests/Pest.php` deliberately applies none of those to `Concurrency` — those
+tests need a second real connection to see rows the first one already
+committed, which any of those four traits' transaction-wrapping would hide.
+The same exclusion that makes the tests correct under normal execution means
+every parallel worker stays pointed at the one un-suffixed `online_shop_test`
+database when running one, so two workers' fixtures — and their spawned race
+workers' reads of those fixtures — collide in the same physical rows.
+
+**Fix.** Don't. Run `Concurrency` sequentially, always: either bare `pest
+--testsuite=Concurrency`, or CI's existing three hand-partitioned shards,
+which already parallelise it correctly — one process, one database, one
+sequential batch of files per shard, not one process per test.
+
+**Why it recurs.** `--parallel` with no `--testsuite` filter silently includes
+every suite, `Concurrency` among them, and the failure looks exactly like the
+ordinary kind of concurrency-test flakiness the suite exists to distinguish
+from a real race — someone re-running it expecting a transient collision
+would burn real time before noticing every run fails the same way.
+
+**Prevention.** Always pass `--testsuite=Feature` (optionally with `Unit`)
+when using `--parallel`; never point it at `Concurrency` or leave
+`--testsuite` unset. `run-the-tests.md`'s "Running in parallel" section
+states this as the first rule, not a caveat at the bottom, for the same
+reason.
+
+---
+
+## A background test run fails after being "stopped," and a later `docker exec` path silently resolves to Windows
+
+**Symptom.** Two unrelated-looking failures on a Windows host running Docker
+through WSL2/Docker Desktop, both from the same underlying cause and both
+capable of wasting real time chasing a phantom code defect:
+
+1. A test run backgrounded through the harness is stopped, a database reset
+   is done, and the *next* run still fails — sometimes with a plain
+   assertion failure in an unrelated seeder, sometimes with `SQLSTATE[40001]:
+   Serialization failure: 1213 Deadlock found`, sometimes with `SQLSTATE
+   [HY000]: General error: 1412 Table definition has changed, please retry
+   transaction` — and the specific error changes between re-runs of the exact
+   same command.
+2. `docker compose exec app cat /tmp/some-file.txt` (or any command
+   referencing an absolute Unix path as an argument, not a heredoc) fails with
+   `cat: 'C:/Users/.../AppData/Local/Temp/some-file.txt': No such file or
+   directory` — a path that was never on the host at all.
+
+**Cause.** Two separate mechanisms, easy to mistake for one bug:
+
+For (1): stopping a background task by its harness-assigned ID kills the
+*shell wrapper* the command was launched under, not necessarily every child
+process it spawned. `sh -c "./vendor/bin/pest --coverage > out.txt; tail out.txt"`
+spawns `pest` as a child of the `sh -c` process; killing the wrapper does not
+guarantee the child dies with it. The orphaned `pest` process keeps running
+inside the container — invisible to the harness, which believes it stopped
+the task — and races every subsequent command against the same MySQL
+container. The failure signatures above (`1213`, `1412`, an assertion that
+should already be true) are exactly what two independent transactions
+fighting over the same tables and a mid-flight `migrate:fresh` look like,
+and they change between runs because the race is non-deterministic. `ps`
+inside the container's PID namespace does not show it either if queried at
+the wrong moment relative to `docker compose top`, which reports host-side
+PIDs — `docker compose top app` is the reliable check; `ps aux` inside the
+container frequently is not installed at all on this image.
+
+For (2): Git Bash (MSYS2) rewrites any argument that looks like a POSIX
+absolute path — `/tmp/...`, `/var/...` — into its Windows equivalent *before*
+handing it to the program being run, including arguments meant for a command
+running inside a Linux container that has never heard of `C:\`. `docker
+compose exec app cat /tmp/coverage-run.txt` becomes, by the time Docker sees
+it, a request for a file at a Windows path that does not exist inside the
+container's filesystem at all — the container itself is unaffected and the
+file is exactly where it should be.
+
+**Fix.** For (1): after stopping a background task, verify the container is
+actually idle before trusting the next result — `docker compose top app`
+should show only the long-lived `php-fpm`/`boost:mcp` processes, nothing
+matching the command just "stopped." If a stray process is still listed,
+`docker compose exec app php -r 'posix_kill(<pid>, 9);'` (`kill` is not on
+`$PATH` on this image); re-check `docker compose top` afterward, since the
+PID `docker compose top` reports is the host-side one and may not be visible
+or killable from inside the container's own PID namespace via a plain `kill`
+call — `posix_kill` from PHP running as root in an `exec` does reach it. Once
+confirmed idle, reset (`migrate:fresh --seed`) before trusting any test run
+that follows.
+
+For (2): prefix the command with `MSYS_NO_PATHCONV=1` —
+`MSYS_NO_PATHCONV=1 docker compose exec -T app cat /tmp/coverage-run.txt`
+disables the rewrite for that invocation. Heredocs and `sh -c "..."` strings
+passed as a single quoted argument are not affected, since MSYS only rewrites
+argv entries that look like standalone paths — the bug is specific to a bare
+path as its own argument.
+
+**Why it recurs.** Both are invisible from the output alone. (1) produces
+error messages that look exactly like the kind of environment/schema bug
+`troubleshooting.md`'s other entries describe, so the instinct is to debug
+the code under test rather than check for a second live process — burning a
+full clean-reset-and-rerun cycle (minutes, on this suite) before the real
+cause is even suspected. (2) fails with a Linux-shaped error message
+(`cat: ... No such file or directory`) that gives no hint the path was ever
+rewritten, so it reads as "the file doesn't exist" rather than "the path was
+translated" — the Windows path in the error is the only tell, and it is easy
+to skim past.
+
+**Prevention.** Treat "stopped" as a claim to verify, not a fact, for any
+background task that runs inside a container — `docker compose top app`
+before trusting the next result against that container, every time,
+not just after an unusual-looking failure. For any `docker compose exec`
+argument that is a bare absolute path rather than a quoted string or
+heredoc, reach for `MSYS_NO_PATHCONV=1` by default on this host rather than
+after the first confusing "No such file" error.
+
+---
+
+## Tailwind silently stops compiling new classes, and the page looks half-styled
+
+**Symptom.** The storefront renders with *some* styling: colours and base
+utilities land, but icons appear at their natural SVG size (a 16px chevron
+drawn 250px tall), a responsive grid never leaves one column, and no hover
+or entrance state fires. It reads as "the UI is bugged" rather than "no CSS
+loaded", because plenty of CSS did load.
+
+The tell: two classes in the *same* attribute behave differently.
+`grid-cols-2` renders and `lg:grid-cols-3` beside it does not.
+
+**Cause.** Tailwind 4 anchors automatic source detection at the **git root**.
+This repository keeps `.git` one level above `online-store/`, and
+`docker-compose.yml` mounts only `./online-store` into the container — so
+from inside, there is no git root to find and automatic detection collapses
+to whatever `@source` lines exist.
+
+`resources/css/app.css` shipped with two, from the Laravel starter kit:
+
+```css
+@source '.../Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';   /* the compiled Blade cache */
+```
+
+Neither covers `resources/views`. Tailwind was reading **compiled Blade
+output** rather than Blade source, so a class only existed in the stylesheet
+if some page carrying it had already been rendered *and* the cache had not
+been cleared since. Running `php artisan view:clear` — reasonable for any
+number of unrelated reasons — empties the only source Tailwind is reading
+and breaks classes that worked a minute earlier.
+
+**Fix.** Scan the source, not the build artifact:
+
+```css
+@source '../views/**/*.blade.php';
+@source '../../app/Livewire/**/*.php';
+```
+
+The explicit glob matters; the bare directory form `@source '../views'` did
+not match here.
+
+**Why it recurs.** The failure is partial, which sends you looking at the
+markup. Every instinct says "a class is wrong" when the class is fine and
+was never compiled. It also comes back on its own: any future
+`view:clear`, or a new component whose page has not been rendered yet,
+reproduces it exactly.
+
+**Prevention.** When a utility appears not to apply, check whether it is in
+the compiled stylesheet before touching the template:
+
+```bash
+curl -s "http://localhost:5173/resources/css/app.css" | grep -c 'grid-cols-3'
+```
+
+Zero means a source-scanning problem, not a markup problem. Note that in
+dev Vite serves CSS **wrapped in a JS module** — the whole sheet is one
+line with `\n` escapes and `\:` for escaped colons, so line-oriented
+counting (`grep -c '@media'`) reports 1 no matter what is in it. Count
+substrings, not lines.
+
+---
+
+## Vite serves assets the browser cannot reach, and the page renders unstyled
+
+**Symptom.** `/catalogue` returns 200 with correct HTML and no PHP error, but
+no CSS or JS applies. `curl` against the Vite port succeeds, so the dev
+server is plainly running.
+
+**Cause.** `public/hot` contained `http://0.0.0.0:5173`. That is a bind-all
+address: meaningful to a listening socket inside the container, meaningless
+to a browser. Every asset request failed, and because the failures are
+network-level the page renders as bare HTML with nothing in the PHP log.
+
+**Fix.** Tell the plugin what the *browser* should use, separately from what
+the server binds to — `online-store/vite.config.js`:
+
+```js
+server: {
+    host: '0.0.0.0',          // bind inside the container
+    origin: 'http://localhost:5173',  // what goes into public/hot
+    hmr: { host: 'localhost' },
+},
+```
+
+**Why it recurs.** `curl http://localhost:5173/resources/css/app.css` returns
+200 from the host, which looks like proof the assets are fine — but the host
+and the browser resolve `0.0.0.0` differently from the container. Any fresh
+clone, or anyone who deletes `public/hot`, gets it again.
+
+**Prevention.** Check what `@vite` actually emitted rather than whether the
+port answers:
+
+```bash
+cat online-store/public/hot          # must read http://localhost:5173
+curl -s http://localhost:8080/catalogue | grep -o 'src="http://[^"]*5173[^"]*"'
+```
+
+---
+
+## The webfont never loads, and every heading falls back to the system font
+
+**Symptom.** Type looks generic and slightly wrong — weights are close but
+letterforms are not the ones the design assumes. No error anywhere, and
+`public/fonts-manifest.dev.json` exists with correct `@font-face` rules.
+
+**Cause.** `Vite::fonts()` is a separate call. `@vite(['…css', '…js'])` does
+**not** inject the font manifest, so the `laravel-vite-plugin/fonts` output is
+generated and then never referenced.
+
+**Fix.** In the layout `<head>`, alongside `@vite`:
+
+```blade
+{{ Vite::fonts() }}
+@vite(['resources/css/app.css', 'resources/js/app.js'])
+```
+
+**Why it recurs.** The manifest existing is the misleading part: the fonts
+pipeline looks configured and working, because the half that generates
+output is. Nothing warns that nothing consumes it, and a fallback font is
+legible enough that the page does not look broken — only slightly off.
+
+**Prevention.** Grep the rendered head, not the manifest:
+
+```bash
+curl -s http://localhost:8080/catalogue | grep -c '@font-face'
+```
+
+Zero means it is not wired, regardless of what is in `public/`.

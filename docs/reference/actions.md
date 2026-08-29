@@ -6,7 +6,7 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Twenty-nine Actions across six areas, fifteen domain exceptions.
+Twenty-9 Actions across six areas, fifteen domain exceptions.
 
 ## Naming
 
@@ -71,7 +71,9 @@ at stock that no longer exists.
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
 | `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
 | `SetMainProductImage` | `product_images` | optional, `update_product` | — |
-| `RemoveProductImage` | `product_images`, and the file on disk | optional, `update_product` | `ProductImageInUseException` |
+| `RemoveProductImage` | `product_images`, and the file on disk; gallery rows cascade | optional, `update_product` | — |
+| `SetVariationImages` | `product_image_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `ImageNotOnProductException` |
+| `SetDefaultVariation` | `product_variations` | optional, `update_product_variation` | — |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
 
 `ProductCategory` is otherwise default Filament CRUD, per CLAUDE.md's plain-
@@ -94,7 +96,15 @@ construction rather than by a lock; `AddProductImage` and `RemoveProductImage`
 compose it. Images are not soft-deleted, and `RemoveProductImage` deletes the
 file only after the transaction commits.
 
-`ProductSpecification` has no Action: one table, no invariant, so ADR-0007
+The same shape exists one level down: a product has exactly one default
+variation. `SetDefaultVariation` mirrors `SetMainProductImage` exactly — one
+`UPDATE` (`is_default = (id = N)`), no lock. `AddProductVariation` composes
+it to promote a product's first variation automatically, or a later one when
+the caller passes `is_default: true`; `RemoveProductVariation` composes it to
+hand the flag to a live sibling when the removed variation held it, so a
+product with variations never ends up with none of them default.
+
+`ProductSpecification` has no Action: 1 table, no invariant, so ADR-0007
 leaves it as default Filament CRUD.
 
 `ForceDeleteProductVariation` deletes the stock row **before** the variation.
@@ -123,11 +133,17 @@ the variation. Zero writes no movement row.
 | `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same three |
 | `MergeGuestCart` | `cart_items`, deletes the guest `carts` row | — no non-human caller, no parameter | — never refuses |
 | `RemoveFromCart` | `cart_items` (hard delete) | — no non-human caller, no parameter | — never refuses |
+| `ExpireCarts` | deletes `carts` past `expires_at` (and their `cart_items`, by cascade) | — no actor at all, human or otherwise: invoked by the `carts:expire` schedule | — never refuses |
 
-None of the four take an `?User $actor`. A customer editing their own cart
-holds no permission to check, and nothing here has a non-human caller the
-way `RecordInventoryMovement` or `ReserveStock` do — ADR-0007's stated
-exception, not an oversight.
+None of the first four take an `?User $actor`. A customer editing their own
+cart holds no permission to check, and nothing here has a non-human caller
+the way `RecordInventoryMovement` or `ReserveStock` do — ADR-0007's stated
+exception, not an oversight. `ExpireCarts` goes further: there is no actor
+to check *against* — it runs on a schedule, not in response to anyone's
+request — and it excludes any cart already referenced by `orders.cart_id`,
+since that cart produced a real order and isn't abandoned. Nothing in
+`app/` sets `expires_at` yet, so today this has nothing to act on; it
+exists ahead of that TTL policy, not because of it.
 
 `AddToCart` and `UpdateCartItemQuantity` re-validate the line they are about
 to write on every call — current price, availability, `min_order_quantity`,
@@ -176,8 +192,42 @@ a `Coupon` row is single-table with no second writer, decision 10.
 |---|---|---|---|
 | `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
+| `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
+| `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
+| `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
+| `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
+| `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
 
 `reference/write-rules/order.md` is the outcomes page.
+
+The payment and shipment Actions are the *domain* halves of slices 6 and 8,
+deliberately split from their connectors: every Stripe and courier column is
+nullable, so a payment or shipment can be opened, transitioned, refunded and
+reported on before any Saloon connector exists. `CreateStripeIntent` will
+later fill `stripe_payment_intent_id` on a row `RecordPayment` opened rather
+than creating its own.
+
+Two of them intentionally break the symmetry their siblings follow:
+
+- **`TransitionPaymentStatus` has no `$from === $to` no-op**, unlike
+  `TransitionOrderStatus`. `PaymentStatus` is cyclic —
+  `PartiallyRefunded` lists itself — so a repeat is a second real refund and
+  a shortcut would silently swallow it. The cost is losing free
+  double-submit protection, which is why webhook idempotency must key on
+  `payment_events.stripe_event_id` instead; `write-rules/order.md`'s known
+  gap 3 covers what is still missing there.
+- **`TransitionShipmentStatus` puts its no-op *before* the legality check**,
+  the reverse of where you would expect it. A courier polling loop repeats
+  `Delivered` constantly, and `Delivered` does not list itself, so checking
+  legality first would raise on every poll. The no-op also appends no
+  tracking event, which is what keeps the table from filling with duplicate
+  "still in transit" rows.
+
+`CreateProductReview` requires the reviewer rather than accepting a null
+actor, unlike every other Action here: §24's verified-purchase rule has
+nothing to check against without one, and `UNIQUE(user_id, product_id)` does
+not constrain nulls in MySQL, so a guest could review the same product
+indefinitely. A guest path needs its own rule and its own ADR.
 
 Recomputes `subtotal_amount`/`vat_amount`/`total_amount` from the cart's
 current contents — the signature carries no total input at all, so §28's
@@ -244,7 +294,7 @@ own reasoning for the same deadlock-avoidance sort.
 |---|---|---|---|
 | `PublishArticle` | `articles.status`, `articles.published_at` | required — no non-human caller exists | `ArticleTransitionNotAllowedException` |
 
-Below ADR-0007's usual bar for an Action — one column, one table — built
+Below ADR-0007's usual bar for an Action — one column, 1 table — built
 anyway because the authorization is the entire point. `publish_article` is a
 permission distinct from `update_article` (`content_editor` holds both), so
 the check has to be `publish`, not `update`; a `Select` on `status` in
@@ -282,6 +332,11 @@ to decide anything.
 | `RestockReturn` | yes |
 | `RecordDamage` | yes |
 | `DeleteProductCategory` | yes |
+| `RecordPayment` | yes — the `orders` lock and the existence check are the same window |
+| `TransitionPaymentStatus` | yes — the refund cap is read and written inside one `payments` lock |
+| `CreateShipment` | yes — same shape as `RecordPayment` |
+| `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
+| `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
 
 Nesting is by savepoint, so the outermost boundary commits.
@@ -346,7 +401,7 @@ today takes both in the opposite order.
 `UpdateProduct`, `RemoveProductVariation`, and `ForceDeleteProductVariation`
 take `lockForUpdate()` on the `products` row — the aggregate root — rather
 than on the rows they write.
-§6–7's invariant spans two tables, which MySQL cannot express as a constraint
+§6–7's invariant spans 2 tables, which MySQL cannot express as a constraint
 and ADR-0004 rejected triggers for, so nothing catches an unlocked race:
 without the lock both Actions commit and the invariant is gone. Locking each
 Action's own target would have them contend on different rows and wait for
@@ -359,7 +414,7 @@ order.
 
 `RedeemCoupon` takes `lockForUpdate()` on the `coupons` row before either
 usage-cap `COUNT` against `coupon_redemptions` — no `CHECK` can span the
-two tables, so without the lock two concurrent redemptions both read the
+2 tables, so without the lock two concurrent redemptions both read the
 pre-redemption count and both insert. Declared lock order is `products`,
 then `coupons`, then `inventories` (decision 5).
 
@@ -395,9 +450,9 @@ Measured and pinned, including the wrong behaviour, in
 | `ProductRequiresVariationException` | `CreateProduct`, `UpdateProduct`, `RemoveProductVariation`, `ForceDeleteProductVariation` | the product, when there is one |
 | `VariationHasReservedStockException` | `RemoveProductVariation`, `ForceDeleteProductVariation` | the variation, the reserved quantity |
 | `VariationCannotBeErasedException` | `ForceDeleteProductVariation` | the variation |
-| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
+| `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `SetVariationImages`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
-| `ProductImageInUseException` | `RemoveProductImage` | the image, the variation count |
+| `ImageNotOnProductException` | `SetVariationImages` | the variation, the offending image ids |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
 | `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon`, `CreateOrder` | the coupon (nullable — `noLongerExists()` has none to carry); seven named constructors, one per refusal reason |
 | `EmptyCartException` | `CreateOrder` | the cart |
@@ -451,6 +506,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 | `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
+| `ExpireCarts` | `carts:expire` console command (`routes/console.php`, scheduled daily), tests |
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
 | `RedeemCoupon` | composed by `CreateOrder`, tests |
 | `CreateOrder` | tests only |
@@ -479,7 +535,7 @@ Restoring cannot break the invariant, so it stays.
 
 Each Action's guards have a test that has been observed failing with the
 mechanism deleted. Twenty-three were verified for the catalogue slice: the
-authorization check on each of the five Actions, the actor passed down from
+authorization check on each of the 5 Actions, the actor passed down from
 `CreateProduct`, the transaction on `CreateProduct` and `AddProductVariation`,
 the inventory row, the required-variation rule at creation, the sellability
 rule on update, the last-variation and reserved-stock guards on removal, the

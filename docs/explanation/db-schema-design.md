@@ -1,6 +1,6 @@
 # Schema design, the parts the diagram does not show
 
-The column-level facts are in `docs/reference/schema.md`, the ERD alongside it,
+The column-level facts are in `docs/reference/schema/schema.md`, the ERD alongside it,
 and the migrations.
 This page covers the mechanisms those cannot convey: how the catalogue holds
 product types with nothing in common, and where stock lives. ADR-0002 has the
@@ -12,7 +12,7 @@ are meant to be traversed, not code that currently exists.
 
 ## A product is not the thing that gets sold
 
-Three tables sit between a listing and a physical item:
+3 tables sit between a listing and a physical item:
 
 | Table | Holds | One per |
 |---|---|---|
@@ -24,9 +24,9 @@ Three tables sit between a listing and a physical item:
 `product_variations` carries a quantity column. Stock exists in exactly one
 place.
 
-The consequence is that **every sellable product has at least one variation**,
+The consequence is that **every sellable product has at least 1 variation**,
 including products with nothing to vary. A book with a single edition still
-gets one variation row, because that row is what its stock hangs off. Code that
+gets 1 variation row, because that row is what its stock hangs off. Code that
 creates a product without creating a variation produces a listing that can
 never be sold.
 
@@ -40,7 +40,7 @@ that historical order items still resolve.
 
 ## What varies is described, not hard-coded
 
-Two tables define the vocabulary, and two pivots attach it:
+2 tables define the vocabulary, and two pivots attach it:
 
 | Table | Holds | Example |
 |---|---|---|
@@ -104,7 +104,7 @@ product twice, or the same value to a variation twice, currently succeeds.
 ADR-0002 records this as a gap needing a follow-up migration.
 
 Nothing at the database level enforces that a variation's set of attribute
-values is complete, or that two variations of one product carry different sets.
+values is complete, or that 2 variations of 1 product carry different sets.
 Both are invariants for the Action that creates variations to hold.
 
 ## Specifications are a different thing that looks the same
@@ -121,7 +121,7 @@ a product — warranty length, material, page count, screen size.
 
 The distinction is what varies versus what is merely stated. Screen size on a
 phone with one screen is a specification. Storage on a phone sold in 128GB and
-256GB is an attribute, because it produces two variations with two SKUs and two
+256GB is an attribute, because it produces 2 variations with two SKUs and two
 stock levels.
 
 The same real-world property can be either, depending on the product. Storage
@@ -138,7 +138,7 @@ append-only record of how they got there, typed by
 Available quantity is derived — `current_quantity - reserved_quantity` — and is
 not stored.
 
-Because two orders can reach the same variation at once, every write to
+Because 2 orders can reach the same variation at once, every write to
 `inventories` needs `DB::transaction` together with `lockForUpdate()`. The
 transaction alone does not prevent the race; it only makes both halves of a
 lost update atomic.

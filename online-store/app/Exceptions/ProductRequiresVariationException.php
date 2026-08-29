@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * A product was about to exist, or become sellable, with no variation.
  *
- * §6–7: every sellable product has at least one variation, including products
+ * §6–7: every sellable product has at least 1 variation, including products
  * with nothing to vary, because stock hangs off the variation rather than the
  * product. A product with none has nowhere to hold a quantity, so it cannot be
  * added to a cart, reserved, or sold — the catalogue would show a row the rest
@@ -36,7 +36,7 @@ class ProductRequiresVariationException extends RuntimeException
 
     public static function atCreation(): self
     {
-        return new self('A product cannot be created without at least one variation.');
+        return new self('A product cannot be created without at least 1 variation.');
     }
 
     public static function whenMadeAvailable(Product $product): self

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Articles\Schemas;
 
+use App\Models\Article;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Dimensions;
 
 class ArticleForm
 {
@@ -37,8 +39,15 @@ class ArticleForm
                     ->columnSpanFull(),
                 FileUpload::make('main_image_path')
                     ->image()
-                    ->directory('articles')
-                    ->maxSize(2048),
+                    ->imageEditor()
+                    ->directory(Article::IMAGE_DIRECTORY)
+                    ->acceptedFileTypes(Article::IMAGE_ACCEPTED_MIME_TYPES)
+                    ->maxSize(Article::IMAGE_MAX_SIZE_KB)
+                    ->rules([
+                        (new Dimensions)
+                            ->minWidth(Article::IMAGE_MIN_WIDTH_PX)
+                            ->minHeight(Article::IMAGE_MIN_HEIGHT_PX),
+                    ]),
                 Toggle::make('featured')
                     ->required(),
                 TextInput::make('seo_title')
