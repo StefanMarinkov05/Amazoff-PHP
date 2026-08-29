@@ -10,6 +10,7 @@ use App\Models\Coupon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -28,7 +29,12 @@ class CouponsTable
                 TextColumn::make('name')
                     ->searchable(),
                 TextColumn::make('description')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30)
+                    // ->limit() truncates the rendered text but ->tooltip()
+                    // needs the untruncated value passed back explicitly —
+                    // it does not know what was cut.
+                    ->tooltip(fn (Coupon $record): ?string => $record->description),
                 TextColumn::make('type')
                     ->badge(),
                 TextColumn::make('scope')
@@ -77,6 +83,7 @@ class CouponsTable
                 TernaryFilter::make('is_active'),
             ])
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
             ])
             ->toolbarActions([

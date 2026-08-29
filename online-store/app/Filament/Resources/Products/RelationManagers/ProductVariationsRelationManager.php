@@ -14,6 +14,7 @@ use App\Enums\WeightUnit;
 use App\Filament\Concerns\ConvertsMeasurementInput;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\ProductVariation;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -34,6 +35,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Operation;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -136,11 +138,19 @@ class ProductVariationsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('sku')
+            // `images` (the variation ↔ image pivot, SetVariationImages'
+            // territory) crossed by the thumbnail column below — CLAUDE.md's
+            // N+1 rule; a bare badge count didn't need this, a rendered
+            // image per row does.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('images'))
             ->columns([
-                TextColumn::make('images_count')
+                ImageColumn::make('images.path')
                     ->label('Images')
-                    ->counts('images')
-                    ->badge(),
+                    ->disk(ProductImage::DISK)
+                    ->stacked()
+                    ->circular()
+                    ->limit(3)
+                    ->limitedRemainingText(),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable(),
