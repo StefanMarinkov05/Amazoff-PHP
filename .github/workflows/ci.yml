@@ -44,9 +44,26 @@ jobs:
     name: test (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
 
-    # Shards, not one job. ADR-0010 has the timing behind the split; a new
-    # tests/Unit or tests/Feature file goes in shard 2 (the lighter one)
-    # unless it shares RolePermissionTest's per-test reseeding pattern.
+    # Shards, not one job. ADR-0010 has the timing behind the original
+    # 2-shard split; rebalanced into 4 on 2026-08-29 once tests/Feature/
+    # Filament and tests/Feature/Auth grew enough that shard 2 was carrying
+    # roughly 2x shard 1's measured local time (55s vs 28s) on its own —
+    # exactly the "visibly outruns the others" trigger use-ci.md's own
+    # policy names for a re-balance, not a fixed schedule. tests/Feature/
+    # Actions was the single heaviest concentration and moved out of shard 2
+    # entirely; measured on its own it was still uneven enough (Cart+
+    # Catalogue at 24s, the rest of Actions at 24s, almost by coincidence)
+    # to split into shards 3 and 4 rather than landing as one new dominant
+    # shard replacing the old one. Local measured split:
+    # shard 1 ≈ 28.5s, shard 2 ≈ 18.6s, shard 3 ≈ 24.3s, shard 4 ≈ 24.1s.
+    #
+    # A new tests/Unit or tests/Feature file goes in shard 2 by default,
+    # unless it shares RolePermissionTest's per-test reseeding pattern
+    # (shard 1) or belongs under tests/Feature/Actions — Cart/Catalogue go
+    # in shard 3, every other Actions subdirectory in shard 4. Keeping
+    # Actions off shard 2 is deliberate: that directory is where most of
+    # this codebase's tests live and grows fastest, so leaving it on shard 2
+    # would silently regrow the exact imbalance this rebalance fixed.
     strategy:
       matrix:
         shard:
@@ -60,6 +77,16 @@ jobs:
             paths: >-
               tests/Unit/Enums/EnumCompletenessTest.php
               tests/Unit/Support/MoneyTest.php
+              tests/Feature/Auth
+              tests/Feature/Console
+              tests/Feature/ExampleTest.php
+              tests/Feature/FactoryTest.php
+              tests/Feature/Filament
+              tests/Feature/Livewire
+              tests/Feature/Models
+              tests/Feature/Support
+          - name: "3"
+            paths: >-
               tests/Feature/Actions/Cart
               tests/Feature/Actions/Catalogue/AddProductVariationTest.php
               tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
@@ -69,6 +96,8 @@ jobs:
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
               tests/Feature/Actions/Catalogue/SetVariationImagesTest.php
+          - name: "4"
+            paths: >-
               tests/Feature/Actions/Contact
               tests/Feature/Actions/Coupon
               tests/Feature/Actions/Inventory
@@ -76,12 +105,6 @@ jobs:
               tests/Feature/Actions/Payment
               tests/Feature/Actions/ProductReview
               tests/Feature/Actions/Shipment
-              tests/Feature/Console
-              tests/Feature/ExampleTest.php
-              tests/Feature/FactoryTest.php
-              tests/Feature/Filament
-              tests/Feature/Models
-              tests/Feature/Support
 
     services:
       mysql:

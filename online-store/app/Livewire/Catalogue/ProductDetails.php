@@ -51,13 +51,34 @@ class ProductDetails extends Component
 {
     public ?int $productId = null;
 
-    /** Selected values are derived from this; a parallel array desyncs on `?v=`. */
+    /**
+     * Selected values are derived from this; a parallel array desyncs on
+     * `?v=`. Deliberately `mixed`, not `?int` — same incident as
+     * `$quantity` below, different property: `?v=` this large
+     * (`?v=99999999999999999999999999999999`) decodes to a `float` before
+     * Livewire's hydration assigns it, and `?int` refuses a `float`
+     * assignment the same way it refused the oversized string for
+     * `$quantity` — a raw 500 from a crafted URL, confirmed live before
+     * this fix. `mount()` normalises it to a real id or `null` before
+     * anything else runs.
+     */
     #[Url(as: 'v')]
-    public ?int $variationId = null;
+    public mixed $variationId = null;
 
     public int $imageIndex = 0;
 
-    public int $quantity = 1;
+    /**
+     * Deliberately untyped, not `int`. `wire:model` sends whatever the
+     * client sends — a number field has no server-side ceiling — and
+     * Livewire's property hydration assigns the raw value before any of
+     * this class's own code runs. A numeric string PHP cannot represent as
+     * an `int` (bigger than PHP_INT_MAX, or just very long) throws
+     * `TypeError: Cannot assign string to property ... of type int` right
+     * there, uncaught, an unhandled 500 from typing a long number into the
+     * box. `updatedQuantity()` is where sanitisation actually happens, and
+     * it can only run at all if hydration itself does not already throw.
+     */
+    public mixed $quantity = 1;
 
     public function mount(Product $product): void
     {
@@ -65,6 +86,15 @@ class ProductDetails extends Component
 
         $this->productId = $product->id;
         $this->quantity = max(1, $product->min_order_quantity ?? 1);
+
+        // A clean int-shaped value normalises; anything else (non-numeric,
+        // a decimal, a number PHP represents as a float once past its int
+        // range) becomes null and falls straight into the "no match" branch
+        // below, same as a well-formed id for a variation that does not
+        // exist.
+        $this->variationId = is_numeric($this->variationId) && (int) $this->variationId == $this->variationId
+            ? (int) $this->variationId
+            : null;
 
         // Not `$this->variation` — reading the computed here memoises null
         // for the request, and the default below would never be seen.
@@ -322,9 +352,37 @@ class ProductDetails extends Component
         }
     }
 
+    /**
+     * The only place `$quantity` is turned back into a real, bounded `int`
+     * after Livewire's hydration accepts it as `mixed` — everything else in
+     * this class (the template's `+`/`-` buttons, `addToCart()`) can then
+     * trust it is already a clean int and never re-validates it.
+     *
+     * Garbage input (non-numeric, decimal, a number PHP cannot represent
+     * cleanly) resets to the product's minimum rather than being clamped
+     * partially — there is no sensible "closest valid number" to a string
+     * that was never a number. `AddToCart` still re-checks minimum and
+     * stock server-side regardless; this only stops a malformed value from
+     * ever reaching that call, or from sitting in the input looking valid.
+     */
     public function updatedQuantity(): void
     {
-        $this->quantity = max(1, $this->quantity);
+        $product = $this->product;
+        $minimum = max(1, $product->min_order_quantity);
+        $raw = $this->quantity;
+
+        if (! is_numeric($raw) || (int) $raw != $raw || (string) (int) $raw !== trim((string) $raw)) {
+            $this->quantity = $minimum;
+
+            return;
+        }
+
+        // $this->stock is 0 for a sold-out variation; the Add to cart button
+        // is already disabled in that case; the ceiling below floors to at
+        // least $minimum rather than clamping to a 0 no valid order can meet.
+        $ceiling = max($minimum, $this->stock);
+
+        $this->quantity = (int) min($ceiling, max($minimum, (int) $raw));
     }
 
     /**
@@ -342,7 +400,11 @@ class ProductDetails extends Component
             $addToCart->handle(
                 ResolveCurrentCart::forVisitor(),
                 $this->variation,
-                $this->quantity
+                // updatedQuantity() normalises this to a real int on every
+                // change; cast explicitly anyway at the domain boundary
+                // rather than trust that every path into this method ran
+                // through that hook first.
+                (int) $this->quantity
             );
 
             $this->dispatch('cart-updated');
