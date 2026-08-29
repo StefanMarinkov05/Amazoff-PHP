@@ -6,7 +6,7 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Twenty-9 Actions across six areas, fifteen domain exceptions.
+Thirty-9 Actions across ten areas, twenty domain exceptions.
 
 ## Naming
 
@@ -308,6 +308,31 @@ first see this," not "when was this last touched," which `updated_at`
 already covers. No transaction: one row, one statement, nothing read first
 to decide anything.
 
+## Contact
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `SubscribeToNewsletter` | `newsletter_subscribers.status`, `.subscribed_at`, `.user_id` | optional — a guest subscribes with `null` | — |
+
+Below ADR-0007's bar on the write itself — one row, one table — and built
+anyway because `NewsletterSubscriberForm` also sets `status`. Two writers
+decide it, and only this one knows that subscribing again reverses an
+unsubscribe rather than failing. That second writer is the whole reason the
+ADR's "no second writer" carve-out does not apply.
+
+Idempotent through the UNIQUE index on `email` plus a caught violation, per
+CLAUDE.md — never `exists()` then insert, which two simultaneous submissions
+of one address both pass. The update on that path skips null values, so a
+guest re-subscribing cannot blank a `user_id` an account already owns, while
+a signed-in user claims a row they created as a guest. Without that, a
+subscription made before registering stays unlinked and an erasure request
+scanning by user never finds it — `explanation/gdpr.md` lists the table as
+personal data.
+
+Contact messages deliberately have no Action. One insert, one table, no
+second writer: `ContactForm` calls `ContactMessage::create()` directly, which
+is the same test that keeps the lookup tables on Filament's default CRUD.
+
 ## Transactions
 
 | Action | Opens `DB::transaction` |
@@ -338,6 +363,7 @@ to decide anything.
 | `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
 | `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
+| `SubscribeToNewsletter` | no - one row either way, and the UNIQUE index is what serialises it |
 
 Nesting is by savepoint, so the outermost boundary commits.
 `RecordInventoryMovement` is the exception: it writes one row and is never the
@@ -515,6 +541,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
 | `DeleteProductCategory` | `EditProductCategory` header action, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
+| `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
 criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have

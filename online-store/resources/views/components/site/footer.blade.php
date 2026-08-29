@@ -45,6 +45,18 @@
                     <span class="rounded border border-ink-700 px-2 py-1">Card</span>
                     <span class="rounded border border-ink-700 px-2 py-1">Cash on delivery</span>
                 </div>
+
+                <div class="mt-8 max-w-xs">
+                    <h2 class="text-xs font-semibold uppercase tracking-[0.15em] text-white">
+                        Occasional post
+                    </h2>
+                    <p class="mt-2 text-xs leading-relaxed text-ink-400">
+                        New arrivals and the odd guide. No more than once a month.
+                    </p>
+                    <div class="mt-3">
+                        <livewire:contact.newsletter-signup />
+                    </div>
+                </div>
             </div>
 
             @foreach ($columns as $heading => $items)

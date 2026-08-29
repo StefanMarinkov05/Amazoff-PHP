@@ -26,6 +26,11 @@ to do: the component holds its own state and builds its own query. Controllers
 come back when a page is not a Livewire component (a webhook, a PDF, a
 redirect).
 
+Not every page is one. `/about` is `Route::view('/about', 'pages.about')` —
+no state, no query, nothing for a component to hold. A page earns a component
+by having something that changes; making one anyway is the pattern applied
+out of habit rather than because the page needs it.
+
 The component and its view are paired by name, not by configuration.
 `App\Livewire\Catalogue\ProductList` renders
 `resources/views/livewire/catalogue/product-list.blade.php`. Rename one and

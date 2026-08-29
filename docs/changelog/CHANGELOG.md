@@ -8,6 +8,43 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- About and contact pages, plus the footer newsletter signup — the two dead
+  links the storefront chrome had been shipping since the catalogue slice.
+
+  `/about` is a `Route::view`, not a Livewire component. It holds no state and
+  runs no query, and ADR-0014 scopes a component to pages that do; reaching
+  for one here would have been the pattern applied out of habit.
+
+  `Contact\ContactForm` writes `ContactMessage` directly, with no Action.
+  ADR-0007's test is a write spanning more than one table or an invariant the
+  schema cannot hold, and a contact message is neither — the same reasoning
+  that keeps `Brand` and `Tag` on Filament's default CRUD. `user_id` comes
+  from the session rather than the form, so a guest submits an unattributed
+  message and nobody can attribute one to another account. A honeypot field
+  absorbs bots without a third-party service.
+
+- `App\Actions\Contact\SubscribeToNewsletter` — the newsletter signup does go
+  through an Action, and the difference from `ContactForm` is the point.
+  `NewsletterSubscriberForm` in the panel also writes `status`, so two callers
+  decide it, and only one of them knew that subscribing again reverses an
+  unsubscribe. ADR-0007's carve-out for a single-table save is explicitly
+  conditioned on there being no second writer; there is one here.
+
+  Idempotent through the UNIQUE index on `email` plus a caught violation
+  rather than `exists()` then insert, which two simultaneous submissions of
+  one address both pass. The update on that path skips nulls, so a guest
+  re-subscribing cannot blank a `user_id` an account already owns.
+
+  That last part closes a real gap rather than a hypothetical one: the
+  previous inline version never wrote `user_id` on re-subscribe, so an address
+  subscribed before registering stayed permanently unlinked from the account
+  that owned it, and an erasure request scanning by user would not have found
+  it. `explanation/gdpr.md` lists `newsletter_subscribers` as personal data.
+
+  Six tests in `tests/Feature/Actions/Contact/`, registered in CI shard 2. The
+  two covering the resurrection were confirmed to fail with the update in the
+  catch block removed.
+
 - The product detail page — `Catalogue\ProductDetails` at
   `/products/{product:slug}`, closing §37 criterion 4's product side. Gallery
   with thumbnails and prev/next arrows, an attribute picker that resolves a

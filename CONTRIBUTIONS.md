@@ -41,11 +41,11 @@ needed to touch.
 |---|---|
 | Data model | Initial schema design |
 | Admin panel | <ul><li>Resources for the catalogue's lookup entities</li><li>Product resource, with its related entities</li><li>Removed unsafe scaffolded relation actions</li><li>Coupon resource, with reactive form behaviour</li><li>Contact and newsletter resources</li><li>Product review resource, moderation only</li><li>Order resource, read-only pending the status-transition Action</li><li>Article resource, full CRUD, with a status-change menu generated from the transition matrix rather than hand-written</li></ul> |
-| Storefront | <ul><li>Livewire 3 / Tailwind 4 setup and the shared layout, header, and footer</li><li>Catalogue page — search, category and brand facets with live counts, stock and sale filters, sorting, pagination</li><li>Product detail page — variation picker, gallery with thumbnails and arrows, specifications, reviews, breadcrumb, add to basket</li><li>Design tokens: the `ink`/`marine` palette, two radii, two animations, `prefers-reduced-motion` honoured</li></ul> |
+| Storefront | <ul><li>Livewire 3 / Tailwind 4 setup and the shared layout, header, and footer</li><li>Catalogue page — search, category and brand facets with live counts, stock and sale filters, sorting, pagination</li><li>Product detail page — variation picker, gallery with thumbnails and arrows, specifications, reviews, breadcrumb, add to basket</li><li>About page, contact form, and the footer newsletter signup</li><li>Design tokens: the `ink`/`marine` palette, two radii, two animations, `prefers-reduced-motion` honoured</li></ul> |
 | Pricing | <ul><li>`ResolveProductPrice` and the `ProductPrice` value object, removing a second copy of §11's discount-window rule</li><li>`ResolveCurrentCart`, the storefront's cart lookup</li></ul> |
 | Seeders | Role and staff account seeding |
 | Infra | <ul><li>Local database provisioning on a fresh clone</li><li>Vite/Tailwind asset pipeline under Docker — source scanning, the browser-facing dev origin, font injection</li></ul> |
-| Actions | <ul><li>Review approval and unapproval</li><li>Article status transitions (§22), separating `publish` from `update` the way review moderation separates `approve`</li></ul> |
+| Actions | <ul><li>Review approval and unapproval</li><li>Article status transitions (§22), separating `publish` from `update` the way review moderation separates `approve`</li><li>`SubscribeToNewsletter`, where a second writer in the panel is what puts the rule in an Action</li></ul> |
 | Authorization | <ul><li>Policies for product-related resources</li><li>Narrowed `content_editor` to the scope §3.3 grants</li></ul> |
 | Schema | Fields supporting contact message handling |
 | Documentation | For the above |
