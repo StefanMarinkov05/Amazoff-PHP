@@ -8,6 +8,52 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- The journal — `Journal\ArticleList` at `/journal` and
+  `Journal\ArticleDetails` at `/journal/{article:slug}`, closing §37
+  criterion 17's reader side. Filter by category and tag (both `#[Url]`),
+  a lead story, a numbered index, related articles, and a reading-progress
+  bar.
+
+  Visibility is **two** conditions, not one: `status = Published` **and**
+  `published_at <= now()`. An article can be marked published with a future
+  date, and filtering on status alone leaks it early. Both live in
+  `Article::visible()`, an Eloquent scope, so the list filter and the detail
+  page's 404 cannot drift apart — the detail page asks the same scope
+  whether the article is visible rather than re-deriving the rule.
+
+- `App\Support`-style generated cover art for articles —
+  `<x-journal.cover>`, a Blade component drawing layered OKLCH conic and
+  radial gradients, an SVG turbulence grain and a halftone screen from
+  `crc32($article->slug)`.
+
+  Not a stylistic choice first: every one of the 23 articles carries a
+  `main_image_path` pointing at a file that does not exist.
+  `demo:fetch-images` covers `product_images` only, and no `PEXELS_KEY` is
+  configured, so the paths render as broken images. Generating from the slug
+  is the same move `App\Support\PlaceholderImage` makes for products —
+  deterministic, so an article keeps its artwork across re-seeds, and there
+  is no file to be missing. Real article photography is still owed, in the
+  fixtures or in an extension to `demo:fetch-images`.
+
+- `Instrument Serif` as `--font-display`, added through the existing Bunny
+  pipeline in `vite.config.js` rather than a raw Google Fonts `<link>`. The
+  journal needed a voice distinct from the shop, and a high-contrast serif
+  is the cheapest way to read as editorial rather than as a product listing.
+  Georgia is the fallback rather than a generic serif — near-universal, and
+  close enough in metrics that the swap is not a visible reflow.
+
+- `ember`, a second accent ramp in `@theme`, deliberately scoped to the
+  journal. Two accents on a product grid is one too many.
+
+- `docs/how-to/write-a-storefront-page.md` — every way UI is written here
+  and what breaks each one: the four kinds of view and how to choose, the
+  Livewire directives in use and when each is wrong, `#[Url]` as
+  attacker-controlled input, computed-cache invalidation, the Tailwind
+  source-scanning trap, the accessibility baseline already met, and the
+  paint-order rule that positioned elements beat static ones regardless of
+  DOM order. Written because most of those failures render a plausible page
+  rather than an error.
+
 - **Staff-only "Demo order" catalogue sort** — walks 13 real products, each
   chosen to showcase one distinguishable case (multi-image variations, an
   impossible attribute combination, a parent-category product, out of

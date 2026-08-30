@@ -27,6 +27,10 @@ follows is the short version.
 - `docs/how-to/troubleshooting.md` — **read before proposing a fix for any
   error.** Several of this project's errors look like ordinary bugs and are
   not.
+- `docs/how-to/write-a-storefront-page.md` — **read before adding a Blade
+  view.** Every UI technique in use and how each fails; most fail by
+  rendering a plausible page rather than an error, so neither Larastan nor
+  Pest catches them.
 
 ## Architecture, non-negotiable
 

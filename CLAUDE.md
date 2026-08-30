@@ -77,8 +77,12 @@ in agreement: if a rule here changes, change it there too.
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
-  `run-the-tests.md`, `start-a-session.md`, `use-ci.md`,
-  `write-docs-and-comments.md`. Short recipes; read the relevant one
+  `run-the-tests.md`, `seed-the-database.md`, `start-a-session.md`,
+  `use-ci.md`, `write-docs-and-comments.md`, and
+  **`write-a-storefront-page.md`** — every way UI is written here and what
+  breaks each one; read it before adding a Blade view, because most of
+  those failures render a plausible page rather than an error. Short
+  recipes; read the relevant one
   before improvising the task from scratch. Definetely read `start-a-session.md`
   and the prompt in it in case anything is missing from here
 

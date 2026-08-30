@@ -1,11 +1,15 @@
 # How a storefront page is put together
 
 What each file in a storefront slice does, and where the Actions plug in. The
-worked example is the catalogue, which is the only slice built so far.
+worked example is the catalogue; the product detail page, contact form and
+journal follow the same shape.
 
 The counterpart for the admin side is `filament-resources.md`. Why a read does
 *not* go through an Action, and why filter state lives in the URL, is
 ADR-0014; what each Action does is `reference/actions.md`.
+**`how-to/write-a-storefront-page.md` is the working reference for the markup
+itself** — every Blade, Livewire, Alpine and Tailwind technique in use, and
+what breaks each one.
 
 ## The files
 
