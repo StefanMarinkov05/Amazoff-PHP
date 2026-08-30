@@ -25,7 +25,7 @@ class ArticleDetails extends Component
     #[Computed]
     public function article(): Article
     {
-        return Article::query()->where('id', $this->articleId)
+        return Article::query()
             ->with(['author', 'articleCategory', 'tags'])
             ->findOrFail($this->articleId);
     }
