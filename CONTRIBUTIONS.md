@@ -24,15 +24,16 @@ needed to touch.
 |---|---|
 | CI | Pipeline setup |
 | Enums | Backed enums, casts, status transition matrices |
-| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li></ul> |
+| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li><li>UI/UX - widgets testing</li><li>Security testing</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |
 | Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
 | Authorization | Permissions, roles, policies, administrator bypass |
-| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li></ul> |
+| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li><li>UI/UX visual minimalism & statistical widgets</li></ul> |
 | Actions | Full `app/Actions` |
 | Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
 | Console | `ExpireCarts` (the project's first scheduled command), `RaceWorker` (the concurrency test harness), `fixtures:validate`/`fixtures:validate-articles`, `demo:fetch-images` |
 | Seeder | <ul><li>Demo/System/Stress seeder organization</li><li>Full transactional demo pass</li><li>Data Parser before seeding</li><li>`CatalogueStressSeeder` and `StressSeeder` for volume testing</li></ul> |
+| Storefront | <ul><li>Personal account management panel</li><li>UI/UX features - Category filtering, sorting criteria</li></ul> |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev

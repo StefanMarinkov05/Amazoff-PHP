@@ -26,6 +26,29 @@ use Livewire\Component;
  * Action could own — `Auth::attempt()` is the framework's, and ADR-0007's
  * test ("a rule exists when a write spans more than one table or enforces an
  * invariant the schema cannot express") is not met.
+ *
+ * `Auth::attempt()` reads the row once, at the instant of the attempt, with
+ * `is_active` folded into the same query as the credentials rather than
+ * checked afterwards — so a deactivation or a password change by another
+ * session has no window to race against: whichever way it lands, the
+ * decision is made on current data, not stale data read earlier and acted on
+ * later. This is why login itself needs no lock and no test beyond the
+ * ordinary success/failure cases — unlike a stale *session*, which is what
+ * `EnsureAccountIsActive` and `AuthenticateSession` exist to catch (see
+ * `troubleshooting.md`, "`Auth::logoutOtherDevices()` is called, and other
+ * sessions stay signed in").
+ *
+ * A soft-deleted user cannot log in either, though nothing here states it:
+ * `User` uses `SoftDeletes`, whose global scope excludes trashed rows from
+ * every Eloquent query, `Auth::attempt()`'s included — confirmed directly
+ * with `Auth::attempt()` against a freshly soft-deleted row, not assumed.
+ * The exclusion is Eloquent's own guarantee rather than a rule this class
+ * enforces, so there is no test pinning it here: pinning framework
+ * behaviour that isn't ours is exactly what `CLAUDE.md`'s testing
+ * philosophy excludes. If a soft-deleted user is ever queried here through
+ * `withTrashed()` for some unrelated reason, this guarantee breaks
+ * silently — that is the one thing to check first if a deleted account is
+ * ever reported able to sign in.
  */
 #[Layout('components.layouts.app')]
 class Login extends Component

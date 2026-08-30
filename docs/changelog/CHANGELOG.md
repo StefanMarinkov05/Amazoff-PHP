@@ -8,6 +8,60 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`Auth::logoutOtherDevices()` on the storefront now actually invalidates
+  other sessions.** `ChangePassword` called it and its docblock stated the
+  guarantee, but the call is inert unless
+  `Illuminate\Session\Middleware\AuthenticateSession` is in the stack —
+  and it was in Filament's panel stack (scaffolded by the installer) and
+  not in the storefront's `web` group. So a password change, the standard
+  response to "someone else may be signed in as me", left every other
+  browser signed in for customers while working correctly for staff.
+  Registered on the `web` group. `troubleshooting.md` has the full symptom,
+  including why a grep for the class finds a hit that does not apply.
+
+- **A customer deactivated or soft-deleted mid-session is now signed out on
+  their next request**, via new `App\Http\Middleware\EnsureAccountIsActive`.
+  `Login` checks `is_active` as part of the credentials, but that is one
+  instant; nothing re-checked it afterwards, so deactivating a customer did
+  nothing until their session happened to expire. `canAccessPanel()` already
+  made exactly this argument for the panel ("a session outlives the row it
+  authenticated against") — this is the same rule for the storefront, which
+  had no equivalent. Soft-deletion counts as inactive and is checked
+  explicitly rather than left to the guard's global-scope behaviour.
+
+- **Losing the registration email race now shows a form error instead of a
+  500.** `Register`'s `unique` rule and the `users.email` index are two
+  halves of one check: between validating and inserting, another
+  registration can take the address, and the index — not the rule — is what
+  decides. The `UniqueConstraintViolationException` is now caught and
+  converted to the same message the ordinary duplicate produces, so the two
+  are indistinguishable to the user. Catch-and-convert rather than
+  check-then-act, the rule `CLAUDE.md` already states for idempotency.
+
+- `tests/Feature/Livewire/AuthSessionInvalidationTest.php` — ten cases
+  covering the three above. Not in `tests/Concurrency`: there is no
+  contested row and no lock picking a winner, which is what that harness is
+  for; what was missing was enforcement on a later request. Each case was
+  re-run with its fix reverted to confirm it fails — which caught a first
+  draft of the duplicate-email test that passed with the `catch` deleted,
+  because it planted the competing row before `->call('register')` and so
+  was rejected by `validate()` re-querying the rule rather than by the
+  index. It now plants on Eloquent's `creating` event. Runs on CI shard 2,
+  which lists `tests/Feature/Livewire` as a directory.
+
+  The four cases that hit a real route (`->get('/catalogue')`, needed
+  because `EnsureAccountIsActive`/`AuthenticateSession` are HTTP
+  middleware that `Livewire::test()` never exercises) passed locally and
+  failed in CI with `ViteManifestNotFoundException` — `public/hot` from
+  the always-running local `vite` container hides the manifest path that
+  CI, with neither a dev server nor a build step, actually hits. Fixed by
+  faking a minimal manifest in `beforeEach`, cleaned up afterwards.
+  `troubleshooting.md` has the full mechanism.
+
+- The login page renders `session('status')`, which nothing did before —
+  `EnsureAccountIsActive`'s explanation of why the session ended would
+  otherwise have been set and silently discarded.
+
 - `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
   (`tests/Feature/Livewire/*`, `tests/Feature/Filament/*`), grouped by
   component or resource, stating what each one actually proves and, where a

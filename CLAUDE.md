@@ -53,7 +53,7 @@ in agreement: if a rule here changes, change it there too.
   writes, who can call it, what it throws; `write-rules/` (`product.md`,
   `product-variation-images.md`, `product-variation-attribute-values.md`,
   `product-attribute-values.md`, `product-category.md`, `cart.md`,
-  `coupon.md`, `concurrency.md`) is the
+  `coupon.md`, `order.md`, `auth.md`, `concurrency.md`) is the
   expected-behaviour page per aggregate — refusals, races, what a change
   does to state that already exists; `console-commands.md` lists every
   custom Artisan command and what invokes it; `ui-tests.md` lists every

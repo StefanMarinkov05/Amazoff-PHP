@@ -178,6 +178,16 @@ assumed from the type alone.
 - An id that matches nothing real falls back to the default variation
   rather than erroring.
 
+### `AuthSessionInvalidationTest`
+
+What each of this file's ten cases proves, the incidents that caused two of
+them to exist, and what is deliberately not covered, all moved to
+`reference/write-rules/auth.md` — the outcomes page for this area, in the
+same shape as `write-rules/cart.md` for cart writes. This page names the
+test; that page owns the behaviour it proves, so the two do not drift out
+of step by being maintained in both places. New auth test cases get their
+behaviour documented there, not here.
+
 ## Admin panel (`tests/Feature/Filament/`)
 
 ### `ProductResourceTest`
