@@ -16,6 +16,11 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+/**
+ * @property-read LengthAwarePaginator<int, Article> $articles
+ * @property-read Collection<int, ArticleCategory> $categories
+ * @property-read Collection<int, Tag> $tags
+ */
 class ArticleList extends Component
 {
     #[Url]
