@@ -148,14 +148,17 @@ would make every colour, Black included, read as if nothing had it. Values
 within a facet are ordered by `sort_order`, not alphabetically (XS, S, M, L,
 XL, XXL — not L, M, S, XL, XS).
 
-Facets render as clickable toggle buttons above the product grid —
+Facets render above the product grid as a small hover-opened dropdown per
+attribute ("Colour ▾") rather than every value shown at once or one
+`<select multiple>` per attribute in the sidebar — hovering (or focusing,
+for keyboard use) the trigger opens a panel listing that attribute's values;
 `ProductList::toggleAttributeValue()` adds or removes one value directly
-from `$attributeValueIds` — rather than one `<select multiple>` per
-attribute in the sidebar. The dropdown form needed a `facetSelections`
-staging property because Livewire cannot bind several independent
-multi-selects to one shared array without each overwriting the others' picks
-on change; toggle buttons have no such conflict, so that property no longer
-exists.
+from `$attributeValueIds` on click. The old `<select multiple>` form needed
+a `facetSelections` staging property because Livewire cannot bind several
+independent multi-selects to one shared array without each overwriting the
+others' picks on change; the click-driven dropdown has no such conflict, so
+that property no longer exists. Removing a selection happens from the
+"active filters" chip row, not the dropdown itself — the dropdown only adds.
 
 Each selected value gets its own dismissible chip, keyed
 `attributeValue:N` — the one chip key carrying a payload, since every other

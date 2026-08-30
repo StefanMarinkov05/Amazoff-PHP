@@ -391,13 +391,17 @@ when the work happened, not when it was committed — nothing in
   sorts each group on `sort_order` afterward.
 
   The facet UI itself changed from one `<select multiple>` per attribute to
-  clickable toggle buttons — clearer for the OR/AND rule than a multi-select
-  box, and it means Livewire no longer needs the `facetSelections` staging
-  property that existed only to work around several independent multi-selects
-  being unable to share one bound array; `toggleAttributeValue()` adds or
-  removes a value directly. The facet block also moved from the sidebar to a
-  bar above the product grid — the filters a shopper cares about most once a
-  category is picked, given more room than a 15rem sidebar column allows.
+  a small hover-opened dropdown per attribute — a minimal trigger
+  ("Colour ▾", with a count badge once something in it is picked) rather
+  than every value shown at once, which also means Livewire no longer needs
+  the `facetSelections` staging property that existed only to work around
+  several independent multi-selects being unable to share one bound array;
+  `toggleAttributeValue()` adds or removes a value directly. Every selected
+  value across every attribute is removable from the existing "active
+  filters" chip row below, so the dropdown itself only ever adds. The facet
+  block also moved from the sidebar to a bar above the product grid — the
+  filters a shopper cares about most once a category is picked, given more
+  room than a 15rem sidebar column allows.
 
 - **"The image field has invalid image dimensions" named neither the
   requirement nor what was uploaded.** `ProductImagesRelationManager`'s

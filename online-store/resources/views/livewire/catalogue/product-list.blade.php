@@ -211,27 +211,74 @@
             </form>
 
             <main>
-                {{-- Category-specific facets, as clickable toggle buttons —
+                {{-- Category-specific facets, as hover-triggered dropdowns —
                      above the grid rather than in the sidebar, since these
                      are the filters a shopper who has already picked a
                      category cares about most. Empty until a category is
                      picked, and then scoped to what that category (or an
                      ancestor of it) allows — Colour and Size mean nothing
                      across a catalogue that also holds power tools.
-                     ProductList::attributeFacets(). Each button's own count
+                     ProductList::attributeFacets(). Each value's own count
                      is computed against every filter except its own
                      attribute (ProductList::applyFilters()'s
                      $skipAttributeId), so picking Denim narrows Colour and
                      Size to what Denim actually has, without a selected
-                     Colour narrowing its own remaining options to zero. --}}
+                     Colour narrowing its own remaining options to zero.
+
+                     Minimal by design: one small trigger per attribute
+                     rather than every value shown at once. Hover (or focus,
+                     for keyboard use) opens the panel; the trigger itself
+                     carries a count badge once something in it is picked,
+                     so the closed state still says what is active. The
+                     "active filters" chip row further down is where a
+                     selection actually gets removed — this panel is only
+                     for adding. --}}
                 @if ($this->attributeFacets->isNotEmpty())
-                    <div class="mb-6 space-y-4 border-b border-ink-200 pb-6">
+                    <div class="mb-6 flex flex-wrap gap-2 border-b border-ink-200 pb-6">
                         @foreach ($this->attributeFacets as $attributeName => $values)
-                            <div wire:key="facet-{{ Str::slug($attributeName) }}">
-                                <span class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                            @php($attributeId = (string) $values->first()->attribute_id)
+                            @php($selectedInGroup = collect($values)->pluck('id')->intersect(array_map('intval', (array) $attributeValueIds)))
+                            <div
+                                x-data="{ open: false }"
+                                x-on:mouseenter="open = true"
+                                x-on:mouseleave="open = false"
+                                x-on:keydown.escape.window="open = false"
+                                class="relative"
+                                wire:key="facet-{{ Str::slug($attributeName) }}"
+                            >
+                                <button
+                                    type="button"
+                                    x-on:focus="open = true"
+                                    x-on:click="open = ! open"
+                                    :aria-expanded="open ? 'true' : 'false'"
+                                    class="inline-flex items-center gap-1.5 rounded-control border px-3 py-1.5 text-sm font-medium
+                                           transition-colors duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                           {{ $selectedInGroup->isNotEmpty()
+                                                ? 'border-marine-600 bg-marine-50 text-marine-900'
+                                                : 'border-ink-200 bg-white text-ink-700 hover:border-marine-600/50' }}"
+                                >
                                     {{ $attributeName }}
-                                </span>
-                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @if ($selectedInGroup->isNotEmpty())
+                                        <span class="grid h-4 w-4 place-items-center rounded-full bg-marine-600 text-[0.65rem] font-semibold text-white">
+                                            {{ $selectedInGroup->count() }}
+                                        </span>
+                                    @endif
+                                    <svg class="h-3.5 w-3.5 text-ink-400 transition-transform duration-200" :class="open && 'rotate-180'"
+                                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path stroke-linecap="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                    </svg>
+                                </button>
+
+                                <div
+                                    x-show="open"
+                                    x-cloak
+                                    x-on:focusout="if (! $el.contains($event.relatedTarget)) open = false"
+                                    x-transition:enter="transition ease-out duration-150"
+                                    x-transition:enter-start="opacity-0 -translate-y-1"
+                                    x-transition:enter-end="opacity-100 translate-y-0"
+                                    class="absolute left-0 top-full z-20 mt-1.5 w-52 rounded-card border border-ink-200
+                                           bg-white p-1.5 shadow-xl shadow-ink-900/10"
+                                >
                                     @foreach ($values as $value)
                                         @php($checked = in_array($value->id, array_map('intval', (array) $attributeValueIds), true))
                                         <button
@@ -239,14 +286,18 @@
                                             wire:key="facet-value-{{ $value->id }}"
                                             wire:click="toggleAttributeValue({{ $value->id }})"
                                             aria-pressed="{{ $checked ? 'true' : 'false' }}"
-                                            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium
-                                                   transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
-                                                   {{ $checked
-                                                        ? 'border-marine-600 bg-marine-600 text-white'
-                                                        : 'border-ink-200 bg-white text-ink-700 hover:border-marine-600/50 hover:bg-marine-50' }}"
+                                            class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
+                                                   transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                                   {{ $checked ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
                                         >
-                                            {{ $value->value }}
-                                            <span class="{{ $checked ? 'text-white/70' : 'text-ink-400' }}">({{ $value->products_count }})</span>
+                                            <span class="flex items-center gap-2">
+                                                <svg class="h-3.5 w-3.5 shrink-0 {{ $checked ? 'text-marine-600' : 'text-transparent' }}"
+                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                </svg>
+                                                {{ $value->value }}
+                                            </span>
+                                            <span class="text-xs text-ink-400">{{ $value->products_count }}</span>
                                         </button>
                                     @endforeach
                                 </div>
