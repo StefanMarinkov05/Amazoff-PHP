@@ -49,6 +49,15 @@ when the work happened, not when it was committed — nothing in
   index. It now plants on Eloquent's `creating` event. Runs on CI shard 2,
   which lists `tests/Feature/Livewire` as a directory.
 
+  The four cases that hit a real route (`->get('/catalogue')`, needed
+  because `EnsureAccountIsActive`/`AuthenticateSession` are HTTP
+  middleware that `Livewire::test()` never exercises) passed locally and
+  failed in CI with `ViteManifestNotFoundException` — `public/hot` from
+  the always-running local `vite` container hides the manifest path that
+  CI, with neither a dev server nor a build step, actually hits. Fixed by
+  faking a minimal manifest in `beforeEach`, cleaned up afterwards.
+  `troubleshooting.md` has the full mechanism.
+
 - The login page renders `session('status')`, which nothing did before —
   `EnsureAccountIsActive`'s explanation of why the session ended would
   otherwise have been set and silently discarded.

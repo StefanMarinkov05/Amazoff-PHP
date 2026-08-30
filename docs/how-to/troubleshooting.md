@@ -1799,3 +1799,76 @@ actually serves the route — `php artisan tinker` printing
 what confirmed both halves here. `AuthSessionInvalidationTest` pins the
 group's contents for this reason; `docs/reference/ui-tests.md` records what
 each of its cases proves.
+
+## A Feature test passes locally and fails in CI with `ViteManifestNotFoundException`
+
+**Symptom.** A test that does a plain `->get('/some-route')` against a real
+page — not `Livewire::test(Component::class)` — passes every time locally,
+including in a container, and fails in CI with `Illuminate\Foundation\
+ViteManifestNotFoundException: Vite manifest not found at:
+.../public/build/manifest.json`.
+
+**Cause.** `components/layouts/app.blade.php` calls `@vite(...)`. Vite's
+`__invoke()` skips the manifest entirely when `public/hot` exists — the
+marker the `vite` Docker service leaves behind while its dev server is
+running — and reads `public/build/manifest.json` otherwise. Local
+development always has the `vite` container running, so `public/hot` is
+always there and the manifest path is never exercised. `use-ci.md`'s `test`
+job deliberately has no npm/build step, verified at the time by grep that
+nothing under `tests/Unit` or `tests/Feature` called `@vite`. A test that
+renders a real route through the full layout — rather than mounting a
+Livewire component directly, which never touches the layout — breaks that
+premise, and CI has neither `public/hot` nor a built manifest, so it hits
+the one code path nothing local ever exercises.
+
+**Why a route-level test was needed at all.** `EnsureAccountIsActive` and
+`AuthenticateSession` are HTTP middleware. `Livewire::test()` mounts a
+component directly and never runs the request through the middleware
+stack, so a component-level test proves nothing about either — the test
+has to go through a real route.
+
+**Fix.** Fake a minimal manifest for the file(s) that need it, scoped with
+`beforeEach`/cleanup rather than committed to the repo or added to CI:
+
+```php
+beforeEach(function (): void {
+    $buildPath = public_path('build');
+
+    if (! File::exists($buildPath.'/manifest.json')) {
+        File::ensureDirectoryExists($buildPath);
+
+        File::put($buildPath.'/manifest.json', json_encode([
+            'resources/css/app.css' => ['file' => 'assets/app.css', 'src' => 'resources/css/app.css'],
+            'resources/js/app.js' => ['file' => 'assets/app.js', 'src' => 'resources/js/app.js'],
+        ]));
+
+        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($buildPath));
+    }
+});
+```
+
+Both `file` and `src` are dereferenced unconditionally by `Vite::__invoke()`
+for every entrypoint passed to `@vite()`; everything else (`css`, imports)
+is read with `?? []` and can be omitted since nothing in these tests
+asserts on the rendered HTML — only on status codes and redirect targets.
+`Vite::fonts()` needs no equivalent fake: a missing `fonts-manifest.json`
+makes it return an empty string rather than throw.
+
+**Why it recurs.** The container that makes local development convenient
+(`vite`, always running) is exactly the thing that hides this from local
+runs. `pint --test` and `phpstan analyse` are also blind to it — this is a
+runtime-only failure, the shape every entry in this file is about.
+`use-ci.md`'s own build-step decision states its verification method (a
+grep for `@vite`/`Vite::`/`mix()`), which is the actual thing to re-run
+before trusting that decision still holds — a route-level test added later
+is exactly the kind of change that grep wouldn't be re-run for unless
+someone remembered to.
+
+**Prevention.** Before adding a test that hits a real route rather than
+mounting a Livewire component, ask whether it needs to (only middleware or
+full-request behaviour needs it) and, if so, either fake the manifest as
+above or re-run `use-ci.md`'s grep and reconsider the no-build-step
+decision if `@vite`-rendering tests are now common enough that per-file
+fakes are duplicated across the suite. Run the suite with `public/hot`
+temporarily renamed to reproduce the CI condition locally before trusting a
+route-level test is green for the right reason.
