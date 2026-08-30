@@ -54,7 +54,10 @@ class ArticleList extends Component
     #[Computed]
     public function tags(): Collection
     {
-        return Tag::query()->has('articles')->orderBy('name')->get();
+        return Tag::query()
+            ->whereHas('articles', fn (Builder $q) => $q->visible())
+            ->orderBy('name')
+            ->get();
     }
 
     private function applyFilters(Builder $query, ?string $skip = null): void
