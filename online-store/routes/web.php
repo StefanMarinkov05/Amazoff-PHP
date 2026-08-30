@@ -8,6 +8,8 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Catalogue\ProductDetails;
 use App\Livewire\Catalogue\ProductList;
 use App\Livewire\Contact\ContactForm;
+use App\Livewire\Journal\ArticleList;
+use App\Livewire\Journal\ArticleDetails;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +19,8 @@ Route::get('/catalogue', ProductList::class);
 Route::get('/products/{product:slug}', ProductDetails::class);
 Route::view('/about', 'pages.about')->name('about');
 Route::get('/contact', ContactForm::class)->name('contact');
+Route::get('/journal', ArticleList::class)->name('journal');
+Route::get('/journal/{article:slug}', ArticleDetails::class);
 
 /*
  * Authentication. Laravel's own guard and session, no starter kit — the
