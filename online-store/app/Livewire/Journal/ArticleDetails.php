@@ -5,50 +5,34 @@ declare(strict_types=1);
 namespace App\Livewire\Journal;
 
 use App\Models\Article;
-use App\Models\User;
-use App\Enums\ArticleStatus;
 use Illuminate\View\View;
-use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class ArticleDetails extends Component
 {
-    #[Url]
-    public ?int $categoryId = null;
-    #[Url]
-    public ?string $tag = null;
-    #[Url]
     public int $articleId;
 
     public function mount(Article $article): void
     {
         abort_unless(
-            $article->status === ArticleStatus::Published
-                && $article->published_at?->isPast(),
+            Article::query()->visible()->whereKey($article->getKey())->exists(),
             404
         );
-        $this->articleId = $article->id;
+        $this->articleId = $article->getKey();
     }
 
     #[Computed]
     public function article(): Article
     {
         return Article::query()->where('id', $this->articleId)
-            ->with(['author', 'articleCategory'])
-            ->firstOrFail($this->articleId);
-    }
-
-    #[Computed]
-    public function category()
-    {
-        return
+            ->with(['author', 'articleCategory', 'tags'])
+            ->findOrFail($this->articleId);
     }
 
     public function render(): View
     {
         return view('livewire.journal.article-details')
-            ->title($this->article->name);
+            ->title($this->article->title);
     }
 }

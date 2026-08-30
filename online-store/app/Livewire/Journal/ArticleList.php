@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire\Journal;
 
 use App\Models\Article;
+use App\Models\ArticleCategory;
 use App\Models\Tag;
-use App\Enums\ArticleStatus;
 use Illuminate\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,6 +40,12 @@ class ArticleList extends Component
             ->with(['author', 'articleCategory'])->visible();
         $this->applyFilters($query);
         return $query->latest('published_at')->paginate(12);
+    }
+
+    #[Computed]
+    public function categories(): Collection
+    {
+        return ArticleCategory::query()->whereHas('articles', fn (Builder $q) => $q->visible)->orderBy('name')->get();
     }
 
     #[Computed]
