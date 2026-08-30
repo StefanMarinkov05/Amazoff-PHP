@@ -10,6 +10,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,7 +19,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Filament allows `style` through so its editor's colours and image
+        // sizing survive, and Symfony's sanitizer does not read the CSS
+        // inside it — `position: fixed` and `background: url(...)` both pass.
+        // Dropped rather than filtered because nothing in `ArticleForm`'s
+        // toolbar emits inline style. Global on purpose: the panel and the
+        // storefront render the same bodies. ADR-0015.
+        $this->app->extend(
+            HtmlSanitizerConfig::class,
+            fn (HtmlSanitizerConfig $config): HtmlSanitizerConfig => $config
+                ->dropAttribute('style', '*'),
+        );
     }
 
     /**

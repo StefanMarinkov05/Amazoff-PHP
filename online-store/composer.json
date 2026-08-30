@@ -15,7 +15,6 @@
         "saloonphp/saloon": "^4.0",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^8.3",
-        "stevebauman/purify": "^6.3",
         "stripe/stripe-php": "^21.1"
     },
     "require-dev": {

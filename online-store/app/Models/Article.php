@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ArticleStatus;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\HtmlString;
 
 /**
  * @property ArticleStatus $status
+ * @property-read HtmlString $safe_content
  */
 class Article extends Model
 {
@@ -64,6 +69,27 @@ class Article extends Model
             'featured' => 'boolean',
             'published_at' => 'datetime',
         ];
+    }
+
+    #[Scope]
+    protected function visible(Builder $query): void
+    {
+        $query->where('status', ArticleStatus::Published)
+            ->where('published_at', '<=', now());
+    }
+
+    /**
+     * `content` is `RichEditor` output and must never reach a page any other
+     * way. Returns an `HtmlString`, so a template renders it with `{{ }}` and
+     * no view needs `{!! !!}` at all. ADR-0015.
+     */
+    protected function safeContent(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): HtmlString => new HtmlString(
+                (string) str((string) $this->content)->sanitizeHtml()
+            ),
+        );
     }
 
     public function tags(): BelongsToMany

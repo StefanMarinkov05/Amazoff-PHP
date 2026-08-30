@@ -12,6 +12,14 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                // Journal display face. Instrument Sans carries the shop; the
+                // editorial pages need a voice of their own, and a high-contrast
+                // serif is the cheapest way to sound like a magazine rather
+                // than a product listing.
+                bunny('Instrument Serif', {
+                    weights: [400],
+                    italic: true,
+                }),
             ],
         }),
         tailwindcss(),
