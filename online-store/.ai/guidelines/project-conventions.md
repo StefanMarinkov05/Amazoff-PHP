@@ -24,6 +24,9 @@ follows is the short version.
 - `docs/reference/write-rules/` — expected behaviour per aggregate:
   refusals, races, what a change does to existing state.
 - `docs/reference/console-commands.md` — every custom Artisan command.
+- `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
+  and what it proves, grouped by component/resource. Check before changing
+  a Livewire component or Filament resource.
 - `docs/how-to/troubleshooting.md` — **read before proposing a fix for any
   error.** Several of this project's errors look like ordinary bugs and are
   not.
@@ -133,6 +136,10 @@ follows is the short version.
 - Migrations are append-only after the schema freeze. Never edit a merged
   migration; add a new one.
 - Generated code is a first draft. It gets read before it is trusted.
+- **Before opening or updating a PR, merge `main` in and resolve any
+  conflicts first**, then re-run `pint --test`, `phpstan analyse`, and
+  `pest` — a clean textual merge can still combine two branches into
+  behaviour neither had alone.
 - **Do not commit or push unless explicitly asked.** Never add a
   `Co-Authored-By` trailer on this repo. PR bodies use
   `.github/PULL_REQUEST_TEMPLATE.md` as written.

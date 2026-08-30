@@ -8,6 +8,14 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
+  (`tests/Feature/Livewire/*`, `tests/Feature/Filament/*`), grouped by
+  component or resource, stating what each one actually proves and, where a
+  test exists because of a real incident, what that incident was. Not a
+  replacement for the write-rules pages, which state the contract — this
+  page states which test proves which piece of it, so a behaviour change
+  has a known list of tests to check rather than a full-suite guess.
+
 - **Catalogue search now matches an attribute value's own text ("Linen",
   "Red"), not only a product's name and blurb.** A shopper typing a
   material or colour they remember has no reason to know whether that fact
