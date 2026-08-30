@@ -64,6 +64,7 @@ it. The loader resolves the offset against `now()` at load time.
   "seo_title": "18V Cordless Drill Driver | Amazoff",
   "seo_description": "Buy the 18V Cordless Drill Driver online.",
   "attributes": ["colour"],
+  "attribute_values": ["material.cotton", "material.polyester"],
 
   "images": [
     { "key": "main", "path": "drill-main.jpg", "alt_text": "Drill, front view", "is_main": true, "sort_order": 0 },
@@ -112,6 +113,7 @@ it. The loader resolves the offset against `now()` at load time.
 | `dimension_display_unit`, `weight_display_unit` | omit — they default to `cm` and `kg` and record only how the panel shows the number back. Storage is always grams and millimetres, whatever they say |
 | `discount_starts_at`, `discount_ends_at` | relative offset strings or omitted; `ends_at` must be after `starts_at` |
 | `attributes` | list of attribute slugs this product varies by — must match the keys used in every variation's `attribute_values` |
+| `attribute_values` (product level) | optional list of dotted `attribute.value` slugs the product carries **descriptively** — "what is this made of", never forking the SKU. Several values of one attribute are legal here and refused on a variation, which is why a 50/50 blend lives at this level. An attribute listed in `attributes` above must **not** appear here; `fixtures:validate` rejects the clash, as `SetProductAttributeValues` does at runtime |
 | `images[].key` | local to this document only; **not** a database key. Exists so a variation can reference an image before either has an ID |
 | `images[].is_main` | exactly one `true` per document, or none — `fixtures:validate` rejects two |
 | `variations` | at least one, required by `CreateProduct` |
@@ -122,6 +124,16 @@ it. The loader resolves the offset against `now()` at load time.
 | `variations[].images` | ordered list of `images[].key` values from the same document; array order becomes gallery `position`. Omit for a variation that inherits the product's main image |
 | `variations[].initial_quantity` | opening stock; not a column, becomes an `InitialStock` movement via `AddProductVariation` |
 | `variations[].attribute_values` | `{ attribute_slug: value_slug }`, one entry per entry in the product's `attributes` list |
+
+The vocabulary file `database/fixtures/reference/catalogue.json` gained a
+matching key: each attribute may carry a `categories` list scoping it to
+those master categories via `attribute_product_category`. Descendants
+inherit it (`ResolveAllowedAttributes`), so only the top of each branch is
+named — `shoe-size` is scoped to `workwear` alone and is therefore never
+offered on a perfume. Omitting the key leaves the attribute unrestricted,
+that table's documented default. `CatalogueReferenceSeeder` `sync()`s it, so
+removing a category from the list drops the row on the next re-seed rather
+than leaving it behind.
 
 ## What the loader does with one document
 

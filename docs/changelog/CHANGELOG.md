@@ -8,6 +8,320 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
+  (`tests/Feature/Livewire/*`, `tests/Feature/Filament/*`), grouped by
+  component or resource, stating what each one actually proves and, where a
+  test exists because of a real incident, what that incident was. Not a
+  replacement for the write-rules pages, which state the contract — this
+  page states which test proves which piece of it, so a behaviour change
+  has a known list of tests to check rather than a full-suite guess.
+
+- **Catalogue search now matches an attribute value's own text ("Linen",
+  "Red"), not only a product's name and blurb.** A shopper typing a
+  material or colour they remember has no reason to know whether that fact
+  lives on the product itself (descriptive) or on one of its variations (an
+  axis), so `ProductList::applyFilters()`'s search clause checks both
+  pivots — the same "either pivot answers it" rule the attribute-value
+  filter and `attributeFacets()` already use. Deliberately not a
+  concatenated "searchable text" blob column or method: that needs building
+  and keeping a denormalised value in sync on every write for a `LIKE` that
+  still cannot use an index either way, for the cost of three explicit
+  `LIKE`s over columns this schema already reads.
+
+- **A variation's stock can now be adjusted after creation, and is visible
+  on the panel at all.** Reported live: `initial_quantity` on
+  `AddProductVariation` was the only way stock ever entered the system, and
+  it is create-only, so once a variation existed nothing in the panel could
+  show or change what it held. New `App\Actions\Inventory\AdjustStock`
+  records a signed delta as either `NewDelivery` or `ManualCorrection` — the
+  two `InventoryMovementType` cases the schema had carried unwritten since
+  it was drawn — and refuses a reduction that would push stock below what an
+  order already has reserved, the same guard `RecordDamage` uses. The
+  variations table gained a Stock column (available, colour-coded, on-hand
+  and reserved in the tooltip) and an "Adjust stock" row action.
+
+- **Descriptive attribute values are now shown on the storefront product
+  page**, as chips grouped by attribute and linked into the catalogue filter
+  for that value — rendered rather than left invisible now that the
+  filtering side existed but nothing displayed what a product had been given.
+
+- **Multiple product images can now be uploaded in one action**, alongside
+  the existing single-image form (which stays, for setting alt text — an
+  accessibility requirement the bulk path skips). Composes
+  `AddProductImage` once per file, so the first-image-becomes-main rule and
+  ordering hold exactly as for a single upload. The bulk field's own
+  dimensions check is a closure rather than the built-in `Dimensions` rule,
+  which — on a `->multiple()` field — validates every file through one
+  nested validator and reports only the first failure with no filename
+  attached; the closure names the specific undersized file instead.
+
+- **A catalogue card now represents a buyable variation, preferring the
+  deepest discount, rather than always the product's own sticker price.**
+  Reported live: a product's default variation being out of stock left the
+  card showing "Out of stock" and the product's own regular price, even when
+  a buyable, discounted sibling sat one click away.
+
+  New `App\Support\ResolveCardVariation` — same shape as
+  `ResolveVariationImage`/`ResolveVariationPrice`, resolved at read time,
+  nothing stored: the default variation wins when it is itself buyable
+  (`is_available` and `available() > 0`, the same guard `availableStock()`
+  uses); otherwise the buyable variation with the largest discount
+  percentage wins, using the same `percent` a card's own badge already
+  computes, so the two can never disagree. Falls back to the default (or
+  first) variation when nothing is buyable at all, so "Out of stock" still
+  has something to attach to. `ProductList::price()` now goes through it
+  instead of `ResolveProductPrice::current()` unconditionally.
+
+- **Filtering the catalogue by more than one value of the same attribute now
+  ORs them, rather than requiring a variation to be all of them at once.**
+  Reported live: checking Colour=Black and Colour=White together returned
+  zero products, because every selected value was AND-ed against every
+  other regardless of which attribute it belonged to — no variation can ever
+  be two colours. The rule is now OR *within* one attribute's checked
+  values, AND *across* attributes: Black or White, but still narrowed
+  against a separately-checked Material.
+
+  The sidebar's checkbox list is now one `<select multiple>` dropdown per
+  attribute. Livewire cannot bind several independent multi-selects to one
+  shared array without each overwriting the others' picks on change, so each
+  dropdown targets its own key in a new, non-`#[Url]` `$facetSelections`
+  property; `ProductList::updated()` folds every change back into the
+  `$attributeValueIds` list the query and the URL actually read.
+
+  Also closed: a variation-only attribute (Colour, Size — anything a
+  customer chooses between rather than a product asserts about itself) had
+  no way to reach the sidebar or the filter at all, since it can never be a
+  product's own descriptive value. A value now counts if the product carries
+  it descriptively **or** if any of the product's own variations carries it
+  as an axis — the storefront no longer needs to know which pivot answers a
+  given filter.
+
+- **The category `<select>` dropdown showed "All categories" regardless of
+  which one was actually selected**, on first paint and after any
+  server round-trip — the chip and the filtered results were correct
+  throughout, only the dropdown's own display lagged, because Livewire's
+  client-side morph sets a `<select>`'s value after its own JS attaches, and
+  the server-rendered HTML carried no `selected` attribute on any `<option>`
+  for it to fall back to. Now rendered explicitly with `@selected(...)`.
+
+- **Products can now carry descriptive attribute values — a fabric
+  composition, a set of scent notes, a certification — and the catalogue
+  can be filtered by them.** New pivot `attribute_value_product`
+  (`2026_08_30_110000_create_attribute_value_product_table`), owned by
+  `SetProductAttributeValues`.
+
+  This is the half the variation grid could not express. **Multiple values
+  of one attribute are legal here and illegal on a variation**, which is
+  the entire reason it is a second pivot rather than more rows in the
+  first: "50% cotton, 50% polyester" is one fact about one sellable thing,
+  and two values on one axis makes "which variation is Material=cotton?"
+  ambiguous, breaking the combination uniqueness the grid depends on.
+  Modelling a blend as two variations would invent two SKUs that do not
+  exist. The dividing question is whether the customer *chooses* between
+  the values — a multicoloured jacket is one variation whose colourway is
+  named "Floral Print", with the constituent colours descriptive.
+
+  An attribute cannot be both for one product:
+  `AttributeValueIsAVariationAxisException` refuses a descriptive value
+  whose attribute is already a variation axis, because a filter reading
+  both pivots would otherwise return the product for a colour no variation
+  actually has. The `attribute_product_category` allow-list applies here
+  too — a perfume has no business carrying a shoe size descriptively
+  either.
+
+  Chosen over free-text `product_specifications`, which stays the right
+  home for prose nobody filters on but cannot back a filter: nothing
+  constrains its `value`, so "Cotton", "cotton", and "100% Cotton" are
+  three values no query can group. `attributes.is_filterable` — a flag
+  unread since the schema was generated — is what gates the new facets.
+
+  Storefront: `?attributeValueIds[]=` on the catalogue, **AND**ed across
+  selections (Cotton + Organic means both, not either), with facets counted
+  against every other filter so none promises results that are not there.
+  The ids are re-resolved against real, filterable values on every query
+  rather than trusted from the URL, and the property is `mixed`-typed and
+  sanitised — the same `#[Url]`-hydration incident class as
+  `ProductDetails::$variationId`, with hostile-input tests to match.
+
+  The facets are **category-scoped**, and only appear once a category is
+  picked — before that the sidebar shows the generic filters alone, since
+  Colour and Size mean nothing across a catalogue that also holds power
+  tools and moisturiser. Scoping is inherited: an attribute allowed for a
+  master category is offered on every descendant without being re-scoped at
+  each depth, so Material attached once to "Clothing" reaches "Clothing >
+  Men > Tops" and every leaf under it, while a sibling branch such as
+  "Beauty & Personal Care" is unaffected. Verified against the real seeded
+  4-level tree, not only in fixtures. Each selected value gets its own
+  dismissible chip that drops that value alone, since the values are AND-ed
+  and widening by one step is the point.
+
+  Resolving the selected category is now one memoised `#[Computed]` lookup
+  shared by the facet list, the filter chip, and `applyFilters()`, replacing
+  three separate `where('slug', …)` queries per request.
+
+- **Seed fixtures carry both new pivots.** The vocabulary file
+  (`reference/catalogue.json`) gained a `categories` key per attribute,
+  scoping all nine to the master categories where they belong — `shoe-size`
+  to `workwear` alone, `scent` to `beauty`, `power-source` to power tools
+  and garden. Descendants inherit, so only the top of each branch is named.
+  `CatalogueReferenceSeeder` `sync()`s it, so dropping a category from the
+  list removes the row on re-seed rather than leaving it stale.
+
+  Product documents gained an optional `attribute_values` list of dotted
+  `attribute.value` slugs — the descriptive set. Thirteen demo products now
+  carry material values mapped from what had been free-text specifications,
+  and the survey that produced them is the argument for the whole feature:
+  **27 distinct spellings** of what is really six materials ("100% cotton",
+  "Cotton twill", "Cotton fleece", "Cotton-elastane rib", …), none of which
+  a filter could ever have grouped. `WRK-0007` ("Ripstop polyester-cotton")
+  is the blend case, now two values of one attribute on one product.
+
+  Materials with no vocabulary entry — acrylic, silk, cashmere, viscose,
+  chrome vanadium — keep their prose specification and gain no pivot row.
+  Inventing vocabulary to force a match would be worse than leaving them
+  unfilterable, and the specification text was never removed for any
+  product: the pivot is additive.
+
+  `fixtures:validate` gained the matching check — an unknown value slug, or
+  a value whose attribute the product already varies by, now fails before
+  seeding rather than halfway through a run with rows already written.
+  Both failure modes were confirmed to fire, then reverted.
+
+- **The category tree can no longer be made cyclic.** `parent_id` is a
+  self-referencing foreign key and no foreign key can express acyclicity —
+  the database accepted A→B→A without complaint, after which every walk of
+  the relationship (the storefront filter, the admin ancestry breadcrumb,
+  the mega-menu) loops forever. Two layers now: the parent dropdown
+  excludes the category's own descendants, and the new
+  `UpdateProductCategory` Action refuses the move outright with
+  `CategoryCycleException` whatever the form offered.
+
+  Only the edit path needs it — a category being created has no descendants,
+  so no choice of parent can close a loop through it, and
+  `CreateProductCategory` stays on Filament's default create. The Action
+  locks the category being moved before walking its descendants: without
+  it, two administrators reparenting A under B and B under A concurrently
+  each see a tree in which their own move is legal, and both commit.
+
+- **Admin tables shortened, and a category's place in the tree made
+  visible.** The panel's tables had grown wide enough to scroll: Coupons
+  now leads with code, value, and a single "Validity" column (the
+  start/end pair only ever means anything read together, and "1 Sep –
+  30 Sep" is shorter than either timestamp alone), with the rest
+  toggleable. Articles truncates long titles to 40 characters with the
+  full text on hover and shows `published_at` as a date; Contact messages
+  show dates rather than timestamps and can have their account
+  reassigned by hand (`user_id` was already nullable — a guest message,
+  or one sent from a typo'd address); Orders and Product reviews keep
+  customer name and email searchable but hidden by default. The panel
+  layout's own internal scroll region is overridden so long tables grow
+  the page instead of scrolling inside a viewport-height box.
+
+  Clicking a product category now shows its full ancestry, root first,
+  with the category itself emphasised and every ancestor a link —
+  `ResolveCategoryFamily::ancestryOf()`, guarded against a `parent_id`
+  cycle the schema does not prevent. Its parent picker uses the same
+  indented tree the product form and storefront sidebar do, rather than a
+  flat alphabetised list.
+
+- **Attributes can now be restricted to specific product categories, so
+  "Shoe Size" can no longer be picked as a variation axis for a perfume.**
+  New pivot `attribute_product_category` (composite primary key,
+  `2026_08_30_100000_create_attribute_product_category_table`) — an
+  allow-list an admin opts an attribute into via a new "Allowed categories"
+  field on `AttributeResource`'s form, not a mandatory classification: an
+  attribute with no rows there is unrestricted, exactly as every attribute
+  behaved before this table existed, so none of the ~40 seeded attributes
+  needed retrofitting.
+
+  A category inherits every ancestor's allow-list — "Colour" scoped to the
+  master "Clothing" category is available on "Clothing > Men > Tops"
+  without being re-scoped at every depth.
+  `App\Support\ResolveAllowedAttributes` is the pure function that resolves
+  this (self-plus-ancestors, unioned with every unrestricted attribute);
+  `ResolveAllowedAttributesTest` covers exact-match, descendant inheritance,
+  and the two directions inheritance deliberately does *not* flow — sideways
+  to a sibling, or up to an ancestor.
+
+  Enforced in two places, the same split as the rest of this session's
+  catalogue work: `ProductForm`'s "Variation axes" field now scopes its own
+  options to the product's chosen category reactively (a convenience, not
+  the enforcement), and `CreateProduct`/`UpdateProduct` refuse a disallowed
+  axis outright with the new `AttributeNotAllowedForCategoryException` —
+  checked *after* the category itself is saved, so one request that both
+  moves a product into a new category and sets an axis that category allows
+  is not refused for a mismatch only ever true before the save committed.
+
+- **A variation's attribute-value combination — "Scent: Vanilla, Volume:
+  50ml" on one SKU — can now actually be set through the admin panel.**
+  Before this, `ProductForm`'s "Variation axes" field let an admin pick
+  which attributes a product varies by, but nothing anywhere let them say
+  which value each individual variation carries — the create repeater and
+  the edit-time relation manager both created bare SKU/price/stock rows
+  with no way to map a variation to a point in that space at all.
+
+  New Action, `App\Actions\Catalogue\SetVariationAttributeValues`, mirrors
+  `SetVariationImages`'s shape exactly: one Action owns the whole
+  combination as a set, under the same `products` lock, proven the same
+  way — `SetVariationAttributeValuesConcurrencyTest` fails 4/4 with the
+  lock removed. Composed by `AddProductVariation` when the caller supplies
+  `attribute_value_ids`, so a variation gets its combination in the same
+  call that gives it a SKU and a stock row; also callable directly, which
+  is what the relation manager's edit action uses. Enforces the two rules
+  ADR-0005 names as outside the database's reach: a value has to belong to
+  an attribute the product actually declared as an axis
+  (`AttributeValueNotOnProductException`), at most one value per attribute
+  (`DuplicateVariationAttributeException`), and no two live variations of
+  one product may carry the identical set
+  (`DuplicateVariationCombinationException`) — a soft-deleted variation is
+  excluded from that last check, so a discontinued combination can be
+  reused.
+
+  Both admin forms' pickers are grouped by attribute name and scoped to the
+  product's own chosen axes, never the whole catalogue's attribute values.
+  The create-time repeater does this reactively against the product's own
+  "Variation axes" field in the same unsaved form, via a relative `Get`
+  path out of the repeater (`../../attributes`) — confirmed against the
+  installed Filament version's own path-resolution code, not assumed.
+
+  Building this surfaced a real, separate bug: `CreateProduct` relied on
+  `ProductForm`'s "Variation axes" field being a `->relationship()` Select,
+  which Filament saves *after* `handleRecordCreation()` returns — too late
+  for a variation's combination to validate against axes that were about
+  to exist one line later in the same request. Every variation given a
+  combination at create time was refused with
+  `AttributeValueNotOnProductException` against a product that, moments
+  later, would have had exactly those axes. Fixed by having `CreateProduct`
+  and `UpdateProduct` sync `attribute_product` explicitly instead of
+  relying on Filament's own timing; `ProductForm`'s field is now a plain
+  `->options()` Select, and `EditProduct::mutateFormDataBeforeFill()`
+  hydrates it back on open, which `->relationship()` used to do
+  automatically. Reproduced red before the fix, confirmed green after.
+
+  `docs/reference/write-rules/product-variation-attribute-values.md` is the
+  new outcomes page, mirroring `product-variation-images.md`'s shape.
+
+  While in `.github/workflows/ci.yml` for this feature's own new test
+  files, found four pre-existing `tests/Concurrency` files
+  (`SetVariationImagesConcurrencyTest`, `CreateShipmentConcurrencyTest`,
+  `RecordPaymentConcurrencyTest`, `CreateProductReviewConcurrencyTest`)
+  that had never been added to any shard and so had never run in CI at
+  all, despite all ten of their tests passing locally. Added to the
+  lighter shards (b and c) per `use-ci.md`'s own placement rule.
+
+- **Admin product form's category dropdown now shows the same tree the
+  storefront sidebar does** — every category indented by depth, siblings
+  alphabetical, instead of a flat alphabetised dump of all 173 rows an
+  admin had no way to place in the hierarchy. `ResolveCategoryFamily`
+  gained `allOrderedWithDepth()`/`selectOptions()`, reusing the same
+  `orderedTreeWithDepth()` walk the storefront filter already relies on
+  rather than a second, separately-maintained tree builder. `ProductForm`'s
+  `product_category_id` field switched from `->relationship()` to a plain
+  `->options()` array, since the label's indentation lives in
+  application code the relationship's own query-driven option building
+  can't express; the field name is unchanged, so create and edit hydration
+  are unaffected.
+
 - The journal — `Journal\ArticleList` at `/journal` and
   `Journal\ArticleDetails` at `/journal/{article:slug}`, closing §37
   criterion 17's reader side. Filter by category and tag (both `#[Url]`),
@@ -110,7 +424,133 @@ when the work happened, not when it was committed — nothing in
   apply structurally, and every `max:` validation rule matches its column
   length exactly (checked against the migrations, not assumed).
 
+- **Admin product form's category dropdown now shows the same tree the
+  storefront sidebar does** — every category indented by depth, siblings
+  alphabetical, instead of a flat alphabetised dump of all 173 rows an
+  admin had no way to place in the hierarchy. `ResolveCategoryFamily`
+  gained `allOrderedWithDepth()`/`selectOptions()`, reusing the same
+  `orderedTreeWithDepth()` walk the storefront filter already relies on
+  rather than a second, separately-maintained tree builder. `ProductForm`'s
+  `product_category_id` field switched from `->relationship()` to a plain
+  `->options()` array, since the label's indentation lives in
+  application code the relationship's own query-driven option building
+  can't express; the field name is unchanged, so create and edit hydration
+  are unaffected.
+
 ### Fixed
+
+- **The Category and Brand filters were native `<select>` elements, whose
+  own popup rendering — width, position, and open/close timing — belongs to
+  the browser rather than to this page.** Reported live as the filter panel
+  looking broken while a native select's popup was open on a narrow
+  viewport. Both are now the same custom dropdown pattern as the attribute
+  facets: a small trigger button showing the current choice, opening a
+  plain, absolutely-positioned panel on hover or focus — single-select, so
+  choosing a value closes the panel immediately, unlike a multi-value
+  attribute facet. Category keeps its tree indentation, now as real
+  left-padding per depth rather than a repeated "— " prefix, which was only
+  ever a workaround for a native `<select>`'s inability to render anything
+  but plain text per `<option>`.
+
+- **A facet's hover panel could close before a value in it was clicked.**
+  The panel sat `margin-top` below its trigger button, and since the panel
+  is `absolute` and out of flow, the wrapping element's own hoverable box
+  only ever covered the button — the instant the cursor crossed that
+  margin gap on the way down to the panel, `mouseleave` fired and closed
+  it. Changed the gap to `padding-top` on the wrapping box instead, so the
+  gap is part of the same hoverable region rather than a dead zone outside
+  it.
+
+- **A facet's own count didn't narrow when a different attribute's value was
+  selected, and Size read L, M, S, XL, XS instead of XS through XXL.**
+  Reported live against Material=Denim (3 products): Colour and Size still
+  showed their whole-catalogue counts rather than narrowing to what those 3
+  Denim products actually have. `ProductList::applyFilters()`'s `$skip`
+  parameter was all-or-nothing across the whole attribute-value dimension —
+  computing one facet's count had to either apply every selected attribute
+  or none, with no way to exclude just the one attribute being evaluated.
+  New `$skipAttributeId` parameter excludes only that attribute, so a
+  facet's counts narrow against every *other* selection without a value's
+  own selection zeroing out its own count. The Size ordering was separate:
+  `Collection::sortBy()` only accepts one sort criterion per call, and a
+  bare array of closures — the multi-column form some other collection
+  methods accept — silently sorted by neither, falling through to whatever
+  order the query itself returned. `attributeFacets()` now groups first and
+  sorts each group on `sort_order` afterward.
+
+  The facet UI itself changed from one `<select multiple>` per attribute to
+  a small hover-opened dropdown per attribute — a minimal trigger
+  ("Colour ▾", with a count badge once something in it is picked) rather
+  than every value shown at once, which also means Livewire no longer needs
+  the `facetSelections` staging property that existed only to work around
+  several independent multi-selects being unable to share one bound array;
+  `toggleAttributeValue()` adds or removes a value directly. Every selected
+  value across every attribute is removable from the existing "active
+  filters" chip row below, so the dropdown itself only ever adds. The facet
+  block also moved from the sidebar to a bar above the product grid — the
+  filters a shopper cares about most once a category is picked, given more
+  room than a 15rem sidebar column allows.
+
+- **"The image field has invalid image dimensions" named neither the
+  requirement nor what was uploaded.** `ProductImagesRelationManager`'s
+  single-image field now carries an explicit message stating the minimum
+  pixel size, plus helper text stating it before the file picker even
+  opens, so a rejection is not the first time the requirement is seen.
+
+- **A product could be given two values of a variation-only attribute as a
+  product-wide fact — "this product is both Size S and Size L".** Reported
+  live via the "Product details" picker. `SetProductAttributeValues`'s own
+  axis-clash guard only checked *that product's own* declared axes, so a
+  product that had simply never listed Size as an axis (a sneaker varying by
+  `shoe-size` instead, in the live case) had nothing to catch it against.
+  New `attributes.is_variation_only` column — a property of the attribute
+  itself, not inferred per product — marks Colour, Size, Shoe size, Capacity,
+  and Storage as things a customer chooses between and which therefore may
+  never be asserted as a single product-wide value, whatever any individual
+  product happens to declare. `AttributeForm` gained the matching toggle;
+  `fixtures:validate` gained the matching check. Five pre-existing rows this
+  would have refused were found and removed.
+
+- **Product weight and dimensions had never once saved through the admin
+  panel, and opening a product's edit page erased whatever a seeder had
+  set.** `ProductForm`'s `weight_input`/`length_input`/`width_input`/
+  `height_input` fields carried `->dehydrated(false)`, intended as "these
+  are not columns, keep them off the model". That is not what it does: it
+  excludes the field from the submitted payload entirely, so
+  `ConvertsMeasurementInput` — whose only job is reading those four keys —
+  received nothing and correctly wrote `null` for an absent value. The
+  trait already `unset()`s the keys itself, so the flag was redundant as
+  well as fatal.
+
+  Both halves are now fixed: the fields dehydrate normally (the trait
+  removes them before Eloquent sees them), and `hydrateMeasurementInput()`
+  — the trait's new inverse — fills them back from the canonical columns in
+  `EditProduct::mutateFormDataBeforeFill()` and the variations relation
+  manager's `EditAction::fillForm()`, since a non-column field cannot be
+  reached by Filament's default record fill and a blank field on open is
+  what turned every save into an erase.
+
+  Found by loading a real edit page and saving one unrelated field, not by
+  reading the form definition — which looks correct, which is why Pint,
+  Larastan, and the whole existing suite stayed green for the life of the
+  bug. Two regression tests now assert the round trip in both directions,
+  and `troubleshooting.md` carries the entry.
+
+- **A negative `discount_price` on a product or a variation reached the
+  database uncaught, surfacing as an unhandled `QueryException`
+  (`chk_product_variations_discount_price_non_negative`) instead of a form
+  error.** The check constraints were always correct; the four admin forms
+  that write these columns — `ProductForm`'s product fields and its
+  create-only variation repeater, plus `ProductVariationsRelationManager`
+  (the edit-time path, and the one the live crash actually came through) —
+  never had a `minValue(0)` rule, only `decimal:0,2` (decimal places, not
+  sign) and `->lt(...)` (which a negative number still satisfies against a
+  positive price). The relation manager's `discount_price` field was
+  additionally missing `->lt('price')` and `->nullable()` outright, unlike
+  its two siblings. Reproduced locally first — the same constraint
+  violation, byte-for-byte — before the fix, confirmed clean after;
+  `ProductResourceTest`'s new case asserts a form error on the field, not a
+  500, and that no variation row is left behind.
 
 - **A product whose `min_order_quantity` exceeds current stock let the
   customer click "Add to cart" with no warning it would fail.** Not a

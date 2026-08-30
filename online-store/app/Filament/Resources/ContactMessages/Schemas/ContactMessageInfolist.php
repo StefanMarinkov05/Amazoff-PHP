@@ -33,9 +33,9 @@ class ContactMessageInfolist
                     ->columnSpanFull(),
                 TextEntry::make('created_at')
                     ->label('Received')
-                    ->dateTime(),
+                    ->date(),
                 TextEntry::make('updated_at')
-                    ->dateTime()
+                    ->date()
                     ->placeholder('-'),
             ]);
     }

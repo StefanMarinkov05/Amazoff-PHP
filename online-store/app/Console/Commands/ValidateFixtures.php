@@ -150,8 +150,55 @@ final class ValidateFixtures extends Command
         }
 
         $this->assertPrices($path, $document);
+        $this->assertDescriptiveValues($path, $document, $attributeValueKeys);
         $imageKeys = $this->assertImages($path, $document);
         $this->assertVariations($path, $document, $imageKeys, $attributeValueKeys);
+    }
+
+    /**
+     * The product-level `attribute_values` — dotted `attribute.value` keys,
+     * not the nested map a variation uses, because several values of one
+     * attribute are legal here and a map could not hold them.
+     *
+     * Also refuses a value whose attribute the product already varies by:
+     * `SetProductAttributeValues` throws
+     * `AttributeValueIsAVariationAxisException` for exactly this, and a
+     * fixture that only failed at seed time would fail halfway through a
+     * run with rows already written — which is the difference ADR-0003
+     * gives for having a validator at all.
+     *
+     * @param  array<string, mixed>  $document
+     * @param  list<string>  $attributeValueKeys
+     */
+    private function assertDescriptiveValues(string $path, array $document, array $attributeValueKeys): void
+    {
+        /** @var list<string> $axes */
+        $axes = $document['attributes'] ?? [];
+
+        /** @var list<string> $variationOnly */
+        $variationOnly = DB::table('attributes')->where('is_variation_only', true)->pluck('slug')->all();
+
+        foreach ($document['attribute_values'] ?? [] as $key) {
+            [$attributeSlug, $valueSlug] = array_pad(explode('.', (string) $key, 2), 2, '');
+
+            if (! in_array("{$attributeSlug}/{$valueSlug}", $attributeValueKeys, true)) {
+                $this->recordFailure($path, "references unknown attribute value [{$key}] in attribute_values");
+            }
+
+            if (in_array($attributeSlug, $axes, true)) {
+                $this->recordFailure(
+                    $path,
+                    "lists [{$key}] as a product-wide value, but [{$attributeSlug}] is one of its variation axes"
+                );
+            }
+
+            if (in_array($attributeSlug, $variationOnly, true)) {
+                $this->recordFailure(
+                    $path,
+                    "lists [{$key}] as a product-wide value, but [{$attributeSlug}] is something the customer chooses between"
+                );
+            }
+        }
     }
 
     /**

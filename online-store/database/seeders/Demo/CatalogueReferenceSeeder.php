@@ -143,6 +143,12 @@ class CatalogueReferenceSeeder extends Seeder
      * Value slugs are unique per attribute (`UNIQUE(attribute_id, slug)`), not
      * globally — two attributes may both own an `s`.
      *
+     * An optional `categories` list scopes the attribute to those master
+     * categories via `attribute_product_category`; descendants inherit it
+     * (`ResolveAllowedAttributes`), so only the top of each branch is named.
+     * Omitting the key leaves the attribute unrestricted, which is that
+     * table's documented default.
+     *
      * @param  array<string, array<string, mixed>>  $attributes
      */
     private function seedAttributes(array $attributes): void
@@ -166,9 +172,12 @@ class CatalogueReferenceSeeder extends Seeder
                     'name' => $attribute['name'] ?? ucfirst(str_replace('-', ' ', $slug)),
                     'input_type' => $type,
                     'is_filterable' => (bool) ($attribute['filterable'] ?? false),
+                    'is_variation_only' => (bool) ($attribute['variation_only'] ?? false),
                     'sort_order' => $sortOrder++,
                 ],
             );
+
+            $this->scopeAttributeToCategories($model, $attribute['categories'] ?? [], $slug);
 
             $valueOrder = 0;
 
@@ -186,5 +195,36 @@ class CatalogueReferenceSeeder extends Seeder
                 );
             }
         }
+    }
+
+    /**
+     * `sync`, not `syncWithoutDetaching`: the vocabulary file is the whole
+     * truth for an attribute's scope, so a category removed from the list
+     * has to lose the row on a re-seed rather than keep it forever — the
+     * same reset-then-assign reasoning `DemoShowcaseOrderSeeder` records.
+     *
+     * An unknown slug fails loudly. A silently-skipped one would leave the
+     * attribute wrongly unrestricted, which is indistinguishable from
+     * "deliberately global" once seeding has finished.
+     *
+     * @param  list<string>  $categorySlugs
+     */
+    private function scopeAttributeToCategories(Attribute $attribute, array $categorySlugs, string $attributeSlug): void
+    {
+        $ids = [];
+
+        foreach ($categorySlugs as $categorySlug) {
+            $id = ProductCategory::query()->where('slug', $categorySlug)->value('id');
+
+            if ($id === null) {
+                throw new RuntimeException(
+                    self::VOCABULARY.": attribute [{$attributeSlug}] is scoped to an unknown category [{$categorySlug}]."
+                );
+            }
+
+            $ids[] = $id;
+        }
+
+        $attribute->productCategories()->sync($ids);
     }
 }

@@ -80,8 +80,40 @@ final class FixtureLoader
         $this->insertSpecifications($product, $document['specifications'] ?? []);
         $this->attachAttributes($product, $document['attributes'] ?? []);
         $this->attachAttributeValues($variationsBySku, $document['variations']);
+        $this->attachDescriptiveValues($product, $document['attribute_values'] ?? []);
 
         return $product;
+    }
+
+    /**
+     * `document['attribute_values']` is the product-level, descriptive set —
+     * "what is this made of", as opposed to `variations[].attribute_values`'
+     * "what makes this one different". Several values of one attribute are
+     * legal here and refused on a variation, which is why a 50/50 fabric
+     * blend has to live at this level. explanation/product-variability.md.
+     *
+     * Written directly rather than through `SetProductAttributeValues`: that
+     * Action refuses a value whose attribute is also one of the product's
+     * axes, and the axes are attached one line above in the same method, so
+     * a fixture that legitimately uses an attribute both ways would be
+     * refused for ordering rather than for being wrong. The validator owns
+     * fixture correctness (ADR-0003); the Action owns the panel.
+     *
+     * @param  list<string>  $valueKeys  `attribute.value` pairs, e.g. `material.cotton`.
+     */
+    private function attachDescriptiveValues(Product $product, array $valueKeys): void
+    {
+        if ($valueKeys === []) {
+            return;
+        }
+
+        $ids = array_map(function (string $key): int {
+            [$attribute, $value] = array_pad(explode('.', $key, 2), 2, '');
+
+            return $this->attributeValueId($attribute, $value);
+        }, $valueKeys);
+
+        $product->descriptiveAttributeValues()->sync($ids);
     }
 
     /**
@@ -120,7 +152,8 @@ final class FixtureLoader
     private function productColumns(array $document): array
     {
         $columns = Arr::except($document, [
-            'category', 'brand', 'attributes', 'images', 'specifications', 'variations',
+            'category', 'brand', 'attributes', 'attribute_values',
+            'images', 'specifications', 'variations',
         ]);
 
         $columns['product_category_id'] = $this->categoryId($document['category']);

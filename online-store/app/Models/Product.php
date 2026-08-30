@@ -107,9 +107,45 @@ class Product extends Model
         return $this->hasMany(WishlistItem::class);
     }
 
+    /**
+     * The product's **variation axes** — which attributes it varies by, not
+     * what it is. Picking "Size" here is what allows a variation to carry a
+     * size; it says nothing about the product itself.
+     *
+     * Not to be confused with {@see descriptiveAttributeValues()} one method
+     * down, whose name is deliberately longer because the two are one letter
+     * apart in meaning and a mix-up silently changes which grid a value
+     * lands in.
+     */
     public function attributes(): BelongsToMany
     {
         return $this->belongsToMany(Attribute::class);
+    }
+
+    /**
+     * Attribute **values** the product carries directly — a fabric
+     * composition, a set of scent notes, a certification. Facts true of
+     * every variation, which the customer does not choose between and which
+     * must never fork the SKU.
+     *
+     * The counterpart of `ProductVariation::attributeValues()`: same
+     * vocabulary, different question. That one answers "what makes this one
+     * different"; this one answers "what is this made of". A value belongs
+     * in exactly one of the two for a given product — see
+     * `explanation/product-variability.md`.
+     *
+     * Explicit table and keys because the relation name no longer matches
+     * Laravel's own convention for `attribute_value_product`; the longer
+     * name is worth the three extra arguments.
+     */
+    public function descriptiveAttributeValues(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AttributeValue::class,
+            'attribute_value_product',
+            'product_id',
+            'attribute_value_id',
+        );
     }
 
     public function coupons(): BelongsToMany

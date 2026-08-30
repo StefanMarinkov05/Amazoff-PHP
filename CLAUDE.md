@@ -51,12 +51,17 @@ in agreement: if a rule here changes, change it there too.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
   writes, who can call it, what it throws; `write-rules/` (`product.md`,
-  `product-variation-images.md`, `product-category.md`, `cart.md`,
-  `coupon.md`, `concurrency.md`) is the expected-behaviour page
-  per aggregate — refusals, races, what a change does to state that
-  already exists; `console-commands.md` lists every custom Artisan command
-  and what invokes it; `permissions.md`, `coverage.md`, and `tech-stack.md`
-  are the rest.
+  `product-variation-images.md`, `product-variation-attribute-values.md`,
+  `product-attribute-values.md`, `product-category.md`, `cart.md`,
+  `coupon.md`, `concurrency.md`) is the
+  expected-behaviour page per aggregate — refusals, races, what a change
+  does to state that already exists; `console-commands.md` lists every
+  custom Artisan command and what invokes it; `ui-tests.md` lists every
+  storefront and admin-panel UI test and what it proves, grouped by
+  component/resource — check it before changing a Livewire component or
+  Filament resource, so the tests that pin its current behaviour are known
+  up front rather than discovered by a broken run; `permissions.md`,
+  `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and
@@ -185,6 +190,12 @@ in agreement: if a rule here changes, change it there too.
   dependent one.
 - Short-lived branches: `feat/<name>/<scope>`, merged within roughly three
   days. Rebase on `main` daily.
+- **Before opening or updating a PR, merge `main` into the branch and
+  resolve any conflicts as part of that same session** — don't leave a
+  conflict for the PR to surface later. Re-run the full local check
+  (`pint --test`, `phpstan analyse --memory-limit=1G`, `pest`) after
+  resolving, since a textually clean merge can still combine two branches
+  into behaviour neither one had alone.
 - Migrations are append-only after the schema freeze. Never edit a merged
   migration; always add a new one.
 - Generated code is a first draft. It gets read before it's trusted.

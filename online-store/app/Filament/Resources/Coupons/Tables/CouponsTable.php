@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Coupons\Tables;
 use App\Enums\CouponScope;
 use App\Enums\CouponType;
 use App\Models\Coupon;
+use Carbon\CarbonInterface;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -26,42 +27,64 @@ class CouponsTable
             ->columns([
                 TextColumn::make('code')
                     ->searchable(),
+                TextColumn::make('value')
+                    ->formatStateUsing(fn (string $state, Coupon $record): string => $record->getAttribute('type') === CouponType::Percentage
+                        ? "{$state}%"
+                        : Number::currency((float) $state, 'eur'))
+                    ->sortable(),
+                // One column instead of two date columns: the pair only ever
+                // means anything read together, and "1 Sep – 30 Sep" is
+                // shorter than either timestamp alone was.
+                TextColumn::make('starts_at')
+                    ->label('Validity')
+                    ->state(function (Coupon $record): string {
+                        // getAttribute(), not ->starts_at: both columns are
+                        // cast to datetime and are Carbon at runtime, but the
+                        // model carries no property annotations for Larastan
+                        // to read that from.
+                        $start = $record->getAttribute('starts_at');
+                        $end = $record->getAttribute('ends_at');
+
+                        return sprintf(
+                            '%s – %s',
+                            $start instanceof CarbonInterface ? $start->format('j M Y') : 'always',
+                            $end instanceof CarbonInterface ? $end->format('j M Y') : 'no end',
+                        );
+                    })
+                    ->sortable(),
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('description')
                     ->searchable()
                     ->limit(30)
                     // ->limit() truncates the rendered text but ->tooltip()
                     // needs the untruncated value passed back explicitly —
                     // it does not know what was cut.
-                    ->tooltip(fn (Coupon $record): ?string => $record->description),
+                    ->tooltip(fn (Coupon $record): ?string => $record->description)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('type')
-                    ->badge(),
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('scope')
-                    ->badge(),
-                TextColumn::make('value')
-                    ->formatStateUsing(fn (string $state, Coupon $record): string => $record->getAttribute('type') === CouponType::Percentage
-                        ? "{$state}%"
-                        : Number::currency((float) $state, 'eur'))
-                    ->sortable(),
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('max_discount_amount')
                     ->money()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('minimum_order_value')
                     ->money()
-                    ->sortable(),
-                TextColumn::make('starts_at')
-                    ->dateTime()
-                    ->sortable(),
-                TextColumn::make('ends_at')
-                    ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('total_usage_limit')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('usage_limit_per_customer')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('redemptions_count')
                     ->label('Times used')
                     ->counts('couponRedemptions')

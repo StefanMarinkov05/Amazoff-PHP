@@ -30,6 +30,9 @@ listed as unverified, because a test that has never failed is not evidence.
 | one `is_main` image per product | blind write, no read to invalidate | a single `UPDATE`, no lock needed | `SetMainProductImage` |
 | a variation's ordered gallery | set-vs-set across two requests | `lockForUpdate` on `products`, whole set replaced inside it; the loser's set is discarded entire | `SetVariationImages` |
 | a gallery row outliving its image | delete-vs-write | FK `CASCADE` on both pivot columns, plus the shared `products` lock order | `SetVariationImages`, `RemoveProductImage` |
+| a variation's attribute-value combination | set-vs-set across two requests | `lockForUpdate` on `products`, whole combination replaced inside it; the loser's combination is discarded entire | `SetVariationAttributeValues` |
+| a product's descriptive attribute values | set-vs-set across two requests | `lockForUpdate` on `products`, whole set replaced inside it | `SetProductAttributeValues` |
+| `product_categories.parent_id` forming a cycle | write skew across two requests — each sees a tree in which its own move is legal | `lockForUpdate` on the category being moved, before walking its descendants | `UpdateProductCategory` |
 | `cart_items` via `UNIQUE(cart_id, product_variation_id)` | insert-vs-insert across two requests | catch `UniqueConstraintViolationException`, retry as `increment()` — no lock, since a row that does not exist yet cannot be locked | `AddToCart`, `MergeGuestCart` |
 | `coupons.total_usage_limit` / `usage_limit_per_customer` vs `coupon_redemptions` | cross-table invariant, no constraint possible | `lockForUpdate` on `coupons` before either `COUNT` | `RedeemCoupon` |
 | `coupon_redemptions` via `UNIQUE(coupon_id, order_id)` | insert-vs-insert, same order retried or double-submitted | catch `UniqueConstraintViolationException`, return the existing row | `RedeemCoupon` |

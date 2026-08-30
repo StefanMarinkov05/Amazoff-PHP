@@ -34,13 +34,19 @@ class OrdersTable
                     ->label('Placed')
                     ->dateTime()
                     ->sortable(),
+                // Hidden by default, not removed: both stay searchable, so
+                // looking an order up by customer name or address still
+                // works from the search box without the columns occupying
+                // width on every row.
                 TextColumn::make('first_name')
                     ->label('Customer')
                     ->formatStateUsing(fn (string $state, $record): string => "{$state} {$record->last_name}")
-                    ->searchable(['first_name', 'last_name']),
+                    ->searchable(['first_name', 'last_name'])
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('email')
                     ->label('Email address')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('user.email')
                     ->label('Account')
                     ->placeholder('Guest')

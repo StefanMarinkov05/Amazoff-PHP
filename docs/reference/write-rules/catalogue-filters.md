@@ -20,7 +20,7 @@ filters the catalogue.
 
 | Filter | Property | URL key | Type |
 |---|---|---|---|
-| Search | `search` | `search` | free text, matched against `name`/`short_description` |
+| Search | `search` | `search` | free text, matched against `name`/`short_description`/attribute value text |
 | Category | `categorySlug` | `category` | slug, resolved to a family of ids |
 | Brand | `brandId` | `brandId` | id |
 | In stock only | `inStockOnly` | `inStockOnly` | boolean |
@@ -31,6 +31,23 @@ filters the catalogue.
 Every filter is `#[Url]`, so a filtered catalogue is a shareable, bookmarkable
 link — ADR-0014's own reasoning for the whole page, extended to each filter
 added since.
+
+## Search: matches attribute value text too, not only name and blurb
+
+A shopper typing a material or colour they remember ("linen", "red") has no
+reason to know whether that fact lives on the product itself (a descriptive
+attribute value) or on one of its variations (an axis value), so
+`applyFilters()`'s search clause checks both pivots on top of `name` and
+`short_description` — the same "either pivot answers it" rule the
+attribute-value filter and `attributeFacets()` already use. All four
+conditions are OR'd together within the one search term; there is no way to
+scope a search to only names or only attribute values.
+
+Deliberately not a single concatenated "searchable text" column or method:
+building and keeping a denormalised blob in sync on every write buys
+nothing over three explicit `LIKE`s against real columns — neither form of
+`LIKE '%term%'` can use an index either way, so the denormalised version
+only adds a write-time cost for the same read-time cost.
 
 ## Category: a node means itself plus every descendant
 
@@ -56,14 +73,25 @@ unfiltered rather than erroring or showing an empty page. Verified live:
 and no change to the unfiltered product count. Structural, not filtered
 input: `categorySlug` only ever reaches a parameterised Eloquent `where()`.
 
-The sidebar `<select>` and the header mega-menu both read categories from
-this same family logic — a sidebar count of "Garden (7)" and clicking it
-landing on 7 products is the same guarantee facet counts already give
-search/brand: a count never promises more than the click delivers. The
-mega-menu shows two levels only (top-level, then direct children) on hover;
-reaching a category deeper than that goes through the sidebar, which is
-ordered depth-first (parent immediately before its own children, indented)
-rather than the flat, 173-row alphabetised list it was before.
+The sidebar's Category dropdown and the header mega-menu both read
+categories from this same family logic — a sidebar count of "Garden (7)"
+and clicking it landing on 7 products is the same guarantee facet counts
+already give search/brand: a count never promises more than the click
+delivers. The mega-menu shows two levels only (top-level, then direct
+children) on hover; reaching a category deeper than that goes through the
+sidebar, which is ordered depth-first (parent immediately before its own
+children, indented) rather than the flat, 173-row alphabetised list it was
+before.
+
+The sidebar's own Category and Brand controls are a custom hover/click
+panel rather than a native `<select>` — a small trigger button showing the
+current choice, opening a plain, absolutely-positioned list on hover or
+focus. A native select's own popup (its width, position, and open/close
+timing) is the browser's to render, not this page's; the custom panel
+behaves like the rest of the page instead. Both stay single-select —
+choosing a value closes the panel immediately — unlike the multi-value
+attribute facets next to them, where several values of one attribute can be
+picked at once.
 
 ## Price: against the sticker price, not the discount-window price
 

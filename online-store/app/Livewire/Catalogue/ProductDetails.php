@@ -107,7 +107,7 @@ class ProductDetails extends Component
     public function product(): Product
     {
         return Product::query()
-            ->with(['brand', 'productCategory.parent', 'productImages', 'productSpecifications'])
+            ->with(['brand', 'productCategory.parent', 'productImages', 'productSpecifications', 'descriptiveAttributeValues.attribute'])
             ->findOrFail($this->productId);
     }
 

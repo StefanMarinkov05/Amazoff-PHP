@@ -1,676 +1,1523 @@
 [
-  {
-    "name": "Classic Crew Neck T-Shirt",
-    "slug": "classic-crew-neck-t-shirt-clm0001",
-    "sku": "CLM-0001",
-    "category": "clothing-men-tops-t-shirts",
-    "brand": "urbanthread",
-    "short_description": "100% cotton crew neck t-shirt, regular fit.",
-    "description": "A wardrobe basic in combed cotton, pre-shrunk so the fit on day one is the fit on day fifty.\n\nDouble-stitched hems at the sleeve and collar hold up to a weekly wash cycle without curling.",
-    "regular_price": "19.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 180,
-    "length_mm": 300,
-    "width_mm": 250,
-    "height_mm": 10,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Classic Crew Neck T-Shirt | Amazoff",
-    "seo_description": "100% cotton crew neck t-shirt, regular fit, multiple colours.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0001-main.jpg", "alt_text": "Crew neck t-shirt", "is_main": true, "sort_order": 0 },
-      { "key": "back", "path": "demo/clm0001-back.jpg", "alt_text": "T-shirt back view", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "100% cotton", "sort_order": 0 },
-      { "name": "Fit", "value": "Regular", "sort_order": 1 }
-    ],
-    "variations": [
-      { "sku": "CLM-0001-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "back"], "initial_quantity": 60, "attribute_values": { "size": "m", "colour": "black" } },
-      { "sku": "CLM-0001-L-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 55, "attribute_values": { "size": "l", "colour": "black" } },
-      { "sku": "CLM-0001-M-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "size": "m", "colour": "white" } },
-      { "sku": "CLM-0001-XL-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 18, "attribute_values": { "size": "xl", "colour": "navy" } },
-      { "sku": "CLM-0001-S-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "size": "s", "colour": "grey" } }
-    ]
-  },
-  {
-    "name": "Slim Fit Oxford Shirt",
-    "slug": "slim-fit-oxford-shirt-clm0002",
-    "sku": "CLM-0002",
-    "category": "clothing-men-tops-shirts",
-    "brand": "westhaven",
-    "short_description": "Slim fit Oxford cotton shirt for office and smart-casual wear.",
-    "description": "Oxford weave cotton in a slim cut that holds its shape through a workday without needing constant tucking-in.\n\nA button-down collar keeps the shirt sharp with or without a tie.",
-    "regular_price": "44.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 250,
-    "length_mm": 320,
-    "width_mm": 260,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Slim Fit Oxford Shirt | Amazoff",
-    "seo_description": "Slim fit Oxford cotton shirt, button-down collar.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0002-main.jpg", "alt_text": "Oxford shirt", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "100% cotton Oxford", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0002-M-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 30, "attribute_values": { "size": "m", "colour": "white" } },
-      { "sku": "CLM-0002-L-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "size": "l", "colour": "blue" } }
-    ]
-  },
-  {
-    "name": "Cotton Tank Top Athletic Fit",
-    "slug": "cotton-tank-top-athletic-fit-clm0003",
-    "sku": "CLM-0003",
-    "category": "clothing-men-tops-tank-tops",
-    "brand": "urbanthread",
-    "short_description": "Athletic fit cotton tank top for gym and summer wear.",
-    "description": "A tank cut close through the shoulders and looser through the torso, built for movement rather than showing off a fit that only works standing still.\n\nRibbed neckline resists stretching out of shape after repeated wear.",
-    "regular_price": "14.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 120,
-    "length_mm": 290,
-    "width_mm": 220,
-    "height_mm": 8,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Cotton Tank Top Athletic Fit | Amazoff",
-    "seo_description": "Athletic fit cotton tank top for gym and summer.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0003-main.jpg", "alt_text": "Tank top", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Cotton blend", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0003-M-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 44, "attribute_values": { "size": "m", "colour": "grey" } }
-    ]
-  },
-  {
-    "name": "Merino Wool Crew Sweater",
-    "slug": "merino-wool-crew-sweater-clm0004",
-    "sku": "CLM-0004",
-    "category": "clothing-men-tops-sweaters",
-    "brand": "northloom",
-    "short_description": "Merino wool crew neck sweater, breathable and odour-resistant.",
-    "description": "Fine-gauge merino that regulates temperature better than acrylic blends and resists holding odour after a full day's wear.\n\nA ribbed hem and cuffs keep the fit close without being restrictive.",
-    "regular_price": "79.90",
-    "discount_price": "64.90",
-    "discount_starts_at": "-4 days",
-    "discount_ends_at": "+10 days",
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 420,
-    "length_mm": 340,
-    "width_mm": 280,
-    "height_mm": 25,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Merino Wool Crew Sweater | Amazoff",
-    "seo_description": "Merino wool crew neck sweater. On sale this week.",
-    "attributes": ["size", "colour", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clm0004-main.jpg", "alt_text": "Wool sweater", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "100% merino wool", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0004-L-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 12, "attribute_values": { "size": "l", "colour": "navy", "material": "wool" } }
-    ]
-  },
-  {
-    "name": "Pullover Hoodie Fleece Lined",
-    "slug": "pullover-hoodie-fleece-lined-clm0005",
-    "sku": "CLM-0005",
-    "category": "clothing-men-tops-hoodies",
-    "brand": "urbanthread",
-    "short_description": "Fleece-lined pullover hoodie with kangaroo pocket.",
-    "description": "Brushed fleece interior for warmth without bulk, and a kangaroo pocket that actually fits both hands rather than a decorative slit.\n\nRibbed cuffs and hem keep drafts out on cold mornings.",
-    "regular_price": "49.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 500,
-    "length_mm": 350,
-    "width_mm": 290,
-    "height_mm": 30,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Fleece Lined Pullover Hoodie | Amazoff",
-    "seo_description": "Fleece-lined pullover hoodie, kangaroo pocket.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0005-main.jpg", "alt_text": "Hoodie", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Lining", "value": "Brushed fleece", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0005-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 35, "attribute_values": { "size": "m", "colour": "black" } },
-      { "sku": "CLM-0005-L-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 29, "attribute_values": { "size": "l", "colour": "grey" } }
-    ]
-  },
-  {
-    "name": "Slim Straight Jeans",
-    "slug": "slim-straight-jeans-clm0006",
-    "sku": "CLM-0006",
-    "category": "clothing-men-trousers-jeans",
-    "brand": "carinastyle",
-    "short_description": "Slim straight jeans, mid-rise, stretch denim.",
-    "description": "A slim cut through the thigh that stays straight rather than tapering at the ankle, with enough stretch in the denim to move without feeling restrictive.\n\nMid-rise waist sits comfortably without a belt.",
-    "regular_price": "59.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 600,
-    "length_mm": 400,
-    "width_mm": 300,
-    "height_mm": 20,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Slim Straight Jeans | Amazoff",
-    "seo_description": "Slim straight jeans, stretch denim, mid-rise.",
-    "attributes": ["size", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clm0006-main.jpg", "alt_text": "Jeans", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "98% cotton, 2% elastane", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0006-32", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 24, "attribute_values": { "size": "m", "material": "denim" } },
-      { "sku": "CLM-0006-34", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 19, "attribute_values": { "size": "l", "material": "denim" } }
-    ]
-  },
-  {
-    "name": "Chino Trousers Regular Fit",
-    "slug": "chino-trousers-regular-fit-clm0007",
-    "sku": "CLM-0007",
-    "category": "clothing-men-trousers-chinos",
-    "brand": "westhaven",
-    "short_description": "Regular fit cotton chinos for smart-casual wear.",
-    "description": "A wardrobe staple in brushed cotton twill, cut to sit comfortably rather than chase a trend silhouette.\n\nWorks equally at a desk or a dinner, which is the entire point of a chino.",
-    "regular_price": "39.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 450,
-    "length_mm": 400,
-    "width_mm": 300,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Chino Trousers Regular Fit | Amazoff",
-    "seo_description": "Regular fit cotton chinos, smart-casual.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0007-main.jpg", "alt_text": "Chinos", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Cotton twill", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0007-M-BEI", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 33, "attribute_values": { "size": "m", "colour": "beige" } }
-    ]
-  },
-  {
-    "name": "Cargo Shorts Utility Pockets",
-    "slug": "cargo-shorts-utility-pockets-clm0008",
-    "sku": "CLM-0008",
-    "category": "clothing-men-trousers-shorts",
-    "brand": "urbanthread",
-    "short_description": "Cotton cargo shorts with six utility pockets.",
-    "description": "Six pockets across the leg and waist, enough to carry keys, phone, and a wallet without a bag.\n\nReinforced stitching at every pocket seam is what keeps these from tearing at the first heavy load.",
-    "regular_price": "29.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 400,
-    "length_mm": 300,
-    "width_mm": 280,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Cargo Shorts Utility Pockets | Amazoff",
-    "seo_description": "Cotton cargo shorts, six utility pockets.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0008-main.jpg", "alt_text": "Cargo shorts", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Pockets", "value": "6", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0008-L-KHK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 27, "attribute_values": { "size": "l", "colour": "beige" } }
-    ]
-  },
-  {
-    "name": "Fleece Joggers Tapered Fit",
-    "slug": "fleece-joggers-tapered-fit-clm0009",
-    "sku": "CLM-0009",
-    "category": "clothing-men-trousers-joggers",
-    "brand": "urbanthread",
-    "short_description": "Tapered fleece joggers with elasticated cuffs.",
-    "description": "Brushed fleece joggers that taper at the ankle rather than billowing, so they layer cleanly under a jacket or on their own.\n\nAn internal drawcord waist and zip pocket round out a piece built for lounging and light activity alike.",
-    "regular_price": "34.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 420,
-    "length_mm": 320,
-    "width_mm": 280,
-    "height_mm": 20,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Fleece Joggers Tapered Fit | Amazoff",
-    "seo_description": "Tapered fleece joggers, elasticated cuffs.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0009-main.jpg", "alt_text": "Joggers", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Cotton fleece", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0009-M-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 41, "attribute_values": { "size": "m", "colour": "grey" } },
-      { "sku": "CLM-0009-L-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 36, "attribute_values": { "size": "l", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Water-Resistant Softshell Jacket",
-    "slug": "water-resistant-softshell-jacket-clm0010",
-    "sku": "CLM-0010",
-    "category": "clothing-men-outerwear-jackets",
-    "brand": "trailforge",
-    "short_description": "Water-resistant softshell jacket with fleece lining.",
-    "description": "A softshell jacket for everyday wear in unpredictable weather, water-resistant enough to shrug off a shower without needing a full waterproof shell.\n\nThe fleece lining adds warmth without the bulk of a heavier coat.",
-    "regular_price": "89.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 750,
-    "length_mm": 400,
-    "width_mm": 320,
-    "height_mm": 40,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Water-Resistant Softshell Jacket | Amazoff",
-    "seo_description": "Water-resistant softshell jacket, fleece lined.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0010-main.jpg", "alt_text": "Softshell jacket", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Lining", "value": "Fleece", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0010-L-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 17, "attribute_values": { "size": "l", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Wool Blend Overcoat",
-    "slug": "wool-blend-overcoat-clm0011",
-    "sku": "CLM-0011",
-    "category": "clothing-men-outerwear-coats",
-    "brand": "westhaven",
-    "short_description": "Wool blend overcoat, knee length, tailored fit.",
-    "description": "A tailored wool blend overcoat for formal and business settings, cut to sit over a suit jacket without adding bulk at the shoulder.\n\nThe knee-length hem and notched lapel keep this looking current across seasons.",
-    "regular_price": "149.00",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 1300,
-    "length_mm": 500,
-    "width_mm": 400,
-    "height_mm": 40,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Wool Blend Overcoat | Amazoff",
-    "seo_description": "Wool blend overcoat, knee length, tailored fit.",
-    "attributes": ["size", "colour", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clm0011-main.jpg", "alt_text": "Overcoat", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "70% wool, 30% polyester", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0011-L-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 6, "attribute_values": { "size": "l", "colour": "grey", "material": "wool" } }
-    ]
-  },
-  {
-    "name": "Cotton Boxer Briefs 3-Pack",
-    "slug": "cotton-boxer-briefs-3pack-clm0012",
-    "sku": "CLM-0012",
-    "category": "clothing-men-underwear-boxers",
-    "brand": "urbanthread",
-    "short_description": "3-pack cotton boxer briefs, tagless waistband.",
-    "description": "Everyday cotton boxer briefs, sold as a three-pack, with a tagless waistband that does not chafe.\n\nA contoured pouch and flat-lock seams are the small details that separate a comfortable pair from a merely acceptable one.",
-    "regular_price": "19.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 200,
-    "length_mm": 200,
-    "width_mm": 150,
-    "height_mm": 30,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Cotton Boxer Briefs 3-Pack | Amazoff",
-    "seo_description": "3-pack cotton boxer briefs, tagless.",
-    "attributes": ["size"],
-    "images": [
-      { "key": "main", "path": "demo/clm0012-main.jpg", "alt_text": "Boxer briefs pack", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Pack size", "value": "3", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0012-M", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 70, "attribute_values": { "size": "m" } },
-      { "sku": "CLM-0012-L", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 58, "attribute_values": { "size": "l" } }
-    ]
-  },
-  {
-    "name": "Athletic Crew Socks 5-Pack",
-    "slug": "athletic-crew-socks-5pack-clm0013",
-    "sku": "CLM-0013",
-    "category": "clothing-men-underwear-socks",
-    "brand": "urbanthread",
-    "short_description": "5-pack athletic crew socks, cushioned sole.",
-    "description": "Cushioned crew socks for running and gym wear, sold as a five-pack for the sock drawer nobody keeps organized anyway.\n\nArch support panels reduce slipping inside a training shoe.",
-    "regular_price": "14.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 250,
-    "length_mm": 180,
-    "width_mm": 120,
-    "height_mm": 40,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Athletic Crew Socks 5-Pack | Amazoff",
-    "seo_description": "5-pack athletic crew socks, cushioned sole.",
-    "attributes": ["size"],
-    "images": [
-      { "key": "main", "path": "demo/clm0013-main.jpg", "alt_text": "Crew socks pack", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Pack size", "value": "5", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0013-M", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 90, "attribute_values": { "size": "m" } }
-    ]
-  },
-  {
-    "name": "Everyday Sneakers Low-Top",
-    "slug": "everyday-sneakers-low-top-clm0014",
-    "sku": "CLM-0014",
-    "category": "clothing-men-footwear-sneakers",
-    "brand": "veloryde",
-    "short_description": "Low-top everyday sneakers with cushioned insole.",
-    "description": "A low-top sneaker built for daily wear rather than performance running, with a cushioned insole that stays comfortable standing all day.\n\nThe outsole tread pattern grips wet pavement without looking overtly technical.",
-    "regular_price": "64.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 700,
-    "length_mm": 320,
-    "width_mm": 130,
-    "height_mm": 130,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Everyday Low-Top Sneakers | Amazoff",
-    "seo_description": "Low-top everyday sneakers, cushioned insole.",
-    "attributes": ["shoe-size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0014-main.jpg", "alt_text": "Sneakers", "is_main": true, "sort_order": 0 },
-      { "key": "sole", "path": "demo/clm0014-sole.jpg", "alt_text": "Sole tread", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Upper", "value": "Canvas", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0014-42-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "sole"], "initial_quantity": 22, "attribute_values": { "shoe-size": "eu-42", "colour": "white" } },
-      { "sku": "CLM-0014-43-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 18, "attribute_values": { "shoe-size": "eu-43", "colour": "white" } },
-      { "sku": "CLM-0014-42-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "shoe-size": "eu-42", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Leather Chelsea Boots",
-    "slug": "leather-chelsea-boots-clm0015",
-    "sku": "CLM-0015",
-    "category": "clothing-men-footwear-boots",
-    "brand": "westhaven",
-    "short_description": "Leather Chelsea boots with elastic side panels.",
-    "description": "Full-grain leather Chelsea boots with elastic side panels for an easy on-off, no laces to deal with on a rushed morning.\n\nA stacked heel and rounded toe keep the silhouette classic rather than trend-dependent.",
-    "regular_price": "119.00",
-    "discount_price": "99.00",
-    "discount_starts_at": "-7 days",
-    "discount_ends_at": "+7 days",
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 1100,
-    "length_mm": 330,
-    "width_mm": 130,
-    "height_mm": 200,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Leather Chelsea Boots | Amazoff",
-    "seo_description": "Leather Chelsea boots, elastic side panels. On sale now.",
-    "attributes": ["shoe-size", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clm0015-main.jpg", "alt_text": "Chelsea boots", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Full-grain leather", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0015-42", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 9, "attribute_values": { "shoe-size": "eu-42", "material": "leather" } }
-    ]
-  },
-  {
-    "name": "Leather Sandals Adjustable Strap",
-    "slug": "leather-sandals-adjustable-strap-clm0016",
-    "sku": "CLM-0016",
-    "category": "clothing-men-footwear-sandals",
-    "brand": "westhaven",
-    "short_description": "Leather sandals with adjustable buckle strap.",
-    "description": "A leather sandal with an adjustable buckle strap for a snug fit across a range of foot widths.\n\nThe contoured footbed molds slightly with wear, which is the difference between comfortable and merely wearable.",
-    "regular_price": "34.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 450,
-    "length_mm": 300,
-    "width_mm": 120,
-    "height_mm": 60,
-    "is_available": false,
-    "is_featured": false,
-    "seo_title": "Leather Sandals Adjustable Strap | Amazoff",
-    "seo_description": "Leather sandals, adjustable buckle. Currently unavailable.",
-    "attributes": [],
-    "images": [],
-    "specifications": [
-      { "name": "Material", "value": "Leather", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0016-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
-    ]
-  },
-  {
-    "name": "Leather Belt Reversible Black Brown",
-    "slug": "leather-belt-reversible-clm0017",
-    "sku": "CLM-0017",
-    "category": "clothing-accessories-belts",
-    "brand": "westhaven",
-    "short_description": "Reversible leather belt, black on one side, brown on the other.",
-    "description": "Two belts in one — flip the buckle and reverse the strap to switch between black and brown without buying a second belt.\n\nA rotating buckle mechanism makes the switch a five-second job.",
-    "regular_price": "29.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 220,
-    "length_mm": 1100,
-    "width_mm": 40,
-    "height_mm": 10,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Reversible Leather Belt | Amazoff",
-    "seo_description": "Reversible leather belt, black and brown, rotating buckle.",
-    "attributes": ["material"],
-    "images": [
-      { "key": "main", "path": "demo/clm0017-main.jpg", "alt_text": "Reversible belt", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Genuine leather", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0017-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 46, "attribute_values": { "material": "leather" } }
-    ]
-  },
-  {
-    "name": "Canvas Weekend Backpack",
-    "slug": "canvas-weekend-backpack-clm0018",
-    "sku": "CLM-0018",
-    "category": "clothing-accessories-bags",
-    "brand": "trailforge",
-    "short_description": "Canvas weekend backpack with laptop sleeve, 25L.",
-    "description": "A 25L canvas backpack that covers a workday commute and a weekend away equally well, with a padded 15-inch laptop sleeve inside the main compartment.\n\nWaxed canvas resists light rain without needing a rain cover.",
-    "regular_price": "69.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 900,
-    "length_mm": 480,
-    "width_mm": 320,
-    "height_mm": 180,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Canvas Weekend Backpack 25L | Amazoff",
-    "seo_description": "25L canvas backpack, padded laptop sleeve, waxed finish.",
-    "attributes": ["colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0018-main.jpg", "alt_text": "Weekend backpack", "is_main": true, "sort_order": 0 },
-      { "key": "open", "path": "demo/clm0018-open.jpg", "alt_text": "Backpack interior", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Capacity", "value": "25L", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0018-OLV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "open"], "initial_quantity": 21, "attribute_values": { "colour": "green" } }
-    ]
-  },
-  {
-    "name": "Wool Beanie Ribbed Knit",
-    "slug": "wool-beanie-ribbed-knit-clm0019",
-    "sku": "CLM-0019",
-    "category": "clothing-accessories-hats",
-    "brand": "northloom",
-    "short_description": "Ribbed knit wool beanie for cold weather.",
-    "description": "A classic ribbed beanie in a wool-acrylic blend, warm without the itch pure wool can bring.\n\nA fold-up cuff adjusts the fit and doubles the layer over the ears on the coldest days.",
-    "regular_price": "14.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 90,
-    "length_mm": 220,
-    "width_mm": 220,
-    "height_mm": 60,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Wool Beanie Ribbed Knit | Amazoff",
-    "seo_description": "Ribbed knit wool beanie, fold-up cuff.",
-    "attributes": ["colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0019-main.jpg", "alt_text": "Beanie", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "80% acrylic, 20% wool", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0019-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 80, "attribute_values": { "colour": "black" } },
-      { "sku": "CLM-0019-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 62, "attribute_values": { "colour": "grey" } }
-    ]
-  },
-  {
-    "name": "Puffer Jacket Packable Lightweight",
-    "slug": "puffer-jacket-packable-lightweight-clm0020",
-    "sku": "CLM-0020",
-    "category": "clothing-men-outerwear-jackets",
-    "brand": "trailforge",
-    "short_description": "Lightweight packable puffer jacket, stuffs into its own pocket.",
-    "description": "A lightweight down-alternative puffer that packs into its own chest pocket for travel, without the crinkle-paper feel of the cheapest packables.\n\nWarm enough for a mild winter on its own, or as a mid-layer under a heavier shell.",
-    "regular_price": "74.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 350,
-    "length_mm": 300,
-    "width_mm": 250,
-    "height_mm": 100,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Packable Puffer Jacket | Amazoff",
-    "seo_description": "Lightweight packable puffer jacket, stuffs into own pocket.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clm0020-main.jpg", "alt_text": "Puffer jacket", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Fill", "value": "Synthetic down alternative", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLM-0020-M-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "size": "m", "colour": "navy" } }
-    ]
-  }
+    {
+        "name": "Classic Crew Neck T-Shirt",
+        "slug": "classic-crew-neck-t-shirt-clm0001",
+        "sku": "CLM-0001",
+        "category": "clothing-men-tops-t-shirts",
+        "brand": "urbanthread",
+        "short_description": "100% cotton crew neck t-shirt, regular fit.",
+        "description": "A wardrobe basic in combed cotton, pre-shrunk so the fit on day one is the fit on day fifty.\n\nDouble-stitched hems at the sleeve and collar hold up to a weekly wash cycle without curling.",
+        "regular_price": "19.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 180,
+        "length_mm": 300,
+        "width_mm": 250,
+        "height_mm": 10,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Classic Crew Neck T-Shirt | Amazoff",
+        "seo_description": "100% cotton crew neck t-shirt, regular fit, multiple colours.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0001-main.jpg",
+                "alt_text": "Crew neck t-shirt",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "back",
+                "path": "demo/clm0001-back.jpg",
+                "alt_text": "T-shirt back view",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "100% cotton",
+                "sort_order": 0
+            },
+            {
+                "name": "Fit",
+                "value": "Regular",
+                "sort_order": 1
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0001-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "back"
+                ],
+                "initial_quantity": 60,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLM-0001-L-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 55,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLM-0001-M-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 40,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLM-0001-XL-NAV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 18,
+                "attribute_values": {
+                    "size": "xl",
+                    "colour": "navy"
+                }
+            },
+            {
+                "sku": "CLM-0001-S-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 25,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "grey"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Slim Fit Oxford Shirt",
+        "slug": "slim-fit-oxford-shirt-clm0002",
+        "sku": "CLM-0002",
+        "category": "clothing-men-tops-shirts",
+        "brand": "westhaven",
+        "short_description": "Slim fit Oxford cotton shirt for office and smart-casual wear.",
+        "description": "Oxford weave cotton in a slim cut that holds its shape through a workday without needing constant tucking-in.\n\nA button-down collar keeps the shirt sharp with or without a tie.",
+        "regular_price": "44.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 250,
+        "length_mm": 320,
+        "width_mm": 260,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Slim Fit Oxford Shirt | Amazoff",
+        "seo_description": "Slim fit Oxford cotton shirt, button-down collar.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0002-main.jpg",
+                "alt_text": "Oxford shirt",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "100% cotton Oxford",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0002-M-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 30,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLM-0002-L-BLU",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 25,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "blue"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cotton Tank Top Athletic Fit",
+        "slug": "cotton-tank-top-athletic-fit-clm0003",
+        "sku": "CLM-0003",
+        "category": "clothing-men-tops-tank-tops",
+        "brand": "urbanthread",
+        "short_description": "Athletic fit cotton tank top for gym and summer wear.",
+        "description": "A tank cut close through the shoulders and looser through the torso, built for movement rather than showing off a fit that only works standing still.\n\nRibbed neckline resists stretching out of shape after repeated wear.",
+        "regular_price": "14.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 120,
+        "length_mm": 290,
+        "width_mm": 220,
+        "height_mm": 8,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Cotton Tank Top Athletic Fit | Amazoff",
+        "seo_description": "Athletic fit cotton tank top for gym and summer.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0003-main.jpg",
+                "alt_text": "Tank top",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Cotton blend",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0003-M-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 44,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "grey"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Merino Wool Crew Sweater",
+        "slug": "merino-wool-crew-sweater-clm0004",
+        "sku": "CLM-0004",
+        "category": "clothing-men-tops-sweaters",
+        "brand": "northloom",
+        "short_description": "Merino wool crew neck sweater, breathable and odour-resistant.",
+        "description": "Fine-gauge merino that regulates temperature better than acrylic blends and resists holding odour after a full day's wear.\n\nA ribbed hem and cuffs keep the fit close without being restrictive.",
+        "regular_price": "79.90",
+        "discount_price": "64.90",
+        "discount_starts_at": "-4 days",
+        "discount_ends_at": "+10 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 420,
+        "length_mm": 340,
+        "width_mm": 280,
+        "height_mm": 25,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Merino Wool Crew Sweater | Amazoff",
+        "seo_description": "Merino wool crew neck sweater. On sale this week.",
+        "attributes": [
+            "size",
+            "colour",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0004-main.jpg",
+                "alt_text": "Wool sweater",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "100% merino wool",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0004-L-NAV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 12,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "navy",
+                    "material": "wool"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Pullover Hoodie Fleece Lined",
+        "slug": "pullover-hoodie-fleece-lined-clm0005",
+        "sku": "CLM-0005",
+        "category": "clothing-men-tops-hoodies",
+        "brand": "urbanthread",
+        "short_description": "Fleece-lined pullover hoodie with kangaroo pocket.",
+        "description": "Brushed fleece interior for warmth without bulk, and a kangaroo pocket that actually fits both hands rather than a decorative slit.\n\nRibbed cuffs and hem keep drafts out on cold mornings.",
+        "regular_price": "49.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 500,
+        "length_mm": 350,
+        "width_mm": 290,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Fleece Lined Pullover Hoodie | Amazoff",
+        "seo_description": "Fleece-lined pullover hoodie, kangaroo pocket.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0005-main.jpg",
+                "alt_text": "Hoodie",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Lining",
+                "value": "Brushed fleece",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0005-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 35,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLM-0005-L-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 29,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "grey"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Slim Straight Jeans",
+        "slug": "slim-straight-jeans-clm0006",
+        "sku": "CLM-0006",
+        "category": "clothing-men-trousers-jeans",
+        "brand": "carinastyle",
+        "short_description": "Slim straight jeans, mid-rise, stretch denim.",
+        "description": "A slim cut through the thigh that stays straight rather than tapering at the ankle, with enough stretch in the denim to move without feeling restrictive.\n\nMid-rise waist sits comfortably without a belt.",
+        "regular_price": "59.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 600,
+        "length_mm": 400,
+        "width_mm": 300,
+        "height_mm": 20,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Slim Straight Jeans | Amazoff",
+        "seo_description": "Slim straight jeans, stretch denim, mid-rise.",
+        "attributes": [
+            "size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0006-main.jpg",
+                "alt_text": "Jeans",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "98% cotton, 2% elastane",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0006-32",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 24,
+                "attribute_values": {
+                    "size": "m",
+                    "material": "denim"
+                }
+            },
+            {
+                "sku": "CLM-0006-34",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 19,
+                "attribute_values": {
+                    "size": "l",
+                    "material": "denim"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Chino Trousers Regular Fit",
+        "slug": "chino-trousers-regular-fit-clm0007",
+        "sku": "CLM-0007",
+        "category": "clothing-men-trousers-chinos",
+        "brand": "westhaven",
+        "short_description": "Regular fit cotton chinos for smart-casual wear.",
+        "description": "A wardrobe staple in brushed cotton twill, cut to sit comfortably rather than chase a trend silhouette.\n\nWorks equally at a desk or a dinner, which is the entire point of a chino.",
+        "regular_price": "39.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 450,
+        "length_mm": 400,
+        "width_mm": 300,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Chino Trousers Regular Fit | Amazoff",
+        "seo_description": "Regular fit cotton chinos, smart-casual.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0007-main.jpg",
+                "alt_text": "Chinos",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Cotton twill",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0007-M-BEI",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 33,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "beige"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cargo Shorts Utility Pockets",
+        "slug": "cargo-shorts-utility-pockets-clm0008",
+        "sku": "CLM-0008",
+        "category": "clothing-men-trousers-shorts",
+        "brand": "urbanthread",
+        "short_description": "Cotton cargo shorts with six utility pockets.",
+        "description": "Six pockets across the leg and waist, enough to carry keys, phone, and a wallet without a bag.\n\nReinforced stitching at every pocket seam is what keeps these from tearing at the first heavy load.",
+        "regular_price": "29.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 400,
+        "length_mm": 300,
+        "width_mm": 280,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Cargo Shorts Utility Pockets | Amazoff",
+        "seo_description": "Cotton cargo shorts, six utility pockets.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0008-main.jpg",
+                "alt_text": "Cargo shorts",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pockets",
+                "value": "6",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0008-L-KHK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 27,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "beige"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Fleece Joggers Tapered Fit",
+        "slug": "fleece-joggers-tapered-fit-clm0009",
+        "sku": "CLM-0009",
+        "category": "clothing-men-trousers-joggers",
+        "brand": "urbanthread",
+        "short_description": "Tapered fleece joggers with elasticated cuffs.",
+        "description": "Brushed fleece joggers that taper at the ankle rather than billowing, so they layer cleanly under a jacket or on their own.\n\nAn internal drawcord waist and zip pocket round out a piece built for lounging and light activity alike.",
+        "regular_price": "34.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 420,
+        "length_mm": 320,
+        "width_mm": 280,
+        "height_mm": 20,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Fleece Joggers Tapered Fit | Amazoff",
+        "seo_description": "Tapered fleece joggers, elasticated cuffs.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0009-main.jpg",
+                "alt_text": "Joggers",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Cotton fleece",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0009-M-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 41,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "grey"
+                }
+            },
+            {
+                "sku": "CLM-0009-L-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 36,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Water-Resistant Softshell Jacket",
+        "slug": "water-resistant-softshell-jacket-clm0010",
+        "sku": "CLM-0010",
+        "category": "clothing-men-outerwear-jackets",
+        "brand": "trailforge",
+        "short_description": "Water-resistant softshell jacket with fleece lining.",
+        "description": "A softshell jacket for everyday wear in unpredictable weather, water-resistant enough to shrug off a shower without needing a full waterproof shell.\n\nThe fleece lining adds warmth without the bulk of a heavier coat.",
+        "regular_price": "89.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 750,
+        "length_mm": 400,
+        "width_mm": 320,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Water-Resistant Softshell Jacket | Amazoff",
+        "seo_description": "Water-resistant softshell jacket, fleece lined.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0010-main.jpg",
+                "alt_text": "Softshell jacket",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Lining",
+                "value": "Fleece",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0010-L-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 17,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Wool Blend Overcoat",
+        "slug": "wool-blend-overcoat-clm0011",
+        "sku": "CLM-0011",
+        "category": "clothing-men-outerwear-coats",
+        "brand": "westhaven",
+        "short_description": "Wool blend overcoat, knee length, tailored fit.",
+        "description": "A tailored wool blend overcoat for formal and business settings, cut to sit over a suit jacket without adding bulk at the shoulder.\n\nThe knee-length hem and notched lapel keep this looking current across seasons.",
+        "regular_price": "149.00",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 1300,
+        "length_mm": 500,
+        "width_mm": 400,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Wool Blend Overcoat | Amazoff",
+        "seo_description": "Wool blend overcoat, knee length, tailored fit.",
+        "attributes": [
+            "size",
+            "colour",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0011-main.jpg",
+                "alt_text": "Overcoat",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "70% wool, 30% polyester",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0011-L-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 6,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "grey",
+                    "material": "wool"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cotton Boxer Briefs 3-Pack",
+        "slug": "cotton-boxer-briefs-3pack-clm0012",
+        "sku": "CLM-0012",
+        "category": "clothing-men-underwear-boxers",
+        "brand": "urbanthread",
+        "short_description": "3-pack cotton boxer briefs, tagless waistband.",
+        "description": "Everyday cotton boxer briefs, sold as a three-pack, with a tagless waistband that does not chafe.\n\nA contoured pouch and flat-lock seams are the small details that separate a comfortable pair from a merely acceptable one.",
+        "regular_price": "19.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 200,
+        "length_mm": 200,
+        "width_mm": 150,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Cotton Boxer Briefs 3-Pack | Amazoff",
+        "seo_description": "3-pack cotton boxer briefs, tagless.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0012-main.jpg",
+                "alt_text": "Boxer briefs pack",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pack size",
+                "value": "3",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0012-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 70,
+                "attribute_values": {
+                    "size": "m"
+                }
+            },
+            {
+                "sku": "CLM-0012-L",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 58,
+                "attribute_values": {
+                    "size": "l"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Athletic Crew Socks 5-Pack",
+        "slug": "athletic-crew-socks-5pack-clm0013",
+        "sku": "CLM-0013",
+        "category": "clothing-men-underwear-socks",
+        "brand": "urbanthread",
+        "short_description": "5-pack athletic crew socks, cushioned sole.",
+        "description": "Cushioned crew socks for running and gym wear, sold as a five-pack for the sock drawer nobody keeps organized anyway.\n\nArch support panels reduce slipping inside a training shoe.",
+        "regular_price": "14.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 250,
+        "length_mm": 180,
+        "width_mm": 120,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Athletic Crew Socks 5-Pack | Amazoff",
+        "seo_description": "5-pack athletic crew socks, cushioned sole.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0013-main.jpg",
+                "alt_text": "Crew socks pack",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pack size",
+                "value": "5",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0013-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 90,
+                "attribute_values": {
+                    "size": "m"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Everyday Sneakers Low-Top",
+        "slug": "everyday-sneakers-low-top-clm0014",
+        "sku": "CLM-0014",
+        "category": "clothing-men-footwear-sneakers",
+        "brand": "veloryde",
+        "short_description": "Low-top everyday sneakers with cushioned insole.",
+        "description": "A low-top sneaker built for daily wear rather than performance running, with a cushioned insole that stays comfortable standing all day.\n\nThe outsole tread pattern grips wet pavement without looking overtly technical.",
+        "regular_price": "64.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 700,
+        "length_mm": 320,
+        "width_mm": 130,
+        "height_mm": 130,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Everyday Low-Top Sneakers | Amazoff",
+        "seo_description": "Low-top everyday sneakers, cushioned insole.",
+        "attributes": [
+            "shoe-size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0014-main.jpg",
+                "alt_text": "Sneakers",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "sole",
+                "path": "demo/clm0014-sole.jpg",
+                "alt_text": "Sole tread",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Upper",
+                "value": "Canvas",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0014-42-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "sole"
+                ],
+                "initial_quantity": 22,
+                "attribute_values": {
+                    "shoe-size": "eu-42",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLM-0014-43-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 18,
+                "attribute_values": {
+                    "shoe-size": "eu-43",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLM-0014-42-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 25,
+                "attribute_values": {
+                    "shoe-size": "eu-42",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Leather Chelsea Boots",
+        "slug": "leather-chelsea-boots-clm0015",
+        "sku": "CLM-0015",
+        "category": "clothing-men-footwear-boots",
+        "brand": "westhaven",
+        "short_description": "Leather Chelsea boots with elastic side panels.",
+        "description": "Full-grain leather Chelsea boots with elastic side panels for an easy on-off, no laces to deal with on a rushed morning.\n\nA stacked heel and rounded toe keep the silhouette classic rather than trend-dependent.",
+        "regular_price": "119.00",
+        "discount_price": "99.00",
+        "discount_starts_at": "-7 days",
+        "discount_ends_at": "+7 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 1100,
+        "length_mm": 330,
+        "width_mm": 130,
+        "height_mm": 200,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Leather Chelsea Boots | Amazoff",
+        "seo_description": "Leather Chelsea boots, elastic side panels. On sale now.",
+        "attributes": [
+            "shoe-size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0015-main.jpg",
+                "alt_text": "Chelsea boots",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Full-grain leather",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0015-42",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 9,
+                "attribute_values": {
+                    "shoe-size": "eu-42",
+                    "material": "leather"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Leather Sandals Adjustable Strap",
+        "slug": "leather-sandals-adjustable-strap-clm0016",
+        "sku": "CLM-0016",
+        "category": "clothing-men-footwear-sandals",
+        "brand": "westhaven",
+        "short_description": "Leather sandals with adjustable buckle strap.",
+        "description": "A leather sandal with an adjustable buckle strap for a snug fit across a range of foot widths.\n\nThe contoured footbed molds slightly with wear, which is the difference between comfortable and merely wearable.",
+        "regular_price": "34.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 450,
+        "length_mm": 300,
+        "width_mm": 120,
+        "height_mm": 60,
+        "is_available": false,
+        "is_featured": false,
+        "seo_title": "Leather Sandals Adjustable Strap | Amazoff",
+        "seo_description": "Leather sandals, adjustable buckle. Currently unavailable.",
+        "attributes": [],
+        "attribute_values": [
+            "material.leather"
+        ],
+        "images": [],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Leather",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0016-STD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": false,
+                "is_default": true,
+                "initial_quantity": 0,
+                "attribute_values": {}
+            }
+        ]
+    },
+    {
+        "name": "Leather Belt Reversible Black Brown",
+        "slug": "leather-belt-reversible-clm0017",
+        "sku": "CLM-0017",
+        "category": "clothing-accessories-belts",
+        "brand": "westhaven",
+        "short_description": "Reversible leather belt, black on one side, brown on the other.",
+        "description": "Two belts in one — flip the buckle and reverse the strap to switch between black and brown without buying a second belt.\n\nA rotating buckle mechanism makes the switch a five-second job.",
+        "regular_price": "29.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 220,
+        "length_mm": 1100,
+        "width_mm": 40,
+        "height_mm": 10,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Reversible Leather Belt | Amazoff",
+        "seo_description": "Reversible leather belt, black and brown, rotating buckle.",
+        "attributes": [
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0017-main.jpg",
+                "alt_text": "Reversible belt",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Genuine leather",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0017-STD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 46,
+                "attribute_values": {
+                    "material": "leather"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Canvas Weekend Backpack",
+        "slug": "canvas-weekend-backpack-clm0018",
+        "sku": "CLM-0018",
+        "category": "clothing-accessories-bags",
+        "brand": "trailforge",
+        "short_description": "Canvas weekend backpack with laptop sleeve, 25L.",
+        "description": "A 25L canvas backpack that covers a workday commute and a weekend away equally well, with a padded 15-inch laptop sleeve inside the main compartment.\n\nWaxed canvas resists light rain without needing a rain cover.",
+        "regular_price": "69.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 900,
+        "length_mm": 480,
+        "width_mm": 320,
+        "height_mm": 180,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Canvas Weekend Backpack 25L | Amazoff",
+        "seo_description": "25L canvas backpack, padded laptop sleeve, waxed finish.",
+        "attributes": [
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0018-main.jpg",
+                "alt_text": "Weekend backpack",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "open",
+                "path": "demo/clm0018-open.jpg",
+                "alt_text": "Backpack interior",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Capacity",
+                "value": "25L",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0018-OLV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "open"
+                ],
+                "initial_quantity": 21,
+                "attribute_values": {
+                    "colour": "green"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Wool Beanie Ribbed Knit",
+        "slug": "wool-beanie-ribbed-knit-clm0019",
+        "sku": "CLM-0019",
+        "category": "clothing-accessories-hats",
+        "brand": "northloom",
+        "short_description": "Ribbed knit wool beanie for cold weather.",
+        "description": "A classic ribbed beanie in a wool-acrylic blend, warm without the itch pure wool can bring.\n\nA fold-up cuff adjusts the fit and doubles the layer over the ears on the coldest days.",
+        "regular_price": "14.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 90,
+        "length_mm": 220,
+        "width_mm": 220,
+        "height_mm": 60,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Wool Beanie Ribbed Knit | Amazoff",
+        "seo_description": "Ribbed knit wool beanie, fold-up cuff.",
+        "attributes": [
+            "colour"
+        ],
+        "attribute_values": [
+            "material.wool"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0019-main.jpg",
+                "alt_text": "Beanie",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "80% acrylic, 20% wool",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0019-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 80,
+                "attribute_values": {
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLM-0019-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 62,
+                "attribute_values": {
+                    "colour": "grey"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Puffer Jacket Packable Lightweight",
+        "slug": "puffer-jacket-packable-lightweight-clm0020",
+        "sku": "CLM-0020",
+        "category": "clothing-men-outerwear-jackets",
+        "brand": "trailforge",
+        "short_description": "Lightweight packable puffer jacket, stuffs into its own pocket.",
+        "description": "A lightweight down-alternative puffer that packs into its own chest pocket for travel, without the crinkle-paper feel of the cheapest packables.\n\nWarm enough for a mild winter on its own, or as a mid-layer under a heavier shell.",
+        "regular_price": "74.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 350,
+        "length_mm": 300,
+        "width_mm": 250,
+        "height_mm": 100,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Packable Puffer Jacket | Amazoff",
+        "seo_description": "Lightweight packable puffer jacket, stuffs into own pocket.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clm0020-main.jpg",
+                "alt_text": "Puffer jacket",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Fill",
+                "value": "Synthetic down alternative",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLM-0020-M-NAV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 3,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "navy"
+                }
+            }
+        ]
+    }
 ]

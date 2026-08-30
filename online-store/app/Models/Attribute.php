@@ -24,6 +24,7 @@ class Attribute extends Model
         'slug',
         'input_type',
         'is_filterable',
+        'is_variation_only',
         'sort_order',
     ];
 
@@ -38,6 +39,7 @@ class Attribute extends Model
             'id' => 'integer',
             'input_type' => AttributeInputType::class,
             'is_filterable' => 'boolean',
+            'is_variation_only' => 'boolean',
         ];
     }
 
@@ -49,5 +51,16 @@ class Attribute extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);
+    }
+
+    /**
+     * The categories this attribute is allowed for. Empty means unrestricted
+     * — allowed everywhere — not "allowed nowhere"; see
+     * App\Support\ResolveAllowedAttributes, the only place this relation's
+     * emptiness is given that meaning.
+     */
+    public function productCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductCategory::class);
     }
 }

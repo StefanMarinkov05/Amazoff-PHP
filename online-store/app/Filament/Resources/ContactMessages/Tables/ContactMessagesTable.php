@@ -44,10 +44,10 @@ class ContactMessagesTable
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Received')
-                    ->dateTime()
+                    ->date()
                     ->sortable(),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->date()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

@@ -131,6 +131,99 @@ final class ResolveCategoryFamily
     }
 
     /**
+     * Whether reparenting `$category` under `$parentId` would make the tree
+     * cyclic — i.e. whether the proposed parent is `$category` itself or one
+     * of its own descendants.
+     *
+     * `parent_id` is a self-referencing foreign key, and no foreign key can
+     * express acyclicity: the database happily accepts A→B→A, after which
+     * every upward walk (`ancestryOf()`) and every downward walk
+     * (`selfAndDescendantIds()`) is walking a loop. One of ADR-0005's
+     * un-constrainable invariants, enforced by `MoveProductCategory`.
+     *
+     * A category being *created* cannot fail this — it has no descendants
+     * yet — which is why only the edit path guards it.
+     */
+    public static function wouldCreateCycle(ProductCategory $category, ?int $parentId): bool
+    {
+        if ($parentId === null) {
+            return false;
+        }
+
+        return in_array($parentId, self::selfAndDescendantIds($category), true);
+    }
+
+    /**
+     * `$category`'s ancestry, root first, ending with `$category` itself —
+     * `[Clothing, Men, Tops, T-Shirts]`. The admin edit page renders this as
+     * a breadcrumb so a category's place in the tree is visible without
+     * opening its parent, and its parent's parent, one at a time.
+     *
+     * Walks `parent_id` upward over one in-memory map, the same trade
+     * `selfAndDescendantIds()` makes walking downward: one query regardless
+     * of depth, on a table small enough for that to be the cheaper read.
+     *
+     * @return list<ProductCategory>
+     */
+    public static function ancestryOf(ProductCategory $category): array
+    {
+        /** @var Collection<int, ProductCategory> $byId */
+        $byId = ProductCategory::query()->get()->keyBy('id');
+
+        $chain = [];
+        $current = $byId->get($category->id);
+
+        // Bounded by the map's own size rather than trusting parent_id to be
+        // acyclic: nothing in the schema prevents a cycle, and a cycle here
+        // would otherwise hang the edit page rather than render it oddly.
+        $guard = $byId->count() + 1;
+
+        while ($current instanceof ProductCategory && $guard-- > 0) {
+            array_unshift($chain, $current);
+
+            $current = $current->parent_id === null
+                ? null
+                : $byId->get($current->parent_id);
+        }
+
+        return $chain;
+    }
+
+    /**
+     * The full category table, tree-ordered with depth — the same walk as
+     * {@see orderedTreeWithDepth()} but unfiltered, for callers that need
+     * every category rather than only the ones already holding a product.
+     * The admin product form is the current caller: an admin assigning a
+     * category is choosing where a *new* product goes, so a category with
+     * zero products today is still a legal, expected choice.
+     *
+     * @return EloquentCollection<int, ProductCategory>
+     */
+    public static function allOrderedWithDepth(): EloquentCollection
+    {
+        return self::orderedTreeWithDepth(ProductCategory::query()->get());
+    }
+
+    /**
+     * {@see allOrderedWithDepth()} as `id => label` pairs for a Filament
+     * `Select::options()`, each label indented by depth so the dropdown
+     * reads as a tree instead of an alphabetised flat dump of all 173 rows
+     * — the same lookup problem the storefront sidebar had before
+     * {@see orderedTreeWithDepth()}, now solved once and reused here rather
+     * than re-solved separately for the admin panel.
+     *
+     * @return array<int, string>
+     */
+    public static function selectOptions(): array
+    {
+        return self::allOrderedWithDepth()
+            ->mapWithKeys(fn (ProductCategory $category): array => [
+                $category->id => str_repeat('— ', (int) $category->getAttribute('depth')).$category->name,
+            ])
+            ->all();
+    }
+
+    /**
      * `parent_id => [child id, ...]` for the whole table, one query.
      *
      * `groupBy()` keys as `int|string` regardless of the grouped column's
