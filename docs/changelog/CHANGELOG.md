@@ -8,6 +8,312 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Staff-only "Demo order" catalogue sort** — walks 13 real products, each
+  chosen to showcase one distinguishable case (multi-image variations, an
+  impossible attribute combination, a parent-category product, out of
+  stock, `min_order_quantity > 1`, no images at all, …).
+  `docs/reference/demo-showcase-order.md` has the full list, the reasoning
+  per case, and two wrong picks caught before shipping (a placeholder SKU
+  that never existed, and a product confused "deactivated" with "listed but
+  out of stock" — two states this schema already distinguishes).
+
+  Two new nullable columns, `products.demo_case_order`/`demo_case_label`
+  (`2026_08_30_090000_add_demo_showcase_columns_to_products`), assigned by
+  `Database\Seeders\Demo\DemoShowcaseOrderSeeder` — matched by SKU, not id,
+  and resets every product's assignment before reassigning so a SKU dropped
+  from the list can never leave a stale label behind.
+
+  Gated by `ProductList::isDemoModeAvailable()` — `canAccessPanel()`,
+  checked identically wherever the sort button renders, wherever the query
+  applies it, and wherever the product-card badge shows the case label, so
+  none of the three can disagree. Once active, the sort shows **exactly**
+  the 13 curated products — every other filter (search, category, brand,
+  price, rating, stock, sale) is bypassed entirely, not narrowed further,
+  so a stray filter left over from browsing can never silently drop a case
+  out of a live walkthrough. A guest sending `?sortBy=demo_case_order`
+  directly gets no effect — the value is not in the public `SORTS`
+  allow-list, so it falls back to the normal sort, verified live.
+
+  The no-images case (`BTY-0001`) needed manufacturing, not finding — every
+  product in the seeded catalogue has at least one real photo
+  (`demo:fetch-images` covered all 182 rows), so this is the one case the
+  seeder does more than label: it deletes the product's `product_images`
+  rows outright. Surfaced a gap this closes too — every "no image"
+  placeholder on the storefront (`product-list.blade.php`'s cards,
+  `product-details.blade.php`'s gallery) was a generic SVG icon; both now
+  show `public/images/default-product.png` instead.
+
+  5 tests in `ProductListDemoOrderTest` cover the exact-13 restriction
+  (order and exclusion together), the filter-bypass, the guest fallback,
+  and the badge visibility rule (both directions — shown in demo mode,
+  hidden under a normal sort and hidden entirely from a guest).
+
+- **Input-crash testing methodology and a per-property tested-input log** —
+  `docs/how-to/test-for-input-crashes.md` (the technique: DevTools, URL, or
+  a Livewire component test — plus the value playbook: overflow,
+  malformed-numeric, negative, XSS-shaped, SQLi-shaped, oversized string,
+  value outside a fixed allow-list) and
+  `docs/reference/tested-inputs.md` (the running per-property index of
+  what has actually been checked, where, and the result — not one row per
+  component, since the lesson below is specifically that a property, not a
+  component, is the right unit of coverage).
+
+  Auth (`Login`, `Register`, `ChangePassword`) and contact
+  (`ContactForm`, `NewsletterSignup`) all came back clean — every property
+  on all five is `string`-typed, so the hydration-crash class does not
+  apply structurally, and every `max:` validation rule matches its column
+  length exactly (checked against the migrations, not assumed).
+
+### Fixed
+
+- **A product whose `min_order_quantity` exceeds current stock let the
+  customer click "Add to cart" with no warning it would fail.** Not a
+  crash anywhere — `AddToCart` already refused it cleanly server-side,
+  `InsufficientStockException` caught and shown as a normal form error,
+  proven by calling `addToCart()` directly (the same path a raw request
+  bypassing the UI hits) before this fix — but the stepper defaulted to
+  the *minimum* (floored there deliberately, so it never shows a ceiling
+  no valid order could meet) rather than to real stock, and the button's
+  own `@disabled` only checked `stock === 0`, not stock below the minimum.
+  A product with `min_order_quantity=5` and 2 in stock showed a fully
+  clickable button pre-filled with a guaranteed-to-fail quantity, and
+  nothing on the page said why. Added an explicit warning ("Only 2 in
+  stock — below the minimum order of 5") and extended the disabled
+  condition to match. 3 new tests in `ProductDetailsQuantityTest`,
+  including one that bypasses the stepper's own value entirely to confirm
+  the server-side refusal still holds regardless of what the disabled
+  button would have prevented.
+
+- **`ProductDetails::$variationId` crashed on `?v=` too large for PHP to
+  represent as an `int`** — confirmed live, `curl` against a real product
+  page, while writing the methodology doc above specifically because
+  `$quantity` on the same component had just been fixed for the same class
+  of bug and this one had not been checked yet. `TypeError: Cannot assign
+  float to property ... of type ?int` — an oversized numeric string decodes
+  to a `float` during `#[Url]` hydration, which `?int` then refuses, before
+  `mount()`'s own "fall back to a valid default variation" logic ever runs.
+  Widened to `mixed`, normalised explicitly at the top of `mount()`. 3 tests
+  in `ProductDetailsVariationIdTest`, using `$this->get()` against the real
+  route rather than `Livewire::test()->set()` — the crash happens during
+  `#[Url]` hydration on a fresh request, which a property set after the
+  component already exists does not reproduce. Confirmed red without the
+  fix, green with it.
+
+- **Price and rating filters on `/catalogue`**, plus a hierarchical
+  category sidebar replacing the flat 173-row alphabetised `<select>`.
+  `docs/reference/write-rules/catalogue-filters.md` is the full contract —
+  every filter, how they combine, and exactly what happens on malformed or
+  malicious input — written because "what happens if X" kept needing a
+  real answer rather than an assumption once there were five filters
+  instead of two.
+
+  **Price** filters `regular_price` (the sticker price), not the
+  discount-window effective price `ResolveProductPrice` resolves for
+  display — a deliberate cut documented in the reference page, not an
+  oversight: expressing `windowActive()`'s date-window logic a second time
+  in raw SQL is exactly the duplicate-implementation risk ADR-0014 already
+  names. **Rating** excludes a product only when it has approved reviews
+  *and* their average is below the selected tier (`4★`/`3★`/`2★`/`1★` &
+  up) — a product with zero approved reviews is shown at every tier,
+  including the strictest, and an unapproved review does not count as
+  "having one" either.
+
+  `$minPrice`, `$maxPrice`, and `$minRating` are all declared `mixed`, not
+  `?float`/`?int` — the same reasoning as `ProductDetails::$quantity`
+  (below): Livewire assigns whatever the client sends before any of the
+  component's own code runs, and a strictly-typed numeric property throws
+  before sanitisation ever executes. Verified live, not only against Pest:
+  `?minPrice=99999999999999999999999999999999`,
+  `?minRating=<script>alert(1)</script>`, and `?minPrice=' OR 1=1--` all
+  return `200` with no crash and no effect on the query.
+
+  **The category sidebar is now a real tree**, not a flat list — every
+  category depth-first, parent immediately before its own children,
+  indented by depth (`— ` per level, the standard technique for a native
+  `<select>`, which cannot render custom per-`<option>` markup).
+  `ResolveCategoryFamily::orderedTreeWithDepth()` builds it; never orphans
+  a row, because a category's family count can only be smaller than what
+  its own ancestors' sums include, so anything worth showing already has
+  every ancestor up to the root in the same filtered set. The header
+  mega-menu (added earlier this session) stays two levels deep by design —
+  fast browsing, not full-depth navigation; the sidebar is how a category
+  past that depth (`Air Fryers`, 4 levels down) is actually reached.
+
+  17 tests across `ResolveCategoryFamilyTest`,
+  `ProductListCategoryFilterTest`, and the new
+  `ProductListPriceAndRatingFilterTest` cover the family-resolution walk,
+  the tree ordering, and every malformed/malicious-input case pinned as
+  permanent regression coverage.
+
+- **Category filtering by family, not by exact match, and by slug in the
+  URL, not id.** Selecting a parent category
+
+- **Category filtering by family, not by exact match, and by slug in the
+  URL, not id.** Selecting a parent category (from the catalogue sidebar or
+  the new header mega-menu) now shows every product under it — its own
+  direct products plus every descendant's, at any depth — instead of only
+  products assigned to that exact row. The real seeded tree is 4 levels
+  deep (Clothing → Men → Tops → T-Shirts, confirmed by walking it, not by
+  sampling a shallow branch and assuming), and a non-leaf category can hold
+  products of its own alongside its children's (Garden: 3 direct, plus 2 on
+  Mowers and 2 on Watering — selecting Garden now correctly reads 7, not 3).
+
+  `App\Support\ResolveCategoryFamily` is the one place this walk happens —
+  a function, not an Action, per ADR-0014's reasoning for read-time
+  resolvers. Loads the whole `product_categories` table once per request
+  (173 rows in the seeded catalogue) and walks an in-memory adjacency map,
+  rather than a recursive CTE or one query per tree level.
+
+  `ProductList`'s `#[Url]` property is `categorySlug` now, not `categoryId`
+  — `?category=mens-jackets`, not `?category=5` — because a link a customer
+  shares or bookmarks should read as a name. The sidebar's per-category
+  counts follow the same family rule as the filter itself, so a count never
+  promises more than clicking it delivers. A slug matching nothing (stale
+  bookmark, hand-edited URL, deleted category) falls back to the
+  unfiltered catalogue silently, the same graceful behaviour the old
+  id-based lookup already had for an id that did not exist.
+
+  **New header mega-menu** — hover (or focus, or tap) "Catalogue" to see
+  every top-level category on the left; hovering one reveals its own
+  children on the right, replacing the flat leaf-only `<select>` as the
+  primary way to *browse* the catalogue. That `<select>` stays on
+  `/catalogue` itself for *narrowing* an already-loaded result set — a
+  different job, both still useful. `App\Support\ResolveCategoryFamily::
+  topLevelWithChildren()` backs it, one level deep only (the menu shows
+  master category → subnodes, not the full 4-level tree on hover).
+
+  Verified live, not only against Pest: `?category=' OR '1'='1` and
+  `?category=<script>alert(1)</script>` both return 200 with no reflection
+  and no query change from the unfiltered count — `categorySlug` only ever
+  reaches a parameterised `where()`, structurally, not by input filtering.
+  12 tests across `ResolveCategoryFamilyTest` and
+  `ProductListCategoryFilterTest` pin the family-resolution logic and the
+  injection/XSS/oversized-input cases as permanent regression coverage,
+  not just a manual check.
+
+- **Admin dashboard widgets** — seven widgets under `app/Filament/Widgets/`,
+  discovered automatically by `AdminPanelProvider`'s existing
+  `discoverWidgets()`: `RevenueOverview` (30-day revenue, orders, items sold,
+  average order value, and return rate, each with a trend against the prior
+  30 days), `RevenueTrendChart` (90-day daily revenue line), `OrdersByStatusChart`
+  (every current order by status — the live pipeline, not a time-boxed
+  slice, coloured to match `OrderStatus::getColor()`), `TopSellingProductsTable`
+  (units sold, read from `order_items`' own snapshot columns so a since-deleted
+  product still appears), `ReturnsAndDamageTable` (ranked by loss rate —
+  returned+damaged as a share of sold — not raw count, so a low-volume
+  product with a high return rate isn't buried under a high-volume one with
+  a low rate), `ReviewsOverview`, and `RatingDistributionChart`.
+
+  Every widget aggregates with `SUM`/`COUNT`/`GROUP BY` directly against the
+  database rather than loading Eloquent models — there is no N+1 to
+  eager-load around because no relation is ever touched per-row.
+
+  Fixed one real seeder bug this surfaced immediately: `DemoOrderSeeder`
+  backdated a payment's `created_at`/`updated_at` to match the order's
+  history but never touched `paid_at`, so every seeded `paid_at` read as
+  "whenever the seeder last ran" rather than the order's real date — which
+  would have made `RevenueTrendChart` show eight months of history crammed
+  onto a single day. `amazoff_demo` re-seeded after the fix;
+  `docs/reference/schema/demo-data.md`'s revenue figures were not affected,
+  since it records counts, not sums.
+
+  Nine tests in `tests/Feature/Filament/DashboardTest.php` render each
+  widget with real factory-created rows rather than an empty table, on the
+  reasoning that a query clean under Larastan still breaks on its first
+  real request — one genuinely did: `TopSellingProductsTable`'s grouped
+  query triggered `only_full_group_by` because Filament appends a
+  primary-key tiebreaker `ORDER BY` by default, fixed with
+  `->defaultKeySort(false)`. The tests stop short of asserting widget
+  *content* through the assembled `/admin` dashboard page itself — Filament
+  widgets are Livewire-lazy, so the page shell's own HTTP response never
+  contains their content, and asserting around that would test Livewire's
+  lazy-loading rather than anything the query itself does.
+
+- **Storefront wordmark** — the header and footer's plain "Amazoff" text is
+  now a styled two-tone "Amaz*off*" echoing `public/images/logo.png`'s own
+  logo (dark "Amaz" + Amazon-orange "off", plus a small curled underline
+  arrow after the logo's own smile swoosh). The orange is sampled directly
+  from the logo's pixels (`(254,160,1)` → `oklch(0.78 0.17 68)`), added as
+  `--color-brand-orange` in `resources/css/app.css` — a deliberate,
+  explicitly-scoped exception to that file's own "one committed accent"
+  comment, used nowhere else on the storefront.
+
+- **Admin panel branding** — `AdminPanelProvider` sets `->brandName()` and
+  `->brandLogo()` to the same two-tone "Amaz*off*" wordmark as the
+  storefront header (`resources/views/filament/components/brand-logo.blade.php`),
+  and a **View site** link in the user menu (`sort(-2)`, before the
+  Profile/Sign-out items Filament registers itself) — the only way back to
+  the storefront from the panel otherwise being to type the URL by hand.
+  The storefront's `--color-brand-orange` CSS custom property doesn't reach
+  the admin panel — Filament ships its own compiled CSS bundle, independent
+  of the storefront's Vite build — so the logo partial uses the same
+  sampled hex literally instead.
+
+- **`ListCarriers`** gets a page subheading, `*COD = Cash on delivery` —
+  the table's `cod_fee` column has no explicit `->label()`, so it renders
+  as Filament's auto-cased "Cod fee" with the abbreviation never spelled
+  out anywhere else on the page.
+
+- **Storefront authentication** — login, registration, logout, and password
+  change, as Livewire components under `app/Livewire/Auth/`. Laravel's own
+  guard and session throughout: no Breeze, Jetstream, or Fortify, because
+  implementation standard #9 allows at most one authentication library and
+  Filament's panel login was already authenticating this same `web` guard.
+
+  **Filament's `->login()` is removed from `AdminPanelProvider`.** Two
+  password forms against one guard was a second surface to audit for nothing
+  — a staff member signing in at `/login` is already authenticated for the
+  panel. Filament now redirects a guest at `/admin` to the storefront
+  `login` named route, verified returning a 302 to `/login`.
+
+  Staff reach the panel through an **Admin panel** link in the header
+  account menu, gated by calling `canAccessPanel()` itself rather than by a
+  separate `hasRole()` check. One source of truth, so the link cannot
+  advertise a door the gate then refuses; the gate remains the security
+  boundary, the link is only the affordance.
+
+  Security decisions worth naming, all covered by tests: `is_active` is part
+  of the `Auth::attempt()` credentials rather than a check afterwards, so a
+  deactivated employee gets the same failure as a wrong password instead of
+  one that confirms the address exists; a failed login puts its error on
+  `email` and never on `password`, for the same anti-enumeration reason;
+  login is rate-limited five attempts per email+IP per minute, keyed on both
+  so one attacker cannot lock a real customer out of their own account;
+  `session()->regenerate()` runs unconditionally after a successful sign-in,
+  since the pre-login session id is exactly what a fixation attack plants;
+  logout is POST-only, because a GET logout is triggerable by any `<img>` on
+  any page the user visits; and a password change requires the current
+  password and then calls `logoutOtherDevices()`, a password change being
+  the standard response to "someone else may be signed in as me".
+
+  Registration creates an account holding **no role at all** rather than a
+  `customer` role — a registered customer is the default authenticated
+  state, and access to their own orders is an ownership check in a policy,
+  not a permission (§3). The password is left to the model's `hashed` cast
+  rather than `Hash::make()` in the component; hashing twice would make the
+  password unusable, which `AuthenticationTest` pins directly.
+
+  Nine tests in `tests/Feature/Auth/AuthenticationTest.php`, added to CI
+  shard 2 in the same change. Each proves something ours rather than
+  Laravel's — `Auth::attempt()` and `Password::defaults()` are not
+  re-tested. The deactivation test was confirmed to go red with the
+  `is_active` guard removed, per the rule that a test never observed failing
+  proves nothing.
+
+  Still outstanding: forgot/reset password by email, and email verification
+  (`users.email_verified_at` exists in the schema and nothing sets it).
+
+- `docs/reference/local-access.md` — seeded account credentials, service
+  URLs, and the full storefront/admin route map for a local run. Verified
+  against a running stack rather than read off the code: all four accounts
+  logged in, `canAccessPanel()` checked per role (including the customer
+  correctly denied), and every route taken from `route:list`. Records two
+  facts as facts rather than smoothing them over — `OrderResource` has no
+  edit page and nothing in the panel calls `TransitionOrderStatus`, so §37
+  criterion 16 is unreachable through the UI despite the Action, its
+  policy, and its three concurrency tests all existing; and `ViewOrder`
+  renders an `EditAction` pointing at a route that is not registered.
+
 - About and contact pages, plus the footer newsletter signup — the two dead
   links the storefront chrome had been shipping since the catalogue slice.
 
@@ -187,7 +493,62 @@ when the work happened, not when it was committed — nothing in
   (`docs/reference/schema/open-schema-questions.md` #6 — category/tag-driven
   attribute assignment does not exist for real catalogue content either).
 
+### Changed
+
+- **CI `test` job rebalanced from 2 shards to 4.** `tests/Feature/Filament`
+  and `tests/Feature/Auth`'s growth this session left shard 2 carrying
+  roughly 2x shard 1's measured local time (55s vs 28s) on its own —
+  `docs/how-to/use-ci.md`'s own stated trigger for a re-balance
+  ("visibly outruns the others"), not a scheduled maintenance pass.
+  `tests/Feature/Actions` was the single heaviest concentration and moved
+  off shard 2 entirely, split further into shard 3 (`Cart`, `Catalogue`)
+  and shard 4 (everything else under `Actions`) once it turned out to be
+  uneven on its own too. Verified every one of the 52 test files under
+  `tests/Unit`/`tests/Feature` resolves to exactly one shard — no gaps, no
+  file matched twice. `use-ci.md` updated to match: shard count, the
+  placement rule for a new test file, and the "reproduce a shard locally"
+  section.
+
 ### Fixed
+
+- **`ProductDetails`'s quantity stepper crashed on a number too large for
+  PHP to represent as an `int`** — a 500, uncaught `TypeError: Cannot
+  assign string to property ... of type int`, from typing a sufficiently
+  long number into the quantity box. `public int $quantity` meant Livewire
+  assigned the raw request value to a strictly-typed property before any of
+  the component's own code ran; the number field's `min`/`max` HTML
+  attributes are not a server-side boundary — `wire:model` sends whatever
+  the client sends. Widened to `public mixed $quantity`, so hydration can
+  never throw regardless of input shape, with all sanitisation moved into
+  `updatedQuantity()`: non-numeric, decimal, or unrepresentable input resets
+  to the product's `min_order_quantity` rather than being partially
+  clamped, and a value within PHP's range but past `min_order_quantity` or
+  available stock is floored/ceilinged to the nearest legal value.
+  `AddToCart` still re-validates minimum and stock independently — this
+  only stops a malformed value from ever reaching that call or sitting in
+  the input looking valid. `min_order_quantity` is now shown explicitly
+  under the add-to-cart button when it is greater than 1, and the number
+  input carries real `min`/`max` attributes matching it and current stock
+  (UX affordance, not the actual guard). 6 tests in
+  `ProductDetailsQuantityTest` cover the crash case and the sanitisation
+  rules; the crash case was confirmed to reproduce against the un-widened
+  property type before the fix landed.
+
+- **Every route 500'd with `tempnam(): file created in the system's
+  temporary directory`** after the laptop migration — storefront and
+  `/admin` alike, with no `storage/logs/laravel.log` written at all.
+  `storage/` and `bootstrap/cache` arrived owned by the host user (uid
+  1000, `drwxrwxr-x`) while PHP-FPM's request workers run as `www-data`
+  (uid 33), so the compiled-view write was refused. Three things hid it:
+  the message names `/tmp` (world-writable, so ruled out first),
+  `docker compose exec` runs as root so every manual permission check
+  passed, and Laravel could not log the failure because logging needs the
+  same directory it had just been denied. Fixed with `chgrp -R www-data`
+  plus `chmod -R g+w` and setgid on the directories so new files inherit
+  the group. Documented in `troubleshooting.md`, including the rule that
+  a suspected permission error in this container must be probed as
+  `www-data`, never from the default root shell — the root shell cannot
+  reproduce it by construction.
 
 - **`phpstan.neon` only ever scanned `app/`** — every "Larastan clean"
   claim made about `database/seeders/` this session was checking nothing,

@@ -28,6 +28,7 @@ backslash is a shell escape character.
 | `DemoWishlistSeeder` | `Database\Seeders\Demo\DemoWishlistSeeder` | Local, deployed demo | Wishlists for ~20% of customers |
 | `DemoOrderSeeder` | `Database\Seeders\Demo\DemoOrderSeeder` | Local, deployed demo | 140 orders, checked out through real carts and walked through `TransitionOrderStatus`, on a fixed status/payment/shipment distribution |
 | `DemoReviewSeeder` | `Database\Seeders\Demo\DemoReviewSeeder` | Local, deployed demo | 90 reviews drawn from `DemoOrderSeeder`'s delivered orders |
+| `DemoShowcaseOrderSeeder` | `Database\Seeders\Demo\DemoShowcaseOrderSeeder` | Local, deployed demo | Labels 13 real products for the staff-only "Demo order" catalogue sort — `docs/reference/demo-showcase-order.md`. Must run after `DemoSeeder` and `DemoReviewSeeder` (case 6 needs real reviews already attached) |
 | `CatalogueReferenceSeeder` | `Database\Seeders\Demo\CatalogueReferenceSeeder` | Local, deployed demo | Catalogue lookup rows — categories, brands, attributes |
 | `ContentReferenceSeeder` | `Database\Seeders\Demo\ContentReferenceSeeder` | Local, deployed demo | Article lookup rows — categories, tags |
 | `CarrierSeeder` | `Database\Seeders\System\CarrierSeeder` | CI, local, production | Econt and Speedy |
@@ -175,6 +176,7 @@ docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoC
 docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoWishlistSeeder"
 docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoOrderSeeder"
 docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoReviewSeeder"
+docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoShowcaseOrderSeeder"
 docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\ContentReferenceSeeder"
 docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoArticleSeeder"
 ```
@@ -193,6 +195,9 @@ simple "after the catalogue":
   merely by seeding order.
 - `DemoEngagementSeeder`, `DemoCartSeeder`, `DemoCouponSeeder`, and
   `DemoWishlistSeeder` have no ordering constraint against each other.
+- `DemoReviewSeeder` before `DemoShowcaseOrderSeeder` — case 6 (`ELC-0021`,
+  "multiple reviews, mixed ratings") needs real reviews already attached to
+  be a genuine case rather than an empty label.
 
 Articles are independent of the transactional pass — they reference
 products by slug, not orders — so `ContentReferenceSeeder`/

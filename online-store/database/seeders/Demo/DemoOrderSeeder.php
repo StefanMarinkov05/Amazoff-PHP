@@ -846,7 +846,20 @@ class DemoOrderSeeder extends Seeder
                 ? $deliveredAt->copy()->addHours(random_int(0, 4))
                 : $createdAt->copy()->addHours(random_int(1, 12));
 
-            $payment->forceFill(['created_at' => $paymentAt, 'updated_at' => $paymentAt])->saveQuietly();
+            // RecordPayment sets paid_at to the wall-clock time it ran at
+            // (correct for real usage — a payment is recorded when it
+            // happens). A seeder replaying months of history has to
+            // backdate that alongside created_at/updated_at, or every
+            // paid_at in the demo set reads as "whenever this seeder last
+            // ran" regardless of the order it belongs to — which breaks
+            // anything grouping revenue by date. Only touch it when it was
+            // actually set: Pending/Cancelled/Failed payments have no
+            // paid_at to backdate.
+            $payment->forceFill([
+                'created_at' => $paymentAt,
+                'updated_at' => $paymentAt,
+                'paid_at' => $payment->paid_at !== null ? $paymentAt : null,
+            ])->saveQuietly();
         }
 
         $redemption = CouponRedemption::query()->where('order_id', $order->getKey())->first();

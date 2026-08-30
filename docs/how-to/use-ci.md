@@ -17,13 +17,13 @@ untested. A formatting failure reached `main` that way.
 ## Where to see it
 
 On a PR, in the checks section near the bottom, listed as "CI / lint",
-two "CI / test (1/2)" shards, and three "CI / test-concurrency (a/b/c)"
-shards — six jobs, running in parallel. The repo's **Actions** tab has the
-full run history.
+four "CI / test (1–4)" shards, and three "CI / test-concurrency (a/b/c)"
+shards — eight jobs, running in parallel. The repo's **Actions** tab has
+the full run history.
 
 ## What it does, in order
 
-Six jobs. `test` and `test-concurrency` each have their own MySQL 8
+Eight jobs. `test` and `test-concurrency` each have their own MySQL 8
 service container per shard (services are not shared across jobs or
 matrix shards); `lint` needs no database. All run in parallel rather than
 one after another.
@@ -36,7 +36,7 @@ one after another.
 4. Runs `pint --test`.
 5. Runs `phpstan analyse` (Larastan).
 
-**`test`** — a 2-shard matrix over `tests/Unit` and `tests/Feature`:
+**`test`** — a 4-shard matrix over `tests/Unit` and `tests/Feature`:
 
 1. Checks out the code.
 2. Installs PHP 8.4 with the extensions the app needs
@@ -96,12 +96,17 @@ dominant file alone in whatever shard it landed in.
 c (the two lighter shards) unless you already know it will be slow — a
 `->repeat()` call, several assertions per test, or a workload closer to
 `AddToCartVsMergeGuestCartConcurrencyTest` than a single race. For
-`tests/Unit`/`tests/Feature`, add it to shard 2 unless it shares
-`RolePermissionTest`'s per-test reseeding pattern, in which case shard 1.
-Re-balance (or give a file its own shard) once one shard's
-`gh run view <id> --log` time visibly outruns the others by more than its
-fair share — this is optimizing a number nobody watches per-commit, not
-something to re-measure on every PR.
+`tests/Unit`/`tests/Feature`, add it to shard 2 by default; shard 1 if it
+shares `RolePermissionTest`'s per-test reseeding pattern; shard 3 if it is
+under `tests/Feature/Actions/Cart` or `tests/Feature/Actions/Catalogue`;
+shard 4 for any other `tests/Feature/Actions` subdirectory. `Actions` is
+kept off shard 2 deliberately — it is where most of this codebase's tests
+live and grows fastest, so leaving it there would silently regrow the
+imbalance the 2026-08-29 rebalance (2 shards → 4) fixed. Re-balance again
+(or give a file its own shard) once one shard's `gh run view <id> --log`
+time visibly outruns the others by more than its fair share — this is
+optimizing a number nobody watches per-commit, not something to re-measure
+on every PR.
 
 No job in this workflow collects coverage. It was dropped from CI
 entirely rather than merged across shards or kept on one shard only — see
@@ -139,8 +144,8 @@ docker compose exec app ./vendor/bin/pest
 `pest` with no path runs everything, every shard of `test` and
 `test-concurrency` combined. To reproduce one shard, use its file list
 from `.github/workflows/ci.yml`'s `strategy.matrix.shard`; `pest
-tests/Unit tests/Feature` alone reproduces both `test` shards together,
-and `pest tests/Concurrency` alone reproduces all three
+tests/Unit tests/Feature` alone reproduces all four `test` shards
+together, and `pest tests/Concurrency` alone reproduces all three
 `test-concurrency` shards together.
 
 `pint --test` only checks formatting and reports violations — it does not

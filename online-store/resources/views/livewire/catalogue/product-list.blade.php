@@ -102,14 +102,20 @@
                         <label for="category" class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
                             Category
                         </label>
-                        <select id="category" wire:model.live="categoryId"
+                        {{-- Depth-first order (ResolveCategoryFamily::orderedTreeWithDepth):
+                             parent immediately before its own children. A native <select>
+                             cannot render custom markup per <option>, so hierarchy is a
+                             repeated "— " prefix per depth level rather than true
+                             indentation — the standard technique for a plain select, and
+                             legible even where a browser collapses leading whitespace. --}}
+                        <select id="category" wire:model.live="categorySlug"
                                 class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
                                        transition-colors duration-200 hover:border-ink-300
                                        focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10">
                             <option value="">All categories</option>
                             @foreach ($this->categories as $category)
-                                <option value="{{ $category->id }}">
-                                    {{ $category->name }} ({{ $category->products_count }})
+                                <option value="{{ $category->slug }}">
+                                    {{ str_repeat('— ', $category->depth) }}{{ $category->name }} ({{ $category->products_count }})
                                 </option>
                             @endforeach
                         </select>
@@ -131,6 +137,67 @@
                             @endforeach
                         </select>
                     </div>
+
+                    {{-- Against the sticker price (regular_price), not the
+                         discount-window effective price — see the comment on
+                         ProductList::applyFilters() for why. --}}
+                    <div>
+                        <label class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                            Price
+                        </label>
+                        <div class="mt-2 flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">€</span>
+                                <input
+                                    type="number" min="0" step="0.01" inputmode="decimal"
+                                    wire:model.live.debounce.400ms="minPrice"
+                                    placeholder="Min"
+                                    aria-label="Minimum price"
+                                    class="w-full rounded-control border border-ink-200 bg-white py-2 pl-6 pr-2 text-sm
+                                           transition-colors duration-200 hover:border-ink-300
+                                           focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
+                                >
+                            </div>
+                            <span class="text-ink-300" aria-hidden="true">–</span>
+                            <div class="relative flex-1">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">€</span>
+                                <input
+                                    type="number" min="0" step="0.01" inputmode="decimal"
+                                    wire:model.live.debounce.400ms="maxPrice"
+                                    placeholder="Max"
+                                    aria-label="Maximum price"
+                                    class="w-full rounded-control border border-ink-200 bg-white py-2 pl-6 pr-2 text-sm
+                                           transition-colors duration-200 hover:border-ink-300
+                                           focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- A product with no approved reviews is always shown,
+                         at any tier — ProductList::applyFilters() OR's a
+                         whereDoesntHave alongside the average-rating check. --}}
+                    <fieldset>
+                        <legend class="text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                            Rating
+                        </legend>
+                        <div class="mt-2.5 space-y-2">
+                            <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-700">
+                                <input type="radio" wire:model.live="minRating" value=""
+                                       class="h-4 w-4 border-ink-300 text-marine-600
+                                              focus:ring-4 focus:ring-marine-600/20">
+                                Any rating
+                            </label>
+                            @foreach (\App\Livewire\Catalogue\ProductList::RATING_TIERS as $tier)
+                                <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-700">
+                                    <input type="radio" wire:model.live="minRating" value="{{ $tier }}"
+                                           class="h-4 w-4 border-ink-300 text-marine-600
+                                                  focus:ring-4 focus:ring-marine-600/20">
+                                    {{ $tier }}★ & up
+                                </label>
+                            @endforeach
+                        </div>
+                    </fieldset>
                 </div>
             </form>
 
@@ -182,6 +249,25 @@
                         </button>
                     @endforeach
 
+                    {{-- Staff-only, checked by the same isDemoModeAvailable()
+                         setSortOrder() itself re-checks — the button and the
+                         guard cannot disagree. Not in SORTS: a public const
+                         can't be conditional on the viewer, so this option
+                         lives here instead of in the @foreach above. --}}
+                    @if ($this->isDemoModeAvailable())
+                        @php($demoActive = $sortBy === \App\Livewire\Catalogue\ProductList::DEMO_SORT_KEY)
+                        <button type="button"
+                                wire:click="setSortOrder('{{ \App\Livewire\Catalogue\ProductList::DEMO_SORT_KEY }}')"
+                                @if ($demoActive) aria-current="true" @endif
+                                class="inline-flex items-center gap-1 rounded-control border border-dashed border-ink-300
+                                       px-3 py-1.5 text-sm font-medium transition-all duration-200
+                                       focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                       {{ $demoActive ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">
+                            Demo order
+                            <span class="text-[0.65rem] uppercase tracking-wide opacity-60">Staff</span>
+                        </button>
+                    @endif
+
                     <span wire:loading class="ml-auto inline-flex items-center gap-2 text-sm text-ink-400">
                         <span aria-hidden="true" class="h-1.5 w-1.5 animate-pulse rounded-full bg-marine-500"></span>
                         Updating
@@ -216,14 +302,9 @@
                                              class="h-full w-full object-cover transition-transform duration-500
                                                     ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.06]">
                                     @else
-                                        <div class="flex h-full flex-col items-center justify-center gap-1.5 text-ink-300">
-                                            <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                                 stroke-width="1.25" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                      d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 9h.008v.008H18V9Zm.75 12H5.25A2.25 2.25 0 0 1 3 18.75V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21Z" />
-                                            </svg>
-                                            <span class="text-[0.6rem] uppercase tracking-[0.15em]">No image</span>
-                                        </div>
+                                        <img src="{{ asset('images/default-product.png') }}"
+                                             alt="{{ $product->name }} — no photo available" loading="lazy"
+                                             class="h-full w-full object-cover">
                                     @endif
 
                                     {{-- Badges: saving first, then scarcity. Both are facts
@@ -245,6 +326,22 @@
                                             </span>
                                         @endif
                                     </div>
+
+                                    {{-- Demo-mode-only: which showcase case this card is.
+                                         Gated on the sort actually being active, not merely
+                                         on the label existing — a customer paging through the
+                                         same 13 products under a normal sort must never see
+                                         this, and isDemoModeAvailable() is what setSortOrder()
+                                         itself re-checks, so the two cannot disagree. --}}
+                                    @if ($sortBy === \App\Livewire\Catalogue\ProductList::DEMO_SORT_KEY && $this->isDemoModeAvailable() && $product->demo_case_label)
+                                        <span
+                                            class="absolute right-2.5 top-2.5 max-w-[calc(100%-1.25rem)] truncate rounded
+                                                   bg-violet-600 px-1.5 py-0.5 text-[0.65rem] font-semibold text-white"
+                                            title="{{ $product->demo_case_label }}"
+                                        >
+                                            #{{ $product->demo_case_order }} {{ $product->demo_case_label }}
+                                        </span>
+                                    @endif
                                 </a>
 
                                 <div class="flex flex-1 flex-col p-3.5">

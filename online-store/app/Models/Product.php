@@ -50,6 +50,8 @@ class Product extends Model
         'is_featured',
         'seo_title',
         'seo_description',
+        'demo_case_order',
+        'demo_case_label',
     ];
 
     /**
@@ -76,6 +78,7 @@ class Product extends Model
             'weight_display_unit' => WeightUnit::class,
             'is_available' => 'boolean',
             'is_featured' => 'boolean',
+            'demo_case_order' => 'integer',
         ];
     }
 

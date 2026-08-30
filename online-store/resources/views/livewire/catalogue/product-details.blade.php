@@ -18,7 +18,7 @@
                 @foreach ($this->breadcrumb as $crumb)
                     <li aria-hidden="true" class="text-ink-300">/</li>
                     <li wire:key="crumb-{{ $crumb->id }}">
-                        <a href="/catalogue?categoryId={{ $crumb->id }}"
+                        <a href="/catalogue?category={{ $crumb->slug }}"
                            class="transition-colors hover:text-marine-700">{{ $crumb->name }}</a>
                     </li>
                 @endforeach
@@ -46,14 +46,11 @@
                                    ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.04]"
                         >
                     @else
-                        <div class="flex h-full flex-col items-center justify-center gap-2 text-ink-300">
-                            <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                 stroke-width="1.25" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 9h.008v.008H18V9Zm.75 12H5.25A2.25 2.25 0 0 1 3 18.75V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21Z" />
-                            </svg>
-                            <span class="text-xs uppercase tracking-[0.15em]">No image</span>
-                        </div>
+                        <img
+                            src="{{ asset('images/default-product.png') }}"
+                            alt="{{ $this->product->name }} — no photo available"
+                            class="h-full w-full object-cover"
+                        >
                     @endif
 
                     @if ($price->onSale)
@@ -265,12 +262,25 @@
                         </div>
                     @enderror
 
+                    @php($minimumOrderQuantity = max(1, $this->product->min_order_quantity))
+                    {{-- Real stock, but not enough to meet the minimum order
+                         — a different state from "Out of stock" (stock=0):
+                         nothing here is a bug, AddToCart already refuses
+                         this cleanly server-side (InsufficientStockException,
+                         never a crash, verified against a raw request that
+                         bypasses this exact warning). This is the UI closing
+                         a gap where the stepper used to default to a
+                         quantity — the minimum — that was never actually
+                         purchasable, with nothing on the page saying so
+                         before the click. --}}
+                    @php($belowMinimumStock = $this->stock > 0 && $this->stock < $minimumOrderQuantity)
+
                     <div class="flex gap-3">
                         <div class="flex items-center rounded-control border border-ink-200 bg-white">
                             <button
                                 type="button"
-                                wire:click="$set('quantity', {{ max(1, $this->quantity - 1) }})"
-                                @disabled($this->quantity <= 1)
+                                wire:click="$set('quantity', {{ max($minimumOrderQuantity, (int) $this->quantity - 1) }})"
+                                @disabled((int) $this->quantity <= $minimumOrderQuantity)
                                 aria-label="Decrease quantity"
                                 class="grid h-11 w-10 place-items-center text-lg text-ink-500 transition-colors
                                        hover:text-marine-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -278,7 +288,8 @@
 
                             <input
                                 type="number"
-                                min="1"
+                                min="{{ $minimumOrderQuantity }}"
+                                max="{{ $this->stock }}"
                                 inputmode="numeric"
                                 wire:model.live.debounce.400ms="quantity"
                                 aria-label="Quantity"
@@ -291,7 +302,7 @@
 
                             <button
                                 type="button"
-                                wire:click="$set('quantity', {{ $this->quantity + 1 }})"
+                                wire:click="$set('quantity', {{ (int) $this->quantity + 1 }})"
                                 aria-label="Increase quantity"
                                 class="grid h-11 w-10 place-items-center text-lg text-ink-500 transition-colors
                                        hover:text-marine-700"
@@ -303,7 +314,7 @@
                             wire:click="addToCart"
                             wire:loading.attr="disabled"
                             wire:target="addToCart"
-                            @disabled($this->stock === 0 || $this->variation === null)
+                            @disabled($this->stock === 0 || $belowMinimumStock || $this->variation === null)
                             class="flex h-11 flex-1 items-center justify-center gap-2 rounded-control
                                    bg-ink-900 px-5 text-sm font-semibold text-white transition-all duration-200
                                    hover:bg-marine-700 focus:outline-none focus-visible:ring-4
@@ -320,11 +331,32 @@
                             </svg>
 
                             <span wire:loading.remove wire:target="addToCart">
-                                {{ $this->stock === 0 ? 'Out of stock' : 'Add to cart' }}
+                                @if ($this->stock === 0)
+                                    Out of stock
+                                @elseif ($belowMinimumStock)
+                                    Not enough stock
+                                @else
+                                    Add to cart
+                                @endif
                             </span>
                             <span wire:loading wire:target="addToCart">Adding…</span>
                         </button>
                     </div>
+
+                    @if ($belowMinimumStock)
+                        <p role="alert" class="mt-2 flex items-start gap-1.5 text-xs font-medium text-amber-700">
+                            <svg class="mt-px h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24"
+                                 stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M12 9v3.75m0 3.75h.008v.008H12v-.008ZM21.75 12a9.75 9.75 0 1 1-19.5 0 9.75 9.75 0 0 1 19.5 0Z" />
+                            </svg>
+                            Only {{ $this->stock }} in stock — below the minimum order of {{ $minimumOrderQuantity }}
+                        </p>
+                    @elseif ($minimumOrderQuantity > 1)
+                        <p class="mt-2 text-xs text-ink-500">
+                            Minimum order: {{ $minimumOrderQuantity }}
+                        </p>
+                    @endif
                 </div>
 
                 {{-- ── Description ────────────────────────────────────── --}}

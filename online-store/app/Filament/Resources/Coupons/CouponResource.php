@@ -7,7 +7,9 @@ namespace App\Filament\Resources\Coupons;
 use App\Filament\Resources\Coupons\Pages\CreateCoupon;
 use App\Filament\Resources\Coupons\Pages\EditCoupon;
 use App\Filament\Resources\Coupons\Pages\ListCoupons;
+use App\Filament\Resources\Coupons\Pages\ViewCoupon;
 use App\Filament\Resources\Coupons\Schemas\CouponForm;
+use App\Filament\Resources\Coupons\Schemas\CouponInfolist;
 use App\Filament\Resources\Coupons\Tables\CouponsTable;
 use App\Models\Coupon;
 use BackedEnum;
@@ -32,6 +34,11 @@ class CouponResource extends Resource
         return CouponsTable::configure($table);
     }
 
+    public static function infolist(Schema $schema): Schema
+    {
+        return CouponInfolist::configure($schema);
+    }
+
     public static function getRelations(): array
     {
         return [
@@ -44,6 +51,7 @@ class CouponResource extends Resource
         return [
             'index' => ListCoupons::route('/'),
             'create' => CreateCoupon::route('/create'),
+            'view' => ViewCoupon::route('/{record}'),
             'edit' => EditCoupon::route('/{record}/edit'),
         ];
     }
