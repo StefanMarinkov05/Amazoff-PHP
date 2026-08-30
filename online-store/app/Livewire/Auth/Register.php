@@ -6,9 +6,11 @@ namespace App\Livewire\Auth;
 
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -60,15 +62,29 @@ class Register extends Component
     {
         $validated = $this->validate();
 
-        // 'password' is cast 'hashed' on the model, so no Hash::make here —
-        // doing both would hash the hash.
-        $user = User::create([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'is_active' => true,
-        ]);
+        // The unique rule above and this catch are two halves of one check,
+        // not a redundancy: between validating and inserting, another
+        // registration can take the same address. Catch-and-convert rather
+        // than check-then-act, the same rule CLAUDE.md states for
+        // idempotency — the index is what actually decides, so the loser is
+        // told here in the form's own language instead of getting a 500.
+        try {
+            // 'password' is cast 'hashed' on the model, so no Hash::make here —
+            // doing both would hash the hash.
+            $user = User::create([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'is_active' => true,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Deliberately the same wording the unique rule produces, so the
+            // race and the ordinary case are indistinguishable to the user.
+            throw ValidationException::withMessages([
+                'email' => __('validation.unique', ['attribute' => 'email']),
+            ]);
+        }
 
         event(new Registered($user));
 

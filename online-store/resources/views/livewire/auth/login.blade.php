@@ -10,6 +10,15 @@
         </a>
     </p>
 
+    {{-- Set by EnsureAccountIsActive when a session is ended mid-browse, and
+         by any other redirect here that needs to say why. --}}
+    @if (session('status'))
+        <p role="status"
+           class="mt-6 rounded-control border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+            {{ session('status') }}
+        </p>
+    @endif
+
     <form wire:submit="login" class="mt-8 space-y-5" novalidate>
 
         <div>

@@ -1735,3 +1735,67 @@ that has been observed failing zero times is not evidence it cannot. Prefer
 pinning every field in a factory's own randomised group explicitly over
 trusting that overriding one is enough; when in doubt, read the factory's
 `definition()` for what else is derived from the field being overridden.
+
+## `Auth::logoutOtherDevices()` is called, and other sessions stay signed in
+
+**Symptom.** `ChangePassword` requires `current_password`, changes the
+password, and calls `Auth::logoutOtherDevices()`. The password does change.
+Every other browser signed in as that user keeps working — the whole reason
+`current_password` is required is that a password change is the standard
+response to "someone else may be signed in as me", and that half silently
+did not happen. Nothing errors, Larastan is green, Pint is green, and the
+code reads exactly as intended.
+
+**Cause.** `Auth::logoutOtherDevices()` only does anything when
+`Illuminate\Session\Middleware\AuthenticateSession` is in the request's
+middleware stack. That middleware is what stores a password hash on the
+session and compares it on each subsequent request; without it, the call
+rewrites the user's hash and nothing ever compares another session against
+it. It is **not** in Laravel's default `web` group — it has to be added.
+
+What made this hard to see here: Filament *does* register it, in
+`AdminPanelProvider`'s own `->middleware()` list, which the Filament
+installer scaffolds. So the panel had the protection and the storefront did
+not, and a grep for `AuthenticateSession` finds a hit — in a file that has
+nothing to do with the storefront. The natural conclusion from that hit is
+"it is registered", which is true and irrelevant.
+
+**Fix.** Append it to the `web` group in `bootstrap/app.php`, after
+`StartSession`:
+
+```php
+$middleware->web(append: [
+    AuthenticateSession::class,
+    EnsureAccountIsActive::class,
+]);
+```
+
+`AuthenticateSession` also logs the *acting* session out unless the password
+change re-issues it — `ChangePassword` already calls `session()->regenerate()`
+immediately after, which is what keeps the user signed in on the browser they
+just used.
+
+**Why it recurs.** It is a security guarantee whose absence looks identical
+to its presence from every angle except an actual second session: no error,
+no failing test unless one is written for it, and a docblock nearby
+asserting the guarantee holds. This project's own `ChangePassword` carried
+the sentence "Every other session for this user is invalidated" while it was
+false. A comment stating intent is not evidence of behaviour, and a
+framework call being present is not evidence its precondition is met.
+
+The same shape applies one layer up: `Login` checks `is_active` as part of
+the credentials, which is a check at one instant, and nothing re-checked it
+afterwards — a customer deactivated or soft-deleted mid-session kept
+browsing until the session expired on its own. `canAccessPanel()` already
+stated that reasoning for the panel ("a session outlives the row it
+authenticated against"); the storefront had no equivalent until
+`EnsureAccountIsActive`.
+
+**Prevention.** For any auth rule, ask what re-checks it on the *next*
+request, not what checked it at sign-in. When a framework method is called
+for its side effect, check its precondition is registered in the stack that
+actually serves the route — `php artisan tinker` printing
+`app('router')->getMiddlewareGroups()['web']` answers this directly, and is
+what confirmed both halves here. `AuthSessionInvalidationTest` pins the
+group's contents for this reason; `docs/reference/ui-tests.md` records what
+each of its cases proves.
