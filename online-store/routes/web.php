@@ -8,8 +8,8 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Catalogue\ProductDetails;
 use App\Livewire\Catalogue\ProductList;
 use App\Livewire\Contact\ContactForm;
-use App\Livewire\Journal\ArticleList;
 use App\Livewire\Journal\ArticleDetails;
+use App\Livewire\Journal\ArticleList;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 

@@ -20,6 +20,11 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @theme {
+    /* Journal only. Georgia is the fallback rather than a generic serif —
+       it is on virtually every machine and its metrics are close enough
+       that a swap is not a visible reflow. */
+    --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
@@ -139,6 +144,25 @@
 
 @utility animate-rise-in {
     animation: rise-in 0.7s var(--ease-out-quart) both;
+}
+
+/*
+ * Underline that grows from the left on hover. A background-image rather
+ * than a border or pseudo-element so it can animate `background-size`,
+ * which does not trigger layout — and so it wraps with the text across
+ * lines, which a pseudo-element underline cannot.
+ */
+@utility underline-sweep {
+    background-image: linear-gradient(var(--color-marine-700), var(--color-marine-700));
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 0% 2px;
+    transition: background-size 0.5s var(--ease-out-quart);
+}
+
+.group:hover .underline-sweep,
+.underline-sweep:hover {
+    background-size: 100% 2px;
 }
 
 /* Slow pan behind the journal masthead. Decorative, and the only motion on
