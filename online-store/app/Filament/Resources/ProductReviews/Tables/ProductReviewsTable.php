@@ -33,8 +33,12 @@ class ProductReviewsTable
                 TextColumn::make('product.name')
                     ->label('Product')
                     ->searchable(),
+                // Hidden by default but still searchable — the account
+                // column below identifies the reviewer for most rows, and
+                // author_name only differs for a guest review.
                 TextColumn::make('author_name')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('user.email')
                     ->label('Account')
                     ->placeholder('Deleted account')

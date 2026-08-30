@@ -35,7 +35,9 @@ class ArticlesTable
                     ->label('Image'),
                 TextColumn::make('title')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->limit(40)
+                    ->tooltip(fn (Article $record): ?string => strlen($record->title) > 40 ? $record->title : null),
                 TextColumn::make('articleCategory.name')
                     ->label('Category')
                     ->placeholder('Uncategorised')
@@ -49,7 +51,7 @@ class ArticlesTable
                 IconColumn::make('featured')
                     ->boolean(),
                 TextColumn::make('published_at')
-                    ->dateTime()
+                    ->date()
                     ->placeholder('Never published')
                     ->sortable(),
                 TextColumn::make('slug')

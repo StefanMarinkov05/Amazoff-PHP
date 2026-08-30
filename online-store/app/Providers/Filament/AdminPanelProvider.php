@@ -14,6 +14,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -62,6 +63,25 @@ class AdminPanelProvider extends PanelProvider
             // A staff member's only other way out is typing the URL by hand —
             // sort(-2) puts it before "Profile" (-1) and "Sign out"
             // (PHP_INT_MAX), the two Filament registers itself.
+            // Filament's own layout keeps the sidebar fixed and gives
+            // .fi-main its own internal scroll region, so a long table
+            // scrolls in a short viewport-height box instead of the page
+            // itself growing. This overrides that back to normal document
+            // flow — the browser scrolls, the sidebar scrolls with it. Not
+            // visually confirmed in a running browser; check this renders as
+            // intended.
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+                    <style>
+                        .fi-body, .fi-main-ctn, .fi-main {
+                            overflow: visible !important;
+                            height: auto !important;
+                            max-height: none !important;
+                        }
+                    </style>
+                    HTML,
+            )
             ->userMenuItems([
                 MenuItem::make()
                     ->label('View site')
