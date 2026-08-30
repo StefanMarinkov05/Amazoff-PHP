@@ -77,6 +77,46 @@ trait ConvertsMeasurementInput
     }
 
     /**
+     * The inverse of {@see convertMeasurements()}, for filling an edit form:
+     * canonical `weight_g`/`*_mm` columns back into the `*_input` fields the
+     * form actually shows, in the record's own display units.
+     *
+     * Required, not cosmetic. The `*_input` fields are `dehydrated(false)`
+     * and were never hydrated on open, so every edit form loaded them blank
+     * and `convertMeasurements()` then read that blank as "unspecified" and
+     * wrote `null` — renaming a product silently erased its weight and all
+     * three dimensions. Caught by loading a real edit page and saving one
+     * unrelated field, not by reading the form definition.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  LengthUnit|null  $lengthUnitFallback  As in convertMeasurements():
+     *                                               a variation has no
+     *                                               dimension unit column of
+     *                                               its own and shares the
+     *                                               product's.
+     * @return array<string, mixed>
+     */
+    protected function hydrateMeasurementInput(array $data, ?LengthUnit $lengthUnitFallback = null): array
+    {
+        $weightUnit = $this->resolveWeightUnit($data['weight_display_unit'] ?? null);
+        $lengthUnit = array_key_exists('dimension_display_unit', $data)
+            ? $this->resolveLengthUnit($data['dimension_display_unit'])
+            : ($lengthUnitFallback ?? LengthUnit::default());
+
+        $data['weight_input'] = is_numeric($data['weight_g'] ?? null)
+            ? $weightUnit->fromGrams((int) $data['weight_g'])
+            : null;
+
+        foreach (['length', 'width', 'height'] as $axis) {
+            $data["{$axis}_input"] = is_numeric($data["{$axis}_mm"] ?? null)
+                ? $lengthUnit->fromMillimetres((int) $data["{$axis}_mm"])
+                : null;
+        }
+
+        return $data;
+    }
+
+    /**
      * Null in, null out — an unspecified weight is unknown, not zero. A
      * product with no weight is legitimate (a digital item, an unmeasured
      * one) and storing 0 g would claim it is weightless.

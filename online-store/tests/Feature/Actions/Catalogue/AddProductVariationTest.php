@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Actions\Catalogue\AddProductVariation;
 use App\Enums\InventoryMovementType;
+use App\Exceptions\AttributeValueNotOnProductException;
 use App\Exceptions\RemovedFromCatalogueException;
+use App\Models\Attribute;
+use App\Models\AttributeValue;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
@@ -176,6 +179,46 @@ it('promotes the first variation to default for an actor holding only create_pro
     $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, $actor);
 
     expect($variation->is_default)->toBeTrue();
+});
+
+it('gives the variation its attribute-value combination when attribute_value_ids is supplied', function (): void {
+    // The perfume case: a product with Scent and Volume as its variation
+    // axes, a variation created with one value from each in the same call
+    // that creates the SKU and stock row — no separate step to forget.
+    $product = Product::factory()->create();
+    $scent = Attribute::factory()->create();
+    $volume = Attribute::factory()->create();
+    $product->attributes()->attach([$scent->id, $volume->id]);
+    $vanilla = AttributeValue::factory()->for($scent)->create();
+    $fiftyMl = AttributeValue::factory()->for($volume)->create();
+
+    $variation = app(AddProductVariation::class)->handle(
+        $product,
+        variationAttributes(['attribute_value_ids' => [$vanilla->id, $fiftyMl->id]]),
+        0,
+        null,
+    );
+
+    expect($variation->attributeValues()->pluck('attribute_values.id')->sort()->values()->all())
+        ->toBe(collect([$vanilla->id, $fiftyMl->id])->sort()->values()->all());
+});
+
+it('leaves no variation behind when the attribute-value combination is refused', function (): void {
+    // A value belonging to a different product's attribute — the transaction
+    // this composes into has to roll the variation back with it, not leave a
+    // SKU sitting with no combination.
+    $product = Product::factory()->create();
+    $foreignValue = AttributeValue::factory()->create();
+
+    expect(fn () => app(AddProductVariation::class)->handle(
+        $product,
+        variationAttributes(['attribute_value_ids' => [$foreignValue->id]]),
+        0,
+        null,
+    ))->toThrow(AttributeValueNotOnProductException::class);
+
+    expect(ProductVariation::count())->toBe(0)
+        ->and(Inventory::count())->toBe(0);
 });
 
 it('skips the policy for a null actor', function (): void {

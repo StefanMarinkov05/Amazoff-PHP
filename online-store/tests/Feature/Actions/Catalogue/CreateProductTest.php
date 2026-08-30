@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Actions\Catalogue\CreateProduct;
 use App\Actions\Catalogue\UpdateProduct;
 use App\Enums\InventoryMovementType;
+use App\Exceptions\AttributeNotAllowedForCategoryException;
 use App\Exceptions\ProductRequiresVariationException;
+use App\Models\Attribute;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -286,4 +288,156 @@ it('skips the policy for a null actor when updating', function (): void {
     $updated = app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null);
 
     expect($updated->fresh()->name)->toBe('Renamed');
+});
+
+/*
+ * `attributes` (variation axes) — synced by CreateProduct/UpdateProduct
+ * themselves rather than left to ProductForm's own ->relationship() field,
+ * per ProductForm's docblock: a ->relationship() field's state is excluded
+ * from the form's getState() and saved after handleRecordCreation() returns,
+ * which is too late for AddProductVariation's own attribute-value
+ * validation inside this same transaction.
+ */
+
+it('syncs the product\'s own variation axes on create', function (): void {
+    $scent = Attribute::factory()->create();
+    $volume = Attribute::factory()->create();
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['attributes' => [$scent->id, $volume->id]]),
+        [variationAttributes()],
+        null,
+    );
+
+    expect($product->attributes()->pluck('attributes.id')->sort()->values()->all())
+        ->toBe(collect([$scent->id, $volume->id])->sort()->values()->all());
+});
+
+it('syncs the product\'s own variation axes on update, only when the key is present', function (): void {
+    $scent = Attribute::factory()->create();
+    $volume = Attribute::factory()->create();
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['attributes' => [$scent->id]]),
+        [variationAttributes()],
+        null,
+    );
+
+    // No 'attributes' key at all: a caller changing an unrelated column must
+    // not silently wipe every axis for want of the key.
+    app(UpdateProduct::class)->handle($product, ['name' => 'Renamed'], null);
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$scent->id]);
+
+    app(UpdateProduct::class)->handle($product, ['attributes' => [$volume->id]], null);
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$volume->id]);
+});
+
+/*
+ * Attribute ↔ category scoping — attribute_product_category is an
+ * allow-list an admin opts an attribute into. Empty means unrestricted, not
+ * "allowed nowhere".
+ */
+
+it('allows an attribute with no category restriction for any category', function (): void {
+    $unrestricted = Attribute::factory()->create();
+    $category = ProductCategory::factory()->create();
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $category->id, 'attributes' => [$unrestricted->id]]),
+        [variationAttributes()],
+        null,
+    );
+
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$unrestricted->id]);
+});
+
+it('allows a category-scoped attribute for the exact category it is scoped to', function (): void {
+    $category = ProductCategory::factory()->create();
+    $attribute = Attribute::factory()->create();
+    $attribute->productCategories()->attach($category->id);
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $category->id, 'attributes' => [$attribute->id]]),
+        [variationAttributes()],
+        null,
+    );
+
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$attribute->id]);
+});
+
+it('allows a category-scoped attribute for a descendant of the category it is scoped to', function (): void {
+    // "Colour" scoped to the master "Clothing" category should be available
+    // on "Clothing > Men > Tops" without being re-scoped at every depth.
+    $master = ProductCategory::factory()->create();
+    $child = ProductCategory::factory()->childOf($master)->create();
+    $grandchild = ProductCategory::factory()->childOf($child)->create();
+    $colour = Attribute::factory()->create();
+    $colour->productCategories()->attach($master->id);
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $grandchild->id, 'attributes' => [$colour->id]]),
+        [variationAttributes()],
+        null,
+    );
+
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$colour->id]);
+});
+
+it('refuses a category-scoped attribute for an unrelated category on create', function (): void {
+    // "Shoe Size" scoped to "Footwear" has no business on a perfume.
+    $footwear = ProductCategory::factory()->create();
+    $beauty = ProductCategory::factory()->create();
+    $shoeSize = Attribute::factory()->create();
+    $shoeSize->productCategories()->attach($footwear->id);
+
+    expect(fn () => app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $beauty->id, 'attributes' => [$shoeSize->id]]),
+        [variationAttributes()],
+        null,
+    ))->toThrow(AttributeNotAllowedForCategoryException::class);
+
+    expect(Product::count())->toBe(0);
+});
+
+it('refuses a category-scoped attribute for an unrelated category on update', function (): void {
+    $footwear = ProductCategory::factory()->create();
+    $beauty = ProductCategory::factory()->create();
+    $shoeSize = Attribute::factory()->create();
+    $shoeSize->productCategories()->attach($footwear->id);
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $beauty->id]),
+        [variationAttributes()],
+        null,
+    );
+
+    expect(fn () => app(UpdateProduct::class)->handle(
+        $product,
+        ['attributes' => [$shoeSize->id]],
+        null,
+    ))->toThrow(AttributeNotAllowedForCategoryException::class);
+
+    expect($product->attributes()->count())->toBe(0);
+});
+
+it('allows a category-scoped attribute again once the product is moved into an allowed category', function (): void {
+    // The same call that moves the category and sets the axis together is
+    // not refused for a mismatch only ever true before the save committed.
+    $footwear = ProductCategory::factory()->create();
+    $beauty = ProductCategory::factory()->create();
+    $shoeSize = Attribute::factory()->create();
+    $shoeSize->productCategories()->attach($footwear->id);
+
+    $product = app(CreateProduct::class)->handle(
+        productAttributes(['product_category_id' => $beauty->id]),
+        [variationAttributes()],
+        null,
+    );
+
+    app(UpdateProduct::class)->handle(
+        $product,
+        ['product_category_id' => $footwear->id, 'attributes' => [$shoeSize->id]],
+        null,
+    );
+
+    expect($product->attributes()->pluck('attributes.id')->all())->toBe([$shoeSize->id]);
 });

@@ -11,6 +11,7 @@ use App\Actions\Catalogue\ForceDeleteProductVariation;
 use App\Actions\Catalogue\RemoveProductImage;
 use App\Actions\Catalogue\RemoveProductVariation;
 use App\Actions\Catalogue\SetMainProductImage;
+use App\Actions\Catalogue\SetVariationAttributeValues;
 use App\Actions\Catalogue\SetVariationImages;
 use App\Actions\Catalogue\UpdateProduct;
 use App\Actions\Coupon\RedeemCoupon;
@@ -168,6 +169,11 @@ final class RaceWorker extends Command
             // race between two of these is a race between two complete
             // galleries, not between an attach and a detach. ADR-0013.
             'set-variation-images' => app(SetVariationImages::class)
+                ->handle($this->variation(0), $this->idsFrom(1), null),
+            // Same shape as set-variation-images, same reason: one Action
+            // owns the whole combination as a set, so a race between two of
+            // these is a race between two complete combinations.
+            'set-variation-attribute-values' => app(SetVariationAttributeValues::class)
                 ->handle($this->variation(0), $this->idsFrom(1), null),
             'remove-image' => app(RemoveProductImage::class)
                 ->handle(ProductImage::findOrFail($this->id(0)), null),

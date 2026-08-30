@@ -39,9 +39,26 @@ class AttributeValue extends Model
         ];
     }
 
+    /** Variations distinguished by this value — the variant grid. */
     public function productVariations(): BelongsToMany
     {
         return $this->belongsToMany(ProductVariation::class);
+    }
+
+    /**
+     * Products carrying this value descriptively — see
+     * `Product::descriptiveAttributeValues()`. Explicit table and keys for
+     * the same reason it is: the relation name does not match Laravel's
+     * convention for `attribute_value_product`.
+     */
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Product::class,
+            'attribute_value_product',
+            'attribute_value_id',
+            'product_id',
+        );
     }
 
     public function attribute(): BelongsTo

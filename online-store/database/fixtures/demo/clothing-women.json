@@ -1,738 +1,1592 @@
 [
-  {
-    "name": "Classic Fitted T-Shirt",
-    "slug": "classic-fitted-t-shirt-clw0001",
-    "sku": "CLW-0001",
-    "category": "clothing-women-tops-t-shirts",
-    "brand": "carinastyle",
-    "short_description": "Fitted cotton t-shirt, crew neck, everyday wear.",
-    "description": "A fitted silhouette in soft combed cotton that holds its shape wash after wash without needing to size up for shrinkage.\n\nA slightly curved hem sits well whether tucked or worn loose.",
-    "regular_price": "17.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 150,
-    "length_mm": 280,
-    "width_mm": 220,
-    "height_mm": 8,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Classic Fitted T-Shirt | Amazoff",
-    "seo_description": "Fitted cotton t-shirt, crew neck, multiple colours.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0001-main.jpg", "alt_text": "Fitted t-shirt", "is_main": true, "sort_order": 0 },
-      { "key": "back", "path": "demo/clw0001-back.jpg", "alt_text": "T-shirt back", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "100% cotton", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0001-S-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "back"], "initial_quantity": 65, "attribute_values": { "size": "s", "colour": "white" } },
-      { "sku": "CLW-0001-M-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 58, "attribute_values": { "size": "m", "colour": "white" } },
-      { "sku": "CLW-0001-S-PNK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 30, "attribute_values": { "size": "s", "colour": "pink" } }
-    ]
-  },
-  {
-    "name": "Silk Blend Blouse Long Sleeve",
-    "slug": "silk-blend-blouse-long-sleeve-clw0002",
-    "sku": "CLW-0002",
-    "category": "clothing-women-tops-blouses",
-    "brand": "silkendale",
-    "short_description": "Long-sleeve silk blend blouse for office and evening wear.",
-    "description": "A silk-cotton blend that drapes with the softness of silk while resisting the wrinkling pure silk develops after an hour of sitting.\n\nMother-of-pearl buttons and a relaxed collar keep the look polished without stiffness.",
-    "regular_price": "54.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 180,
-    "length_mm": 300,
-    "width_mm": 240,
-    "height_mm": 10,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Silk Blend Blouse | Amazoff",
-    "seo_description": "Long-sleeve silk blend blouse, mother-of-pearl buttons.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0002-main.jpg", "alt_text": "Silk blouse", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "70% silk, 30% cotton", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0002-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 22, "attribute_values": { "size": "m", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Ribbed Tank Top",
-    "slug": "ribbed-tank-top-clw0003",
-    "sku": "CLW-0003",
-    "category": "clothing-women-tops-tank-tops",
-    "brand": "carinastyle",
-    "short_description": "Ribbed knit tank top, fitted, layering piece.",
-    "description": "A close-fitting ribbed tank that works alone in summer or layered under a cardigan the rest of the year.\n\nThe rib knit holds its shape better than a plain jersey tank across repeated wears.",
-    "regular_price": "12.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 110,
-    "length_mm": 260,
-    "width_mm": 200,
-    "height_mm": 8,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Ribbed Tank Top | Amazoff",
-    "seo_description": "Ribbed knit tank top, fitted layering piece.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0003-main.jpg", "alt_text": "Ribbed tank", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Cotton-elastane rib", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0003-S-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 48, "attribute_values": { "size": "s", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Cashmere Blend V-Neck Sweater",
-    "slug": "cashmere-blend-v-neck-sweater-clw0004",
-    "sku": "CLW-0004",
-    "category": "clothing-women-tops-sweaters",
-    "brand": "northloom",
-    "short_description": "Cashmere blend v-neck sweater, lightweight and soft.",
-    "description": "A cashmere-wool blend that carries the softness cashmere is known for at a price a 100% cashmere garment cannot match.\n\nThe v-neck sits flatteringly under a blazer or on its own with a statement necklace.",
-    "regular_price": "94.90",
-    "discount_price": "79.90",
-    "discount_starts_at": "-3 days",
-    "discount_ends_at": "+11 days",
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 280,
-    "length_mm": 300,
-    "width_mm": 250,
-    "height_mm": 20,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Cashmere Blend V-Neck Sweater | Amazoff",
-    "seo_description": "Cashmere blend v-neck sweater. Limited-time price.",
-    "attributes": ["size", "colour", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0004-main.jpg", "alt_text": "Cashmere sweater", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "30% cashmere, 70% wool", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0004-M-BEI", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 14, "attribute_values": { "size": "m", "colour": "beige", "material": "wool" } }
-    ]
-  },
-  {
-    "name": "Cropped Zip-Up Hoodie",
-    "slug": "cropped-zip-up-hoodie-clw0005",
-    "sku": "CLW-0005",
-    "category": "clothing-women-tops-hoodies",
-    "brand": "urbanthread",
-    "short_description": "Cropped zip-up hoodie with drawstring hood.",
-    "description": "A cropped length pairs naturally with high-waisted leggings or jeans, and the full zip makes it easy to throw on over a workout top.\n\nRibbed cuffs and hem keep the fit close at the wrists and waist.",
-    "regular_price": "44.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 380,
-    "length_mm": 260,
-    "width_mm": 240,
-    "height_mm": 25,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Cropped Zip-Up Hoodie | Amazoff",
-    "seo_description": "Cropped zip-up hoodie, drawstring hood.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0005-main.jpg", "alt_text": "Cropped hoodie", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Cotton fleece", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0005-S-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 39, "attribute_values": { "size": "s", "colour": "grey" } },
-      { "sku": "CLW-0005-M-PNK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 27, "attribute_values": { "size": "m", "colour": "pink" } }
-    ]
-  },
-  {
-    "name": "High-Rise Skinny Jeans",
-    "slug": "high-rise-skinny-jeans-clw0006",
-    "sku": "CLW-0006",
-    "category": "clothing-women-bottoms-jeans",
-    "brand": "carinastyle",
-    "short_description": "High-rise skinny jeans with 4-way stretch denim.",
-    "description": "A high-rise waist and skinny leg in a 4-way stretch denim that moves with you rather than restricting.\n\nThe stretch recovers its shape rather than bagging out by the end of the day.",
-    "regular_price": "54.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 480,
-    "length_mm": 380,
-    "width_mm": 260,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "High-Rise Skinny Jeans | Amazoff",
-    "seo_description": "High-rise skinny jeans, 4-way stretch denim.",
-    "attributes": ["size", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0006-main.jpg", "alt_text": "Skinny jeans", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "92% cotton, 8% elastane", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0006-S", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 35, "attribute_values": { "size": "s", "material": "denim" } },
-      { "sku": "CLW-0006-M", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 28, "attribute_values": { "size": "m", "material": "denim" } }
-    ]
-  },
-  {
-    "name": "Pleated Midi Skirt",
-    "slug": "pleated-midi-skirt-clw0007",
-    "sku": "CLW-0007",
-    "category": "clothing-women-bottoms-skirts",
-    "brand": "carinastyle",
-    "short_description": "Pleated midi skirt with elasticated waist.",
-    "description": "Fine box pleats that hold their shape through wear and washing, in a midi length that works for the office and beyond.\n\nAn elasticated waistband under the fabric front keeps the fit comfortable without a visible elastic panel.",
-    "regular_price": "39.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 300,
-    "length_mm": 350,
-    "width_mm": 280,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Pleated Midi Skirt | Amazoff",
-    "seo_description": "Pleated midi skirt, elasticated waist.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0007-main.jpg", "alt_text": "Pleated skirt", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Length", "value": "Midi", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0007-S-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 20, "attribute_values": { "size": "s", "colour": "navy" } }
-    ]
-  },
-  {
-    "name": "High-Waisted Yoga Leggings",
-    "slug": "high-waisted-yoga-leggings-clw0008",
-    "sku": "CLW-0008",
-    "category": "clothing-women-bottoms-leggings",
-    "brand": "carinastyle",
-    "short_description": "High-waisted leggings with squat-proof compressive fabric.",
-    "description": "A compressive four-way stretch fabric that stays opaque through a full squat, tested the way it matters rather than just claimed on the label.\n\nA wide waistband sits above the natural waist without rolling down mid-session.",
-    "regular_price": "34.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 220,
-    "length_mm": 300,
-    "width_mm": 220,
-    "height_mm": 10,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "High-Waisted Yoga Leggings | Amazoff",
-    "seo_description": "High-waisted squat-proof yoga leggings.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0008-main.jpg", "alt_text": "Yoga leggings", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Nylon-spandex blend", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0008-S-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 66, "attribute_values": { "size": "s", "colour": "black" } },
-      { "sku": "CLW-0008-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 59, "attribute_values": { "size": "m", "colour": "black" } },
-      { "sku": "CLW-0008-S-NAV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 41, "attribute_values": { "size": "s", "colour": "navy" } }
-    ]
-  },
-  {
-    "name": "Everyday Casual Wrap Dress",
-    "slug": "everyday-casual-wrap-dress-clw0009",
-    "sku": "CLW-0009",
-    "category": "clothing-women-dresses-casual",
-    "brand": "carinastyle",
-    "short_description": "Casual wrap dress in soft jersey knit, three-quarter sleeve.",
-    "description": "A wrap silhouette that flatters a range of shapes and ties at the waist rather than relying on a fixed size cut.\n\nJersey knit means this packs without wrinkling, which is exactly why it survives a suitcase as well as a wardrobe.",
-    "regular_price": "49.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 320,
-    "length_mm": 400,
-    "width_mm": 280,
-    "height_mm": 15,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Casual Wrap Dress | Amazoff",
-    "seo_description": "Casual wrap dress, jersey knit, three-quarter sleeve.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0009-main.jpg", "alt_text": "Wrap dress", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Viscose jersey", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0009-M-RED", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 17, "attribute_values": { "size": "m", "colour": "red" } }
-    ]
-  },
-  {
-    "name": "Satin Evening Slip Dress",
-    "slug": "satin-evening-slip-dress-clw0010",
-    "sku": "CLW-0010",
-    "category": "clothing-women-dresses-evening",
-    "brand": "silkendale",
-    "short_description": "Satin slip dress for evening wear, bias-cut.",
-    "description": "A bias-cut satin slip dress that skims rather than clings, in a finish that reads formal without needing embellishment.\n\nAdjustable straps let this work with or without a bra strap showing.",
-    "regular_price": "79.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 180,
-    "length_mm": 420,
-    "width_mm": 260,
-    "height_mm": 10,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Satin Evening Slip Dress | Amazoff",
-    "seo_description": "Bias-cut satin slip dress for evening wear.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0010-main.jpg", "alt_text": "Slip dress", "is_main": true, "sort_order": 0 },
-      { "key": "detail", "path": "demo/clw0010-detail.jpg", "alt_text": "Fabric detail", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Satin polyester", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0010-S-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "detail"], "initial_quantity": 11, "attribute_values": { "size": "s", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Longline Wool Coat",
-    "slug": "longline-wool-coat-clw0011",
-    "sku": "CLW-0011",
-    "category": "clothing-women-outerwear-coats",
-    "brand": "moderloft",
-    "short_description": "Longline wool blend coat, double-breasted, belted waist.",
-    "description": "A double-breasted longline coat in a wool blend heavy enough for winter without stiff, board-like structure.\n\nA belted waist adds shape to an otherwise straight silhouette, and deep pockets take a phone and gloves comfortably.",
-    "regular_price": "159.00",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 1200,
-    "length_mm": 550,
-    "width_mm": 400,
-    "height_mm": 40,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Longline Wool Coat | Amazoff",
-    "seo_description": "Double-breasted longline wool coat, belted waist.",
-    "attributes": ["size", "colour", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0011-main.jpg", "alt_text": "Wool coat", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "60% wool, 40% polyester", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0011-M-CAM", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 8, "attribute_values": { "size": "m", "colour": "beige", "material": "wool" } }
-    ]
-  },
-  {
-    "name": "Quilted Zip-Front Jacket",
-    "slug": "quilted-zip-front-jacket-clw0012",
-    "sku": "CLW-0012",
-    "category": "clothing-women-outerwear-jackets",
-    "brand": "moderloft",
-    "short_description": "Quilted zip-front jacket, lightweight insulation.",
-    "description": "A quilted jacket with lightweight synthetic insulation, warm enough for autumn and spring without the bulk of a full winter coat.\n\nA stand collar and two zip pockets keep the design clean and functional.",
-    "regular_price": "64.90",
-    "discount_price": "54.90",
-    "discount_starts_at": "-2 days",
-    "discount_ends_at": "+12 days",
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 500,
-    "length_mm": 400,
-    "width_mm": 300,
-    "height_mm": 30,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Quilted Zip-Front Jacket | Amazoff",
-    "seo_description": "Quilted zip-front jacket, lightweight insulation. On sale now.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0012-main.jpg", "alt_text": "Quilted jacket", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Insulation", "value": "Synthetic quilted fill", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0012-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 24, "attribute_values": { "size": "m", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Wireless T-Shirt Bra",
-    "slug": "wireless-t-shirt-bra-clw0013",
-    "sku": "CLW-0013",
-    "category": "clothing-women-underwear-bras",
-    "brand": "silkendale",
-    "short_description": "Wireless t-shirt bra with moulded cups, seamless under clothing.",
-    "description": "Moulded cups that keep a smooth line under a fitted t-shirt, without an underwire digging in through a long day.\n\nWide, adjustable straps distribute weight evenly across the shoulder.",
-    "regular_price": "24.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 90,
-    "length_mm": 200,
-    "width_mm": 150,
-    "height_mm": 40,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Wireless T-Shirt Bra | Amazoff",
-    "seo_description": "Wireless t-shirt bra, moulded cups, seamless.",
-    "attributes": ["size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0013-main.jpg", "alt_text": "Wireless bra", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Support", "value": "Wireless, moulded cup", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0013-M-NUD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 50, "attribute_values": { "size": "m", "colour": "beige" } },
-      { "sku": "CLW-0013-M-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 43, "attribute_values": { "size": "m", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Cotton Briefs 5-Pack",
-    "slug": "cotton-briefs-5pack-clw0014",
-    "sku": "CLW-0014",
-    "category": "clothing-women-underwear-briefs",
-    "brand": "silkendale",
-    "short_description": "5-pack cotton briefs, mid-rise, tagless.",
-    "description": "Everyday cotton briefs in a mid-rise cut, sold as a five-pack, tagless waistband for all-day comfort.\n\nA cotton gusset is what actually matters for breathability, more than the outer fabric blend.",
-    "regular_price": "22.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 180,
-    "length_mm": 200,
-    "width_mm": 150,
-    "height_mm": 25,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Cotton Briefs 5-Pack | Amazoff",
-    "seo_description": "5-pack cotton briefs, mid-rise, tagless.",
-    "attributes": ["size"],
-    "images": [
-      { "key": "main", "path": "demo/clw0014-main.jpg", "alt_text": "Briefs pack", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Pack size", "value": "5", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0014-S", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 75, "attribute_values": { "size": "s" } }
-    ]
-  },
-  {
-    "name": "Ankle Socks 6-Pack Cotton",
-    "slug": "ankle-socks-6pack-cotton-clw0015",
-    "sku": "CLW-0015",
-    "category": "clothing-women-underwear-socks",
-    "brand": "carinastyle",
-    "short_description": "6-pack cotton ankle socks, no-show design.",
-    "description": "No-show ankle socks that stay hidden under sneakers and flats alike, sold as a six-pack.\n\nA silicone heel grip is what actually keeps these from sliding down inside the shoe.",
-    "regular_price": "16.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 150,
-    "length_mm": 150,
-    "width_mm": 100,
-    "height_mm": 30,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Ankle Socks 6-Pack | Amazoff",
-    "seo_description": "6-pack cotton ankle socks, no-show, silicone grip.",
-    "attributes": ["size"],
-    "images": [
-      { "key": "main", "path": "demo/clw0015-main.jpg", "alt_text": "Ankle socks pack", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Pack size", "value": "6", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0015-M", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 88, "attribute_values": { "size": "m" } }
-    ]
-  },
-  {
-    "name": "Slip-On Canvas Sneakers",
-    "slug": "slip-on-canvas-sneakers-clw0016",
-    "sku": "CLW-0016",
-    "category": "clothing-women-footwear-sneakers",
-    "brand": "veloryde",
-    "short_description": "Slip-on canvas sneakers, elastic gusset, no laces.",
-    "description": "An elastic gusset replaces laces entirely, making these a genuine slip-on rather than a sneaker with laces left loose.\n\nA cushioned insole and lightweight sole keep these comfortable well past a first wear.",
-    "regular_price": "44.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 550,
-    "length_mm": 300,
-    "width_mm": 120,
-    "height_mm": 110,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Slip-On Canvas Sneakers | Amazoff",
-    "seo_description": "Slip-on canvas sneakers, elastic gusset, no laces.",
-    "attributes": ["shoe-size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0016-main.jpg", "alt_text": "Slip-on sneakers", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Upper", "value": "Canvas", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0016-38-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 26, "attribute_values": { "shoe-size": "eu-38", "colour": "white" } },
-      { "sku": "CLW-0016-39-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 19, "attribute_values": { "shoe-size": "eu-39", "colour": "white" } }
-    ]
-  },
-  {
-    "name": "Block Heel Ankle Boots",
-    "slug": "block-heel-ankle-boots-clw0017",
-    "sku": "CLW-0017",
-    "category": "clothing-women-footwear-boots",
-    "brand": "westhaven",
-    "short_description": "Block heel ankle boots with side zip.",
-    "description": "A stable block heel rather than a stiletto, comfortable enough for a full day and still dressy enough for evening.\n\nA side zip means the fit stays snug at the ankle without needing to lace or buckle.",
-    "regular_price": "84.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 850,
-    "length_mm": 300,
-    "width_mm": 120,
-    "height_mm": 180,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Block Heel Ankle Boots | Amazoff",
-    "seo_description": "Block heel ankle boots, side zip.",
-    "attributes": ["shoe-size", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0017-main.jpg", "alt_text": "Ankle boots", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Heel height", "value": "5cm", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0017-39", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 15, "attribute_values": { "shoe-size": "eu-39", "material": "leather" } }
-    ]
-  },
-  {
-    "name": "Strappy Block Heel Sandals",
-    "slug": "strappy-block-heel-sandals-clw0018",
-    "sku": "CLW-0018",
-    "category": "clothing-women-footwear-flats",
-    "brand": "westhaven",
-    "short_description": "Strappy sandals with cushioned footbed, low block heel.",
-    "description": "A low block heel keeps these wearable for hours, with strap detailing that dresses up a simple outfit without effort.\n\nA cushioned footbed is the difference between sandals worn once and sandals worn all summer.",
-    "regular_price": "39.90",
-    "discount_price": "32.90",
-    "discount_starts_at": "-8 days",
-    "discount_ends_at": "+6 days",
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 320,
-    "length_mm": 280,
-    "width_mm": 110,
-    "height_mm": 70,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Strappy Block Heel Sandals | Amazoff",
-    "seo_description": "Strappy block heel sandals, cushioned footbed. On sale now.",
-    "attributes": ["shoe-size", "colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0018-main.jpg", "alt_text": "Strappy sandals", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Heel height", "value": "3cm", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0018-38-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 33, "attribute_values": { "shoe-size": "eu-38", "colour": "black" } }
-    ]
-  },
-  {
-    "name": "Leather Crossbody Bag",
-    "slug": "leather-crossbody-bag-clw0019",
-    "sku": "CLW-0019",
-    "category": "clothing-accessories-bags",
-    "brand": "westhaven",
-    "short_description": "Leather crossbody bag with adjustable strap.",
-    "description": "A compact leather crossbody sized for essentials — phone, cards, keys — without becoming a second suitcase.\n\nAn adjustable strap and secure zip closure make this practical for daily wear, not just photographs.",
-    "regular_price": "59.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 400,
-    "length_mm": 220,
-    "width_mm": 160,
-    "height_mm": 80,
-    "is_available": true,
-    "is_featured": true,
-    "seo_title": "Leather Crossbody Bag | Amazoff",
-    "seo_description": "Leather crossbody bag, adjustable strap.",
-    "attributes": ["colour", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0019-main.jpg", "alt_text": "Crossbody bag", "is_main": true, "sort_order": 0 },
-      { "key": "open", "path": "demo/clw0019-open.jpg", "alt_text": "Bag interior", "is_main": false, "sort_order": 1 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "Genuine leather", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0019-TAN", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "open"], "initial_quantity": 20, "attribute_values": { "colour": "brown", "material": "leather" } },
-      { "sku": "CLW-0019-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 17, "attribute_values": { "colour": "black", "material": "leather" } }
-    ]
-  },
-  {
-    "name": "Silk Square Scarf",
-    "slug": "silk-square-scarf-clw0020",
-    "sku": "CLW-0020",
-    "category": "clothing-accessories-scarves",
-    "brand": "silkendale",
-    "short_description": "Printed silk square scarf, 90cm.",
-    "description": "A 90cm silk square in a printed pattern, styled as a neck scarf, hair accessory, or bag charm.\n\nHand-rolled edges are a mark of finishing quality a machine hem cannot match.",
-    "regular_price": "34.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 60,
-    "length_mm": 900,
-    "width_mm": 900,
-    "height_mm": 5,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Silk Square Scarf 90cm | Amazoff",
-    "seo_description": "Printed silk square scarf, 90cm, hand-rolled edges.",
-    "attributes": ["colour"],
-    "images": [
-      { "key": "main", "path": "demo/clw0020-main.jpg", "alt_text": "Silk scarf", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Size", "value": "90 x 90cm", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0020-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 25, "attribute_values": { "colour": "blue" } }
-    ]
-  },
-  {
-    "name": "Wide Brim Sun Hat",
-    "slug": "wide-brim-sun-hat-clw0021",
-    "sku": "CLW-0021",
-    "category": "clothing-accessories-hats",
-    "brand": "carinastyle",
-    "short_description": "Wide brim straw sun hat, packable, UPF 50+.",
-    "description": "A wide brim genuinely wide enough to shade the face and shoulders, in a packable straw weave that springs back into shape after being rolled in a bag.\n\nUPF 50+ rated, which is what actually matters on the sun-protection claim.",
-    "regular_price": "24.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 150,
-    "length_mm": 380,
-    "width_mm": 380,
-    "height_mm": 130,
-    "is_available": false,
-    "is_featured": false,
-    "seo_title": "Wide Brim Sun Hat UPF 50+ | Amazoff",
-    "seo_description": "Wide brim packable straw sun hat. Currently unavailable.",
-    "attributes": [],
-    "images": [],
-    "specifications": [
-      { "name": "UPF rating", "value": "50+", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0021-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
-    ]
-  },
-  {
-    "name": "Denim Jacket Oversized Fit",
-    "slug": "denim-jacket-oversized-fit-clw0022",
-    "sku": "CLW-0022",
-    "category": "clothing-women-outerwear-jackets",
-    "brand": "carinastyle",
-    "short_description": "Oversized denim jacket, classic button front.",
-    "description": "An oversized cut through the shoulder and body, in rigid denim that softens with wear rather than starting soft and losing shape.\n\nClassic button-front styling with chest and hip pockets keeps this a genuine wardrobe staple.",
-    "regular_price": "59.90",
-    "discount_price": null,
-    "discount_starts_at": null,
-    "discount_ends_at": null,
-    "vat_rate": "20.00",
-    "min_order_quantity": 1,
-    "weight_g": 650,
-    "length_mm": 400,
-    "width_mm": 350,
-    "height_mm": 25,
-    "is_available": true,
-    "is_featured": false,
-    "seo_title": "Oversized Denim Jacket | Amazoff",
-    "seo_description": "Oversized denim jacket, classic button front.",
-    "attributes": ["size", "material"],
-    "images": [
-      { "key": "main", "path": "demo/clw0022-main.jpg", "alt_text": "Denim jacket", "is_main": true, "sort_order": 0 }
-    ],
-    "specifications": [
-      { "name": "Material", "value": "100% cotton denim", "sort_order": 0 }
-    ],
-    "variations": [
-      { "sku": "CLW-0022-M", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 1, "attribute_values": { "size": "m", "material": "denim" } }
-    ]
-  }
+    {
+        "name": "Classic Fitted T-Shirt",
+        "slug": "classic-fitted-t-shirt-clw0001",
+        "sku": "CLW-0001",
+        "category": "clothing-women-tops-t-shirts",
+        "brand": "carinastyle",
+        "short_description": "Fitted cotton t-shirt, crew neck, everyday wear.",
+        "description": "A fitted silhouette in soft combed cotton that holds its shape wash after wash without needing to size up for shrinkage.\n\nA slightly curved hem sits well whether tucked or worn loose.",
+        "regular_price": "17.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 150,
+        "length_mm": 280,
+        "width_mm": 220,
+        "height_mm": 8,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Classic Fitted T-Shirt | Amazoff",
+        "seo_description": "Fitted cotton t-shirt, crew neck, multiple colours.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0001-main.jpg",
+                "alt_text": "Fitted t-shirt",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "back",
+                "path": "demo/clw0001-back.jpg",
+                "alt_text": "T-shirt back",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "100% cotton",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0001-S-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "back"
+                ],
+                "initial_quantity": 65,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLW-0001-M-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 58,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLW-0001-S-PNK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 30,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "pink"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Silk Blend Blouse Long Sleeve",
+        "slug": "silk-blend-blouse-long-sleeve-clw0002",
+        "sku": "CLW-0002",
+        "category": "clothing-women-tops-blouses",
+        "brand": "silkendale",
+        "short_description": "Long-sleeve silk blend blouse for office and evening wear.",
+        "description": "A silk-cotton blend that drapes with the softness of silk while resisting the wrinkling pure silk develops after an hour of sitting.\n\nMother-of-pearl buttons and a relaxed collar keep the look polished without stiffness.",
+        "regular_price": "54.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 180,
+        "length_mm": 300,
+        "width_mm": 240,
+        "height_mm": 10,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Silk Blend Blouse | Amazoff",
+        "seo_description": "Long-sleeve silk blend blouse, mother-of-pearl buttons.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0002-main.jpg",
+                "alt_text": "Silk blouse",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "70% silk, 30% cotton",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0002-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 22,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Ribbed Tank Top",
+        "slug": "ribbed-tank-top-clw0003",
+        "sku": "CLW-0003",
+        "category": "clothing-women-tops-tank-tops",
+        "brand": "carinastyle",
+        "short_description": "Ribbed knit tank top, fitted, layering piece.",
+        "description": "A close-fitting ribbed tank that works alone in summer or layered under a cardigan the rest of the year.\n\nThe rib knit holds its shape better than a plain jersey tank across repeated wears.",
+        "regular_price": "12.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 110,
+        "length_mm": 260,
+        "width_mm": 200,
+        "height_mm": 8,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Ribbed Tank Top | Amazoff",
+        "seo_description": "Ribbed knit tank top, fitted layering piece.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0003-main.jpg",
+                "alt_text": "Ribbed tank",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Cotton-elastane rib",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0003-S-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 48,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cashmere Blend V-Neck Sweater",
+        "slug": "cashmere-blend-v-neck-sweater-clw0004",
+        "sku": "CLW-0004",
+        "category": "clothing-women-tops-sweaters",
+        "brand": "northloom",
+        "short_description": "Cashmere blend v-neck sweater, lightweight and soft.",
+        "description": "A cashmere-wool blend that carries the softness cashmere is known for at a price a 100% cashmere garment cannot match.\n\nThe v-neck sits flatteringly under a blazer or on its own with a statement necklace.",
+        "regular_price": "94.90",
+        "discount_price": "79.90",
+        "discount_starts_at": "-3 days",
+        "discount_ends_at": "+11 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 280,
+        "length_mm": 300,
+        "width_mm": 250,
+        "height_mm": 20,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Cashmere Blend V-Neck Sweater | Amazoff",
+        "seo_description": "Cashmere blend v-neck sweater. Limited-time price.",
+        "attributes": [
+            "size",
+            "colour",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0004-main.jpg",
+                "alt_text": "Cashmere sweater",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "30% cashmere, 70% wool",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0004-M-BEI",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 14,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "beige",
+                    "material": "wool"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cropped Zip-Up Hoodie",
+        "slug": "cropped-zip-up-hoodie-clw0005",
+        "sku": "CLW-0005",
+        "category": "clothing-women-tops-hoodies",
+        "brand": "urbanthread",
+        "short_description": "Cropped zip-up hoodie with drawstring hood.",
+        "description": "A cropped length pairs naturally with high-waisted leggings or jeans, and the full zip makes it easy to throw on over a workout top.\n\nRibbed cuffs and hem keep the fit close at the wrists and waist.",
+        "regular_price": "44.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 380,
+        "length_mm": 260,
+        "width_mm": 240,
+        "height_mm": 25,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Cropped Zip-Up Hoodie | Amazoff",
+        "seo_description": "Cropped zip-up hoodie, drawstring hood.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0005-main.jpg",
+                "alt_text": "Cropped hoodie",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Cotton fleece",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0005-S-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 39,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "grey"
+                }
+            },
+            {
+                "sku": "CLW-0005-M-PNK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 27,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "pink"
+                }
+            }
+        ]
+    },
+    {
+        "name": "High-Rise Skinny Jeans",
+        "slug": "high-rise-skinny-jeans-clw0006",
+        "sku": "CLW-0006",
+        "category": "clothing-women-bottoms-jeans",
+        "brand": "carinastyle",
+        "short_description": "High-rise skinny jeans with 4-way stretch denim.",
+        "description": "A high-rise waist and skinny leg in a 4-way stretch denim that moves with you rather than restricting.\n\nThe stretch recovers its shape rather than bagging out by the end of the day.",
+        "regular_price": "54.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 480,
+        "length_mm": 380,
+        "width_mm": 260,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "High-Rise Skinny Jeans | Amazoff",
+        "seo_description": "High-rise skinny jeans, 4-way stretch denim.",
+        "attributes": [
+            "size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0006-main.jpg",
+                "alt_text": "Skinny jeans",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "92% cotton, 8% elastane",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0006-S",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 35,
+                "attribute_values": {
+                    "size": "s",
+                    "material": "denim"
+                }
+            },
+            {
+                "sku": "CLW-0006-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 28,
+                "attribute_values": {
+                    "size": "m",
+                    "material": "denim"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Pleated Midi Skirt",
+        "slug": "pleated-midi-skirt-clw0007",
+        "sku": "CLW-0007",
+        "category": "clothing-women-bottoms-skirts",
+        "brand": "carinastyle",
+        "short_description": "Pleated midi skirt with elasticated waist.",
+        "description": "Fine box pleats that hold their shape through wear and washing, in a midi length that works for the office and beyond.\n\nAn elasticated waistband under the fabric front keeps the fit comfortable without a visible elastic panel.",
+        "regular_price": "39.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 300,
+        "length_mm": 350,
+        "width_mm": 280,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Pleated Midi Skirt | Amazoff",
+        "seo_description": "Pleated midi skirt, elasticated waist.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0007-main.jpg",
+                "alt_text": "Pleated skirt",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Length",
+                "value": "Midi",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0007-S-NAV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 20,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "navy"
+                }
+            }
+        ]
+    },
+    {
+        "name": "High-Waisted Yoga Leggings",
+        "slug": "high-waisted-yoga-leggings-clw0008",
+        "sku": "CLW-0008",
+        "category": "clothing-women-bottoms-leggings",
+        "brand": "carinastyle",
+        "short_description": "High-waisted leggings with squat-proof compressive fabric.",
+        "description": "A compressive four-way stretch fabric that stays opaque through a full squat, tested the way it matters rather than just claimed on the label.\n\nA wide waistband sits above the natural waist without rolling down mid-session.",
+        "regular_price": "34.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 220,
+        "length_mm": 300,
+        "width_mm": 220,
+        "height_mm": 10,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "High-Waisted Yoga Leggings | Amazoff",
+        "seo_description": "High-waisted squat-proof yoga leggings.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0008-main.jpg",
+                "alt_text": "Yoga leggings",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Nylon-spandex blend",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0008-S-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 66,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLW-0008-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 59,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "CLW-0008-S-NAV",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 41,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "navy"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Everyday Casual Wrap Dress",
+        "slug": "everyday-casual-wrap-dress-clw0009",
+        "sku": "CLW-0009",
+        "category": "clothing-women-dresses-casual",
+        "brand": "carinastyle",
+        "short_description": "Casual wrap dress in soft jersey knit, three-quarter sleeve.",
+        "description": "A wrap silhouette that flatters a range of shapes and ties at the waist rather than relying on a fixed size cut.\n\nJersey knit means this packs without wrinkling, which is exactly why it survives a suitcase as well as a wardrobe.",
+        "regular_price": "49.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 320,
+        "length_mm": 400,
+        "width_mm": 280,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Casual Wrap Dress | Amazoff",
+        "seo_description": "Casual wrap dress, jersey knit, three-quarter sleeve.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0009-main.jpg",
+                "alt_text": "Wrap dress",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Viscose jersey",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0009-M-RED",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 17,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "red"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Satin Evening Slip Dress",
+        "slug": "satin-evening-slip-dress-clw0010",
+        "sku": "CLW-0010",
+        "category": "clothing-women-dresses-evening",
+        "brand": "silkendale",
+        "short_description": "Satin slip dress for evening wear, bias-cut.",
+        "description": "A bias-cut satin slip dress that skims rather than clings, in a finish that reads formal without needing embellishment.\n\nAdjustable straps let this work with or without a bra strap showing.",
+        "regular_price": "79.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 180,
+        "length_mm": 420,
+        "width_mm": 260,
+        "height_mm": 10,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Satin Evening Slip Dress | Amazoff",
+        "seo_description": "Bias-cut satin slip dress for evening wear.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.polyester"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0010-main.jpg",
+                "alt_text": "Slip dress",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "detail",
+                "path": "demo/clw0010-detail.jpg",
+                "alt_text": "Fabric detail",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Satin polyester",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0010-S-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "detail"
+                ],
+                "initial_quantity": 11,
+                "attribute_values": {
+                    "size": "s",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Longline Wool Coat",
+        "slug": "longline-wool-coat-clw0011",
+        "sku": "CLW-0011",
+        "category": "clothing-women-outerwear-coats",
+        "brand": "moderloft",
+        "short_description": "Longline wool blend coat, double-breasted, belted waist.",
+        "description": "A double-breasted longline coat in a wool blend heavy enough for winter without stiff, board-like structure.\n\nA belted waist adds shape to an otherwise straight silhouette, and deep pockets take a phone and gloves comfortably.",
+        "regular_price": "159.00",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 1200,
+        "length_mm": 550,
+        "width_mm": 400,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Longline Wool Coat | Amazoff",
+        "seo_description": "Double-breasted longline wool coat, belted waist.",
+        "attributes": [
+            "size",
+            "colour",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0011-main.jpg",
+                "alt_text": "Wool coat",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "60% wool, 40% polyester",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0011-M-CAM",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 8,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "beige",
+                    "material": "wool"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Quilted Zip-Front Jacket",
+        "slug": "quilted-zip-front-jacket-clw0012",
+        "sku": "CLW-0012",
+        "category": "clothing-women-outerwear-jackets",
+        "brand": "moderloft",
+        "short_description": "Quilted zip-front jacket, lightweight insulation.",
+        "description": "A quilted jacket with lightweight synthetic insulation, warm enough for autumn and spring without the bulk of a full winter coat.\n\nA stand collar and two zip pockets keep the design clean and functional.",
+        "regular_price": "64.90",
+        "discount_price": "54.90",
+        "discount_starts_at": "-2 days",
+        "discount_ends_at": "+12 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 500,
+        "length_mm": 400,
+        "width_mm": 300,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Quilted Zip-Front Jacket | Amazoff",
+        "seo_description": "Quilted zip-front jacket, lightweight insulation. On sale now.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0012-main.jpg",
+                "alt_text": "Quilted jacket",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Insulation",
+                "value": "Synthetic quilted fill",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0012-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 24,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Wireless T-Shirt Bra",
+        "slug": "wireless-t-shirt-bra-clw0013",
+        "sku": "CLW-0013",
+        "category": "clothing-women-underwear-bras",
+        "brand": "silkendale",
+        "short_description": "Wireless t-shirt bra with moulded cups, seamless under clothing.",
+        "description": "Moulded cups that keep a smooth line under a fitted t-shirt, without an underwire digging in through a long day.\n\nWide, adjustable straps distribute weight evenly across the shoulder.",
+        "regular_price": "24.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 90,
+        "length_mm": 200,
+        "width_mm": 150,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Wireless T-Shirt Bra | Amazoff",
+        "seo_description": "Wireless t-shirt bra, moulded cups, seamless.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0013-main.jpg",
+                "alt_text": "Wireless bra",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Support",
+                "value": "Wireless, moulded cup",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0013-M-NUD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 50,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "beige"
+                }
+            },
+            {
+                "sku": "CLW-0013-M-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 43,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Cotton Briefs 5-Pack",
+        "slug": "cotton-briefs-5pack-clw0014",
+        "sku": "CLW-0014",
+        "category": "clothing-women-underwear-briefs",
+        "brand": "silkendale",
+        "short_description": "5-pack cotton briefs, mid-rise, tagless.",
+        "description": "Everyday cotton briefs in a mid-rise cut, sold as a five-pack, tagless waistband for all-day comfort.\n\nA cotton gusset is what actually matters for breathability, more than the outer fabric blend.",
+        "regular_price": "22.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 180,
+        "length_mm": 200,
+        "width_mm": 150,
+        "height_mm": 25,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Cotton Briefs 5-Pack | Amazoff",
+        "seo_description": "5-pack cotton briefs, mid-rise, tagless.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0014-main.jpg",
+                "alt_text": "Briefs pack",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pack size",
+                "value": "5",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0014-S",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 75,
+                "attribute_values": {
+                    "size": "s"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Ankle Socks 6-Pack Cotton",
+        "slug": "ankle-socks-6pack-cotton-clw0015",
+        "sku": "CLW-0015",
+        "category": "clothing-women-underwear-socks",
+        "brand": "carinastyle",
+        "short_description": "6-pack cotton ankle socks, no-show design.",
+        "description": "No-show ankle socks that stay hidden under sneakers and flats alike, sold as a six-pack.\n\nA silicone heel grip is what actually keeps these from sliding down inside the shoe.",
+        "regular_price": "16.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 150,
+        "length_mm": 150,
+        "width_mm": 100,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Ankle Socks 6-Pack | Amazoff",
+        "seo_description": "6-pack cotton ankle socks, no-show, silicone grip.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0015-main.jpg",
+                "alt_text": "Ankle socks pack",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pack size",
+                "value": "6",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0015-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 88,
+                "attribute_values": {
+                    "size": "m"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Slip-On Canvas Sneakers",
+        "slug": "slip-on-canvas-sneakers-clw0016",
+        "sku": "CLW-0016",
+        "category": "clothing-women-footwear-sneakers",
+        "brand": "veloryde",
+        "short_description": "Slip-on canvas sneakers, elastic gusset, no laces.",
+        "description": "An elastic gusset replaces laces entirely, making these a genuine slip-on rather than a sneaker with laces left loose.\n\nA cushioned insole and lightweight sole keep these comfortable well past a first wear.",
+        "regular_price": "44.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 550,
+        "length_mm": 300,
+        "width_mm": 120,
+        "height_mm": 110,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Slip-On Canvas Sneakers | Amazoff",
+        "seo_description": "Slip-on canvas sneakers, elastic gusset, no laces.",
+        "attributes": [
+            "shoe-size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0016-main.jpg",
+                "alt_text": "Slip-on sneakers",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Upper",
+                "value": "Canvas",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0016-38-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 26,
+                "attribute_values": {
+                    "shoe-size": "eu-38",
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "CLW-0016-39-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 19,
+                "attribute_values": {
+                    "shoe-size": "eu-39",
+                    "colour": "white"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Block Heel Ankle Boots",
+        "slug": "block-heel-ankle-boots-clw0017",
+        "sku": "CLW-0017",
+        "category": "clothing-women-footwear-boots",
+        "brand": "westhaven",
+        "short_description": "Block heel ankle boots with side zip.",
+        "description": "A stable block heel rather than a stiletto, comfortable enough for a full day and still dressy enough for evening.\n\nA side zip means the fit stays snug at the ankle without needing to lace or buckle.",
+        "regular_price": "84.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 850,
+        "length_mm": 300,
+        "width_mm": 120,
+        "height_mm": 180,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Block Heel Ankle Boots | Amazoff",
+        "seo_description": "Block heel ankle boots, side zip.",
+        "attributes": [
+            "shoe-size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0017-main.jpg",
+                "alt_text": "Ankle boots",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Heel height",
+                "value": "5cm",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0017-39",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 15,
+                "attribute_values": {
+                    "shoe-size": "eu-39",
+                    "material": "leather"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Strappy Block Heel Sandals",
+        "slug": "strappy-block-heel-sandals-clw0018",
+        "sku": "CLW-0018",
+        "category": "clothing-women-footwear-flats",
+        "brand": "westhaven",
+        "short_description": "Strappy sandals with cushioned footbed, low block heel.",
+        "description": "A low block heel keeps these wearable for hours, with strap detailing that dresses up a simple outfit without effort.\n\nA cushioned footbed is the difference between sandals worn once and sandals worn all summer.",
+        "regular_price": "39.90",
+        "discount_price": "32.90",
+        "discount_starts_at": "-8 days",
+        "discount_ends_at": "+6 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 320,
+        "length_mm": 280,
+        "width_mm": 110,
+        "height_mm": 70,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Strappy Block Heel Sandals | Amazoff",
+        "seo_description": "Strappy block heel sandals, cushioned footbed. On sale now.",
+        "attributes": [
+            "shoe-size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0018-main.jpg",
+                "alt_text": "Strappy sandals",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Heel height",
+                "value": "3cm",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0018-38-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 33,
+                "attribute_values": {
+                    "shoe-size": "eu-38",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Leather Crossbody Bag",
+        "slug": "leather-crossbody-bag-clw0019",
+        "sku": "CLW-0019",
+        "category": "clothing-accessories-bags",
+        "brand": "westhaven",
+        "short_description": "Leather crossbody bag with adjustable strap.",
+        "description": "A compact leather crossbody sized for essentials — phone, cards, keys — without becoming a second suitcase.\n\nAn adjustable strap and secure zip closure make this practical for daily wear, not just photographs.",
+        "regular_price": "59.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 400,
+        "length_mm": 220,
+        "width_mm": 160,
+        "height_mm": 80,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Leather Crossbody Bag | Amazoff",
+        "seo_description": "Leather crossbody bag, adjustable strap.",
+        "attributes": [
+            "colour",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0019-main.jpg",
+                "alt_text": "Crossbody bag",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "open",
+                "path": "demo/clw0019-open.jpg",
+                "alt_text": "Bag interior",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Genuine leather",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0019-TAN",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "open"
+                ],
+                "initial_quantity": 20,
+                "attribute_values": {
+                    "colour": "brown",
+                    "material": "leather"
+                }
+            },
+            {
+                "sku": "CLW-0019-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 17,
+                "attribute_values": {
+                    "colour": "black",
+                    "material": "leather"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Silk Square Scarf",
+        "slug": "silk-square-scarf-clw0020",
+        "sku": "CLW-0020",
+        "category": "clothing-accessories-scarves",
+        "brand": "silkendale",
+        "short_description": "Printed silk square scarf, 90cm.",
+        "description": "A 90cm silk square in a printed pattern, styled as a neck scarf, hair accessory, or bag charm.\n\nHand-rolled edges are a mark of finishing quality a machine hem cannot match.",
+        "regular_price": "34.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 60,
+        "length_mm": 900,
+        "width_mm": 900,
+        "height_mm": 5,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Silk Square Scarf 90cm | Amazoff",
+        "seo_description": "Printed silk square scarf, 90cm, hand-rolled edges.",
+        "attributes": [
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0020-main.jpg",
+                "alt_text": "Silk scarf",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Size",
+                "value": "90 x 90cm",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0020-BLU",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 25,
+                "attribute_values": {
+                    "colour": "blue"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Wide Brim Sun Hat",
+        "slug": "wide-brim-sun-hat-clw0021",
+        "sku": "CLW-0021",
+        "category": "clothing-accessories-hats",
+        "brand": "carinastyle",
+        "short_description": "Wide brim straw sun hat, packable, UPF 50+.",
+        "description": "A wide brim genuinely wide enough to shade the face and shoulders, in a packable straw weave that springs back into shape after being rolled in a bag.\n\nUPF 50+ rated, which is what actually matters on the sun-protection claim.",
+        "regular_price": "24.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 150,
+        "length_mm": 380,
+        "width_mm": 380,
+        "height_mm": 130,
+        "is_available": false,
+        "is_featured": false,
+        "seo_title": "Wide Brim Sun Hat UPF 50+ | Amazoff",
+        "seo_description": "Wide brim packable straw sun hat. Currently unavailable.",
+        "attributes": [],
+        "images": [],
+        "specifications": [
+            {
+                "name": "UPF rating",
+                "value": "50+",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0021-STD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": false,
+                "is_default": true,
+                "initial_quantity": 0,
+                "attribute_values": {}
+            }
+        ]
+    },
+    {
+        "name": "Denim Jacket Oversized Fit",
+        "slug": "denim-jacket-oversized-fit-clw0022",
+        "sku": "CLW-0022",
+        "category": "clothing-women-outerwear-jackets",
+        "brand": "carinastyle",
+        "short_description": "Oversized denim jacket, classic button front.",
+        "description": "An oversized cut through the shoulder and body, in rigid denim that softens with wear rather than starting soft and losing shape.\n\nClassic button-front styling with chest and hip pockets keeps this a genuine wardrobe staple.",
+        "regular_price": "59.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 650,
+        "length_mm": 400,
+        "width_mm": 350,
+        "height_mm": 25,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Oversized Denim Jacket | Amazoff",
+        "seo_description": "Oversized denim jacket, classic button front.",
+        "attributes": [
+            "size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/clw0022-main.jpg",
+                "alt_text": "Denim jacket",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "100% cotton denim",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "CLW-0022-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 1,
+                "attribute_values": {
+                    "size": "m",
+                    "material": "denim"
+                }
+            }
+        ]
+    }
 ]

@@ -33,8 +33,16 @@ use Illuminate\Support\Facades\Gate;
  * is how it stays unset. Composes `SetDefaultVariation` rather than writing
  * the column directly, so the demote-siblings step is never skipped.
  *
- * Authorizes `create_product_variation`. Locks nothing: adding can only move
- * §6–7's invariant in the safe direction.
+ * Also composes `SetVariationAttributeValues` when the caller supplies
+ * `attribute_value_ids`, so a variation created with its combination already
+ * chosen never has a moment where it exists but answers "what makes this one
+ * different?" with nothing. Its validation (values on-product, one per
+ * attribute, no duplicate combination) applies identically here.
+ *
+ * Authorizes `create_product_variation`. Locks `products` only when
+ * attribute values were supplied — `SetVariationAttributeValues`'s own lock,
+ * taken inside this Action's transaction as a savepoint. Otherwise locks
+ * nothing: adding can only move §6–7's invariant in the safe direction.
  * reference/write-rules/product.md
  */
 final class AddProductVariation
@@ -42,11 +50,16 @@ final class AddProductVariation
     public function __construct(
         private readonly RecordInventoryMovement $recordMovement,
         private readonly SetDefaultVariation $setDefault,
+        private readonly SetVariationAttributeValues $setAttributeValues,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $attributes  Variation columns. `product_id`
-     *                                            comes from $product and is
+     * @param  array<string, mixed>  $attributes  Variation columns, plus an
+     *                                            optional `attribute_value_ids`
+     *                                            (list<int>) that never
+     *                                            reaches the model as a
+     *                                            column. `product_id` comes
+     *                                            from $product and is
      *                                            ignored if present.
      * @param  int  $initialQuantity  Opening stock on hand. Zero is normal:
      *                                stock usually arrives after the catalogue
@@ -82,6 +95,9 @@ final class AddProductVariation
             $isFirst = $product->productVariations()->count() === 0;
             $wantsDefault = (bool) ($attributes['is_default'] ?? false);
 
+            /** @var list<int> $attributeValueIds */
+            $attributeValueIds = Arr::pull($attributes, 'attribute_value_ids', []);
+
             // is_default is stripped rather than set: the column defaults to
             // false, and promotion goes through SetDefaultVariation so the
             // demote-siblings step is never skipped.
@@ -89,6 +105,13 @@ final class AddProductVariation
 
             /** @var ProductVariation $variation */
             $variation = $product->productVariations()->create($attributes);
+
+            if ($attributeValueIds !== []) {
+                // null, not $actor: this Action's own gate above already
+                // authorized the whole write, same precedent as
+                // SetDefaultVariation below.
+                $this->setAttributeValues->handle($variation, $attributeValueIds, null);
+            }
 
             /** @var Inventory $inventory */
             $inventory = $variation->inventory()->create([

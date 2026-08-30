@@ -6,15 +6,21 @@ namespace App\Filament\Resources\Products\Schemas;
 
 use App\Enums\LengthUnit;
 use App\Enums\WeightUnit;
+use App\Models\Attribute;
+use App\Models\ProductCategory;
 use App\Models\ProductVariation;
+use App\Support\ResolveAllowedAttributes;
+use App\Support\ResolveCategoryFamily;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Operation;
+use Illuminate\Database\Eloquent\Collection;
 
 class ProductForm
 {
@@ -22,17 +28,69 @@ class ProductForm
     {
         return $schema
             ->components([
+                // Indented tree rather than a flat 173-row dump; a plain
+                // options() array because the indentation lives in the
+                // label, which ->relationship() cannot express. ->live()
+                // so the two attribute fields below can scope to it.
                 Select::make('product_category_id')
-                    ->relationship('productCategory', 'name')
+                    ->label('Category')
+                    ->options(fn (): array => ResolveCategoryFamily::selectOptions())
+                    ->searchable()
+                    ->live()
                     ->required(),
                 Select::make('brand_id')
                     ->relationship('brand', 'name')
                     ->nullable(),
+                // Deliberately NOT ->relationship(): that saves after
+                // handleRecordCreation() returns, too late for CreateProduct
+                // to validate each variation's values against these axes
+                // inside its own transaction. CreateProduct/UpdateProduct
+                // sync it; EditProduct hydrates it. See actions.md.
+                //
+                // ->live() so the variation repeater below can scope its own
+                // pickers to the current selection on the same render.
                 Select::make('attributes')
-                    ->relationship('attributes', 'name')
+                    ->label('Variation axes')
+                    ->options(fn (Get $get): array => Attribute::query()
+                        ->whereIn('id', self::allowedAttributeIds($get))
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->helperText('Scoped to this product\'s own category — set the category above first.')
                     ->multiple()
+                    ->searchable()
                     ->preload()
-                    ->label('Variation axes'),
+                    ->live(),
+                // Facts true of every variation, which the customer does
+                // not choose between — see product-variability.md for why
+                // this is a separate pivot from the axes above. Options
+                // exclude anything already picked as an axis;
+                // SetProductAttributeValues refuses that regardless.
+                Select::make('descriptive_attribute_value_ids')
+                    ->label('Product details')
+                    ->helperText('Facts true of every variation — material, notes, certifications. Not something the customer picks between.')
+                    ->options(function (Get $get): array {
+                        /** @var list<int> $axisIds */
+                        $axisIds = array_map(intval(...), (array) ($get('attributes') ?? []));
+
+                        // Minus this product's own axes, and minus every
+                        // attribute that is axis-only by nature (Size,
+                        // Colour) — the customer chooses between those, so
+                        // no product can assert one as a whole.
+                        $variationOnly = Attribute::query()
+                            ->where('is_variation_only', true)
+                            ->pluck('id')
+                            ->all();
+
+                        return self::attributeValueOptions(array_values(array_diff(
+                            self::allowedAttributeIds($get),
+                            $axisIds,
+                            $variationOnly,
+                        )));
+                    })
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('name')
                     ->required()
                     ->maxLength(100),
@@ -53,14 +111,20 @@ class ProductForm
                     ->required()
                     ->numeric()
                     ->step('0.01')
+                    ->minValue(0)
                     ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR'),
+                // Explicitly nullable: a product with no active discount is
+                // the normal case, and ->lt('regular_price') alone reads as
+                // a constraint on a value that must exist.
                 TextInput::make('discount_price')
                     ->numeric()
                     ->step('0.01')
+                    ->minValue(0)
                     ->rules(['decimal:0,2', 'max:99999999.99'])
                     ->prefix('EUR')
-                    ->lt('regular_price'),
+                    ->lt('regular_price')
+                    ->nullable(),
                 DateTimePicker::make('discount_starts_at')
                     ->nullable(),
                 DateTimePicker::make('discount_ends_at')
@@ -93,7 +157,7 @@ class ProductForm
                     ->step('0.001')
                     ->minValue(0)
                     ->nullable()
-                    ->dehydrated(false),
+                    ->dehydrated(),
                 Select::make('dimension_display_unit')
                     ->label('Dimension unit')
                     ->options(LengthUnit::class)
@@ -107,21 +171,21 @@ class ProductForm
                     ->step('0.1')
                     ->minValue(0)
                     ->nullable()
-                    ->dehydrated(false),
+                    ->dehydrated(),
                 TextInput::make('width_input')
                     ->label('Width')
                     ->numeric()
                     ->step('0.1')
                     ->minValue(0)
                     ->nullable()
-                    ->dehydrated(false),
+                    ->dehydrated(),
                 TextInput::make('height_input')
                     ->label('Height')
                     ->numeric()
                     ->step('0.1')
                     ->minValue(0)
                     ->nullable()
-                    ->dehydrated(false),
+                    ->dehydrated(),
                 Toggle::make('is_available')
                     ->required()
                     ->default(true),
@@ -159,9 +223,25 @@ class ProductForm
                             // which are both new and so in no table yet.
                             ->unique(table: ProductVariation::class)
                             ->distinct(),
+                        // "What makes this one different?" — scoped to
+                        // whatever's currently picked in "Variation axes"
+                        // above, via a relative Get path: '../' leaves this
+                        // repeater item, a second '../' leaves the repeater
+                        // itself, landing back at the root-level 'attributes'
+                        // field. Reacts live because that field is ->live().
+                        Select::make('attribute_value_ids')
+                            ->label('Attribute values')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->options(fn (Get $get): array => self::attributeValueOptions($get('../../attributes') ?? []))
+                            ->helperText(fn (Get $get): string => (($get('../../attributes') ?? []) === [])
+                                ? 'Pick this product\'s "Variation axes" above first.'
+                                : 'At most one value per axis. Leave an axis unpicked if this variation does not use it.'),
                         TextInput::make('price')
                             ->numeric()
                             ->step('0.01')
+                            ->minValue(0)
                             ->rules(['decimal:0,2', 'max:99999999.99'])
                             ->prefix('EUR')
                             ->helperText('Leave empty to inherit the product price.')
@@ -169,6 +249,7 @@ class ProductForm
                         TextInput::make('discount_price')
                             ->numeric()
                             ->step('0.01')
+                            ->minValue(0)
                             ->rules(['decimal:0,2', 'max:99999999.99'])
                             ->prefix('EUR')
                             ->lt('price')
@@ -185,7 +266,7 @@ class ProductForm
                             ->step('0.001')
                             ->minValue(0)
                             ->nullable()
-                            ->dehydrated(false),
+                            ->dehydrated(),
                         // Not a column. AddProductVariation turns this into an
                         // InitialStock movement against the row it creates.
                         TextInput::make('initial_quantity')
@@ -198,5 +279,61 @@ class ProductForm
                             ->default(true),
                     ]),
             ]);
+    }
+
+    /**
+     * Attribute ids the currently-picked category allows, or `[]` when no
+     * category is chosen yet — both attribute fields above scope to this.
+     *
+     * @return list<int>
+     */
+    private static function allowedAttributeIds(Get $get): array
+    {
+        $categoryId = $get('product_category_id');
+
+        if (! is_numeric($categoryId)) {
+            return [];
+        }
+
+        $category = ProductCategory::query()->find((int) $categoryId);
+
+        return $category === null
+            ? []
+            : ResolveAllowedAttributes::forCategory($category);
+    }
+
+    /**
+     * `$attributeIds`'s own values, grouped by attribute name for the
+     * Select's optgroups — the same shape and reasoning
+     * `ProductVariationsRelationManager::attributeValueOptions()` uses,
+     * duplicated rather than shared because that method reads a saved
+     * product's own relation while this one reads the create form's
+     * unsaved, still-changing selection; the two have no model in common to
+     * hang a shared method off of.
+     *
+     * @param  list<int>  $attributeIds
+     * @return array<string, array<int, string>>
+     */
+    private static function attributeValueOptions(array $attributeIds): array
+    {
+        if ($attributeIds === []) {
+            return [];
+        }
+
+        /** @var Collection<int, Attribute> $attributes */
+        $attributes = Attribute::query()
+            ->whereIn('id', $attributeIds)
+            ->with('attributeValues')
+            ->orderBy('name')
+            ->get();
+
+        return $attributes
+            ->mapWithKeys(fn (Attribute $attribute): array => [
+                $attribute->name => $attribute->attributeValues
+                    ->sortBy('sort_order')
+                    ->pluck('value', 'id')
+                    ->all(),
+            ])
+            ->all();
     }
 }
