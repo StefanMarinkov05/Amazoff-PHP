@@ -794,9 +794,29 @@ class ProductList extends Component
         $query->where('is_available', true);
 
         if ($this->search !== '') {
+            // Matches an attribute value's own text ("Linen", "Red") as well
+            // as the product's name and blurb — a shopper typing a material
+            // or colour they remember has no reason to know whether that
+            // fact lives on the product itself or on a variation's own axis,
+            // so both pivots are checked, the same "either pivot answers it"
+            // rule attributeFacets() and applyFilters()'s own attribute-value
+            // matching already use. Deliberately not a single concatenated
+            // "searchable text" column or method: that would need building
+            // and maintaining a denormalised blob kept in sync on every
+            // write, for a `LIKE` that still cannot use an index either way
+            // — three explicit `LIKE`s over real columns is what this schema
+            // already reads, and is only three lines longer.
             $query->where(fn (Builder $q) => $q
                 ->where('name', 'like', '%'.$this->search.'%')
-                ->orWhere('short_description', 'like', '%'.$this->search.'%'));
+                ->orWhere('short_description', 'like', '%'.$this->search.'%')
+                ->orWhereHas(
+                    'descriptiveAttributeValues',
+                    fn (Builder $value) => $value->where('value', 'like', '%'.$this->search.'%'),
+                )
+                ->orWhereHas(
+                    'productVariations.attributeValues',
+                    fn (Builder $value) => $value->where('value', 'like', '%'.$this->search.'%'),
+                ));
         }
 
         if ($skip !== 'categorySlug') {

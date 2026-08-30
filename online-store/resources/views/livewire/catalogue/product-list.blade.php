@@ -97,54 +97,136 @@
                     </fieldset>
 
                     {{-- Counts update with the other filters, so no option here
-                         can promise results it cannot deliver. --}}
-                    <div>
-                        <label for="category" class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                         can promise results it cannot deliver.
+
+                         A custom hover/click panel rather than a native
+                         <select> — same reasoning as the attribute facets
+                         below: a native popup's own rendering is outside
+                         this page's control (its width, position, and
+                         open/close timing all belong to the browser, not to
+                         this CSS), where a plain absolutely-positioned panel
+                         behaves exactly like the rest of the page. Single-
+                         select: choosing a category (or brand) closes the
+                         panel immediately, since there is only ever one
+                         active choice, unlike the multi-value attribute
+                         facets. --}}
+                    <div x-data="{ open: false }" x-on:mouseenter="open = true" x-on:mouseleave="open = false"
+                         x-on:keydown.escape.window="open = false" class="relative">
+                        <span class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
                             Category
-                        </label>
-                        {{-- Depth-first order (ResolveCategoryFamily::orderedTreeWithDepth):
-                             parent immediately before its own children. A native <select>
-                             cannot render custom markup per <option>, so hierarchy is a
-                             repeated "— " prefix per depth level rather than true
-                             indentation — the standard technique for a plain select, and
-                             legible even where a browser collapses leading whitespace. --}}
-                        <select id="category" wire:model.live="categorySlug"
-                                class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
-                                       transition-colors duration-200 hover:border-ink-300
-                                       focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10">
-                            {{-- Explicit `selected`, not left to Livewire's client-side
-                                 morph alone: wire:model.live sets the DOM value after
-                                 its JS attaches, but the server-rendered HTML — what
-                                 paints first, and what a full page load or a
-                                 back/forward navigation restores — had no `selected` on
-                                 any <option>, so the control always showed "All
-                                 categories" first regardless of $categorySlug. The chip
-                                 and the filtered results were correct throughout; only
-                                 the dropdown's own display lagged. --}}
-                            <option value="" @selected($this->categorySlug === null)>All categories</option>
-                            @foreach ($this->categories as $category)
-                                <option value="{{ $category->slug }}" @selected($this->categorySlug === $category->slug)>
-                                    {{ str_repeat('— ', $category->depth) }}{{ $category->name }} ({{ $category->products_count }})
-                                </option>
-                            @endforeach
-                        </select>
+                        </span>
+                        <button
+                            type="button"
+                            x-on:focus="open = true"
+                            x-on:click="open = ! open"
+                            :aria-expanded="open ? 'true' : 'false'"
+                            class="mt-2 flex w-full items-center justify-between gap-2 rounded-control border border-ink-200
+                                   bg-white px-3 py-2 text-left text-sm transition-colors duration-200 hover:border-ink-300
+                                   focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
+                        >
+                            <span class="truncate">
+                                {{ $this->selectedCategory()?->name ?? 'All categories' }}
+                            </span>
+                            <svg class="h-3.5 w-3.5 shrink-0 text-ink-400 transition-transform duration-200" :class="open && 'rotate-180'"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div
+                            x-show="open" x-cloak
+                            x-on:focusout="if (! $el.contains($event.relatedTarget)) open = false"
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                            class="absolute left-0 top-full z-20 w-full pt-1.5"
+                        >
+                            <div class="max-h-72 overflow-y-auto rounded-card border border-ink-200 bg-white p-1.5 shadow-xl shadow-ink-900/10">
+                                {{-- Depth-first order (ResolveCategoryFamily::orderedTreeWithDepth):
+                                     parent immediately before its own children, indented by depth. --}}
+                                <button
+                                    type="button"
+                                    x-on:click="open = false"
+                                    wire:click="$set('categorySlug', null)"
+                                    class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
+                                           transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                           {{ $this->categorySlug === null ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
+                                >
+                                    All categories
+                                </button>
+                                @foreach ($this->categories as $category)
+                                    <button
+                                        type="button"
+                                        x-on:click="open = false"
+                                        wire:click="$set('categorySlug', '{{ $category->slug }}')"
+                                        style="padding-left: {{ 0.625 + $category->depth * 0.9 }}rem"
+                                        class="flex w-full items-center justify-between gap-2 rounded-control py-1.5 pr-2.5 text-left text-sm
+                                               transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                               {{ $this->categorySlug === $category->slug ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
+                                    >
+                                        <span class="truncate">{{ $category->name }}</span>
+                                        <span class="shrink-0 text-xs text-ink-400">{{ $category->products_count }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
 
-                    <div>
-                        <label for="brand" class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                    <div x-data="{ open: false }" x-on:mouseenter="open = true" x-on:mouseleave="open = false"
+                         x-on:keydown.escape.window="open = false" class="relative">
+                        <span class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
                             Brand
-                        </label>
-                        <select id="brand" wire:model.live="brandId"
-                                class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
-                                       transition-colors duration-200 hover:border-ink-300
-                                       focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10">
-                            <option value="">All brands</option>
-                            @foreach ($this->brands as $brand)
-                                <option value="{{ $brand->id }}">
-                                    {{ $brand->name }} ({{ $brand->products_count }})
-                                </option>
-                            @endforeach
-                        </select>
+                        </span>
+                        <button
+                            type="button"
+                            x-on:focus="open = true"
+                            x-on:click="open = ! open"
+                            :aria-expanded="open ? 'true' : 'false'"
+                            class="mt-2 flex w-full items-center justify-between gap-2 rounded-control border border-ink-200
+                                   bg-white px-3 py-2 text-left text-sm transition-colors duration-200 hover:border-ink-300
+                                   focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
+                        >
+                            <span class="truncate">
+                                {{ $this->brandId !== null ? $this->brands->firstWhere('id', $this->brandId)?->name : 'All brands' }}
+                            </span>
+                            <svg class="h-3.5 w-3.5 shrink-0 text-ink-400 transition-transform duration-200" :class="open && 'rotate-180'"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+
+                        <div
+                            x-show="open" x-cloak
+                            x-on:focusout="if (! $el.contains($event.relatedTarget)) open = false"
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                            class="absolute left-0 top-full z-20 w-full pt-1.5"
+                        >
+                            <div class="max-h-72 overflow-y-auto rounded-card border border-ink-200 bg-white p-1.5 shadow-xl shadow-ink-900/10">
+                                <button
+                                    type="button"
+                                    x-on:click="open = false"
+                                    wire:click="$set('brandId', null)"
+                                    class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
+                                           transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                           {{ $this->brandId === null ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
+                                >
+                                    All brands
+                                </button>
+                                @foreach ($this->brands as $brand)
+                                    <button
+                                        type="button"
+                                        x-on:click="open = false"
+                                        wire:click="$set('brandId', {{ $brand->id }})"
+                                        class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
+                                               transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                               {{ $this->brandId === $brand->id ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
+                                    >
+                                        <span class="truncate">{{ $brand->name }}</span>
+                                        <span class="shrink-0 text-xs text-ink-400">{{ $brand->products_count }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Against the sticker price (regular_price), not the
@@ -269,6 +351,17 @@
                                     </svg>
                                 </button>
 
+                                {{-- pt-1.5, not the panel-content's own
+                                     margin-top: a gap between the trigger's
+                                     bottom edge and the panel's top edge is a
+                                     dead zone the mouse crosses on the way
+                                     down, and mouseleave on the wrapping
+                                     .relative fires the instant the cursor
+                                     leaves the trigger's own box — the panel
+                                     is `absolute` and out of flow, so the
+                                     wrapper never grows to cover that gap.
+                                     Padding keeps the gap inside this
+                                     element's own hoverable box instead. --}}
                                 <div
                                     x-show="open"
                                     x-cloak
@@ -276,30 +369,31 @@
                                     x-transition:enter="transition ease-out duration-150"
                                     x-transition:enter-start="opacity-0 -translate-y-1"
                                     x-transition:enter-end="opacity-100 translate-y-0"
-                                    class="absolute left-0 top-full z-20 mt-1.5 w-52 rounded-card border border-ink-200
-                                           bg-white p-1.5 shadow-xl shadow-ink-900/10"
+                                    class="absolute left-0 top-full z-20 w-52 pt-1.5"
                                 >
-                                    @foreach ($values as $value)
-                                        @php($checked = in_array($value->id, array_map('intval', (array) $attributeValueIds), true))
-                                        <button
-                                            type="button"
-                                            wire:key="facet-value-{{ $value->id }}"
-                                            wire:click="toggleAttributeValue({{ $value->id }})"
-                                            aria-pressed="{{ $checked ? 'true' : 'false' }}"
-                                            class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
-                                                   transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
-                                                   {{ $checked ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
-                                        >
-                                            <span class="flex items-center gap-2">
-                                                <svg class="h-3.5 w-3.5 shrink-0 {{ $checked ? 'text-marine-600' : 'text-transparent' }}"
-                                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                                </svg>
-                                                {{ $value->value }}
-                                            </span>
-                                            <span class="text-xs text-ink-400">{{ $value->products_count }}</span>
-                                        </button>
-                                    @endforeach
+                                    <div class="rounded-card border border-ink-200 bg-white p-1.5 shadow-xl shadow-ink-900/10">
+                                        @foreach ($values as $value)
+                                            @php($checked = in_array($value->id, array_map('intval', (array) $attributeValueIds), true))
+                                            <button
+                                                type="button"
+                                                wire:key="facet-value-{{ $value->id }}"
+                                                wire:click="toggleAttributeValue({{ $value->id }})"
+                                                aria-pressed="{{ $checked ? 'true' : 'false' }}"
+                                                class="flex w-full items-center justify-between gap-2 rounded-control px-2.5 py-1.5 text-left text-sm
+                                                       transition-colors duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                                       {{ $checked ? 'bg-marine-50 font-medium text-marine-900' : 'text-ink-700 hover:bg-ink-50' }}"
+                                            >
+                                                <span class="flex items-center gap-2">
+                                                    <svg class="h-3.5 w-3.5 shrink-0 {{ $checked ? 'text-marine-600' : 'text-transparent' }}"
+                                                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                    </svg>
+                                                    {{ $value->value }}
+                                                </span>
+                                                <span class="text-xs text-ink-400">{{ $value->products_count }}</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
                         @endforeach

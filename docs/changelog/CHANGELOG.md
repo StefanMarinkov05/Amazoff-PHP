@@ -8,6 +8,18 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Catalogue search now matches an attribute value's own text ("Linen",
+  "Red"), not only a product's name and blurb.** A shopper typing a
+  material or colour they remember has no reason to know whether that fact
+  lives on the product itself (descriptive) or on one of its variations (an
+  axis), so `ProductList::applyFilters()`'s search clause checks both
+  pivots — the same "either pivot answers it" rule the attribute-value
+  filter and `attributeFacets()` already use. Deliberately not a
+  concatenated "searchable text" blob column or method: that needs building
+  and keeping a denormalised value in sync on every write for a `LIKE` that
+  still cannot use an index either way, for the cost of three explicit
+  `LIKE`s over columns this schema already reads.
+
 - **A variation's stock can now be adjusted after creation, and is visible
   on the panel at all.** Reported live: `initial_quantity` on
   `AddProductVariation` was the only way stock ever entered the system, and
@@ -372,6 +384,28 @@ when the work happened, not when it was committed — nothing in
   are unaffected.
 
 ### Fixed
+
+- **The Category and Brand filters were native `<select>` elements, whose
+  own popup rendering — width, position, and open/close timing — belongs to
+  the browser rather than to this page.** Reported live as the filter panel
+  looking broken while a native select's popup was open on a narrow
+  viewport. Both are now the same custom dropdown pattern as the attribute
+  facets: a small trigger button showing the current choice, opening a
+  plain, absolutely-positioned panel on hover or focus — single-select, so
+  choosing a value closes the panel immediately, unlike a multi-value
+  attribute facet. Category keeps its tree indentation, now as real
+  left-padding per depth rather than a repeated "— " prefix, which was only
+  ever a workaround for a native `<select>`'s inability to render anything
+  but plain text per `<option>`.
+
+- **A facet's hover panel could close before a value in it was clicked.**
+  The panel sat `margin-top` below its trigger button, and since the panel
+  is `absolute` and out of flow, the wrapping element's own hoverable box
+  only ever covered the button — the instant the cursor crossed that
+  margin gap on the way down to the panel, `mouseleave` fired and closed
+  it. Changed the gap to `padding-top` on the wrapping box instead, so the
+  gap is part of the same hoverable region rather than a dead zone outside
+  it.
 
 - **A facet's own count didn't narrow when a different attribute's value was
   selected, and Size read L, M, S, XL, XS instead of XS through XXL.**
