@@ -116,6 +116,162 @@
 }
 
 /*
+ * Journal-only. The reading-progress bar is driven by Alpine writing a
+ * percentage into a custom property, so the width transition lives here
+ * rather than as an inline style recalculated on every scroll frame.
+ */
+@property --read-progress {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 0%;
+}
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(2rem);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@utility animate-rise-in {
+    animation: rise-in 0.7s var(--ease-out-quart) both;
+}
+
+/* Slow pan behind the journal masthead. Decorative, and the only motion on
+   the page that loops — kept under 0.02 scale so it reads as depth, not drift. */
+@keyframes drift {
+    0%,
+    100% {
+        transform: scale(1.02) translate3d(0, 0, 0);
+    }
+    50% {
+        transform: scale(1.06) translate3d(-1.5%, -1%, 0);
+    }
+}
+
+@utility animate-drift {
+    animation: drift 24s ease-in-out infinite;
+}
+
+/*
+ * Article body. Tailwind's reset strips heading and list styling, and
+ * `@tailwindcss/typography` is not installed, so the sanitized HTML coming
+ * out of `Article::$safe_content` needs its own rules or it renders as one
+ * undifferentiated block. Scoped to `.article-body` so it cannot leak into
+ * the shop.
+ */
+@utility article-body {
+    line-height: 1.75;
+    color: var(--color-ink-700);
+
+    & > * + * {
+        margin-top: 1.25em;
+    }
+
+    & h2 {
+        margin-top: 2em;
+        font-size: 1.5rem;
+        font-weight: 650;
+        line-height: 1.25;
+        color: var(--color-ink-900);
+        letter-spacing: -0.015em;
+    }
+
+    & h3 {
+        margin-top: 1.75em;
+        font-size: 1.2rem;
+        font-weight: 620;
+        color: var(--color-ink-900);
+    }
+
+    & strong {
+        font-weight: 650;
+        color: var(--color-ink-900);
+    }
+
+    & a {
+        color: var(--color-marine-700);
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+        text-decoration-thickness: 1px;
+        transition: color 0.2s var(--ease-out-quart);
+    }
+
+    & a:hover {
+        color: var(--color-ember-600);
+    }
+
+    & ul,
+    & ol {
+        padding-left: 1.5rem;
+    }
+
+    & ul {
+        list-style: disc;
+    }
+
+    & ol {
+        list-style: decimal;
+    }
+
+    & li + li {
+        margin-top: 0.4em;
+    }
+
+    & blockquote {
+        border-left: 3px solid var(--color-ember-400);
+        padding: 0.25rem 0 0.25rem 1.25rem;
+        font-size: 1.075em;
+        font-style: italic;
+        color: var(--color-ink-600);
+    }
+
+    & pre {
+        overflow-x: auto;
+        border-radius: var(--radius-card);
+        background: var(--color-ink-900);
+        padding: 1rem 1.25rem;
+        color: var(--color-ink-100);
+        font-size: 0.875em;
+    }
+
+    & :not(pre) > code {
+        border-radius: 0.25rem;
+        background: var(--color-ink-100);
+        padding: 0.1em 0.35em;
+        font-size: 0.9em;
+        color: var(--color-ink-800);
+    }
+
+    & img {
+        border-radius: var(--radius-card);
+    }
+
+    & table {
+        display: block;
+        overflow-x: auto;
+        border-collapse: collapse;
+        font-size: 0.925em;
+    }
+
+    & th,
+    & td {
+        border: 1px solid var(--color-ink-200);
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+    }
+
+    & th {
+        background: var(--color-ink-50);
+        font-weight: 600;
+    }
+}
+
+/*
  * Alpine ships with Livewire 3. Without this, anything x-show="false" renders
  * for one frame before Alpine boots — the mobile menu flashes open on load.
  */

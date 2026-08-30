@@ -7,10 +7,10 @@ namespace App\Livewire\Journal;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Tag;
-use Illuminate\View\View;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -25,6 +25,7 @@ class ArticleList extends Component
 {
     #[Url]
     public ?int $categoryId = null;
+
     #[Url]
     public ?string $tag = null;
 
@@ -44,6 +45,7 @@ class ArticleList extends Component
         $query = Article::query()
             ->with(['author', 'articleCategory'])->visible();
         $this->applyFilters($query);
+
         return $query->latest('published_at')->paginate(12);
     }
 
@@ -51,7 +53,10 @@ class ArticleList extends Component
     public function categories(): Collection
     {
         return ArticleCategory::query()
-            ->whereHas('articles', fn (Builder $q) => $q->visible())
+            ->whereHas('articles', function (Builder $query): void {
+                /** @var Builder<Article> $query */
+                $query->visible();
+            })
             ->orderBy('name')
             ->get();
     }
@@ -60,7 +65,10 @@ class ArticleList extends Component
     public function tags(): Collection
     {
         return Tag::query()
-            ->whereHas('articles', fn (Builder $q) => $q->visible())
+            ->whereHas('articles', function (Builder $query): void {
+                /** @var Builder<Article> $query */
+                $query->visible();
+            })
             ->orderBy('name')
             ->get();
     }
@@ -82,5 +90,4 @@ class ArticleList extends Component
             'articles' => $this->articles,
         ]);
     }
-
 }
