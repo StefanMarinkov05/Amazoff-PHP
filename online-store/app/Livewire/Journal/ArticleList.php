@@ -45,7 +45,10 @@ class ArticleList extends Component
     #[Computed]
     public function categories(): Collection
     {
-        return ArticleCategory::query()->whereHas('articles', fn (Builder $q) => $q->visible)->orderBy('name')->get();
+        return ArticleCategory::query()
+            ->whereHas('articles', fn (Builder $q) => $q->visible())
+            ->orderBy('name')
+            ->get();
     }
 
     #[Computed]
