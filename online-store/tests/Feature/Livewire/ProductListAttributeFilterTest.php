@@ -257,6 +257,32 @@ it('inherits an ancestor\'s allowed attributes down to a deep subcategory', func
     expect($facets->flatten()->pluck('id')->all())->toContain($cotton->id);
 });
 
+it('orders a facet\'s values by their own sort_order, not alphabetically', function (): void {
+    // Reported live: Size read L, M, S, XL, XS — alphabetical order, not the
+    // XS/S/M/L/XL/XXL a shopper expects. Collection::sortBy() only accepts
+    // one criterion per call; a bare array of closures silently sorted by
+    // neither, so grouping-then-sorting-within-each-group is required.
+    $category = ProductCategory::factory()->create();
+    $size = Attribute::factory()->create(['is_filterable' => true]);
+    $size->productCategories()->attach($category->id);
+
+    $large = AttributeValue::factory()->for($size)->create(['value' => 'L', 'sort_order' => 3]);
+    $small = AttributeValue::factory()->for($size)->create(['value' => 'S', 'sort_order' => 1]);
+    $medium = AttributeValue::factory()->for($size)->create(['value' => 'M', 'sort_order' => 2]);
+
+    foreach ([$large, $small, $medium] as $value) {
+        $product = Product::factory()->create(['is_available' => true, 'product_category_id' => $category->id]);
+        app(SetProductAttributeValues::class)->handle($product, [$value->id], null);
+    }
+
+    $facets = Livewire::withQueryParams(['category' => $category->slug])
+        ->test(ProductList::class)
+        ->instance()
+        ->attributeFacets();
+
+    expect($facets->get($size->name)->pluck('value')->all())->toBe(['S', 'M', 'L']);
+});
+
 it('does not offer an attribute scoped to an unrelated category branch', function (): void {
     [$cotton] = catalogueWithMaterials();
     $clothing = ProductCategory::factory()->create();
@@ -289,6 +315,74 @@ it('drops one value at a time when its chip is dismissed', function (): void {
         ->call('clearFilter', 'attributeValue:'.$cotton->id);
 
     expect($component->get('attributeValueIds'))->toBe([$polyester->id]);
+});
+
+/*
+ * Facet counts must narrow across attributes but never against themselves.
+ * Reported live: selecting Material=Denim (3 products) still showed Colour
+ * and Size at their whole-catalogue counts instead of narrowing to what
+ * those 3 Denim products actually have — skip: 'attributeValueIds' dropped
+ * every attribute filter at once when computing a facet's count, rather
+ * than just the attribute being evaluated.
+ */
+
+it('narrows a facet\'s counts to match another selected attribute', function (): void {
+    $category = ProductCategory::factory()->create();
+
+    $material = Attribute::factory()->create(['is_filterable' => true]);
+    $material->productCategories()->attach($category->id);
+    $denim = AttributeValue::factory()->for($material)->create();
+    $cotton = AttributeValue::factory()->for($material)->create();
+
+    $colour = Attribute::factory()->create(['is_filterable' => true, 'is_variation_only' => true]);
+    $colour->productCategories()->attach($category->id);
+    $blue = AttributeValue::factory()->for($colour)->create();
+    $red = AttributeValue::factory()->for($colour)->create();
+
+    // A blue, denim product.
+    $blueDenim = Product::factory()->create(['is_available' => true, 'product_category_id' => $category->id]);
+    app(SetProductAttributeValues::class)->handle($blueDenim, [$denim->id], null);
+    $blueDenim->attributes()->attach($colour->id);
+    $blueDenimVariation = ProductVariation::factory()->for($blueDenim)->create(['is_available' => true]);
+    $blueDenimVariation->attributeValues()->attach($blue->id);
+
+    // A red, cotton product — same colour attribute, different material.
+    $redCotton = Product::factory()->create(['is_available' => true, 'product_category_id' => $category->id]);
+    app(SetProductAttributeValues::class)->handle($redCotton, [$cotton->id], null);
+    $redCotton->attributes()->attach($colour->id);
+    $redCottonVariation = ProductVariation::factory()->for($redCotton)->create(['is_available' => true]);
+    $redCottonVariation->attributeValues()->attach($red->id);
+
+    $facets = Livewire::withQueryParams([
+        'category' => $category->slug,
+        'attributeValueIds' => [$denim->id],
+    ])->test(ProductList::class)->instance()->attributeFacets();
+
+    $colourFacet = $facets->get($colour->name);
+
+    // Selecting Denim must narrow Colour to Blue only — Blue is the only
+    // colour a Denim product actually has.
+    expect($colourFacet->pluck('id')->all())->toBe([$blue->id])
+        ->and($colourFacet->firstWhere('id', $blue->id)->products_count)->toBe(1);
+});
+
+it('does not let a value\'s own selection shrink its own facet count to zero', function (): void {
+    $category = ProductCategory::factory()->create();
+    $material = Attribute::factory()->create(['is_filterable' => true]);
+    $material->productCategories()->attach($category->id);
+    $denim = AttributeValue::factory()->for($material)->create();
+
+    $product = Product::factory()->create(['is_available' => true, 'product_category_id' => $category->id]);
+    app(SetProductAttributeValues::class)->handle($product, [$denim->id], null);
+
+    $facets = Livewire::withQueryParams([
+        'category' => $category->slug,
+        'attributeValueIds' => [$denim->id],
+    ])->test(ProductList::class)->instance()->attributeFacets();
+
+    $materialFacet = $facets->get($material->name);
+
+    expect($materialFacet->firstWhere('id', $denim->id)->products_count)->toBe(1);
 });
 
 /*
@@ -382,50 +476,48 @@ it('matches a product through either pivot for the same filter', function (): vo
 });
 
 /*
- * The facet UI: one <select multiple> per attribute rather than one flat
- * checkbox list, each bound to its own facetSelections key since Livewire
- * cannot bind several independent multi-selects to one shared array without
- * each overwriting the others' picks on change.
+ * The facet UI: clickable toggle buttons rather than a <select multiple> —
+ * toggleAttributeValue() adds or removes one value directly from the flat
+ * attributeValueIds list, so no per-attribute staging property is needed.
  */
 
-it('hydrates each dropdown\'s own selection from the URL on load', function (): void {
-    $material = Attribute::factory()->create(['is_filterable' => true]);
-    $cotton = AttributeValue::factory()->for($material)->create();
-
-    $component = Livewire::withQueryParams(['attributeValueIds' => [$cotton->id]])
-        ->test(ProductList::class);
-
-    expect($component->get('facetSelections'))->toBe([(string) $material->id => [$cotton->id]]);
-});
-
-it('folds a dropdown change back into the flat attributeValueIds list', function (): void {
+it('adds a value to attributeValueIds when its facet button is toggled on', function (): void {
     $material = Attribute::factory()->create(['is_filterable' => true]);
     $cotton = AttributeValue::factory()->for($material)->create();
 
     $component = Livewire::test(ProductList::class)
-        ->set("facetSelections.{$material->id}", [$cotton->id]);
+        ->call('toggleAttributeValue', $cotton->id);
 
     expect($component->get('attributeValueIds'))->toBe([$cotton->id]);
 });
 
-it('keeps a dropdown selection in sync when its chip is individually dismissed', function (): void {
+it('removes a value from attributeValueIds when its facet button is toggled off', function (): void {
+    $material = Attribute::factory()->create(['is_filterable' => true]);
+    $cotton = AttributeValue::factory()->for($material)->create();
+
+    $component = Livewire::withQueryParams(['attributeValueIds' => [$cotton->id]])
+        ->test(ProductList::class)
+        ->call('toggleAttributeValue', $cotton->id);
+
+    expect($component->get('attributeValueIds'))->toBe([]);
+});
+
+it('drops just the dismissed value when its chip is individually removed, keeping the rest', function (): void {
     [$cotton, $polyester] = catalogueWithMaterials();
-    /** @var Attribute $material */
-    $material = $cotton->attribute;
 
     $component = Livewire::withQueryParams(['attributeValueIds' => [$cotton->id, $polyester->id]])
         ->test(ProductList::class)
         ->call('clearFilter', 'attributeValue:'.$cotton->id);
 
-    expect($component->get('facetSelections'))->toBe([(string) $material->id => [$polyester->id]]);
+    expect($component->get('attributeValueIds'))->toBe([$polyester->id]);
 });
 
-it('clears every dropdown selection when all filters are cleared', function (): void {
+it('clears every selected value when all filters are cleared', function (): void {
     [$cotton] = catalogueWithMaterials();
 
     $component = Livewire::withQueryParams(['attributeValueIds' => [$cotton->id]])
         ->test(ProductList::class)
         ->call('clearFilters');
 
-    expect($component->get('facetSelections'))->toBe([]);
+    expect($component->get('attributeValueIds'))->toBe([]);
 });

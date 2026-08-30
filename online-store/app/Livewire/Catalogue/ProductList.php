@@ -137,47 +137,27 @@ class ProductList extends Component
     public string $sortDir = 'desc';
 
     /**
-     * Per-attribute staging for the facet `<select multiple>` elements —
-     * attribute id (string: Livewire/Alpine array keys are always strings)
-     * => the values checked in that one dropdown. Not `#[Url]`-bound itself
-     * and not read by `applyFilters()`; `$attributeValueIds` stays the
-     * single source of truth the query, the chips, and the URL all read.
-     *
-     * This exists because Livewire has no way to bind several independent
-     * `<select multiple>` elements to one shared flat array — each would
-     * overwrite the others' picks on its own change event, since a
-     * `wire:model` binding fully owns the property it targets rather than
-     * merging into it. One dropdown per attribute, each targeting its own
-     * key here, sidesteps that; `updated()` below folds every change back
-     * into `$attributeValueIds`.
-     *
-     * @var array<string, list<int>>
+     * Toggles one facet value on or off, for the clickable facet buttons —
+     * click adds it to `$attributeValueIds`, click again removes it. Values
+     * within one attribute are OR-ed (`applyFilters()`), so toggling one on
+     * never needs to touch any other selected value, unlike a native
+     * `<select>` which replaces its whole selection on every change and
+     * cannot bind several independent multi-selects to one shared array
+     * without each overwriting the others' picks.
      */
-    public array $facetSelections = [];
-
-    /**
-     * Seeds {@see $facetSelections} from `$attributeValueIds` so a shared
-     * link or a browser back/forward restores each dropdown's own
-     * selection, not just the flat list the query reads.
-     */
-    public function mount(): void
+    public function toggleAttributeValue(int $valueId): void
     {
-        $this->facetSelections = collect($this->filterableAttributeValueIdsByAttribute())
-            ->mapWithKeys(fn (array $ids, int|string $attributeId): array => [(string) $attributeId => $ids])
-            ->all();
+        $selected = collect((array) $this->attributeValueIds)->map(fn (mixed $id): int => (int) $id);
+
+        $this->attributeValueIds = $selected->contains($valueId)
+            ? $selected->reject(fn (int $id): bool => $id === $valueId)->values()->all()
+            : $selected->push($valueId)->values()->all();
+
+        $this->resetPage();
     }
 
     public function updated(string $property): void
     {
-        // A facet dropdown's own change lands as "facetSelections.5", never
-        // as the bare property name — Livewire's dot-path for a nested
-        // array key. Re-flattening on every such change, rather than
-        // merging just the one key, keeps this correct even if a stale
-        // selection referenced an attribute no longer in $facetSelections.
-        if (str_starts_with($property, 'facetSelections.')) {
-            $this->attributeValueIds = collect($this->facetSelections)->flatten()->all();
-        }
-
         if ($property !== 'page') {
             $this->resetPage();
         }
@@ -215,7 +195,6 @@ class ProductList extends Component
     public function clearFilters(): void
     {
         $this->reset(self::FILTER_KEYS);
-        $this->facetSelections = [];
         $this->resetPage();
     }
 
@@ -244,13 +223,6 @@ class ProductList extends Component
                 ->values()
                 ->all();
 
-            // Keeps each facet dropdown's own displayed selection in sync
-            // with the chip that was just dismissed — otherwise the select
-            // would still show the option checked after its chip vanished.
-            $this->facetSelections = collect($this->facetSelections)
-                ->map(fn (array $ids): array => array_values(array_diff($ids, [$target])))
-                ->all();
-
             $this->resetPage();
 
             return;
@@ -258,11 +230,6 @@ class ProductList extends Component
 
         if (in_array($filter, self::FILTER_KEYS, true)) {
             $this->reset($filter);
-
-            if ($filter === 'attributeValueIds') {
-                $this->facetSelections = [];
-            }
-
             $this->resetPage();
         }
     }
@@ -496,52 +463,74 @@ class ProductList extends Component
         // admin's own "Variation axes" picker uses.
         $allowedAttributeIds = ResolveAllowedAttributes::forCategory($category);
 
+        /** @var Collection<int, AttributeValue> $allValues */
+        $allValues = AttributeValue::query()
+            ->whereIn('attribute_id', $allowedAttributeIds)
+            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
+            ->with('attribute')
+            ->get();
+
         // A value counts as "offered" if some visible product carries it
         // either way — descriptively, or as a variation axis on one of the
         // product's own variations. Colour and Size only ever reach here
         // through the second path, since is_variation_only forbids the
         // first; Material can reach through either, in principle.
-        $matchesEitherPivot = function (Builder $value) {
-            $value->where(fn (Builder $q) => $q
-                ->whereHas(
-                    'products',
-                    // @phpstan-ignore argument.type
-                    fn (Builder $product) => $this->applyFilters($product, skip: 'attributeValueIds'),
-                )
-                ->orWhereHas(
-                    'productVariations.product',
-                    // @phpstan-ignore argument.type
-                    fn (Builder $product) => $this->applyFilters($product, skip: 'attributeValueIds'),
-                ));
-        };
-
-        /** @var Collection<int, AttributeValue> $values */
-        $values = AttributeValue::query()
-            ->whereIn('attribute_id', $allowedAttributeIds)
-            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
-            ->where($matchesEitherPivot)
-            ->with('attribute')
-            ->get()
-            // withCount() cannot express "count distinct products reached
-            // through either of two separate relations" in one aggregate
-            // without a raw subquery per value; counting per value with a
-            // plain query keeps the SQL readable at the cost of one extra
-            // query per offered value; the values shown are always a small,
-            // AttributeValue::query()-bounded set (attribute_values.parent).
-            ->each(function (AttributeValue $value): void {
-                $value->setAttribute('products_count', Product::query()
-                    ->where(fn (Builder $q) => $q
-                        ->whereHas('descriptiveAttributeValues', fn (Builder $v) => $v->whereKey($value->id))
-                        ->orWhereHas(
-                            'productVariations',
-                            fn (Builder $variation) => $variation->whereHas(
-                                'attributeValues',
-                                fn (Builder $v) => $v->whereKey($value->id),
-                            ),
-                        ))
-                    ->tap(fn (Builder $q) => $this->applyFilters($q, skip: 'attributeValueIds'))
-                    ->count());
+        //
+        // skipAttributeId, not skip: 'attributeValueIds' — the value's own
+        // attribute is excluded from the filter, but every *other* selected
+        // attribute still applies. Reported live: picking Material=Denim
+        // left Colour and Size showing their unfiltered, whole-catalogue
+        // counts instead of narrowing to Denim's own 3 products, because
+        // skip: 'attributeValueIds' dropped every attribute filter at once
+        // rather than just the one being evaluated. Grouped by attribute_id
+        // first (rather than resolved per value inside the query closure)
+        // because a value's own attribute_id is not something a
+        // Builder-scoped where() closure can read off the row it is still
+        // building — every value sharing one attribute needs the same skip,
+        // so the query is built once per attribute rather than once per
+        // value.
+        $values = $allValues
+            ->groupBy('attribute_id')
+            ->flatMap(function (Collection $group, int $attributeId): Collection {
+                return $group->filter(function (AttributeValue $value) use ($attributeId): bool {
+                    return Product::query()
+                        ->where(fn (Builder $q) => $q
+                            ->whereHas('descriptiveAttributeValues', fn (Builder $v) => $v->whereKey($value->id))
+                            ->orWhereHas(
+                                'productVariations',
+                                fn (Builder $variation) => $variation->whereHas(
+                                    'attributeValues',
+                                    fn (Builder $v) => $v->whereKey($value->id),
+                                ),
+                            ))
+                        ->tap(fn (Builder $q) => $this->applyFilters($q, skipAttributeId: $attributeId))
+                        ->exists();
+                });
             });
+
+        // withCount() cannot express "count distinct products reached
+        // through either of two separate relations" in one aggregate
+        // without a raw subquery per value; counting per value with a plain
+        // query keeps the SQL readable at the cost of one extra query per
+        // offered value; the values shown are always a small,
+        // AttributeValue::query()-bounded set (attribute_values.parent).
+        $values->each(function (AttributeValue $value): void {
+            /** @var int $attributeId */
+            $attributeId = $value->getAttribute('attribute_id');
+
+            $value->setAttribute('products_count', Product::query()
+                ->where(fn (Builder $q) => $q
+                    ->whereHas('descriptiveAttributeValues', fn (Builder $v) => $v->whereKey($value->id))
+                    ->orWhereHas(
+                        'productVariations',
+                        fn (Builder $variation) => $variation->whereHas(
+                            'attributeValues',
+                            fn (Builder $v) => $v->whereKey($value->id),
+                        ),
+                    ))
+                ->tap(fn (Builder $q) => $this->applyFilters($q, skipAttributeId: $attributeId))
+                ->count());
+        });
 
         // Keyed by attribute name for the sidebar's own grouping. Resolved
         // through a local rather than inline `$value->attribute->name`,
@@ -557,14 +546,22 @@ class ProductList extends Component
         // hold Models, so a Collection *of Collections* is not expressible
         // as one — the outer and inner both become plain Support
         // Collections, which is all the view needs.
+        //
+        // groupBy() already separates attributes, so ordering the groups
+        // among themselves doesn't matter here (ksort below only keeps that
+        // order stable); what matters is sort_order *within* each group —
+        // Collection::sortBy() only accepts one criterion per call
+        // (a bare array of closures is not the multi-column form some other
+        // collection methods accept, and silently sorts by neither), so each
+        // group is sorted on its own after grouping rather than in one pass.
         return $values
-            ->sortBy([
-                fn (AttributeValue $value): string => $nameOf($value),
-                fn (AttributeValue $value): int => (int) $value->sort_order,
-            ])
             ->groupBy($nameOf)
             ->toBase()
-            ->map(fn (Collection $group): SupportCollection => $group->toBase());
+            ->map(fn (SupportCollection $group): SupportCollection => $group
+                ->sortBy(fn (AttributeValue $value): int => (int) $value->sort_order)
+                ->values()
+                ->toBase())
+            ->sortKeys();
     }
 
     /** @return Collection<int, Brand> */
@@ -782,9 +779,17 @@ class ProductList extends Component
      * a facet exclude its own dimension. One definition means a filter added
      * here cannot be forgotten in the counts.
      *
+     * `$skipAttributeId` narrows one step further, for a facet *value's* own
+     * count: Colour's options must still narrow when Material=Denim is
+     * picked, but a Colour option's own count must not shrink because of
+     * Colour's own selection (checking Black must not make every other
+     * colour, including Black itself, look unavailable). `$skip` alone
+     * cannot express "apply every attribute's filter except this one
+     * attribute" — it is all-or-nothing across the whole dimension.
+     *
      * @param  Builder<Product>  $query
      */
-    private function applyFilters(Builder $query, ?string $skip = null): void
+    private function applyFilters(Builder $query, ?string $skip = null, ?int $skipAttributeId = null): void
     {
         $query->where('is_available', true);
 
@@ -832,7 +837,11 @@ class ProductList extends Component
             // rather than trusted from the URL. A forged or stale id simply
             // is not in the set and narrows nothing, which is the same
             // silent fall-through categorySlug takes above.
-            foreach ($this->filterableAttributeValueIdsByAttribute() as $valueIds) {
+            foreach ($this->filterableAttributeValueIdsByAttribute() as $attributeId => $valueIds) {
+                if ((int) $attributeId === $skipAttributeId) {
+                    continue;
+                }
+
                 $query->where(fn (Builder $q) => $q
                     ->whereHas(
                         'descriptiveAttributeValues',

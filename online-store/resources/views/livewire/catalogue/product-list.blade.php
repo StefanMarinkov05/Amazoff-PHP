@@ -207,53 +207,54 @@
                             @endforeach
                         </div>
                     </fieldset>
-
-                    {{-- Category-specific facets. Empty until a category is
-                         picked, and then scoped to what that category (or an
-                         ancestor of it) allows — Colour and Size mean nothing
-                         across a catalogue that also holds power tools.
-                         ProductList::attributeFacets(). --}}
-                    {{-- One <select multiple> per attribute, bound to its own
-                         facetSelections key rather than all sharing
-                         attributeValueIds directly — Livewire has no way to
-                         bind several independent multi-selects to one flat
-                         array without each overwriting the others' picks on
-                         change. Values checked within one dropdown are OR-ed
-                         ("Black or White"); dropdowns AND against each other
-                         ("that colour, and Cotton"). ProductList::updated()
-                         folds every change back into attributeValueIds, the
-                         single list the query and the chips actually read. --}}
-                    @foreach ($this->attributeFacets as $attributeName => $values)
-                        @php($attributeId = (string) $values->first()->attribute_id)
-                        <div wire:key="facet-{{ Str::slug($attributeName) }}">
-                            <label for="facet-{{ $attributeId }}"
-                                   class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
-                                {{ $attributeName }}
-                            </label>
-                            <select
-                                id="facet-{{ $attributeId }}"
-                                multiple
-                                wire:model.live="facetSelections.{{ $attributeId }}"
-                                class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
-                                       transition-colors duration-200 hover:border-ink-300
-                                       focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
-                                size="{{ min($values->count(), 5) }}"
-                            >
-                                @foreach ($values as $value)
-                                    <option
-                                        value="{{ $value->id }}"
-                                        @selected(in_array($value->id, $facetSelections[$attributeId] ?? [], true))
-                                    >
-                                        {{ $value->value }} ({{ $value->products_count }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endforeach
                 </div>
             </form>
 
             <main>
+                {{-- Category-specific facets, as clickable toggle buttons —
+                     above the grid rather than in the sidebar, since these
+                     are the filters a shopper who has already picked a
+                     category cares about most. Empty until a category is
+                     picked, and then scoped to what that category (or an
+                     ancestor of it) allows — Colour and Size mean nothing
+                     across a catalogue that also holds power tools.
+                     ProductList::attributeFacets(). Each button's own count
+                     is computed against every filter except its own
+                     attribute (ProductList::applyFilters()'s
+                     $skipAttributeId), so picking Denim narrows Colour and
+                     Size to what Denim actually has, without a selected
+                     Colour narrowing its own remaining options to zero. --}}
+                @if ($this->attributeFacets->isNotEmpty())
+                    <div class="mb-6 space-y-4 border-b border-ink-200 pb-6">
+                        @foreach ($this->attributeFacets as $attributeName => $values)
+                            <div wire:key="facet-{{ Str::slug($attributeName) }}">
+                                <span class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                                    {{ $attributeName }}
+                                </span>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($values as $value)
+                                        @php($checked = in_array($value->id, array_map('intval', (array) $attributeValueIds), true))
+                                        <button
+                                            type="button"
+                                            wire:key="facet-value-{{ $value->id }}"
+                                            wire:click="toggleAttributeValue({{ $value->id }})"
+                                            aria-pressed="{{ $checked ? 'true' : 'false' }}"
+                                            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium
+                                                   transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
+                                                   {{ $checked
+                                                        ? 'border-marine-600 bg-marine-600 text-white'
+                                                        : 'border-ink-200 bg-white text-ink-700 hover:border-marine-600/50 hover:bg-marine-50' }}"
+                                        >
+                                            {{ $value->value }}
+                                            <span class="{{ $checked ? 'text-white/70' : 'text-ink-400' }}">({{ $value->products_count }})</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
                 {{-- Active filters as dismissible chips. --}}
                 @if (count($this->activeFilters))
                     <div class="mb-4 flex flex-wrap items-center gap-2">

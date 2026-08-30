@@ -373,6 +373,32 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- **A facet's own count didn't narrow when a different attribute's value was
+  selected, and Size read L, M, S, XL, XS instead of XS through XXL.**
+  Reported live against Material=Denim (3 products): Colour and Size still
+  showed their whole-catalogue counts rather than narrowing to what those 3
+  Denim products actually have. `ProductList::applyFilters()`'s `$skip`
+  parameter was all-or-nothing across the whole attribute-value dimension —
+  computing one facet's count had to either apply every selected attribute
+  or none, with no way to exclude just the one attribute being evaluated.
+  New `$skipAttributeId` parameter excludes only that attribute, so a
+  facet's counts narrow against every *other* selection without a value's
+  own selection zeroing out its own count. The Size ordering was separate:
+  `Collection::sortBy()` only accepts one sort criterion per call, and a
+  bare array of closures — the multi-column form some other collection
+  methods accept — silently sorted by neither, falling through to whatever
+  order the query itself returned. `attributeFacets()` now groups first and
+  sorts each group on `sort_order` afterward.
+
+  The facet UI itself changed from one `<select multiple>` per attribute to
+  clickable toggle buttons — clearer for the OR/AND rule than a multi-select
+  box, and it means Livewire no longer needs the `facetSelections` staging
+  property that existed only to work around several independent multi-selects
+  being unable to share one bound array; `toggleAttributeValue()` adds or
+  removes a value directly. The facet block also moved from the sidebar to a
+  bar above the product grid — the filters a shopper cares about most once a
+  category is picked, given more room than a 15rem sidebar column allows.
+
 - **"The image field has invalid image dimensions" named neither the
   requirement nor what was uploaded.** `ProductImagesRelationManager`'s
   single-image field now carries an explicit message stating the minimum

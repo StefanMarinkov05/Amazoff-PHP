@@ -110,21 +110,24 @@ nothing constrains a specification's `value`, so "Cotton", "cotton", and
 `attributes.is_filterable` finally has a consumer.
 
 `ProductList::$attributeValueIds` (`?attributeValueIds[]=`) is the storefront
-filter. Selected values are **AND**ed — picking Cotton and Organic means
-both, not either — via one `whereHas()` per value. Ids are re-resolved
-against real, filterable values on every query rather than trusted from the
-URL (ADR-0014's allow-list rule); an unknown, non-filterable, or forged id
-narrows nothing rather than erroring, the same silent fall-through
-`categorySlug` takes. The property is `mixed`-typed and sanitised in
-`updatedAttributeValueIds()`, because `#[Url]` hydration assigns the raw
-request value before any of the component's own code runs — the same
+filter. Selected values are grouped by attribute in
+`filterableAttributeValueIdsByAttribute()`: values within one attribute are
+**OR**ed (checking Black and White means either colour — no variation is
+ever both at once), and each attribute's group is **AND**ed against every
+other attribute's (Colour=Black AND Material=Cotton narrows, since those can
+coexist). Ids are re-resolved against real, filterable values on every query
+rather than trusted from the URL (ADR-0014's allow-list rule); an unknown,
+non-filterable, or forged id narrows nothing rather than erroring, the same
+silent fall-through `categorySlug` takes. The property is `mixed`-typed and
+sanitised in `updatedAttributeValueIds()`, because `#[Url]` hydration assigns
+the raw request value before any of the component's own code runs — the same
 incident class as `ProductDetails::$variationId`.
 
 `ProductList::attributeFacets()` is **category-scoped**. With no category
 picked it returns nothing and only the generic filters (brand, price,
 rating, stock, sale) render: Colour and Size mean nothing across a catalogue
-that also holds power tools and moisturiser, and a sidebar offering every
-attribute in the shop at once is the flat dump this feature exists to avoid.
+that also holds power tools and moisturiser, and a flat list offering every
+attribute in the shop at once is the dump this feature exists to avoid.
 
 Once a category is picked, the facets are its allowed attributes —
 `ResolveAllowedAttributes::forCategory()`, so **an attribute scoped to a
@@ -135,11 +138,26 @@ is not offered on a sibling branch such as "Beauty & Personal Care".
 Verified against the real seeded 4-level tree, not only in fixtures.
 
 Within that scope a facet appears only for values a currently visible
-product actually carries, counted against every *other* filter — the same
-"never promise results that are not there" rule `categories()` follows.
+product actually carries, counted against every *other selected attribute* —
+`applyFilters()`'s `$skipAttributeId` parameter excludes only the one
+attribute a facet belongs to, not the whole attribute-value dimension.
+Picking Material=Denim narrows Colour's and Size's own counts to what the
+Denim products actually have, but a selected Colour value's own count is
+never narrowed by that same Colour selection — otherwise checking Black
+would make every colour, Black included, read as if nothing had it. Values
+within a facet are ordered by `sort_order`, not alphabetically (XS, S, M, L,
+XL, XXL — not L, M, S, XL, XS).
+
+Facets render as clickable toggle buttons above the product grid —
+`ProductList::toggleAttributeValue()` adds or removes one value directly
+from `$attributeValueIds` — rather than one `<select multiple>` per
+attribute in the sidebar. The dropdown form needed a `facetSelections`
+staging property because Livewire cannot bind several independent
+multi-selects to one shared array without each overwriting the others' picks
+on change; toggle buttons have no such conflict, so that property no longer
+exists.
 
 Each selected value gets its own dismissible chip, keyed
 `attributeValue:N` — the one chip key carrying a payload, since every other
 filter is a single value. Dismissing one drops that value alone rather than
-clearing the set, because the values are AND-ed and widening by one step is
-the point.
+clearing the set, widening the search by one step.
