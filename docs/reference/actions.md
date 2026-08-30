@@ -6,7 +6,9 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Thirty-9 Actions across ten areas, twenty domain exceptions.
+Forty-three Actions across ten areas, twenty-six domain exceptions in `app/Exceptions`.
+
+The Exceptions table below lists twenty-one of them. Five raised only by the Payment, Shipment, and ProductReview Actions — `IllegalPaymentStatusTransitionException`, `IllegalShipmentStatusTransitionException`, `PaymentAlreadyRecordedException`, `ReviewNotAllowedException`, `ShipmentNotAllowedException` — are documented in their own Action sections and have never been added here. Noted rather than left as a silent discrepancy between the count and the table.
 
 ## Naming
 
@@ -28,6 +30,17 @@ constructor injection.
 | `CompleteSale` | `inventories.reserved_quantity`, `inventories.current_quantity`, `inventories.sold_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `RestockReturn` | `inventories.sold_quantity`, `inventories.current_quantity`, `inventories.returned_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `AdjustStock` | `inventories.current_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+
+`AdjustStock` is the counterpart to `AddProductVariation`'s create-only
+`initial_quantity` — a delivery arriving, or a stocktake correcting the
+books, after a variation already exists. Takes a signed delta and a
+`NewDelivery`/`ManualCorrection` type rather than an absolute "set stock to
+N": both were already in `InventoryMovementType` since the schema was drawn
+and neither had ever been written until this. Refuses a reduction that would
+push `current_quantity` below what is already reserved, the same guard
+`RecordDamage` uses and for the same reason — freeing reserved stock is
+`ReleaseStock`'s decision about someone's order, not this Action's.
 
 `RecordInventoryMovement` is the one Action that opens no transaction of its
 own and is not meant to be called directly. A movement row without the
@@ -62,19 +75,22 @@ at stock that no longer exists.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateProduct` | `products`, `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product` | `ProductRequiresVariationException` |
-| `UpdateProduct` | `products` | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException` |
+| `CreateProduct` | `products`, `attribute_product`, `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product` | `ProductRequiresVariationException`, `AttributeNotAllowedForCategoryException` |
+| `UpdateProduct` | `products`, `attribute_product` (only when the caller supplies the key) | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException` |
 | `DeleteProduct` | `products` (soft delete, cascaded to its variations) | optional, `delete_product` | — never refuses |
 | `ForceDeleteProduct` | `products`, `product_variations`, `inventories`, `product_images`, `product_specifications` (all erased) | optional, `delete_product` | `ProductCannotBeErasedException`, plus whatever `ForceDeleteProductVariation` raises |
-| `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product_variation` | `InvalidArgumentException` |
+| `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements`, `attribute_value_product_variation` (only when the caller supplies `attribute_value_ids`) | optional, checked against `create_product_variation` | `InvalidArgumentException` |
 | `RemoveProductVariation` | `product_variations` (soft delete) | optional, checked against `delete_product_variation` | `ProductRequiresVariationException`, `VariationHasReservedStockException` |
 | `ForceDeleteProductVariation` | `product_variations`, `inventories` (both erased) | optional, checked against `delete_product_variation` | `VariationCannotBeErasedException`, `VariationHasReservedStockException`, `ProductRequiresVariationException` |
 | `AddProductImage` | `product_images` | optional, `update_product` via `ProductImagePolicy` | `RemovedFromCatalogueException` |
 | `SetMainProductImage` | `product_images` | optional, `update_product` | — |
 | `RemoveProductImage` | `product_images`, and the file on disk; gallery rows cascade | optional, `update_product` | — |
 | `SetVariationImages` | `product_image_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `ImageNotOnProductException` |
+| `SetProductAttributeValues` | `attribute_value_product` (the whole set for 1 product) | optional, `update_product` | `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException`, `AttributeValueIsAVariationAxisException` |
+| `SetVariationAttributeValues` | `attribute_value_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `AttributeValueNotOnProductException`, `DuplicateVariationAttributeException`, `DuplicateVariationCombinationException` |
 | `SetDefaultVariation` | `product_variations` | optional, `update_product_variation` | — |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
+| `UpdateProductCategory` | `product_categories` | optional, `update_product_category` | `CategoryCycleException` |
 
 `ProductCategory` is otherwise default Filament CRUD, per CLAUDE.md's plain-
 lookup-table exemption — `DeleteProductCategory` is the one exception, and a
@@ -88,6 +104,8 @@ had no `children()` relation to call. Locks the category row before counting
 live children and products, so both the storefront and the panel get the
 same clean refusal instead of a 500 or a silently-disabled button.
 `write-rules/product-category.md` is the outcomes page.
+
+`UpdateProductCategory` is the second, for the same narrow reason: `parent_id` is a self-referencing foreign key and no foreign key can express acyclicity, so the database accepts A→B→A without complaint and every walk of the relationship — the storefront filter, the admin's ancestry breadcrumb, the mega-menu — then loops. Only the *edit* path needs it: a category being created has no descendants, so no choice of parent can close a loop through it, and `CreateProductCategory` stays on Filament's default create. Locks the category being moved before walking its descendants — without it, two administrators reparenting A under B and B under A concurrently each see a tree in which their own move is legal, and both commit.
 
 A product with images has exactly one main image, which MySQL cannot express —
 no partial unique index, and ADR-0004 rejected triggers. `SetMainProductImage`
@@ -124,6 +142,45 @@ creating a product through `CreateProduct` requires `create_product` **and**
 
 Opening stock is a parameter of `AddProductVariation` rather than a column on
 the variation. Zero writes no movement row.
+
+`AddProductVariation` also composes `SetVariationAttributeValues` when the
+caller supplies `attribute_value_ids` — a variation's own combination
+(`docs/explanation/product-variability.md`'s first question, "what makes
+this one different?") set in the same call that gives it a SKU and a stock
+row, rather than a separate step an administrator has to remember. `null`,
+not the actor: the same precedent as composing `SetDefaultVariation` below
+it — the caller's own `create_product_variation` gate has already authorized
+the whole write.
+
+`CreateProduct` syncs `attribute_product` (the product's own variation axes)
+itself, rather than leaving `ProductForm`'s "Variation axes" field to a
+`->relationship()` Select's own post-save handling — deliberately, not by
+oversight. A `->relationship()` field's state is excluded from the form's
+`getState()` and saved by Filament's `CreateRecord::create()` **after**
+`handleRecordCreation()` returns, which is too late: `AddProductVariation`
+above validates each variation's `attribute_value_ids` against the product's
+axes *during* this Action's own transaction. With `->relationship()`, every
+variation given a combination was refused with
+`AttributeValueNotOnProductException`, against a product that was about to
+have exactly those axes one line later in the same request — reproduced
+live before landing this fix, not assumed from reading the timing alone.
+`UpdateProduct` syncs the same relationship for the same reason, on the edit
+path; `EditProduct::mutateFormDataBeforeFill()` hydrates the field back on
+open, which `->relationship()` would otherwise have done automatically.
+
+Both also refuse an axis `attribute_product_category` does not allow for the
+product's own category, or any of its ancestors —
+`AttributeNotAllowedForCategoryException`. `attribute_product_category` is an
+allow-list an admin opts an attribute into (`AttributeForm`'s "Allowed
+categories" field); an attribute with no rows there is unrestricted, not
+"allowed nowhere", so this cannot fire for any of the attributes that
+existed before the table did. `App\Support\ResolveAllowedAttributes` is the
+pure function both Actions call — a category's own allow-list, unioned with
+every ancestor's, unioned with every unrestricted attribute.
+`UpdateProduct` checks this **after** `save()`, using whichever category the
+product has now: one call that moves a product into a new category and sets
+an axis that category allows is not refused for a mismatch that was only
+ever true before the save committed.
 
 ## Cart
 
@@ -479,6 +536,12 @@ Measured and pinned, including the wrong behaviour, in
 | `RemovedFromCatalogueException` | `ReserveStock`, `AddProductVariation`, `UpdateProduct`, `AddProductImage`, `SetVariationImages`, `AddToCart`, `UpdateCartItemQuantity` | the record that was removed |
 | `ProductCannotBeErasedException` | `ForceDeleteProduct` | the product |
 | `ImageNotOnProductException` | `SetVariationImages` | the variation, the offending image ids |
+| `AttributeValueNotOnProductException` | `SetVariationAttributeValues` | the variation, the offending attribute-value ids |
+| `DuplicateVariationAttributeException` | `SetVariationAttributeValues` | the variation, the attribute given two values |
+| `DuplicateVariationCombinationException` | `SetVariationAttributeValues` | the variation, the sibling variation already holding the same combination |
+| `AttributeNotAllowedForCategoryException` | `CreateProduct`, `UpdateProduct`, `SetProductAttributeValues` | the product, the offending attribute ids |
+| `AttributeValueIsAVariationAxisException` | `SetProductAttributeValues` | the product, the clashing attribute |
+| `CategoryCycleException` | `UpdateProductCategory` | the category, the proposed parent |
 | `InvalidCartQuantityException` | `AddToCart`, `UpdateCartItemQuantity` | the product, the quantity that was refused |
 | `CouponNotApplicableException` | `ApplyCoupon`, `RedeemCoupon`, `CreateOrder` | the coupon (nullable — `noLongerExists()` has none to carry); seven named constructors, one per refusal reason |
 | `EmptyCartException` | `CreateOrder` | the cart |
@@ -504,7 +567,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Thirteen of the fourteen extend `RuntimeException`. `InvalidCartQuantityException`
+Twenty of the twenty-one listed extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -530,6 +593,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `CreateProduct`, `UpdateProduct` | `CreateProduct` / `EditProduct` pages, tests |
 | `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
+| `SetVariationAttributeValues` | composed by `AddProductVariation`; also called directly by `ProductVariationsRelationManager`'s edit action, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
 | `AddToCart`, `UpdateCartItemQuantity`, `MergeGuestCart`, `RemoveFromCart` | tests only |
 | `ExpireCarts` | `carts:expire` console command (`routes/console.php`, scheduled daily), tests |
@@ -539,7 +603,10 @@ covers both, plus that a non-domain exception of either base class and a
 | `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
 | `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
+| `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
 | `DeleteProductCategory` | `EditProductCategory` header action, tests |
+| `UpdateProductCategory` | `EditProductCategory`, tests |
+| `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
 

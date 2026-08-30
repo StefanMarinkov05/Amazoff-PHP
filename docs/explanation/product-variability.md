@@ -39,7 +39,56 @@ line is data entry, not a migration.
 The cost is that no database constraint can say "every variation of this
 product must specify exactly one value for every attribute the product uses".
 That is an application invariant, in the same class ADR-0005 records for the
-other rules the schema cannot express.
+other rules the schema cannot express — enforced today by
+`App\Actions\Catalogue\SetVariationAttributeValues`, but only the "at most
+one value per attribute, and no two variations identical" half.
+Completeness — every declared axis actually filled on every variation — is
+not enforced anywhere: a perfume with Scent and Volume as its axes can have
+a variation carrying only a Scent, and nothing refuses it.
+`reference/write-rules/product-variation-attribute-values.md` is the
+outcomes page.
+
+## Two pivots over one vocabulary: axis versus description
+
+`attribute_values` is used twice, by two pivots answering two different
+questions:
+
+| | `attribute_value_product_variation` | `attribute_value_product` |
+|---|---|---|
+| Question | what makes this one *different* | what is this *made of* |
+| Customer picks between them | yes | no |
+| Forks the SKU | yes | no |
+| Several values of one attribute | never | normal |
+| Owned by | `SetVariationAttributeValues` | `SetProductAttributeValues` |
+
+The second was added because the first cannot express a blend. "50% cotton,
+50% polyester", a perfume's four base notes, and a multicoloured print are
+single facts about one sellable thing — but two values on one axis makes
+"which variation is Material=cotton?" ambiguous and breaks the combination
+uniqueness the grid depends on. Modelling a blend as two variations would
+invent two SKUs that do not exist and two stock ledgers nobody can count.
+
+The dividing question is **does the customer choose between them**. A
+multicoloured jacket is one variation whose colourway is named "Floral
+Print" — an axis value the customer picks — with the constituent colours
+descriptive. A perfume with two distinct blends is two variations of a
+**Scent** axis whose values are blend names ("Warm Amber", "Rose Musk"),
+with the note breakdown descriptive underneath.
+
+An attribute must not be both for one product: a shirt that varies by
+Colour cannot also assert one product-wide Colour, or a filter reading both
+pivots would return it for a colour no variation has.
+`AttributeValueIsAVariationAxisException` enforces that.
+
+**Why not `product_specifications` for the descriptive half.** It exists,
+it is free-text `name`/`value`, and it is the right home for prose a
+customer reads but nobody filters on. It cannot back a filter: nothing
+constrains its `value`, so "Cotton", "cotton", and "100% Cotton" are three
+values no query can group. A controlled vocabulary is the whole reason the
+second pivot is a pivot, and `attributes.is_filterable` — a flag that had
+sat unread since the schema was generated — is what gates it.
+
+`reference/write-rules/product-attribute-values.md` has the outcomes.
 
 ## Why images are shared and the gallery is a set
 

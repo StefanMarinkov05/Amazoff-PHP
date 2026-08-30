@@ -51,12 +51,13 @@ in agreement: if a rule here changes, change it there too.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
   writes, who can call it, what it throws; `write-rules/` (`product.md`,
-  `product-variation-images.md`, `product-category.md`, `cart.md`,
-  `coupon.md`, `concurrency.md`) is the expected-behaviour page
-  per aggregate — refusals, races, what a change does to state that
-  already exists; `console-commands.md` lists every custom Artisan command
-  and what invokes it; `permissions.md`, `coverage.md`, and `tech-stack.md`
-  are the rest.
+  `product-variation-images.md`, `product-variation-attribute-values.md`,
+  `product-attribute-values.md`, `product-category.md`, `cart.md`,
+  `coupon.md`, `concurrency.md`) is the
+  expected-behaviour page per aggregate — refusals, races, what a change
+  does to state that already exists; `console-commands.md` lists every
+  custom Artisan command and what invokes it; `permissions.md`,
+  `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and

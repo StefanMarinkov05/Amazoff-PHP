@@ -1617,3 +1617,121 @@ executes against rows to order.
 default to `->defaultKeySort(false)` and supply its own `orderBy`/
 `orderByDesc` explicitly — do not rely on Filament's implicit key sort to
 break the tie for an aggregate row that has no single natural primary key.
+
+## A Filament field saves as `null` no matter what is typed into it, and editing an unrelated field erases it
+
+**Symptom.** A product's weight and all three dimensions are `null` in the
+database however carefully they are typed into the admin panel. Worse: a
+product that *did* have a weight (from a seeder or a fixture) loses it the
+first time anyone opens its edit page and saves — even after changing only
+the name. Nothing errors, no validation message appears, and the form looks
+correct on screen the whole time.
+
+**Cause.** `ProductForm`'s measurement inputs are named `weight_input`,
+`length_input`, `width_input`, `height_input` — deliberately not the
+canonical `weight_g`/`*_mm` columns, because the admin types in whatever
+unit suits and `App\Filament\Concerns\ConvertsMeasurementInput` converts.
+They carried `->dehydrated(false)`, whose stated intent was "these are not
+columns, so they must never reach the model."
+
+`dehydrated(false)` does not mean that. It excludes the field from the
+form's submitted state *entirely* — so the value never reached
+`handleRecordCreation()`/`handleRecordUpdate()` at all, and the trait that
+exists solely to read those keys found nothing. `convertMeasurements()`
+then correctly interpreted "absent" as "unspecified" and wrote `null`,
+which is right for a blank field and catastrophic for a field whose value
+was stripped in transit.
+
+The trait already `unset()`s the four `*_input` keys itself before handing
+the array to Eloquent. `dehydrated(false)` was therefore both redundant
+(the trait already prevented the non-column reaching the model) and fatal
+(it prevented the value reaching the trait).
+
+**Fix.** Drop `->dehydrated(false)` from the `*_input` fields — the trait's
+own `unset()` is what keeps them off the model. Separately, hydrate them on
+edit: they are not columns, so Filament's default record-attribute fill
+cannot reach them, and a blank field on open is what turned a save into an
+erase. `ConvertsMeasurementInput::hydrateMeasurementInput()` is the inverse
+of `convertMeasurements()` and is called from
+`EditProduct::mutateFormDataBeforeFill()` and the variations relation
+manager's `EditAction::fillForm()`.
+
+**Why it recurs.** Nothing catches it. Pint, Larastan, and every existing
+test passed for the entire life of the bug: the form definition reads
+correctly, the trait is well-formed and unit-testable in isolation, and no
+test asserted the round trip through a real Filament page. The two halves
+were individually right and never connected. It also hides behind its own
+symmetry — create silently dropping a value and edit silently erasing one
+look like two unrelated bugs, so neither points at the single shared cause.
+
+**Prevention.** `dehydrated(false)` means "do not submit this field," not
+"do not persist this column." Reach for it only for genuinely display-only
+fields that no server-side code reads. When a form field feeds a
+transformation before hitting the model, it must stay dehydrated (the
+default) and the transformer is responsible for removing it — and any such
+field must be hydrated back on edit, or every save silently overwrites with
+the blank. Assert the round trip against a real page (`Livewire::test(
+EditPage::class)` → `fillForm` one unrelated field → `call('save')` →
+expect the untouched columns unchanged), not the form definition.
+
+## A test that overrides one factory field intermittently fails, though the code it tests is correct
+
+**Symptom.** A test that pins `discount_price` (or another field a factory
+computes *from* a sibling field) fails roughly one run in five to ten, with
+either a wrong value asserted or a `QueryException` on a `CHECK` constraint
+the test never appeared to touch. Re-running it usually passes. The failure
+looks like it is testing something real — a resolver picking the wrong
+variation, a discount not applying — and the code under test is, in fact,
+correct.
+
+**Cause.** `ProductFactory` and `ProductVariationFactory` both compute two or
+three related fields from one internal random draw — a random base price,
+then a discount derived as a fraction of *that same* price, then (on
+`ProductFactory`) a window (`discount_starts_at`/`discount_ends_at`) derived
+from a *different* random draw, independent of whether a discount exists at
+all. Overriding **one** of a related group in a `->create([...])` call does
+not touch the others: they were already computed inside `definition()`
+before Laravel merges the override in.
+
+Two distinct failure shapes came from this, both traced live rather than
+assumed from reading the factories:
+
+- Overriding `discount_price => null` on a `Product` leaves
+  `discount_starts_at`/`discount_ends_at` at whatever random dates the
+  factory drew independently (`fake()->boolean(30)` decides whether a window
+  exists at all, `fake()->dateTimeBetween('-2 months', '+1 month')` decides
+  where). A variation-level discount is still gated by the *product's*
+  window per §11 (`ResolveVariationPrice`/`ResolveProductPrice::windowActive()`),
+  so roughly 30% of runs draw a real window, and among those, some fraction
+  land on a window that is closed right now — silently suppressing a
+  discount the test explicitly set at the variation level.
+- Overriding `price` on a `ProductVariation` without also pinning
+  `discount_price` leaves the factory's own `discount_price` computed
+  against its *internal*, still-random `$price` variable — which can now
+  exceed the overridden price, tripping
+  `chk_product_variations_discount_below_price` as an uncaught
+  `QueryException` at insert time, before the test's own assertions ever run.
+
+**Fix.** Whenever a test overrides `discount_price`, `price`, or
+`regular_price` on a `Product` or `ProductVariation` factory call, override
+every field the factory derives from the same random draw in the same call —
+`discount_starts_at`/`discount_ends_at` alongside `discount_price` on a
+product, and `discount_price` alongside `price` on a variation, even when
+the intent is "no discount" (pin it to `null` explicitly rather than leaving
+it to the factory).
+
+**Why it recurs.** The failure rate is low enough (roughly one run in five to
+ten per affected assertion) that a single local run, or a single CI run,
+usually passes — which is exactly the shape that lets a flaky test merge
+looking green and then fail unpredictably later, on an unrelated PR, for a
+reason nobody touched. `ProductListPriceAndRatingFilterTest.php`'s own
+existing comment already named the `discount_price`-alone half of this for
+`regular_price` filtering; it did not extend to the window dates because
+that test's own assertions never depended on a discount being active.
+
+**Prevention.** Before trusting a new test that touches money or a discount
+window, run it standalone at least ten times in a loop, not once — a test
+that has been observed failing zero times is not evidence it cannot. Prefer
+pinning every field in a factory's own randomised group explicitly over
+trusting that overriding one is enough; when in doubt, read the factory's
+`definition()` for what else is derived from the field being overridden.
