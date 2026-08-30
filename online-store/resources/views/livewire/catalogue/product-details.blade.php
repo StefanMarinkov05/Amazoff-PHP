@@ -369,6 +369,47 @@
                     </div>
                 @endif
 
+                {{-- ── Product details ────────────────────────────────────
+                     Descriptive attribute values (attribute_value_product):
+                     facts true of every variation, grouped by attribute.
+                     Rendered as links into the catalogue filter rather than
+                     plain text — being a controlled vocabulary rather than
+                     free-text prose is the whole reason this pivot exists,
+                     and a value the customer cannot act on wastes that.
+                --}}
+                @php($productDetails = $this->product->descriptiveAttributeValues->groupBy(fn ($v) => $v->attribute->name))
+                @if ($productDetails->isNotEmpty())
+                    <div class="mt-8 border-t border-ink-200 pt-6">
+                        <h2 class="text-sm font-semibold text-ink-900">Product details</h2>
+                        <dl class="mt-3 space-y-3">
+                            @foreach ($productDetails as $attributeName => $values)
+                                <div wire:key="detail-{{ Str::slug($attributeName) }}" class="text-sm">
+                                    <dt class="text-ink-500">{{ $attributeName }}</dt>
+                                    <dd class="mt-1.5 flex flex-wrap gap-1.5">
+                                        @foreach ($values as $value)
+                                            <a
+                                                {{-- The /catalogue route is unnamed (routes/web.php), so
+                                                     a literal path rather than route() — the same thing
+                                                     the redirects there already do. --}}
+                                                href="{{ '/catalogue?'.http_build_query(array_filter([
+                                                    'category' => $this->product->productCategory?->slug,
+                                                    'attributeValueIds' => [$value->id],
+                                                ])) }}"
+                                                class="inline-flex items-center rounded-full border border-ink-200 bg-white
+                                                       px-2.5 py-1 text-xs font-medium text-ink-700 transition-colors
+                                                       duration-200 hover:border-marine-600/50 hover:bg-marine-50
+                                                       hover:text-marine-900"
+                                            >
+                                                {{ $value->value }}
+                                            </a>
+                                        @endforeach
+                                    </dd>
+                                </div>
+                            @endforeach
+                        </dl>
+                    </div>
+                @endif
+
                 {{-- ── Specifications ─────────────────────────────────── --}}
                 @if ($this->product->productSpecifications->isNotEmpty())
                     <div class="mt-8 border-t border-ink-200 pt-6">

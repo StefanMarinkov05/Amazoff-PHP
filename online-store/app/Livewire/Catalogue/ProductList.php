@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Livewire\Catalogue;
 
+use App\Models\Attribute;
+use App\Models\AttributeValue;
 use App\Models\Brand;
 use App\Models\Inventory;
 use App\Models\Product;
@@ -11,14 +13,18 @@ use App\Models\ProductCategory;
 use App\Models\ProductVariation;
 use App\Models\User;
 use App\Support\ProductPrice;
+use App\Support\ResolveAllowedAttributes;
+use App\Support\ResolveCardVariation;
 use App\Support\ResolveCategoryFamily;
 use App\Support\ResolveProductPrice;
+use App\Support\ResolveVariationPrice;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
@@ -107,14 +113,71 @@ class ProductList extends Component
     #[Url]
     public mixed $minRating = null;
 
+    /**
+     * Descriptive attribute values to filter by — "cotton", "vanilla" — the
+     * `attribute_value_product` pivot rather than the variation grid. A
+     * product matches when it carries **every** selected value, not any:
+     * picking Cotton and Organic means both, which is what a shopper
+     * narrowing a list expects.
+     *
+     * `mixed` and sanitised in `updatedAttributeValueIds()`, for the same
+     * reason `$minRating` and `$minPrice` are: `#[Url]` hydration assigns
+     * the raw request value before any validation runs, so a strictly typed
+     * property throws on anything it cannot represent. The list is
+     * additionally intersected against real, filterable ids in
+     * `applyFilters()` — an unknown id narrows nothing rather than erroring.
+     */
+    #[Url]
+    public mixed $attributeValueIds = [];
+
     #[Url]
     public string $sortBy = 'created_at';
 
     #[Url]
     public string $sortDir = 'desc';
 
+    /**
+     * Per-attribute staging for the facet `<select multiple>` elements —
+     * attribute id (string: Livewire/Alpine array keys are always strings)
+     * => the values checked in that one dropdown. Not `#[Url]`-bound itself
+     * and not read by `applyFilters()`; `$attributeValueIds` stays the
+     * single source of truth the query, the chips, and the URL all read.
+     *
+     * This exists because Livewire has no way to bind several independent
+     * `<select multiple>` elements to one shared flat array — each would
+     * overwrite the others' picks on its own change event, since a
+     * `wire:model` binding fully owns the property it targets rather than
+     * merging into it. One dropdown per attribute, each targeting its own
+     * key here, sidesteps that; `updated()` below folds every change back
+     * into `$attributeValueIds`.
+     *
+     * @var array<string, list<int>>
+     */
+    public array $facetSelections = [];
+
+    /**
+     * Seeds {@see $facetSelections} from `$attributeValueIds` so a shared
+     * link or a browser back/forward restores each dropdown's own
+     * selection, not just the flat list the query reads.
+     */
+    public function mount(): void
+    {
+        $this->facetSelections = collect($this->filterableAttributeValueIdsByAttribute())
+            ->mapWithKeys(fn (array $ids, int|string $attributeId): array => [(string) $attributeId => $ids])
+            ->all();
+    }
+
     public function updated(string $property): void
     {
+        // A facet dropdown's own change lands as "facetSelections.5", never
+        // as the bare property name — Livewire's dot-path for a nested
+        // array key. Re-flattening on every such change, rather than
+        // merging just the one key, keeps this correct even if a stale
+        // selection referenced an attribute no longer in $facetSelections.
+        if (str_starts_with($property, 'facetSelections.')) {
+            $this->attributeValueIds = collect($this->facetSelections)->flatten()->all();
+        }
+
         if ($property !== 'page') {
             $this->resetPage();
         }
@@ -146,12 +209,13 @@ class ProductList extends Component
     /** @var list<string> */
     private const FILTER_KEYS = [
         'search', 'categorySlug', 'brandId', 'inStockOnly', 'onSaleOnly',
-        'minPrice', 'maxPrice', 'minRating',
+        'minPrice', 'maxPrice', 'minRating', 'attributeValueIds',
     ];
 
     public function clearFilters(): void
     {
         $this->reset(self::FILTER_KEYS);
+        $this->facetSelections = [];
         $this->resetPage();
     }
 
@@ -167,8 +231,38 @@ class ProductList extends Component
             return;
         }
 
+        // `attributeValue:N` drops one value from the set rather than
+        // clearing all of them — within one attribute the values are now
+        // OR-ed, so dismissing one chip narrows the OR group by one option
+        // rather than clearing every attribute at once.
+        if (str_starts_with($filter, 'attributeValue:')) {
+            $target = (int) substr($filter, strlen('attributeValue:'));
+
+            $this->attributeValueIds = collect((array) $this->attributeValueIds)
+                ->map(fn (mixed $id): int => (int) $id)
+                ->reject(fn (int $id): bool => $id === $target)
+                ->values()
+                ->all();
+
+            // Keeps each facet dropdown's own displayed selection in sync
+            // with the chip that was just dismissed — otherwise the select
+            // would still show the option checked after its chip vanished.
+            $this->facetSelections = collect($this->facetSelections)
+                ->map(fn (array $ids): array => array_values(array_diff($ids, [$target])))
+                ->all();
+
+            $this->resetPage();
+
+            return;
+        }
+
         if (in_array($filter, self::FILTER_KEYS, true)) {
             $this->reset($filter);
+
+            if ($filter === 'attributeValueIds') {
+                $this->facetSelections = [];
+            }
+
             $this->resetPage();
         }
     }
@@ -229,6 +323,26 @@ class ProductList extends Component
     }
 
     /**
+     * Normalises `?attributeValueIds[]=` to a clean `list<int>`.
+     *
+     * Only the shape is fixed here; whether an id exists, is filterable, or
+     * is descriptive rather than a variation axis is settled in
+     * `applyFilters()` against the database, since that is the only place
+     * that knows. A checkbox group posts strings, and a crafted request can
+     * post anything at all — including a nested array, which `(int)` would
+     * otherwise turn into a warning rather than a value.
+     */
+    public function updatedAttributeValueIds(): void
+    {
+        $this->attributeValueIds = collect((array) $this->attributeValueIds)
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Categories with a live count, computed against every filter *except*
      * the category itself — picking one should never make the others read
      * zero. Research consensus: a facet whose count is stale is worse than
@@ -283,6 +397,176 @@ class ProductList extends Component
         return ResolveCategoryFamily::orderedTreeWithDepth($withCounts);
     }
 
+    /**
+     * The selected category, or null when none is picked or the slug
+     * matches nothing — a stale bookmark, a hand-edited URL, a deleted
+     * category. Null is a legitimate state, not an error, and every caller
+     * treats it as "no category filter" rather than a 404.
+     *
+     * `#[Computed]` so the three callers that need it (the facet list, the
+     * filter chip, `applyFilters()`) share one lookup per request instead
+     * of issuing the same `where('slug', ...)` three times.
+     */
+    #[Computed]
+    public function selectedCategory(): ?ProductCategory
+    {
+        if ($this->categorySlug === null) {
+            return null;
+        }
+
+        return ProductCategory::query()->where('slug', $this->categorySlug)->first();
+    }
+
+    /**
+     * The selected ids, narrowed to values that actually exist, belong to a
+     * `is_filterable` attribute, and are used descriptively by at least one
+     * product. The URL is attacker-controlled, so nothing here trusts it —
+     * ADR-0014's allow-list rule, resolved against the database because that
+     * is the only place the answer lives.
+     *
+     * @return list<int>
+     */
+    private function filterableAttributeValueIds(): array
+    {
+        return $this->filterableAttributeValueIdsByAttribute()
+            ->flatten()
+            ->all();
+    }
+
+    /**
+     * The same allow-listed ids as {@see filterableAttributeValueIds()}, kept
+     * grouped by their own attribute — the shape the query actually needs.
+     *
+     * Reported live: picking Black and White both selected returned zero
+     * products, because every value was AND-ed against every other
+     * regardless of attribute. Two values of the *same* attribute can never
+     * both be true of one variation — "Black AND White" is not a real
+     * combination, it is "either colour", the ordinary meaning of checking
+     * two boxes in one facet group. AND still applies *across* attributes:
+     * Colour=Black AND Material=Cotton narrows, because those can coexist.
+     *
+     * @return SupportCollection<int|string, array<int>>
+     */
+    private function filterableAttributeValueIdsByAttribute(): SupportCollection
+    {
+        $selected = array_map(intval(...), (array) $this->attributeValueIds);
+
+        if ($selected === []) {
+            return collect();
+        }
+
+        return AttributeValue::query()
+            ->whereIn('id', $selected)
+            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
+            ->get(['id', 'attribute_id'])
+            ->groupBy('attribute_id')
+            ->map(fn (Collection $group): array => $group->pluck('id')->map(fn (mixed $id): int => (int) $id)->all());
+    }
+
+    /**
+     * The descriptive-value facets worth offering, grouped by attribute
+     * name, each with a live count computed against every *other* filter —
+     * the same "never show a facet that promises nothing" rule
+     * `categories()` follows, and for the same reason.
+     *
+     * Only `is_filterable` attributes, and only values at least one visible
+     * product actually carries: a facet with no products behind it is noise
+     * on a page whose whole job is narrowing.
+     *
+     * @return SupportCollection<string, SupportCollection<int, AttributeValue>>
+     */
+    #[Computed]
+    public function attributeFacets(): SupportCollection
+    {
+        // No category picked: only the generic filters (brand, price,
+        // rating, stock, sale) apply. Colour and Size mean nothing across a
+        // catalogue that also holds power tools and moisturiser, and a
+        // sidebar offering every attribute in the shop at once is the flat
+        // dump this whole feature exists to avoid.
+        $category = $this->selectedCategory();
+
+        if ($category === null) {
+            return collect();
+        }
+
+        // Scoped to what this category allows — its own allow-list plus
+        // every ancestor's, so picking "Clothing" offers Colour, Size and
+        // Material, and picking "Clothing > Men > Tops" still does without
+        // the attributes being re-scoped at every depth. Same resolution the
+        // admin's own "Variation axes" picker uses.
+        $allowedAttributeIds = ResolveAllowedAttributes::forCategory($category);
+
+        // A value counts as "offered" if some visible product carries it
+        // either way — descriptively, or as a variation axis on one of the
+        // product's own variations. Colour and Size only ever reach here
+        // through the second path, since is_variation_only forbids the
+        // first; Material can reach through either, in principle.
+        $matchesEitherPivot = function (Builder $value) {
+            $value->where(fn (Builder $q) => $q
+                ->whereHas(
+                    'products',
+                    // @phpstan-ignore argument.type
+                    fn (Builder $product) => $this->applyFilters($product, skip: 'attributeValueIds'),
+                )
+                ->orWhereHas(
+                    'productVariations.product',
+                    // @phpstan-ignore argument.type
+                    fn (Builder $product) => $this->applyFilters($product, skip: 'attributeValueIds'),
+                ));
+        };
+
+        /** @var Collection<int, AttributeValue> $values */
+        $values = AttributeValue::query()
+            ->whereIn('attribute_id', $allowedAttributeIds)
+            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
+            ->where($matchesEitherPivot)
+            ->with('attribute')
+            ->get()
+            // withCount() cannot express "count distinct products reached
+            // through either of two separate relations" in one aggregate
+            // without a raw subquery per value; counting per value with a
+            // plain query keeps the SQL readable at the cost of one extra
+            // query per offered value; the values shown are always a small,
+            // AttributeValue::query()-bounded set (attribute_values.parent).
+            ->each(function (AttributeValue $value): void {
+                $value->setAttribute('products_count', Product::query()
+                    ->where(fn (Builder $q) => $q
+                        ->whereHas('descriptiveAttributeValues', fn (Builder $v) => $v->whereKey($value->id))
+                        ->orWhereHas(
+                            'productVariations',
+                            fn (Builder $variation) => $variation->whereHas(
+                                'attributeValues',
+                                fn (Builder $v) => $v->whereKey($value->id),
+                            ),
+                        ))
+                    ->tap(fn (Builder $q) => $this->applyFilters($q, skip: 'attributeValueIds'))
+                    ->count());
+            });
+
+        // Keyed by attribute name for the sidebar's own grouping. Resolved
+        // through a local rather than inline `$value->attribute->name`,
+        // which Larastan reads as Model::$name on the BelongsTo's generic.
+        $nameOf = static function (AttributeValue $value): string {
+            /** @var Attribute $attribute */
+            $attribute = $value->attribute;
+
+            return $attribute->name;
+        };
+
+        // ->toBase() on each group: Eloquent's own Collection is typed to
+        // hold Models, so a Collection *of Collections* is not expressible
+        // as one — the outer and inner both become plain Support
+        // Collections, which is all the view needs.
+        return $values
+            ->sortBy([
+                fn (AttributeValue $value): string => $nameOf($value),
+                fn (AttributeValue $value): int => (int) $value->sort_order,
+            ])
+            ->groupBy($nameOf)
+            ->toBase()
+            ->map(fn (Collection $group): SupportCollection => $group->toBase());
+    }
+
     /** @return Collection<int, Brand> */
     #[Computed]
     public function brands(): Collection
@@ -308,11 +592,10 @@ class ProductList extends Component
             $chips[] = ['key' => 'search', 'label' => '“'.$this->search.'”'];
         }
 
-        if ($this->categorySlug !== null) {
-            $name = ProductCategory::query()->where('slug', $this->categorySlug)->value('name');
-            if ($name !== null) {
-                $chips[] = ['key' => 'categorySlug', 'label' => $name];
-            }
+        $category = $this->selectedCategory();
+
+        if ($category !== null) {
+            $chips[] = ['key' => 'categorySlug', 'label' => $category->name];
         }
 
         if ($this->brandId !== null) {
@@ -338,7 +621,38 @@ class ProductList extends Component
             $chips[] = ['key' => 'minRating', 'label' => $this->minRating.'★ & up'];
         }
 
+        // One chip per selected value rather than one for the whole set:
+        // they are AND-ed, so dismissing them individually is how a shopper
+        // widens a search by one step. Keyed `attributeValue:N` so
+        // clearFilter() can tell which to drop — the only chip key that
+        // carries a payload, since every other filter is a single value.
+        foreach ($this->selectedAttributeValues() as $value) {
+            $chips[] = [
+                'key' => 'attributeValue:'.$value->getKey(),
+                'label' => $value->value,
+            ];
+        }
+
         return $chips;
+    }
+
+    /**
+     * The selected values as models, in the order the sidebar lists them,
+     * for the chips. Resolved through `filterableAttributeValueIds()` so a
+     * forged or stale id never produces a chip for a filter that is not
+     * actually applied.
+     *
+     * @return Collection<int, AttributeValue>
+     */
+    private function selectedAttributeValues(): Collection
+    {
+        $ids = $this->filterableAttributeValueIds();
+
+        if ($ids === []) {
+            return new Collection;
+        }
+
+        return AttributeValue::query()->whereIn('id', $ids)->orderBy('sort_order')->get();
     }
 
     private function priceRangeLabel(): string
@@ -358,9 +672,25 @@ class ProductList extends Component
      * `ResolveVariationPrice`, so a card cannot advertise a sale the cart
      * then refuses to honour. ADR-0014.
      */
+    /**
+     * The price a card shows — the represented variation's own price if the
+     * product has one buyable, the product's own price otherwise (no
+     * variation is buyable, or none exists at all — see
+     * `ResolveCardVariation`).
+     *
+     * Was unconditionally `ResolveProductPrice::current($product)`: the
+     * product's own `regular_price`/`discount_price`, regardless of which
+     * variation the card actually represented. Reported live: a variation
+     * override on a discounted sibling never reached the card, and the
+     * badge could show a saving no buyable variation actually carried.
+     */
     public function price(Product $product): ProductPrice
     {
-        return ResolveProductPrice::current($product);
+        $variation = ResolveCardVariation::current($product);
+
+        return $variation === null
+            ? ResolveProductPrice::current($product)
+            : ResolveVariationPrice::detailed($variation);
     }
 
     /**
@@ -464,12 +794,12 @@ class ProductList extends Component
                 ->orWhere('short_description', 'like', '%'.$this->search.'%'));
         }
 
-        if ($skip !== 'categorySlug' && $this->categorySlug !== null) {
+        if ($skip !== 'categorySlug') {
             // A slug that matches nothing (stale bookmark, hand-edited URL,
             // deleted category) falls through silently rather than erroring
             // — same behaviour the old id-based lookup already had for an
             // id that did not exist, kept rather than introduced.
-            $category = ProductCategory::query()->where('slug', $this->categorySlug)->first();
+            $category = $this->selectedCategory();
 
             if ($category !== null) {
                 $query->whereIn('product_category_id', ResolveCategoryFamily::selfAndDescendantIds($category));
@@ -478,6 +808,44 @@ class ProductList extends Component
 
         if ($skip !== 'brandId' && $this->brandId !== null) {
             $query->where('brand_id', $this->brandId);
+        }
+
+        if ($skip !== 'attributeValueIds') {
+            // OR *within* one attribute's checked values, AND *across*
+            // attributes. Checking Black and White both means "either
+            // colour" — the ordinary meaning of two boxes in one facet
+            // group — not "both at once", which no single variation can
+            // ever be. Colour=Black AND Material=Cotton still narrows,
+            // because those two facts can coexist on one product. Reported
+            // live: checking two values of one attribute returned zero
+            // results before this grouping existed.
+            //
+            // Each value can be satisfied by either pivot: descriptively on
+            // the product itself ("what is this made of"), or as a variation
+            // axis on any of the product's own live variations ("what makes
+            // this one different") — a Colour or Size value is only ever the
+            // second kind, since is_variation_only forbids the first. A
+            // customer filtering "Blue" does not care which table answers
+            // it, only that some buyable form of this product is blue.
+            //
+            // The ids are re-checked against real, filterable values here
+            // rather than trusted from the URL. A forged or stale id simply
+            // is not in the set and narrows nothing, which is the same
+            // silent fall-through categorySlug takes above.
+            foreach ($this->filterableAttributeValueIdsByAttribute() as $valueIds) {
+                $query->where(fn (Builder $q) => $q
+                    ->whereHas(
+                        'descriptiveAttributeValues',
+                        fn (Builder $value) => $value->whereIn('attribute_values.id', $valueIds),
+                    )
+                    ->orWhereHas(
+                        'productVariations',
+                        fn (Builder $variation) => $variation->whereHas(
+                            'attributeValues',
+                            fn (Builder $value) => $value->whereIn('attribute_values.id', $valueIds),
+                        ),
+                    ));
+            }
         }
 
         if ($this->inStockOnly) {

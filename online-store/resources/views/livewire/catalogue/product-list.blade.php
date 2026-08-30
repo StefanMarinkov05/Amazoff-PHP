@@ -112,9 +112,18 @@
                                 class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
                                        transition-colors duration-200 hover:border-ink-300
                                        focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10">
-                            <option value="">All categories</option>
+                            {{-- Explicit `selected`, not left to Livewire's client-side
+                                 morph alone: wire:model.live sets the DOM value after
+                                 its JS attaches, but the server-rendered HTML — what
+                                 paints first, and what a full page load or a
+                                 back/forward navigation restores — had no `selected` on
+                                 any <option>, so the control always showed "All
+                                 categories" first regardless of $categorySlug. The chip
+                                 and the filtered results were correct throughout; only
+                                 the dropdown's own display lagged. --}}
+                            <option value="" @selected($this->categorySlug === null)>All categories</option>
                             @foreach ($this->categories as $category)
-                                <option value="{{ $category->slug }}">
+                                <option value="{{ $category->slug }}" @selected($this->categorySlug === $category->slug)>
                                     {{ str_repeat('— ', $category->depth) }}{{ $category->name }} ({{ $category->products_count }})
                                 </option>
                             @endforeach
@@ -198,6 +207,49 @@
                             @endforeach
                         </div>
                     </fieldset>
+
+                    {{-- Category-specific facets. Empty until a category is
+                         picked, and then scoped to what that category (or an
+                         ancestor of it) allows — Colour and Size mean nothing
+                         across a catalogue that also holds power tools.
+                         ProductList::attributeFacets(). --}}
+                    {{-- One <select multiple> per attribute, bound to its own
+                         facetSelections key rather than all sharing
+                         attributeValueIds directly — Livewire has no way to
+                         bind several independent multi-selects to one flat
+                         array without each overwriting the others' picks on
+                         change. Values checked within one dropdown are OR-ed
+                         ("Black or White"); dropdowns AND against each other
+                         ("that colour, and Cotton"). ProductList::updated()
+                         folds every change back into attributeValueIds, the
+                         single list the query and the chips actually read. --}}
+                    @foreach ($this->attributeFacets as $attributeName => $values)
+                        @php($attributeId = (string) $values->first()->attribute_id)
+                        <div wire:key="facet-{{ Str::slug($attributeName) }}">
+                            <label for="facet-{{ $attributeId }}"
+                                   class="block text-[0.7rem] font-semibold uppercase tracking-wider text-ink-500">
+                                {{ $attributeName }}
+                            </label>
+                            <select
+                                id="facet-{{ $attributeId }}"
+                                multiple
+                                wire:model.live="facetSelections.{{ $attributeId }}"
+                                class="mt-2 w-full rounded-control border border-ink-200 bg-white px-3 py-2 text-sm
+                                       transition-colors duration-200 hover:border-ink-300
+                                       focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/10"
+                                size="{{ min($values->count(), 5) }}"
+                            >
+                                @foreach ($values as $value)
+                                    <option
+                                        value="{{ $value->id }}"
+                                        @selected(in_array($value->id, $facetSelections[$attributeId] ?? [], true))
+                                    >
+                                        {{ $value->value }} ({{ $value->products_count }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endforeach
                 </div>
             </form>
 
