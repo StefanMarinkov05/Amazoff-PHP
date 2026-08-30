@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ProductCategories\Pages;
 
 use App\Actions\Catalogue\DeleteProductCategory;
+use App\Actions\Catalogue\UpdateProductCategory;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Filament\Resources\ProductCategories\ProductCategoryResource;
 use App\Models\ProductCategory;
@@ -39,6 +40,24 @@ class EditProductCategory extends EditRecord
                     'Category could not be deleted',
                 )),
         ];
+    }
+
+    /**
+     * Routed through UpdateProductCategory so a reparent that would make the
+     * tree cyclic is refused with a message rather than written. The form's
+     * own parent dropdown already excludes the illegal choices, but a hidden
+     * option is not enforcement — two tabs, or a hand-built request, reach
+     * this either way.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        /** @var ProductCategory $record */
+        return $this->reportingDomainFailures(
+            fn (): Model => app(UpdateProductCategory::class)->handle($record, $data, $this->actor()),
+            'Category could not be saved',
+        );
     }
 
     private function actor(): User
