@@ -95,6 +95,8 @@ jobs:
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
+              tests/Feature/Actions/Catalogue/SetProductAttributeValuesTest.php
+              tests/Feature/Actions/Catalogue/SetVariationAttributeValuesTest.php
               tests/Feature/Actions/Catalogue/SetVariationImagesTest.php
           - name: "4"
             paths: >-
@@ -182,6 +184,9 @@ jobs:
               tests/Concurrency/ReserveStockConcurrencyTest.php
               tests/Concurrency/RedeemCouponConcurrencyTest.php
               tests/Concurrency/TransitionOrderStatusConcurrencyTest.php
+              tests/Concurrency/SetVariationImagesConcurrencyTest.php
+              tests/Concurrency/CreateShipmentConcurrencyTest.php
+              tests/Concurrency/RecordPaymentConcurrencyTest.php
           - name: c
             paths: >-
               tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php
@@ -189,6 +194,8 @@ jobs:
               tests/Concurrency/PublishProductConcurrencyTest.php
               tests/Concurrency/CreateOrderConcurrencyTest.php
               tests/Concurrency/DeleteProductCategoryConcurrencyTest.php
+              tests/Concurrency/CreateProductReviewConcurrencyTest.php
+              tests/Concurrency/SetVariationAttributeValuesConcurrencyTest.php
 
     services:
       mysql:
