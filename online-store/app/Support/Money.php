@@ -148,6 +148,29 @@ final readonly class Money implements Stringable
         return $this->compareTo($other) === 0;
     }
 
+    /**
+     * The amount in minor units — cents for EUR — as an integer.
+     *
+     * Stripe's API takes an integer number of the currency's smallest unit
+     * and rejects a decimal, so this conversion has to happen somewhere. It
+     * happens here because CLAUDE.md routes every money operation through
+     * this class: at the call site it would be a `bcmul` with a hand-written
+     * scale, which is exactly the repetition this class replaced.
+     *
+     * Scale 0 on the multiply truncates rather than rounds, which is safe
+     * only because SCALE is 2 and the currency's minor unit is also 2 — the
+     * third decimal place cannot exist on an amount this class holds. A
+     * zero-decimal currency (JPY) or a three-decimal one (KWD) would both
+     * need the exponent to come from the currency rather than be assumed,
+     * and `App\Enums\Currency` is where that would live;
+     * `schema/open-schema-questions.md` #2 tracks it. Single-currency EUR
+     * today, so the assumption holds and is stated rather than hidden.
+     */
+    public function toMinorUnits(): int
+    {
+        return (int) bcmul($this->amount, '100', 0);
+    }
+
     public function isZero(): bool
     {
         return $this->compareTo(self::zero()) === 0;

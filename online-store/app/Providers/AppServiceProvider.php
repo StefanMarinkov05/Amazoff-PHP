@@ -9,7 +9,10 @@ use App\Policies\RolePolicy;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
+use Stripe\StripeClient;
+use Stripe\Util\ApiVersion;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
 class AppServiceProvider extends ServiceProvider
@@ -30,6 +33,64 @@ class AppServiceProvider extends ServiceProvider
             fn (HtmlSanitizerConfig $config): HtmlSanitizerConfig => $config
                 ->dropAttribute('style', '*'),
         );
+
+        /*
+         * Stripe's own SDK client, resolved from the container rather than
+         * newed up inside each Action.
+         *
+         * This is not the interface ADR-0001 refused. There is no
+         * App\Contracts\PaymentGateway and no second implementation to swap
+         * in — the bound class is Stripe's concrete StripeClient. What the
+         * binding buys is a seam for tests to swap a fake through
+         * `$this->app->instance()`, so a payment test does not reach the
+         * network. The courier is the case that earns a real interface; this
+         * is not.
+         *
+         * Singleton because StripeClient is stateless per-request and
+         * building one parses configuration.
+         */
+        $this->app->singleton(StripeClient::class, function (): StripeClient {
+            $secret = config('services.stripe.secret');
+
+            // An empty key produces an authentication failure from Stripe's
+            // API rather than anything locally diagnosable, so it is caught
+            // here where the cause is still visible.
+            if (! is_string($secret) || $secret === '') {
+                throw new RuntimeException(
+                    'STRIPE_SECRET is not set. See .env.example; the webhook and intent paths both need it.',
+                );
+            }
+
+            return new StripeClient([
+                'api_key' => $secret,
+                /*
+                 * Pinned rather than left to drift with whatever the SDK
+                 * ships as default. Stripe's go-live checklist names this
+                 * explicitly for server-side PHP: "set the API version in
+                 * the server-side library." Two reasons it matters here
+                 * specifically, not just as boilerplate:
+                 *
+                 * - HandleStripeWebhookEvent reads payload fields
+                 *   positionally (amount_received, amount_refunded,
+                 *   last_payment_error->message) with no version check of
+                 *   its own. A version bump — ours or an endpoint's — that
+                 *   renamed or restructured one of those would silently
+                 *   change what gets read, not error.
+                 * - A webhook endpoint's version is fixed at creation in the
+                 *   Stripe dashboard and cannot be changed after — moving
+                 *   requires a new endpoint. Pinning the SDK to match is
+                 *   what keeps "the version we coded against" and "the
+                 *   version Stripe sends" the same fact stated once.
+                 *
+                 * Value taken from the installed SDK's own ApiVersion::CURRENT
+                 * rather than hand-typed, so upgrading stripe/stripe-php is
+                 * what moves this forward — not a second place remembering
+                 * a version string that can drift from what is actually
+                 * installed.
+                 */
+                'stripe_version' => ApiVersion::CURRENT,
+            ]);
+        });
     }
 
     /**
