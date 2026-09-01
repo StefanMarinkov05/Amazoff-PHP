@@ -8,6 +8,122 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`ShipmentResource`, closing §37 criterion 15 ("a shipment can be created
+  from an order").** `CreateShipment` and `TransitionShipmentStatus` were
+  built and tested with no panel surface at all — `warehouse_employee` held
+  `create_shipment`/`update_shipment` and had nothing to reach either
+  through, the same shape the inventory gap had.
+
+  `admin/shipments` for the list, view, tracking history, and a **Change
+  status** menu generated from `ShipmentStatus`'s matrix. Creation is an
+  action on the *order's* page rather than a form here, because §28 refuses
+  a shipment for a cancelled, unpaid, or already-shipped order — a
+  standalone create form would invite picking an order `CreateShipment` then
+  refuses. Its refusals surface as notifications via `ReportsDomainFailures`
+  rather than 500s.
+
+- **`UserResource`, and a new `assignRole_user` ability.** `UserPolicy`'s
+  docblock had named this and deferred it: role assignment through a user
+  form would be gated by `update_user`, so anyone who could edit a user
+  could promote themselves to administrator. Splitting it out is what makes
+  that impossible rather than merely unlikely — the permission catalogue
+  goes from 106 to 107.
+
+  `admin/users` lists accounts and the roles they hold, with edit for
+  profile fields, `is_active`, and roles. No create page: an account exists
+  because someone registered (§7), and adding one here would mean a second
+  password surface to audit. No delete: removing an account orphans its
+  orders and §19 requires that history to survive — `is_active` is the
+  reversible path, and both `canAccessPanel()` and `EnsureAccountIsActive`
+  honour it on the next request.
+
+  **The `Gate::before` trap this surfaced.** The "you may not change your
+  own roles" half was first written into `UserPolicy::assignRole()` as
+  `&& $model->id !== $user->id` — dead code, because `Gate::before`
+  short-circuits every check for an administrator, the only role holding
+  `assignRole_user`. The test caught it; the rule now lives in
+  `EditUser::mutateFormDataBeforeSave()`, where `Gate::before` cannot reach.
+  This is the ADR-0006 consequence `tech-stack-overview.md` has always
+  described, hit in practice for the first time.
+  `permissions.md`'s "Where each check lives" now states the general form.
+
+  A second thing the tests caught: the first draft of the two denial cases
+  used `fillForm()->call('save')` and **passed with the server-side guard
+  deleted** — the form disables the roles field for exactly those actors, so
+  the submission never carried `roles` at all. They now call
+  `mutateFormDataBeforeSave` directly, which is the seam a crafted Livewire
+  payload actually reaches. A disabled control is not security.
+
+  Also fixed while building the form: `TextInput::tel()` on the phone field
+  rejected the seeded `+1-667-538-7880` via `telRegex()`'s default pattern.
+  The column is a plain `string(30)` and neither the storefront nor the
+  schema imposes a format, so the regex is cleared and length is the only
+  constraint asserted.
+
+- **Order status is now changeable from the panel, closing §37 criterion
+  16.** Everything underneath had been built and tested —
+  `TransitionOrderStatus` (the only writer of `orders.status`),
+  `OrderPolicy::updateStatus()`, ADR-0004's transition matrix, three
+  concurrency tests — and nothing in Filament called any of it. The one
+  button `ViewOrder` did carry was an `EditAction` pointing at a route
+  `OrderResource::getPages()` never registers, so it rendered and could not
+  resolve.
+
+  A **Change status** menu on both the table row and the view page,
+  generated from `OrderStatus::allowedTransitions()` rather than
+  hand-written, so the matrix stays the single place that rule lives and
+  widening the enum widens the menu. Same shape `ArticlesTable` already used
+  for `ArticleStatus` — one pattern for status menus in this panel, not two.
+
+  It differs from the article menu in one way that matters: authorization is
+  per *target* status, not one fixed ability for the whole group, because
+  `OrderPolicy::updateStatus()` routes by target. ADR-0011 makes cancelling
+  and refunding administrator moves distinct from a warehouse employee's
+  routine advance, so the same order shows the two roles different buttons.
+  A reason field on the modal feeds the §19 history row.
+
+  `tests/Feature/Filament/OrderStatusActionTest.php` — 6 cases, confirmed to
+  fail with the change reverted before being restored (5 failed on the
+  reverted `ViewOrder`; the 6th passed, because it exercises the table,
+  which was not reverted — the split is what proves each case targets what
+  it claims).
+
+- **New `InventoryResource` closes a permission-vs-panel-access gap for
+  `warehouse_employee`.** Audited what the Filament panel actually offers
+  against the permission catalogue and each of the three roles: the role
+  holds `update_inventory`, but the only existing UI for `AdjustStock` was
+  `ProductVariationsRelationManager`, nested under `ProductResource` and
+  gated by `viewAny_product` — a permission this role's scope (§3.4)
+  deliberately excludes ("Not products, not articles, not payments, not
+  users", `permissions.md`). Confirmed directly rather than assumed: a raw
+  authenticated request to the old path returned 403 for the role that
+  supposedly held the ability to adjust stock.
+
+  `admin/inventories` — index (searchable by product/SKU, sortable, with
+  low-stock/out-of-stock filters, same colour-coded available-stock badge
+  `ProductVariationsRelationManager` already used) and a view page with
+  `adjustStock`/`recordDamage` header actions, both calling the existing
+  `AdjustStock`/`RecordDamage` Actions rather than new ones — no new
+  business logic, only a second reachable surface for what already existed.
+  A `InventoryMovementsRelationManager` shows the ledger, same read-only
+  shape as `OrderStatusHistoriesRelationManager`. No create or edit page:
+  `InventoryPolicy`'s own docblock already states why — a row exists
+  because a variation exists, and stock changes through a recorded
+  movement, never a direct quantity write.
+
+  Verified against the running panel with real authenticated requests per
+  role (200 for `warehouse_employee` and `administrator`, 403 for
+  `content_editor`), not only by reading the policy.
+  `tests/Feature/Filament/InventoryResourceTest.php` — 6 cases, each
+  confirmed to fail without the resource in place before being restored.
+
+  Same audit found `shipment` in the identical shape — permission granted
+  to `warehouse_employee`, `CreateShipment`/`TransitionShipmentStatus` built
+  and tested, no Filament resource at all — and order status (§37 #16) still
+  has no panel action, `ViewOrder`'s `EditAction` pointing at a route
+  `OrderResource::getPages()` never registers. Neither addressed here;
+  `permissions.md`'s `shipment` row and `misc/todo.md`'s P1 have the detail.
+
 - **`Auth::logoutOtherDevices()` on the storefront now actually invalidates
   other sessions.** `ChangePassword` called it and its docblock stated the
   guarantee, but the call is inert unless
