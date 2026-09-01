@@ -338,15 +338,16 @@
                                 </div>
                             </dl>
 
-                            <button
-                                type="button"
-                                disabled
-                                class="mt-5 flex w-full items-center justify-center gap-2 bg-ink-300 px-5 py-3.5
-                                       text-sm font-semibold uppercase tracking-[0.1em] text-white"
+                            <a
+                                href="{{ route('checkout') }}"
+                                wire:navigate
+                                class="mt-5 flex w-full items-center justify-center gap-2 bg-ink-900 px-5 py-3.5
+                                       text-sm font-semibold uppercase tracking-[0.1em] text-white
+                                       transition hover:bg-ink-800 focus:outline-none
+                                       focus-visible:ring-4 focus-visible:ring-marine-600/20"
                             >
                                 Checkout
-                            </button>
-                            <p class="mt-2 text-center text-[0.7rem] text-ink-400">Checkout is not built yet</p>
+                            </a>
                         </div>
                     </div>
 
