@@ -251,18 +251,33 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
 | `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
 | `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
+| `CreateStripeIntent` | `payments.stripe_payment_intent_id` | **none** — the customer's own checkout path, where there is no permission to hold | `StripeIntentNotAllowedException` |
+| `HandleStripeWebhookEvent` | `payment_events`; composes `TransitionPaymentStatus` | **none** — Stripe is the actor. The request is authenticated by `VerifyStripeWebhookSignature` middleware, not by a permission | — (refusals are logged and acknowledged, never thrown; see below) |
+| `RefundPayment` | `payments.status`, `refunded_amount` via `TransitionPaymentStatus`; calls Stripe | optional, `refund_payment` | `RefundNotAllowedException`, `AuthorizationException` |
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
 | `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
 
 `reference/write-rules/order.md` is the outcomes page.
 
-The payment and shipment Actions are the *domain* halves of slices 6 and 8,
-deliberately split from their connectors: every Stripe and courier column is
-nullable, so a payment or shipment can be opened, transitioned, refunded and
-reported on before any Saloon connector exists. `CreateStripeIntent` will
-later fill `stripe_payment_intent_id` on a row `RecordPayment` opened rather
-than creating its own.
+The shipment Actions are the *domain* half of slice 8, deliberately split
+from its connector: every courier column is nullable, so a shipment can be
+opened, transitioned and reported on before any Saloon connector exists.
+
+The Stripe half is now built. `CreateStripeIntent` fills
+`stripe_payment_intent_id` on a row `RecordPayment` opened rather than
+creating its own, exactly as this page anticipated.
+
+**`HandleStripeWebhookEvent` throws nothing, deliberately.** Every other
+Action signals a refusal by throwing; this one logs and returns. Stripe
+retries any non-2xx for up to three days, so throwing on a condition that
+will never succeed — an event type this application ignores, an intent it
+has never seen, an out-of-order delivery implying an illegal transition —
+would buy nothing and generate days of identical retries. The refusal is
+recorded in `payment_events.note` instead, which is also what makes the
+panel's event table a reconciliation surface rather than a log dump.
+`StripeWebhookController` reserves its own 500 for genuinely retryable
+failures.
 
 Two of them intentionally break the symmetry their siblings follow:
 

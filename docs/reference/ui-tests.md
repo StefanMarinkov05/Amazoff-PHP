@@ -188,6 +188,53 @@ test; that page owns the behaviour it proves, so the two do not drift out
 of step by being maintained in both places. New auth test cases get their
 behaviour documented there, not here.
 
+### `CheckoutTest` (`tests/Feature/Payment/`)
+
+The full cycle — cart → checkout → order → payment → intent →
+confirmation. §37 criteria 6, 7 and 8. Stripe is faked here; the Action's
+own arithmetic is `StripePaymentTest` and the endpoint is
+`StripeWebhookSecurityTest`. What these prove is the *wiring*.
+
+- Reachable by a guest and by a signed-in customer, who is prefilled but
+  not locked — whatever is submitted is what gets snapshotted.
+- A guest order carries no `user_id`; a signed-in customer's does.
+- The order is priced at the server-computed total, and the payment copies
+  the order's figure rather than the caller's.
+- **There is no price property to tamper with**, and Livewire throws
+  `PublicPropertyNotFoundException` on an invented one — so §37 #8 rests on
+  the component having no price field at all, not on validating one away.
+- A card order gets a PaymentIntent and a client secret, and stays
+  `Pending`: only the webhook marks it Paid, because a browser redirect is
+  not proof of payment.
+- Stock is reserved at order time, not payment time — otherwise two
+  customers could both reach the card step for the last unit.
+- An empty cart, an out-of-stock line, and a missing street/office are
+  refused on the form rather than as a 500, and a failed order leaves no
+  orphaned payment row.
+- The confirmation page 404s for a stranger guessing an id and for a
+  signed-in customer looking at someone else's order — sequential serial
+  numbers would otherwise enumerate every customer's address. 404 and not
+  403, since a 403 confirms the order exists.
+
+**A trap worth knowing.** `ResolveCurrentCart` finds a guest's cart by
+`Session::getId()` and a customer's by `user_id`. A cart created any other
+way is invisible to the component, which then quietly opens a second empty
+one — every assertion then passes or fails against the wrong cart. The
+helpers here bind the cart to whoever the test acts as, and the cart-link
+test uses an owned cart because a plain `$this->get()` gets its own session.
+
+### `StripePaymentTest` and `StripeWebhookSecurityTest` (`tests/Feature/Payment/`)
+
+Covered in full by `explanation/security-model.md`, "The Stripe webhook" —
+including which guard does what, established by removing each in turn.
+Short version: `StripeWebhookSecurityTest` is seventeen adversarial cases
+against the endpoint (including signing-secret rotation), validated by
+swapping in a deliberately vulnerable middleware and, separately, reverting
+to a single secret; `StripePaymentTest` covers intent creation, event
+handling, dispute handling, and refund arithmetic, including the
+cumulative-versus-delta trap and the amount-match guard that refuses to mark
+a payment paid for the wrong sum.
+
 ## Admin panel (`tests/Feature/Filament/`)
 
 ### `ProductResourceTest`

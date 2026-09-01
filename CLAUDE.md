@@ -33,8 +33,8 @@ in agreement: if a rule here changes, change it there too.
   in this file or the docs points here. Its implementation-standards table
   at the bottom is the part that goes stale fastest and is worth
   re-reading even mid-session.
-- **[`docs/adr/`](docs/adr/)** — one decision, one file. Fourteen so far
-  (`0001`–`0014`). The *decision* — the choice made and the reasoning
+- **[`docs/adr/`](docs/adr/)** — one decision, one file. Sixteen so far
+  (`0001`–`0016`). The *decision* — the choice made and the reasoning
   behind it — is frozen once accepted: a changed mind gets a new ADR
   marked `Superseded by ADR-XXXX`, never a rewrite of the old one. Purely
   additive or subtractive housekeeping that doesn't touch the decision
@@ -46,7 +46,9 @@ in agreement: if a rule here changes, change it there too.
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
   `storefront-pages.md`, `db-schema-design.md`, `inventory.md`,
   `product-variability.md`, `money.md`, `tech-stack-overview.md`,
-  `demo-seeding.md`.
+  `demo-seeding.md`, `stripe-payments.md`, `secrets-and-env.md` — the last
+  is the standing policy on credentials, and the one to read before an
+  agent goes anywhere near `.env`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it
@@ -60,8 +62,10 @@ in agreement: if a rule here changes, change it there too.
   storefront and admin-panel UI test and what it proves, grouped by
   component/resource — check it before changing a Livewire component or
   Filament resource, so the tests that pin its current behaviour are known
-  up front rather than discovered by a broken run; `permissions.md`,
-  `coverage.md`, and `tech-stack.md` are the rest.
+  up front rather than discovered by a broken run; `stripe-testing.md` is
+  the payment suite's own version of that, and is the honest record of what
+  is *not* covered and why — read it before trusting the payment path;
+  `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and
@@ -82,7 +86,8 @@ in agreement: if a rule here changes, change it there too.
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
-  `run-the-tests.md`, `seed-the-database.md`, `start-a-session.md`,
+  `run-the-tests.md`, `seed-the-database.md`, `set-up-stripe.md`,
+  `start-a-session.md`,
   `use-ci.md`, `write-docs-and-comments.md`, and
   **`write-a-storefront-page.md`** — every way UI is written here and what
   breaks each one; read it before adding a Blade view, because most of
