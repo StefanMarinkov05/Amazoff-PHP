@@ -24,16 +24,17 @@ needed to touch.
 |---|---|
 | CI | Pipeline setup |
 | Enums | Backed enums, casts, status transition matrices |
-| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li><li>UI/UX - widgets testing</li><li>Security testing</li></ul> |
+| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li><li>Widget and panel UI tests</li><li>An adversarial suite against the Stripe webhook, validated by swapping in a deliberately vulnerable signature check and confirming it failed</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |
-| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization - halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
+| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization — halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
 | Authorization | Permissions, roles, policies, administrator bypass |
-| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li><li>UI/UX visual minimalism & statistical widgets</li></ul> |
-| Actions | Full `app/Actions` |
-| Security | Prevented a guest/Stripe-webhook null-actor authorization bypass |
+| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li><li>Visual minimalism and statistical widgets</li><li>Inventory, Shipment, User, and Payment resources — closing §37 criteria 15 and 16, and the admin surface for refunds</li></ul> |
+| Actions | Full `app/Actions`, including the Stripe slice — `CreateStripeIntent`, `HandleStripeWebhookEvent`, `RefundPayment` |
+| Payments | <ul><li>Stripe integration end to end — PaymentIntents, Elements, webhook, refunds</li><li>Checkout — guest and registered, cart through payment to order confirmation, server-recalculated totals</li><li>Verified against the real Stripe API via its MCP server, alongside the faked test suite</li></ul> |
+| Security | <ul><li>Prevented a guest/Stripe-webhook null-actor authorization bypass</li><li>Signing-secret rotation and dispute handling for the Stripe webhook</li></ul> |
 | Console | `ExpireCarts` (the project's first scheduled command), `RaceWorker` (the concurrency test harness), `fixtures:validate`/`fixtures:validate-articles`, `demo:fetch-images` |
 | Seeder | <ul><li>Demo/System/Stress seeder organization</li><li>Full transactional demo pass</li><li>Data Parser before seeding</li><li>`CatalogueStressSeeder` and `StressSeeder` for volume testing</li></ul> |
-| Storefront | <ul><li>Personal account management panel</li><li>UI/UX features - Category filtering, sorting criteria</li></ul> |
+| Storefront | <ul><li>Personal account management panel</li><li>Category filtering, sorting criteria</li></ul> |
 | Documentation | For the above |
 
 ### Aleksandar Stanchev
@@ -81,7 +82,7 @@ belongs in the code or an ADR.
 
 - Pricing calculations
 - Stock reservation and locking
-- Stripe webhook idempotency
+- Stripe webhook signature verification and idempotency
 - Authorization
 - The `CourierGateway` interface
 
@@ -94,4 +95,6 @@ is caught by reading. So this category is verified against the running
 application rather than trusted because static analysis came back green — the
 authorization work was checked by logging in as each seeded account, and by
 deleting a policy to confirm the test suite went red rather than assuming it
-would.
+would; the webhook idempotency guard the same way, by removing the unique
+constraint and the exception catch in turn and confirming each removal broke
+a different test.
