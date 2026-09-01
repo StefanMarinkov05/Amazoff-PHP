@@ -248,8 +248,6 @@ when the work happened, not when it was committed — nothing in
   timing-barrier concurrency tests, which `RaceHelper` already documents as
   sensitive to a loaded machine (`RACE_BARRIER_SECONDS` exists for this).
 
-
-### Added
 - **`ShipmentResource`, closing §37 criterion 15 ("a shipment can be created
   from an order").** `CreateShipment` and `TransitionShipmentStatus` were
   built and tested with no panel surface at all — `warehouse_employee` held
