@@ -8,6 +8,248 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Stripe integration hardened against a review from Stripe's own tooling.**
+  The `stripe_implementation_planner` MCP tool endorsed the architecture —
+  its decision tree terminates at "Elements with the Payment Intents API",
+  which is what was built — and a documentation cross-check surfaced four
+  real gaps, now closed:
+
+  - **The API version is pinned.** `AppServiceProvider` builds
+    `StripeClient` with `stripe_version` set to the installed SDK's own
+    `ApiVersion::CURRENT`, rather than a hand-typed string that could drift
+    from what is actually installed. It matters here specifically because
+    `HandleStripeWebhookEvent` reads payload fields positionally, and a
+    webhook endpoint's version is fixed at creation in the dashboard.
+
+  - **A blank `STRIPE_WEBHOOK_TOLERANCE` can no longer disable replay
+    protection.** `env()` on a present-but-empty var returns `''`, `(int)''`
+    is `0`, and because the config key then *exists*, `config(..., 300)`'s
+    default never fires. stripe-php guards its recency check with
+    `if ($tolerance > 0)` — so zero does not reject everything, it skips the
+    check, leaving a captured request replayable indefinitely. Floored with
+    `max(60, …)` in both `config/services.php` and, so it is enforceable and
+    testable, at the point of use in the middleware. Verified by removing
+    the floor: a year-old replayed request was accepted with a 200.
+
+  - **The paid-amount guard now checks currency too**, and no longer falls
+    back to `amount`. The docblock had claimed a currency check the code did
+    not perform. The fallback was worse than useless: `amount` is the
+    *requested* figure that `CreateStripeIntent` itself set, so falling back
+    to it made the guard compare our own number against itself and pass
+    regardless of what was actually captured. `amount_received` only —
+    Stripe documents it as "Amount that this PaymentIntent collects".
+
+  - **`.env.example` had two conflicting Stripe blocks**, the earlier one
+    labelled "ADR-0006 — hosted Checkout" (wrong ADR, and wrong integration
+    shape). Later keys won silently. Removed.
+
+- **ADR-0016 records the Payment Intents decision.** Stripe's current docs
+  recommend Checkout Sessions by default, so building on Payment Intents is
+  a deliberate divergence and now reads as one. The reason is that
+  server-recalculated totals, coupon caps, stock reservation, VAT snapshots,
+  and COD all happen *before* an intent exists — handing checkout state to
+  Stripe would mean reserving stock after taking the money.
+
+- **Two of the four gaps from the Stripe review above are now closed:
+  signing-secret rotation and dispute handling.**
+
+  `VerifyStripeWebhookSignature` accepts `STRIPE_WEBHOOK_SECRET` plus an
+  optional `STRIPE_WEBHOOK_SECRET_PREVIOUS`. During a roll Stripe keeps the
+  old secret valid for up to 24 hours and signs each event with *every*
+  active secret; a single-secret implementation rejects events signed only
+  with the new one, silently dropping real payments for a day. Verified by
+  reverting to a single secret: only the mid-roll case failed, while
+  "reject an unknown secret" and "retire a removed secret" stayed green —
+  each test targets its own behaviour.
+
+  New `PaymentStatus::Disputed`, via an append-only migration altering all
+  three enum columns that carry a `PaymentStatus` (`payments.status` and
+  both `payment_events` status columns — missing the second would fail the
+  event insert and roll back every dispute silently).
+  `charge.dispute.created` maps to it, reachable only from `Paid`/
+  `PartiallyRefunded` and not terminal: a dispute won returns to `Paid`, one
+  lost ends at `Refunded`. Two things the tests caught: the amount guard
+  must not apply to a dispute — Stripe documents a dispute's amount as
+  "usually the amount of the charge, but it can differ" — and
+  `Dispute::$payment_intent` can arrive as an *expanded object* rather than
+  a string id, which would otherwise have silently dropped a real dispute.
+
+  `docker/nginx/stripe-ip-allowlist.conf.example` covers the third gap, IP
+  allowlisting, and is deliberately **not enabled**: `stripe listen`
+  forwards events from the developer's own machine, so an allowlist would
+  reject every locally forwarded event and look exactly like a signature
+  failure.
+
+  Three new docs: `explanation/stripe-payments.md` (how the integration
+  works end to end), `reference/stripe-testing.md` (what is tested, what
+  is not, and why), and `how-to/set-up-stripe.md` (MCP install through
+  keys, the CLI, and how to extend it) — plus
+  `explanation/secrets-and-env.md`, the standing policy on `.env` and why
+  an agent reads `.env.example`, never `.env`.
+
+### Known gaps
+
+- From the same review: **signing-secret rotation** and **dispute
+  handling** are now closed — see the follow-up entry above. **IP
+  allowlisting** stays open, deliberately, and is scoped as an ops decision
+  rather than code: it belongs in nginx/firewall config, not Laravel, and
+  `docker/nginx/stripe-ip-allowlist.conf.example` documents it without
+  enabling it, since `stripe listen` would otherwise be locked out in every
+  local environment.
+
+- **Stripe calls still run inside the checkout transaction.** Deliberate —
+  an intent created against an order that then rolls back is a charge for an
+  order that does not exist — but stripe-php's default read timeout is 80
+  seconds, so a Stripe stall holds a `payments` row lock for that long. An
+  explicit short timeout is the cheap mitigation; queueing the webhook body
+  behind a fast 200 is the fuller one.
+
+- **Checkout, closing §37 criteria 6, 7 and 8 — the cycle now runs end to
+  end: cart → checkout → order → payment → intent → confirmation.**
+
+  `CheckoutPage` is one flow for guests (#6) and signed-in customers (#7);
+  the only difference is prefilled details and whether the order carries
+  `user_id`. `CreateOrder` → `RecordPayment` → `CreateStripeIntent` run
+  inside one transaction, because a half-finished checkout — an order
+  holding stock with no payment row — is the worst outcome available. COD
+  skips Stripe and goes straight to confirmation.
+
+  **The total is never submitted (#8).** The component has no price property
+  at all, and Livewire refuses to bind one that does not exist, so an
+  injected `total` never reaches server state — a stronger guarantee than
+  validating one away. `CreateOrder` recomputes from the cart's own rows
+  regardless. Asserted both ways in `CheckoutTest`.
+
+  `OrderConfirmation` deliberately is not `Order::findOrFail($id)`. Serial
+  numbers are sequential, so a bare lookup would let anyone walk
+  `/checkout/confirmation/1,2,3…` and read every customer's name, address
+  and order contents. You may see an order there only if you own it or just
+  placed it in this session, and the refusal is a 404 rather than a 403 —
+  a 403 confirms the order exists, which is the fact an enumerating caller
+  is after.
+
+  The cart's checkout button, which read "Checkout is not built yet", now
+  links to it.
+
+- **The webhook refuses to mark a payment paid for the wrong amount.**
+  `payment_intent.succeeded` says a charge succeeded; it does not say it
+  succeeded for what the order costs. A partial capture or an intent
+  created against a different figure would otherwise mark the order Paid
+  and ship goods for less than their price. Compared in minor units so the
+  check is integer-exact, and recorded-but-not-applied rather than thrown,
+  like every other refusal there.
+
+- **More refund coverage**, as edge cases and as races:
+  a partial refund taking exactly the remainder becomes `Refunded` rather
+  than `PartiallyRefunded`; successive partials accumulate; the Stripe
+  idempotency key differs between two genuine refunds of the same size, so
+  the second is not silently swallowed; zero, negative, and
+  already-fully-refunded are refused; and **the webhook echoing an
+  admin-initiated refund does not double-count** — the delta comes out zero
+  and the event records without moving anything.
+
+  Two new races in `StripeWebhookConcurrencyTest`: a panel refund against a
+  webhook refund for the same money (must total 60, not 120), and two panel
+  refunds that each fit alone but together overshoot (exactly one survives).
+
+
+
+- **Stripe payments: intent creation, the webhook, and refunds — §37
+  criteria 9, 10, and 11.** The schema had been drawn for this from the
+  start (`payments.stripe_payment_intent_id` UNIQUE,
+  `payment_events.stripe_event_id` UNIQUE) and the SDK had been installed
+  and unused since ADR-0001; this is the code that uses it.
+
+  - `CreateStripeIntent` opens the PaymentIntent, with the amount read off
+    the payment row — which `RecordPayment` copied from the order, which
+    `CreateOrder` recalculated server-side, so the figure sent to Stripe
+    never traces to anything a browser submitted. Idempotent twice over: a
+    row lock, and a Stripe `idempotency_key` keyed on the payment, because
+    the failure mode is a double charge.
+  - `HandleStripeWebhookEvent` applies one event. Idempotency is the UNIQUE
+    index plus a caught violation, never `exists()` — CLAUDE.md's rule, and
+    this is the case it was written for.
+  - `RefundPayment`, full and partial, gated by `refund_payment`.
+  - `POST /stripe/webhook`, registered with **no middleware group at all**
+    — no session, no cookies, no CSRF token — behind
+    `VerifyStripeWebhookSignature`. CSRF-exempt by construction rather than
+    by opt-out, which is what makes the exemption hard to undo by accident.
+  - `PaymentResource` at `admin/payments`: read-only apart from Refund,
+    with a `payment_events` relation manager as the reconciliation surface.
+  - `Money::toMinorUnits()` — Stripe takes integer cents, and CLAUDE.md
+    routes every money operation through `Money` rather than leaving a
+    `bcmul` with a hand-written scale at a call site.
+
+  **Two bugs the tests caught, both in code written this session:**
+
+  Stripe reports `amount_refunded` as a *cumulative* total, while
+  `TransitionPaymentStatus` *accumulates* what it is given. Passing Stripe's
+  figure straight through double-counted every refund after the first —
+  refund 25 then 40 and the row read 65 instead of 40. The webhook now
+  computes the delta.
+
+  And the early return for "target status equals current status" silently
+  dropped every partial refund after the first, because two successive
+  partial refunds leave the status unchanged while the amount moves.
+  `PaymentStatus`'s matrix says so out loud by listing `PartiallyRefunded`
+  as reachable from itself; the guard contradicted the enum's own design.
+
+  A third, smaller finding from the concurrency test: an event that applied
+  nothing was recorded with `note = null`, indistinguishable from one that
+  applied the transition. For a table read to reconcile a payment that is
+  misleading, so no-ops now say why.
+
+- **`tests/Feature/Payment/StripeWebhookSecurityTest.php` — an adversarial
+  suite against the webhook**, written from the attacker's side rather than
+  the happy path. Eleven cases: unsigned, wrong secret, malformed header,
+  body edited after signing, a signature captured for one intent replayed
+  against another, expired timestamp, unconfigured secret, and whether the
+  error responses leak which PaymentIntent ids exist.
+
+  Validated by replacing the middleware with a deliberately vulnerable
+  version that trusts the body: **eight of eleven failed**, including
+  "refuses an unsigned request claiming a payment succeeded". The three that
+  still passed are correctly scoped — idempotency rests on the UNIQUE index
+  rather than the signature, and route shape is unaffected.
+
+- **`tests/Concurrency/StripeWebhookConcurrencyTest.php`** — two real
+  processes delivering the same event at once, which a single-process test
+  cannot express. Removing each guard in turn established which half does
+  what: the UNIQUE index prevents the double-apply, while the caught
+  violation is what makes the loser a graceful 200 instead of a 500 Stripe
+  would retry for days. `explanation/security-model.md` records the full
+  finding, including that a check-then-act version still passed *because*
+  the index backstops it.
+
+- Merged `origin/cart-page` (cart page, cart badge, header integration).
+
+### Known gaps
+
+- **`Money::percentageOf()` truncates rather than rounds.** Found while
+  asserting VAT through checkout: 20% of a 100.00 gross line is 16.6667,
+  and the method returns `16.66` because its double-scale intermediate is
+  narrowed with `bcadd`, which truncates. Every VAT figure in the
+  application is therefore up to a cent low, systematically in the same
+  direction. Left alone deliberately — it is shared money code used by
+  every total, changing it moves existing figures, and it is a decision
+  about rounding policy rather than part of the Stripe work.
+  `CheckoutTest` asserts the current value and says why.
+
+- **The Stripe integration has not been run against the real Stripe test
+  API.** `STRIPE_KEY`/`STRIPE_SECRET`/`STRIPE_WEBHOOK_SECRET` are blank, so
+  every test fakes `StripeClient`. What is proven is this application's own
+  arithmetic, state machine, and endpoint behaviour; what is *not* proven is
+  that Stripe accepts the exact request shapes sent. `.env` now carries a
+  commented template with the dashboard and CLI steps for filling them in.
+
+- **One flaky test.** A full run showed `1 failed, 977 passed`; the
+  immediately following run showed `978 passed`, and a repeat of the whole
+  Concurrency suite passed 48/48. Not identified. Most likely one of the
+  timing-barrier concurrency tests, which `RaceHelper` already documents as
+  sensitive to a loaded machine (`RACE_BARRIER_SECONDS` exists for this).
+
+
+### Added
 - **`ShipmentResource`, closing §37 criterion 15 ("a shipment can be created
   from an order").** `CreateShipment` and `TransitionShipmentStatus` were
   built and tested with no panel surface at all — `warehouse_employee` held

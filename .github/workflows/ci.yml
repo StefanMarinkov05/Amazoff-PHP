@@ -84,6 +84,7 @@ jobs:
               tests/Feature/Filament
               tests/Feature/Livewire
               tests/Feature/Models
+              tests/Feature/Payment
               tests/Feature/Support
           - name: "3"
             paths: >-
@@ -175,7 +176,9 @@ jobs:
       matrix:
         shard:
           - name: a
-            paths: tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php
+            paths: >-
+              tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php
+              tests/Concurrency/StripeWebhookConcurrencyTest.php
           - name: b
             paths: >-
               tests/Concurrency/AddToCartConcurrencyTest.php

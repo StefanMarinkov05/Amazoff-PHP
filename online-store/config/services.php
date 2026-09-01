@@ -43,4 +43,45 @@ return [
         'api_key' => env('PEXELS_API_KEY'),
     ],
 
+    /*
+     * Stripe. No interface and no connector — ADR-0001 decided this
+     * explicitly: one implementation, nothing to swap it for. The SDK's
+     * StripeClient is resolved from the container (AppServiceProvider) so a
+     * test can bind a fake without an abstraction layer existing in app/.
+     *
+     * `webhook_secret` is separate from `secret` and is not optional: the
+     * webhook route is CSRF-excluded, so the signature is the *only* thing
+     * establishing that a request came from Stripe. CLAUDE.md — "one without
+     * the other is a free-products vulnerability".
+     */
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        /*
+         * Optional, and temporary by design. Stripe keeps the old signing
+         * secret valid for up to 24 hours after a roll and signs each event
+         * with every active secret; set this to the outgoing secret for that
+         * window so events signed only with the new one are not rejected,
+         * then remove it. Left set indefinitely it just widens the accepted
+         * set for no benefit.
+         */
+        'webhook_secret_previous' => env('STRIPE_WEBHOOK_SECRET_PREVIOUS'),
+        'currency' => env('STRIPE_CURRENCY', 'eur'),
+        // Stripe rejects an event whose timestamp is further from now than
+        // this, which is what stops a captured-and-replayed request being
+        // valid forever. Seconds.
+        /*
+         * A blank-but-present STRIPE_WEBHOOK_TOLERANCE (the empty string a
+         * checked-out .env.example produces before anyone fills it in) makes
+         * (int) cast to 0 — and stripe-php's own check is `$tolerance > 0`,
+         * so a tolerance of exactly 0 skips the recency check entirely
+         * rather than rejecting everything. That would silently turn "a
+         * captured request is valid for 300 seconds" into "valid forever,
+         * signature only" with no error anywhere. max() floors it instead
+         * of trusting the cast.
+         */
+        'webhook_tolerance' => max(60, (int) env('STRIPE_WEBHOOK_TOLERANCE', 300)),
+    ],
+
 ];

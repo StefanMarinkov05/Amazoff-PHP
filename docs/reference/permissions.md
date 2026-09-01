@@ -52,6 +52,11 @@ Twenty, each with the five CRUD abilities unless noted.
 | Operations | `order`, `shipment`, `inventory`, `carrier`, `payment`\* |
 | Administration | `user`, `role`, `contact_message`\*, `newsletter_subscriber`\* |
 
+`payment` is reachable at `admin/payments` — read-only apart from **Refund**,
+which routes to `refund_payment` and goes through `RefundPayment`. Its
+`payment_events` relation manager is the reconciliation surface: every
+webhook Stripe delivered, and `note` says why any of them did not apply.
+
 \* No `create`. A payment row is written by the Stripe webhook (§13), a review
 by a verified purchaser (§24), a contact message and a newsletter subscription
 by a public form (§26). None is authored in the panel, so a `create_payment`
