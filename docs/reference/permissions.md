@@ -3,7 +3,7 @@
 What exists after `migrate:fresh --seed`. Why it is arranged this way is
 ADR-0006; how to use the roles screen is `how-to/edit-a-role.md`.
 
-106 permissions, three roles, four demo accounts.
+107 permissions, three roles, four demo accounts.
 
 ## Naming
 
@@ -35,6 +35,7 @@ The catalogue's shape is defined once, in `App\Support\PermissionCatalogue`.
 | `publish` | `article` | §22 — separate from `update`, so drafting can be granted without publication |
 | `approve` | `product_review` | §24 — moderation rather than an edit |
 | `refund` | `payment` | Refunding money is not editing a row |
+| `assignRole` | `user` | Granting a role is how an account gains panel access, so it is not folded into `update_user` — otherwise every holder of `update_user` could promote themselves. Administrator-only |
 
 `restore` and `forceDelete` do not exist. Only `User`, `Product`, and
 `ProductVariation` soft-delete and no admin surface exposes a trash view; they
@@ -73,7 +74,7 @@ Checked directly on the page that uses them rather than through a policy.
 
 | Role | Permissions | Scope |
 |---|---|---|
-| `administrator` | **0** | Everything, via `Gate::before`. Attaching all 106 would drift as the catalogue grows |
+| `administrator` | **0** | Everything, via `Gate::before`. Attaching all 107 would drift as the catalogue grows |
 | `content_editor` | 16 | Articles, article categories, tags |
 | `warehouse_employee` | 12 | Orders, shipments, inventory, read-only carriers |
 
@@ -110,8 +111,22 @@ in an unrelated picker — and no permission change is needed for this field.
   `cancel` or `refund` — ADR-0011 reserves both for the administrator, via
   `Gate::before`, the same way `content_editor` reaches nothing it is not
   explicitly granted. Not `create` or `delete`; those do not exist.
+  Reachable via the **Change status** menu on `OrderResource`'s table rows
+  and view page, which asks `updateStatus` once per *target* status — so
+  the same order shows a warehouse employee the routine advances and an
+  administrator those plus Cancel and Refund, from one generated menu.
 - `shipment` — `viewAny`, `view`, `create`, `update`. §37 criterion 15.
-- `inventory` — `viewAny`, `view`, `update`.
+  Reachable via `ShipmentResource` (`admin/shipments`) for viewing and
+  status changes, and via a **Create shipment** action on an order's own
+  page — creation lives there because §28 refuses a shipment for a
+  cancelled, unpaid, or already-shipped order, so a standalone form would
+  invite picking an order `CreateShipment` then refuses.
+- `inventory` — `viewAny`, `view`, `update`. Reachable via
+  `InventoryResource` (`admin/inventories`) — added after an audit found
+  the permission granted with no panel path to it: the only existing UI for
+  `AdjustStock` lived inside `ProductVariationsRelationManager`, nested
+  under `ProductResource` and gated by `viewAny_product`, which this role
+  does not hold. `changelog/CHANGELOG.md` has the finding.
 - `carrier` — `viewAny` only. Picking a courier is not administering one.
 
 Not products, not articles, not payments, not users.
@@ -139,6 +154,16 @@ an ownership check in a policy, not a permission.
 | May their role do this? | Permission row, checked by a policy method |
 | May they touch this record? | Ownership branch in the policy |
 | Is this the administrator? | `Gate::before` in `AppServiceProvider` |
+
+**A policy cannot deny an administrator anything.** `Gate::before` returns
+`true` and short-circuits before the policy method runs, so a rule of the
+form "nobody may do X, not even an administrator" has to live in the Action
+or the page, never in a policy method — a `$model->id !== $user->id` guard
+written there is dead code for the one role it was meant to constrain.
+ADR-0006 accepted this; `UserPolicy::assignRole()` and
+`EditUser::mutateFormDataBeforeSave()` are the worked example, where the
+"you may not change your own roles" half sits in the page for exactly this
+reason.
 
 20 policies exist, one per resource above. Nineteen are resolved by
 convention; `RolePolicy` is registered by hand in `AppServiceProvider` because
