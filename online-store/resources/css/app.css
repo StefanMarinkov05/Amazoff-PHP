@@ -146,6 +146,26 @@
     animation: rise-in 0.7s var(--ease-out-quart) both;
 }
 
+/* Cart badge. Overshoots once so a changing count is noticed in peripheral
+   vision — the header is the last place a shopper is looking. */
+@keyframes badge-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    60% {
+        transform: scale(1.25);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@utility animate-badge-pop {
+    animation: badge-pop 0.35s var(--ease-out-quart) both;
+}
+
 /*
  * Underline that grows from the left on hover. A background-image rather
  * than a border or pseudo-element so it can animate `background-size`,

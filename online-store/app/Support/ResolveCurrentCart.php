@@ -27,6 +27,27 @@ use Illuminate\Support\Facades\Session;
  */
 final class ResolveCurrentCart
 {
+    /**
+     * The visitor's cart if they have one, without opening a new one.
+     *
+     * For read-only callers — the header badge renders on every page, and
+     * `forVisitor()` there would write a row for every visitor and every
+     * crawler that ever loaded the site.
+     */
+    public static function existing(): ?Cart
+    {
+        $userId = Auth::id();
+
+        if ($userId !== null) {
+            return Cart::query()->where('user_id', $userId)->first();
+        }
+
+        return Cart::query()
+            ->where('session_id', Session::getId())
+            ->whereNull('user_id')
+            ->first();
+    }
+
     public static function forVisitor(): Cart
     {
         $userId = Auth::id();
