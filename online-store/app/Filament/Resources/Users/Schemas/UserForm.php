@@ -34,15 +34,26 @@ class UserForm
                     // without changing their address is not a conflict with
                     // themselves.
                     ->unique(ignoreRecord: true),
-                // ->tel() sets the input type but NOT a format rule; what
-                // rejected the seeded "+1-667-538-7880" was telRegex()'s
-                // default, which this schema has no reason to impose — the
-                // column is a plain string(30) and the storefront never
-                // validates a format either. Length is the only constraint
-                // the schema actually has, so it is the only one asserted.
+                // ->tel() wires up ->regex(fn () => …->getTelRegex()), and
+                // getTelRegex() is `$this->evaluate($this->telRegex) ??
+                // '/default pattern/'` — so ->telRegex(null) does not clear
+                // the rule, it makes evaluate() return null and the ??
+                // falls through to Filament's own default anyway. That
+                // default rejected a real seeded phone number
+                // (Faker's default locale format) on a random test run,
+                // which is what caught this: the failure was intermittent
+                // because the seeded phone is randomised per run.
+                //
+                // ->regex(null) called *after* ->tel() is what actually
+                // overrides it — regex() just stores whatever it is given,
+                // no fallback, and a later call in the chain replaces the
+                // closure ->tel() set. This schema has no reason to impose a
+                // format: the column is a plain string(30) and the
+                // storefront never validates one either. Length is the only
+                // constraint that exists, so it is the only one asserted.
                 TextInput::make('phone')
                     ->tel()
-                    ->telRegex(null)
+                    ->regex(null)
                     ->maxLength(30)
                     ->nullable(),
                 // Deactivation rather than deletion: canAccessPanel() checks

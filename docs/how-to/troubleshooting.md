@@ -1872,3 +1872,70 @@ decision if `@vite`-rendering tests are now common enough that per-file
 fakes are duplicated across the suite. Run the suite with `public/hot`
 temporarily renamed to reproduce the CI condition locally before trusting a
 route-level test is green for the right reason.
+
+## `->telRegex(null)` on a Filament `TextInput` does not disable the phone format check
+
+**Symptom.** A `TextInput::make('phone')->tel()->telRegex(null)` field still
+rejects a real phone number with "The phone field format is invalid" — but
+only sometimes. Locally, with a fixed test value, it can pass every time.
+Under CI, or with a factory-randomised seed, it fails intermittently: some
+generated numbers pass Filament's default pattern, some don't.
+
+**Cause.** `TextInput::tel()` wires up validation with:
+
+```php
+$this->regex(static fn (TextInput $component) => $component->evaluate($condition)
+    ? $component->getTelRegex()
+    : null);
+```
+
+and `getTelRegex()` is:
+
+```php
+return $this->evaluate($this->telRegex) ?? '/^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\.\/0-9]*$/';
+```
+
+`telRegex(null)` sets `$this->telRegex` to `null`. `evaluate(null)` returns
+`null`. The `??` then falls through to Filament's own default pattern
+regardless — `telRegex(null)` and never calling `telRegex()` at all produce
+the identical result. There is no way to pass `telRegex()` a value that
+disables the check; the method only ever *replaces* the pattern, never
+removes it.
+
+**Fix.** Call `->regex(null)` directly, **after** `->tel()` in the chain:
+
+```php
+TextInput::make('phone')
+    ->tel()
+    ->regex(null)
+    ->maxLength(30)
+    ->nullable(),
+```
+
+`regex()` stores whatever it is given with no fallback
+(`CanBeValidated::regex()`), and a later call in the method chain overwrites
+the closure `tel()` set. `getRegexPattern()` then evaluates to `null`, and
+`filled(null)` is `false`, so no `regex:` rule is added to the validation
+array at all. `->tel()`'s only other effect is the HTML `type="tel"`
+attribute, which is unaffected.
+
+**Why it recurs.** The bug is invisible in the common case: most real phone
+numbers do match Filament's default pattern (`+`, digits, spaces, dashes,
+dots, parens), so a field that "looks disabled" because it accepts every
+number a developer tries by hand is not actually disabled — it is coincidence.
+It surfaces only when a value outside that pattern reaches the field, which
+here was a Faker-generated phone number on a randomised test run rather than
+a hand-typed one. A single local run with one fixed value proves nothing
+about this; the failure needs an adversarial or randomised input to appear,
+which is exactly what CI's re-seeded factory data provides and a developer's
+own manual click-through does not.
+
+**Prevention.** Never trust `X(null)` to mean "no rule" for a Filament
+validation helper without checking whether the underlying method has a `??`
+fallback — grep the vendor source for the setter (`telRegex`, here) before
+assuming a null argument is a no-op. When a field's format constraint is
+meant to come from the schema and nothing else, prefer clearing the concrete
+rule (`->regex(null)`) over an indirect setter, and prove it by running the
+suite enough times (or with different Faker seeds) for a randomised value to
+actually exercise the path — a single green run after the "fix" is not
+evidence, per CLAUDE.md's own testing discipline.
