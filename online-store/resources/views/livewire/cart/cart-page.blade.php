@@ -6,6 +6,7 @@
     $totals = $this->totals;
     $count = $items->sum('quantity');
     $coupon = $this->cart->coupon;
+    $discount = $this->discount;
 @endphp
 
 <div class="bg-ink-50">
@@ -318,6 +319,21 @@
                                     <dd class="tabular-nums text-ink-800">€{{ number_format((float) $totals['subtotal'], 2) }}</dd>
                                 </div>
 
+                                @if ((float) $discount['discount'] > 0)
+                                    <div class="flex justify-between text-ember-700">
+                                        <dt class="flex items-center gap-1.5">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                      d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+                                            </svg>
+                                            {{ $coupon->code }}
+                                        </dt>
+                                        <dd class="font-semibold tabular-nums">
+                                            −€{{ number_format((float) $discount['discount'], 2) }}
+                                        </dd>
+                                    </div>
+                                @endif
+
                                 <div class="flex justify-between">
                                     <dt class="text-ink-500">Delivery</dt>
                                     <dd class="text-xs text-ink-400">Calculated at checkout</dd>
@@ -325,8 +341,15 @@
 
                                 <div class="flex justify-between border-t border-ink-200 pt-3">
                                     <dt class="text-base font-semibold text-ink-950">Total</dt>
-                                    <dd class="text-xl font-bold tabular-nums text-ink-950">
-                                        €{{ number_format((float) $totals['total'], 2) }}
+                                    <dd class="text-right">
+                                        @if ((float) $discount['discount'] > 0)
+                                            <span class="mr-1.5 text-sm tabular-nums text-ink-400 line-through">
+                                                €{{ number_format((float) $totals['total'], 2) }}
+                                            </span>
+                                        @endif
+                                        <span class="text-xl font-bold tabular-nums text-ink-950">
+                                            €{{ number_format((float) $discount['payable'], 2) }}
+                                        </span>
                                     </dd>
                                 </div>
 

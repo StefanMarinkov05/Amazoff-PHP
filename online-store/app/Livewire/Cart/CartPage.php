@@ -17,6 +17,9 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
 use App\Support\CalculateCartTotals;
+use App\Support\CalculateCouponDiscount;
+use App\Support\CouponDiscountLine;
+use App\Support\Money;
 use App\Support\ResolveCurrentCart;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
@@ -29,6 +32,7 @@ use Livewire\Component;
  * @property-read Cart $cart
  * @property-read Collection<int, CartItem> $items
  * @property-read array{subtotal: string, vat: string, total: string} $totals
+ * @property-read array{discount: string, payable: string} $discount
  */
 class CartPage extends Component
 {
@@ -89,6 +93,50 @@ class CartPage extends Component
     public function totals(): array
     {
         return CalculateCartTotals::forCart($this->cart);
+    }
+
+    /**
+     * What the applied coupon takes off, and what the customer actually pays.
+     *
+     * Separate from `totals()` because `CalculateCartTotals` deliberately
+     * knows nothing about coupons — it is also the input `ApplyCoupon` and
+     * `CreateOrder` price against, and folding a discount into its subtotal
+     * would change what those mean.
+     *
+     * Recomputed on every render rather than stored: a coupon that was valid
+     * when applied can stop being so when a line is removed and the basket
+     * drops below its minimum. `CalculateCouponDiscount` throws in that case,
+     * and the honest answer is to show no discount rather than a stale one.
+     * `RedeemCoupon` at checkout is what finally decides.
+     *
+     * @return array{discount: string, payable: string}
+     */
+    #[Computed]
+    public function discount(): array
+    {
+        $totals = $this->totals;
+        $none = ['discount' => '0.00', 'payable' => $totals['total']];
+
+        $coupon = $this->cart->coupon;
+
+        if (! $coupon instanceof Coupon) {
+            return $none;
+        }
+
+        try {
+            $result = CalculateCouponDiscount::forLines(
+                $coupon,
+                CouponDiscountLine::collectionFromCartItems($this->items),
+                $totals['subtotal'],
+            );
+        } catch (CouponNotApplicableException) {
+            return $none;
+        }
+
+        return [
+            'discount' => $result['discount'],
+            'payable' => (string) Money::of($totals['total'])->subtract(Money::of($result['discount'])),
+        ];
     }
 
     public function increment(int $itemId, UpdateCartItemQuantity $update, TouchCartExpiry $touch): void
@@ -239,7 +287,7 @@ class CartPage extends Component
 
     private function refreshCart(): void
     {
-        unset($this->cart, $this->items, $this->totals);
+        unset($this->cart, $this->items, $this->totals, $this->discount);
 
         // After the computed cache is dropped, not before — otherwise the
         // boxes are re-seeded from the quantities that were just replaced.
