@@ -23,6 +23,7 @@ enum PaymentStatus: string implements HasColor, HasLabel
     case Cancelled = 'cancelled';
     case Refunded = 'refunded';
     case PartiallyRefunded = 'partially_refunded';
+    case Disputed = 'disputed';
 
     /** @return list<string> */
     public static function values(): array
@@ -40,6 +41,7 @@ enum PaymentStatus: string implements HasColor, HasLabel
             self::Cancelled => 'Cancelled',
             self::Refunded => 'Refunded',
             self::PartiallyRefunded => 'Partially refunded',
+            self::Disputed => 'Disputed',
         };
     }
 
@@ -55,6 +57,15 @@ enum PaymentStatus: string implements HasColor, HasLabel
      * `Cancelled` and `Refunded` are terminal — a cancelled PaymentIntent
      * cannot be revived, and a full refund is the end of the payment.
      *
+     * `Disputed` is reachable from the states where money has actually
+     * arrived — `Paid` and `PartiallyRefunded` — because that is what a
+     * customer can dispute. It is **not** terminal: a dispute won by the
+     * merchant returns the payment to `Paid`, and one lost by the merchant
+     * ends as `Refunded`, since the funds are taken back either way.
+     * `charge.dispute.created` is what moves it in; the closing events
+     * (`charge.dispute.closed`) are not handled yet, so the move back out is
+     * currently a manual panel action. See `explanation/stripe-payments.md`.
+     *
      * @return list<self>
      */
     public function allowedTransitions(): array
@@ -62,9 +73,10 @@ enum PaymentStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::Pending => [self::Processing, self::Paid, self::Failed, self::Cancelled],
             self::Processing => [self::Paid, self::Failed, self::Cancelled],
-            self::Paid => [self::Refunded, self::PartiallyRefunded],
+            self::Paid => [self::Refunded, self::PartiallyRefunded, self::Disputed],
             self::Failed => [self::Pending, self::Processing, self::Paid, self::Cancelled],
-            self::PartiallyRefunded => [self::PartiallyRefunded, self::Refunded],
+            self::PartiallyRefunded => [self::PartiallyRefunded, self::Refunded, self::Disputed],
+            self::Disputed => [self::Paid, self::Refunded],
             self::Cancelled, self::Refunded => [],
         };
     }
@@ -81,7 +93,7 @@ enum PaymentStatus: string implements HasColor, HasLabel
             self::Processing => 'info',
             self::Paid => 'success',
             self::Failed, self::Cancelled => 'danger',
-            self::PartiallyRefunded => 'warning',
+            self::PartiallyRefunded, self::Disputed => 'warning',
         };
     }
 }

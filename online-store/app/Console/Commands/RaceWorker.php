@@ -19,6 +19,7 @@ use App\Actions\Inventory\ReleaseStock;
 use App\Actions\Inventory\ReserveStock;
 use App\Actions\Order\CreateOrder;
 use App\Actions\Order\TransitionOrderStatus;
+use App\Actions\Payment\HandleStripeWebhookEvent;
 use App\Actions\Payment\RecordPayment;
 use App\Actions\Payment\TransitionPaymentStatus;
 use App\Actions\ProductReview\CreateProductReview;
@@ -39,6 +40,7 @@ use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Stripe\Event as StripeEvent;
 use Throwable;
 
 /**
@@ -188,6 +190,54 @@ final class RaceWorker extends Command
                 'name' => 'Race child',
                 'slug' => 'race-child-'.bin2hex(random_bytes(8)),
             ]),
+            /*
+             * Two simultaneous deliveries of the *same* Stripe event.
+             * --arg is the event id, then the PaymentIntent id. Both workers
+             * are given the same event id deliberately: that is the duplicate
+             * Stripe's at-least-once contract produces, and §37 #11 says only
+             * one may apply. The signature is not involved — this races the
+             * idempotency guard, which is the UNIQUE on
+             * payment_events.stripe_event_id, not the middleware.
+             */
+            'handle-stripe-webhook' => app(HandleStripeWebhookEvent::class)->handle(
+                StripeEvent::constructFrom([
+                    'id' => $this->stringArg(0),
+                    'object' => 'event',
+                    'type' => 'payment_intent.succeeded',
+                    'data' => ['object' => [
+                        'id' => $this->stringArg(1),
+                        'object' => 'payment_intent',
+                        'status' => 'succeeded',
+                        // Must match the payment, or the amount/currency
+                        // guard in HandleStripeWebhookEvent refuses to apply
+                        // it — racedStripePayment() creates every payment at
+                        // 100.00 EUR.
+                        'amount_received' => 10000,
+                        'currency' => 'eur',
+                    ]],
+                ]),
+            ),
+            /*
+             * A `charge.refunded` webhook. --arg is the event id, the
+             * PaymentIntent id, then Stripe's *cumulative* amount_refunded in
+             * minor units. Raced against `partial-refund` this is the
+             * real-world double-count scenario: an administrator refunds
+             * through the panel while Stripe's webhook for the same refund is
+             * already in flight.
+             */
+            'webhook-refund' => app(HandleStripeWebhookEvent::class)->handle(
+                StripeEvent::constructFrom([
+                    'id' => $this->stringArg(0),
+                    'object' => 'event',
+                    'type' => 'charge.refunded',
+                    'data' => ['object' => [
+                        'id' => 'ch_race',
+                        'object' => 'charge',
+                        'payment_intent' => $this->stringArg(1),
+                        'amount_refunded' => (int) $this->stringArg(2),
+                    ]],
+                ]),
+            ),
             'transition-order-status' => app(TransitionOrderStatus::class)
                 ->handle(
                     Order::findOrFail($this->id(0)),

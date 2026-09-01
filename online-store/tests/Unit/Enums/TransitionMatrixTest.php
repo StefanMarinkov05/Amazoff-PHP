@@ -101,9 +101,12 @@ it('governs the payment lifecycle', function (PaymentStatus $from, array $legal)
 })->with([
     'pending' => [PaymentStatus::Pending, [PaymentStatus::Processing, PaymentStatus::Paid, PaymentStatus::Failed, PaymentStatus::Cancelled]],
     'processing' => [PaymentStatus::Processing, [PaymentStatus::Paid, PaymentStatus::Failed, PaymentStatus::Cancelled]],
-    'paid' => [PaymentStatus::Paid, [PaymentStatus::Refunded, PaymentStatus::PartiallyRefunded]],
+    'paid' => [PaymentStatus::Paid, [PaymentStatus::Refunded, PaymentStatus::PartiallyRefunded, PaymentStatus::Disputed]],
     'failed' => [PaymentStatus::Failed, [PaymentStatus::Pending, PaymentStatus::Processing, PaymentStatus::Paid, PaymentStatus::Cancelled]],
-    'partially refunded' => [PaymentStatus::PartiallyRefunded, [PaymentStatus::PartiallyRefunded, PaymentStatus::Refunded]],
+    'partially refunded' => [PaymentStatus::PartiallyRefunded, [PaymentStatus::PartiallyRefunded, PaymentStatus::Refunded, PaymentStatus::Disputed]],
+    // Disputed is reachable only from the states where money arrived, and is
+    // not terminal: a dispute won returns to Paid, one lost ends at Refunded.
+    'disputed' => [PaymentStatus::Disputed, [PaymentStatus::Paid, PaymentStatus::Refunded]],
     'cancelled' => [PaymentStatus::Cancelled, []],
     'refunded' => [PaymentStatus::Refunded, []],
 ]);
