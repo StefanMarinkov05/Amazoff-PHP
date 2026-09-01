@@ -11,7 +11,7 @@ Laravel 13 on PHP 8.4, in Docker — `app`, `webserver`, `db`, `vite`,
 `/admin/login` both serve over the full nginx → PHP-FPM → MySQL chain.
 
 Filament is installed and its panel provider registered.
-`canAccessPanel()` on `User` gates it by role. 15 Resources exist:
+`canAccessPanel()` on `User` gates it by role. 17 Resources exist:
 the catalogue's lookup entities — `Brand`, `Tag`, `ProductCategory`,
 `ArticleCategory`, `Attribute`, `AttributeValue`, `Carrier` — scaffolded with
 `make:filament-resource --generate` and corrected by hand where the
@@ -21,10 +21,45 @@ managers rather than resources of their own; `Coupon`; the read-mostly
 `ContactMessage` and `NewsletterSubscriber`; `Article`, full CRUD, with its
 status-change menu generated from `ArticleStatus`'s transition matrix rather
 than hand-written; `ProductReview`, moderation only (approve/unapprove,
-no create); `Order`, read-only pending the status-transition Action's own
-panel surface — `CreateOrder` and `TransitionOrderStatus` are built and
-tested, but nothing writes `orders.status` from the panel yet; and one over
-spatie's `Role`, described under authorization below.
+no create); `Order`, with no create, edit, or delete — status is the one
+mutable field, and it moves through a **Change status** menu generated from
+`OrderStatus`'s transition matrix, on both the table row and the view page,
+calling `TransitionOrderStatus`. The menu authorizes per *target* status
+rather than once for the whole group, because `OrderPolicy::updateStatus()`
+routes by target: ADR-0011 makes cancelling and refunding administrator
+moves, so a warehouse employee is never offered either; `Inventory`,
+view-only plus two row actions (`adjustStock`/`recordDamage`, both existing
+Actions) rather than a form — `InventoryPolicy`'s own docblock states why a
+quantity is never a direct write; and one over spatie's `Role`, described
+under authorization below.
+
+`Shipment` and `User` landed alongside it. `Shipment` closes §37 criterion
+15 — view and status changes at `admin/shipments`, and creation as an action
+on the *order's* page, because §28 refuses a shipment for a cancelled,
+unpaid, or already-shipped order and a standalone create form would invite
+picking one the Action then refuses. `User` is accounts and role assignment,
+with no create page (an account exists because someone registered) and no
+delete (removing one orphans its orders, and §19 needs that history) —
+deactivation via `is_active` is the reversible path.
+
+`User` also introduced the `assignRole_user` ability. Granting a role is how
+an account gains panel access, so folding it into `update_user` would let
+every holder of `update_user` promote themselves; `UserPolicy`'s docblock
+had flagged this as the thing to fix when the resource was built. The
+"you may not change your own roles" half of the rule lives in
+`EditUser::mutateFormDataBeforeSave()` rather than the policy, because
+`Gate::before` short-circuits every check for an administrator — the one
+role that holds the ability — so a policy-level guard would be dead code.
+That is the ADR-0006 consequence this document already describes, met in
+practice for the first time.
+
+`Inventory` exists because `update_inventory` did not, for
+`warehouse_employee`, reach anything: the only panel path to `AdjustStock`
+was `ProductVariationsRelationManager`, nested under `ProductResource` and
+gated by `viewAny_product`, which the role's permission set (§3.4) never
+grants. The permission was real; nothing in the panel structure could
+deliver it. `reference/permissions.md`'s "Where each check lives" table has
+the fix; `changelog/CHANGELOG.md` has the finding in full.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
@@ -41,7 +76,7 @@ The three staff role rows (`administrator`, `content_editor`,
 `database/seeders/System/RoleSeeder.php`, called from `DatabaseSeeder`, so
 a fresh `migrate:fresh --seed` now produces
 them in every environment. `PermissionSeeder` runs before it with a
-catalogue of 106 permissions named `{ability}_{resource}`, where the ability
+catalogue of 107 permissions named `{ability}_{resource}`, where the ability
 half matches the Laravel policy method that checks it — which is what keeps
 a policy method to one line. `UserSeeder` then creates one account per role
 plus a plain customer, gated to non-production; see ADR-0003 on why seeded
@@ -63,13 +98,14 @@ permissions rather than role names because §3.5 requires permissions
 editable at runtime, and a `hasRole()` check would go stale the moment an
 administrator edits a role.
 
-Five carry more than that. `OrderPolicy` and `PaymentPolicy` refuse creation
+Six carry more than that. `OrderPolicy` and `PaymentPolicy` refuse creation
 outright — an order exists because a customer checked out, a payment because
 Stripe said so — and `OrderPolicy::view`, `ProductReviewPolicy::view`, and
 `UserPolicy::view` add ownership branches, the per-record half §34 calls
 preventing unauthorized resource access. `UserPolicy::delete` refuses
 self-deletion, since removing the last administrator locks the panel against
-everyone.
+everyone. `UserPolicy::assignRole` gates role assignment separately from
+`update_user` — see the `User` resource above.
 
 Laravel resolves policies by convention, with one exception:
 `Spatie\Permission\Models\Role` is outside `App\Models`, so

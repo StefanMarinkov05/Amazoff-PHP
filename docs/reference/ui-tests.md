@@ -385,3 +385,116 @@ other domain exception.
   reason.
 - A `QueryException` is not caught — a database-level failure is not a
   domain refusal and must not be presented to staff as if it were one.
+
+### `OrderStatusActionTest`
+
+§37 criterion 16 ("an employee can update order statuses") had no panel
+surface at all: `TransitionOrderStatus`, `OrderPolicy::updateStatus()`, and
+ADR-0004's matrix were built and tested, but nothing in Filament called any
+of them, and `ViewOrder`'s only header action was an `EditAction` pointing
+at a route `OrderResource::getPages()` never registers — it rendered, and
+could not resolve.
+
+- An order advances through the panel and the write lands via
+  `TransitionOrderStatus`, not a `->status` assignment.
+- The §19 history row is written, carrying `previous_status`, `new_status`,
+  and the reason typed into the modal.
+- A warehouse employee is not offered **Cancel** on an order that offers it
+  to an administrator — the same order, the same menu, two roles. This is
+  ADR-0011's split reaching the UI: `OrderPolicy::updateStatus()` routes by
+  *target* status, so the menu authorizes per button rather than once.
+- Only transitions `OrderStatus::allowedTransitions()` permits are
+  rendered — `Delivered` offers `Returned` and not `Preparing`.
+- The same menu works from the table row, not only the view page.
+
+These assert the menu. That an actor calling a transition they may not make
+is refused anyway is the Action's territory, covered by
+`TransitionOrderStatusTest`'s "denies cancel_order-less actor a cancellation
+despite holding updateStatus_order" — a hidden button is not security
+(`CLAUDE.md`), and this file does not restate the check that makes it so.
+
+### `ShipmentResourceTest`
+
+§37 criterion 15 ("a shipment can be created from an order").
+`CreateShipment` and `TransitionShipmentStatus` were built and tested with
+no panel surface at all — the same shape the inventory gap had.
+
+- `ShipmentResource` (`admin/shipments`) is reachable by
+  `warehouse_employee` and forbidden to `content_editor`.
+- A shipment is created **from an order's own page**, reaching
+  `CreateShipment` — the criterion's actual wording, and why creation is not
+  a blank form on `ShipmentResource`: §28 refuses a shipment for a
+  cancelled, unpaid, or already-shipped order, so a standalone form would
+  invite picking an order the Action then refuses.
+- §28's refusal reaches the user as a notification rather than a 500 —
+  `ShipmentNotAllowedException` is an `App\Exceptions` `RuntimeException`,
+  so `ReportsDomainFailures` converts it. The refusal *rules* are
+  `CreateShipmentTest`'s; what this proves is that the panel calls the
+  Action at all.
+- The create action disappears once an order already has a shipment.
+- A shipment advances through the panel via `TransitionShipmentStatus`, and
+  only the transitions `ShipmentStatus`'s matrix allows are offered.
+
+`ShipmentFactory` randomises `status`, `shipped_at`, and `delivered_at`, so
+every case pins what it asserts against — the trap `troubleshooting.md`
+documents for the product factories applies here too.
+
+### `UserResourceTest`
+
+`UserPolicy`'s docblock had named this gap and deferred it: assigning a role
+is how an account gains panel access, so gating it by `update_user` would
+let anyone who may edit a user promote themselves to administrator. It is
+now its own ability, `assignRole_user`.
+
+- `UserResource` (`admin/users`) is reachable by `administrator` and
+  forbidden to both other staff roles.
+- An administrator can assign a staff role.
+- An actor holding `update_user` but **not** `assignRole_user` has a
+  submitted `roles` key stripped — while the rest of their edit still
+  saves.
+- An administrator changing their **own** roles has it stripped too.
+- No delete action: removing an account orphans its orders and §19 requires
+  that history to survive. `is_active` is the reversible path.
+
+**Why the denial cases call `mutateFormDataBeforeSave` directly** rather
+than `fillForm()->call('save')`: the form *disables* the roles field for
+exactly those actors, so a `fillForm` submission never carries `roles` at
+all — and a test written that way passes with the server-side guard
+deleted. It did, until the guard was removed to check. These call the seam a
+crafted Livewire payload actually reaches, which is the half that has to
+hold; a disabled control is not security (`CLAUDE.md`).
+
+**The `Gate::before` trap, found while building this.** The self-assignment
+rule was first written into `UserPolicy::assignRole()` as
+`&& $model->id !== $user->id` — dead code, because `Gate::before`
+short-circuits every check for an administrator, the only role holding
+`assignRole_user`. The test caught it. The rule now lives in `EditUser`,
+where `Gate::before` cannot reach; `permissions.md`'s "Where each check
+lives" states the general form.
+
+### `InventoryResourceTest`
+
+Regression guard for a permission-vs-panel-access gap, not a race or a write
+outcome: `warehouse_employee` held `update_inventory`, and the only UI for
+`AdjustStock` (`ProductVariationsRelationManager`, nested under
+`ProductResource`) was gated by `viewAny_product`, which the role's
+permission set never grants — the permission was real, nothing in the panel
+structure could deliver it. `reference/permissions.md`'s `warehouse_employee`
+section and `changelog/CHANGELOG.md` have the finding; this is the test that
+would have caught it, and now guards against it recurring.
+
+- `InventoryResource` (`admin/inventories`) is reachable by
+  `warehouse_employee` and `administrator`, and returns 403 for
+  `content_editor` — the exact matrix `permissions.md` states for the
+  `inventory` resource.
+- Recording a delivery through the panel reaches `AdjustStock` for real —
+  `current_quantity` moves and the ledger gets a `NewDelivery` row with the
+  submitted note, not just a modal that renders.
+- Removing more than is available through the panel is refused the same way
+  the Action refuses it directly (a plain `InvalidArgumentException`,
+  uncaught by `ReportsDomainFailures` since it is not `App\Exceptions\*` —
+  a caller bug per the Action's own docblock, not a customer-facing
+  refusal) — asserted by the quantity staying untouched.
+- Recording damage through the panel reaches `RecordDamage` for real —
+  `damaged_quantity` rises and `current_quantity` falls by the same amount,
+  with a `DamagedProduct` ledger row.

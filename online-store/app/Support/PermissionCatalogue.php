@@ -106,6 +106,13 @@ final class PermissionCatalogue
      * ADR-0011 and `OrderPolicy::updateStatus()`, which routes to one of the
      * three depending on the target status.
      *
+     * `assignRole_user` exists for the same reason and a sharper one:
+     * assigning a role is how someone becomes an administrator, so folding
+     * it into `update_user` would make every holder of `update_user` able to
+     * promote themselves. `UserPolicy`'s docblock named this as the thing to
+     * fix when a User resource was built, and this is that split — editing a
+     * user's name and granting them the panel are not the same act.
+     *
      * @var array<string, list<string>>
      */
     public const DOMAIN_ABILITIES = [
@@ -113,6 +120,7 @@ final class PermissionCatalogue
         'article' => ['publish'],
         'product_review' => ['approve'],
         'payment' => ['refund'],
+        'user' => ['assignRole'],
     ];
 
     /**

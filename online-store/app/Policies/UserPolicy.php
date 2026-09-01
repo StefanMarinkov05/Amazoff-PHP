@@ -13,12 +13,12 @@ use App\Models\User;
  * by name, and this model is both. Only administrator holds these
  * permissions, and only through Gate::before rather than an attached set.
  *
- * The escalation risk here is not viewing users, it is assigning roles. That
- * happens through the Filament resource's role field, which is authorized by
- * update_user — so anyone holding update_user can grant themselves
- * administrator. Narrowing that to a separate assignRole_user ability is
- * worth doing when the User resource is built; it is not expressible until
- * there is a form to attach it to.
+ * The escalation risk here is not viewing users, it is assigning roles: that
+ * is how someone becomes an administrator. Folded into update_user, anyone
+ * who could edit a user's name could promote themselves. It is now its own
+ * ability — assignRole_user, held only by the administrator via
+ * Gate::before — and UserResource's role field is disabled without it, so
+ * editing a user and granting them the panel are separate acts.
  */
 class UserPolicy
 {
@@ -50,5 +50,24 @@ class UserPolicy
     public function delete(User $user, User $model): bool
     {
         return $user->can('delete_user') && $model->id !== $user->id;
+    }
+
+    /**
+     * Granting a role is how an account gains panel access, so it is gated
+     * separately from update_user rather than by it — see this class's own
+     * docblock.
+     *
+     * Self-assignment is deliberately **not** refused here. It would read
+     * naturally as `&& $model->id !== $user->id`, and that line would be
+     * dead: `Gate::before` short-circuits every check for an administrator,
+     * so the policy never runs for the one role that holds
+     * `assignRole_user` in the first place. ADR-0006 accepted that cost and
+     * `tech-stack-overview.md` names the consequence — "nobody may do X"
+     * rules cannot live in a policy here. `EditUser` enforces it instead,
+     * where `Gate::before` cannot reach.
+     */
+    public function assignRole(User $user, User $model): bool
+    {
+        return $user->can('assignRole_user');
     }
 }
