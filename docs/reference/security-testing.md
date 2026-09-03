@@ -38,7 +38,7 @@ Dependency scanning did complete once the host was repaired.
 
 ## Findings
 
-Six entries. Two are exploitable IDOR/authorization bypasses in this
+Seven entries. Two are exploitable IDOR/authorization bypasses in this
 project's own code, both confirmed by live exploitation on 2026-09-03 and
 both since fixed; both share one shape — a client-writable Livewire public
 property that a query downstream trusts. The third is a dependency advisory
@@ -51,7 +51,9 @@ what it could not see, is written down beside it. Each is written in
 bug-bounty report form: **Finding → Reason → Reproduction → Fix → Logic for
 future pentests.** The sixth records the headers added to close what the
 fifth found still open, including a wildcard the scanner caught in the first
-attempt at the fix.
+attempt at the fix. The seventh is the first *authenticated* scan — the run
+that finally reached the admin panel — and the header gap only it could
+find.
 
 Severity uses CVSS-style qualitative bands (Critical / High / Medium / Low /
 Info), rated for this application in its current state, not in the abstract.
@@ -621,6 +623,94 @@ this a scanner does better than a human.
 
 ---
 
+### SEC-007 — Authenticated scan: static assets carried no security headers
+
+**Severity:** Low · **Type:** Security misconfiguration (OWASP A05) ·
+**Component:** `docker/nginx/default.conf` · **Status:** **Fixed** (dev);
+Forge equivalent owed
+
+**Finding.** The first *authenticated* scan — 376 endpoints, 20m33s of
+active scanning against the admin panel — found that every static asset
+served by nginx goes out with **no security headers at all**. Filament's own
+`/css/filament/…`, `/js/filament/…` and `/fonts/…` files, plus everything
+under `/images/` and `/storage/`, were missing even `X-Content-Type-Options`.
+
+**Reason.** `nginx` serves static files straight from disk via
+`try_files $uri`, so the request never reaches PHP and
+`App\Http\Middleware\SetSecurityHeaders` never runs. The middleware
+covers every page nginx *hands to PHP* and nothing else — a boundary that
+was invisible until something crawled the asset URLs.
+
+**Why both earlier scans missed it.** The baseline (SEC-004) and the
+unauthenticated full scan (SEC-005) start from a guest spider, which never
+reaches Filament's asset paths because it never reaches Filament. This is
+the concrete demonstration of the gap those entries flagged in the
+abstract: **an unauthenticated scan does not merely miss authenticated
+*pages*, it misses whole classes of infrastructure behaviour** that only
+appear once a crawl gets that far.
+
+**Fix.** `add_header X-Content-Type-Options "nosniff" always;` in the
+`server` block. Only `nosniff` — `X-Frame-Options` and CSP govern documents
+rather than stylesheets, and the middleware already covers documents.
+`always` is required: without it nginx omits the header on non-2xx
+responses, which is exactly where sniffing is most dangerous.
+
+Verified on a Filament stylesheet and on `/images/logo.png`. **One trap
+worth recording:** the first verification appeared to fail — `curl -I`
+showed no header after a `docker compose restart webserver`. The config was
+correct and `nginx -t` passed; `curl` had reused a keep-alive connection
+opened *before* the restart. `-H "Connection: close"` showed the header
+immediately. A header check against a just-restarted server needs a fresh
+connection, or it tests the old configuration.
+
+Dev-only, like the rest of the nginx hardening here: Forge provisions its
+own nginx (ADR-0001), so this directive is owed there independently.
+
+### What the authenticated scan proved, and what it did not
+
+The run itself is worth recording beyond the one finding.
+
+**Scope reached:** 759 URLs from the traditional spider plus 130 more from
+the AJAX spider, 376 endpoints scanned, against the previous run's **3**.
+
+**Result: 0 High, 5 Medium, 5 Low.** No injection alert of any kind —
+no SQL injection, XSS, path traversal, or template injection — now
+including the admin panel, which had never been scanned before.
+
+The 5 Medium are all known and previously assessed: three are the
+`unsafe-eval`/`unsafe-inline` CSP trade-off SEC-006 measured and documented,
+one is `Sub Resource Integrity` against the Vite dev server, and one is
+`HTTP Only Site` — correct for local development, and the reason
+`SESSION_SECURE_COOKIE` and HTTPS enforcement are on the pre-deploy
+checklist in `how-to/pentest-the-system.md`. **The `CSP: Wildcard Directive`
+alert from the previous run is gone**, confirming SEC-006's `img-src` fix.
+
+**Two results that are evidence of the app working, not of bugs:**
+
+- **120 "Big Redirect" alerts**, every one an `/admin/*` URL returning
+  `302 → /login`. That is authorization refusing an unauthenticated request,
+  which is what it should do.
+- **230 responses of `403`**, almost all directory-traversal probes against
+  `/images/`, `/storage/` and `/js/` — nginx's `deny all` refusing directory
+  access.
+
+**The coverage caveat, stated precisely rather than rounded up.** Those 120
+redirects are also the limit of this run: **the session expired partway
+through the 20-minute active scan.** Counted from nginx's own logs, the scan
+reached **44 distinct admin paths authenticated (HTTP 200)** while 4,550
+requests were redirected to login after the session lapsed. So admin-panel
+coverage went from *zero* to *partial* — real, and materially better, but
+not the whole panel. A longer-lived session (or ZAP re-authenticating on a
+logged-out response, via a context authentication method with a
+`loggedOutRegex`) is what would close the rest, and is the obvious next
+improvement.
+
+**One informational alert is a false positive:** "Sensitive Information in
+URL" fires on `/login?email=zaproxy%40example.com&password=ZAP` — ZAP's own
+fuzzer URL, not a request the application ever generates.
+
+---
+
 ### The pattern behind SEC-001 and SEC-002 — `#[Locked]` is absent project-wide
 
 `grep -rn '#\[Locked\]' app/` returns **zero** results. Both exploitable
@@ -718,13 +808,16 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
 
 ## Not covered
 
-- **Both ZAP scans ran unauthenticated** — the baseline (SEC-004) and the
-  full active scan (SEC-005). Neither saw a single page behind login, so
-  **the admin panel's automated coverage is zero**, and SEC-005's 0-FAIL
-  result is a statement about the public storefront only. An
-  **authenticated scan** — ZAP given a context and a logged-in session for
-  each of the four roles — is the largest remaining gap in automated
-  coverage. sqlmap and
+- **Admin-panel scan coverage is partial, not complete.** SEC-007's
+  authenticated run reached **44 distinct admin paths** while signed in, but
+  its session expired mid-scan and 4,550 later requests were redirected to
+  login. The remaining panel surface is unscanned. Fixing this means giving
+  ZAP a context authentication method with a `loggedOutRegex` so it
+  re-authenticates instead of silently continuing as a guest.
+- **Only the administrator role was scanned.** The authenticated run used
+  `admin@example.com`. `content_editor` and `warehouse_employee` were probed
+  by hand (the role matrix above) but never crawled by a scanner, so
+  role-specific injection surface behind those two accounts is untested. sqlmap and
   Metasploit were deliberately not run — see the reasoning recorded
   separately: sqlmap fuzzes for a class of bug (string-concatenated SQL)
   already ruled out by reading every query path, and Metasploit targets
