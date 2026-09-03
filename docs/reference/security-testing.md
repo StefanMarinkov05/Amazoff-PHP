@@ -33,12 +33,15 @@ Dependency scanning did complete once the host was repaired.
 
 ## Findings
 
-Three issues. Two are exploitable IDOR/authorization bypasses in this
-project's own code, both confirmed by live exploitation on 2026-09-03; both
-share one shape — a client-writable Livewire public property that a query
-downstream trusts. The third is a dependency advisory with no reachable path
-today. Each is written in bug-bounty report form: **Finding → Reason →
-Reproduction → Fix → Logic for future pentests.**
+Four issues. Two are exploitable IDOR/authorization bypasses in this
+project's own code, both confirmed by live exploitation on 2026-09-03 and
+both since fixed; both share one shape — a client-writable Livewire public
+property that a query downstream trusts. The third is a dependency advisory
+with no reachable path today. The fourth is an OWASP ZAP baseline scan
+(2026-09-03) confirming the missing-headers gap mechanically and catching
+one item worth investigating rather than accepting at face value. Each is
+written in bug-bounty report form: **Finding → Reason → Reproduction → Fix
+→ Logic for future pentests.**
 
 Severity uses CVSS-style qualitative bands (Critical / High / Medium / Low /
 Info), rated for this application in its current state, not in the abstract.
@@ -325,6 +328,91 @@ diff the reachable set, not just the advisory count.
 
 ---
 
+### SEC-004 — Automated scan: missing security headers (OWASP ZAP baseline)
+
+**Severity:** Low (Informational — no header here enables an attack on its
+own; each raises the cost of one if another bug provides the entry point) ·
+**Type:** Security misconfiguration (OWASP A05) · **Component:** nginx
+response headers, storefront · **Status:** Confirmed by scan, open
+
+**Finding.** `zap-baseline.py` (OWASP ZAP, stable, Docker) run against
+`/` and `/catalogue`: **0 FAIL, 12 WARN, 55 PASS.** This is the automated
+scan the report's first pass named as owed — it closes that gap and
+confirms mechanically what static reading had already found by hand
+(the "Hardening gaps" section below), plus surfaces two headers not
+named individually before.
+
+| ZAP rule | What it means here |
+|---|---|
+| CSP Header Not Set [10038] | No Content-Security-Policy. Already reported below |
+| Missing Anti-clickjacking Header [10020] | No `X-Frame-Options` / `frame-ancestors` |
+| X-Content-Type-Options Header Missing [10021] | No MIME-sniffing protection |
+| Permissions Policy Header Not Set [10063] | No `Permissions-Policy` |
+| Cross-Origin-Embedder-Policy Header Missing [90004] | No COEP (low relevance without cross-origin isolation in use) |
+| Server Leaks Version Information [10036] | nginx's `Server` header discloses its version |
+| Server Leaks Information via X-Powered-By [10037] | PHP-FPM's `X-Powered-By` discloses the PHP version |
+| Cookie No HttpOnly Flag [10010] | See below — investigated, not a bug |
+| Cross-Domain JS Source File Inclusion [10017], Sub Resource Integrity Missing [90003] | External `<script>` tags (fonts/CDN, if any) without SRI hashes |
+| Non-Storable Content [10049], Session Management Response Identified [10112] | Informational — cache-control shape and session-cookie detection, not findings |
+
+**Reason.** No security-header middleware exists anywhere in the app
+(`grep -rn 'add_header' docker/nginx/*.conf` returns nothing), and nginx
+and PHP-FPM both leak version banners by default. This is the same
+absence the "Hardening gaps" section already named from reading the
+config; the scan is the mechanical confirmation, run against the live
+response rather than inferred from the file.
+
+**One item investigated rather than accepted at face value: "Cookie No
+HttpOnly Flag."** `curl -I` against the live app shows two cookies:
+
+```
+Set-Cookie: XSRF-TOKEN=...; samesite=lax                     ← no HttpOnly
+Set-Cookie: amazoff-session=...; httponly; samesite=lax       ← HttpOnly set
+```
+
+The session cookie — the one that matters — correctly carries `HttpOnly`.
+`XSRF-TOKEN` does not, and **that is by design, not a bug**: Laravel's CSRF
+double-submit pattern requires the frontend's JavaScript to read this
+cookie and echo it back as the `X-XSRF-TOKEN` header, which is what makes
+Axios's automatic CSRF handling work. A `HttpOnly` XSRF-TOKEN would break
+CSRF protection outright, not improve it. **ZAP's rule flags every cookie
+without the flag regardless of purpose — it does not know this pattern.**
+This is a false positive, recorded rather than silently dropped, since the
+alternative (skipping ZAP's warnings without checking each) is exactly the
+kind of unverified pass this project's own testing standard rejects.
+
+**Reproduction.**
+
+```bash
+docker run --rm --network online_shop_teamb_default \
+  ghcr.io/zaproxy/zaproxy:stable \
+  zap-baseline.py -t http://webserver:80/catalogue
+```
+
+Run from the host against the Docker network's internal service name
+(`webserver:80`), not `localhost:8080` — the published port is a host-side
+mapping ZAP's container does not share.
+
+**Fix.** One `Illuminate\Http\Middleware` (or nginx `add_header` block)
+setting `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, and a
+`Permissions-Policy`. Suppress the two version-disclosure headers —
+`server_tokens off;` in nginx, `expose_php = Off` in `php.ini` for
+PHP-FPM. CSP needs actual design (Livewire's inline `wire:` attributes
+and Alpine's `x-data` need `unsafe-inline` or nonces worked out
+deliberately) rather than a pasted default, so it is scoped separately
+from the other four, which are safe to add as a single small change.
+
+**Logic for future pentests.** An automated scanner's header/config
+category is cheap to run and safe to trust *for what it directly
+observes* (a header is present or it is not) — but its interpretation of
+*why* still needs a human, as the XSRF-TOKEN case shows. Re-run
+`zap-baseline.py` after any nginx or middleware change touching headers,
+and specifically after CSP is added — ZAP will confirm whether the policy
+is present, not whether it is correctly scoped for Livewire/Alpine.
+
+---
+
 ### The pattern behind SEC-001 and SEC-002 — `#[Locked]` is absent project-wide
 
 `grep -rn '#\[Locked\]' app/` returns **zero** results. Both exploitable
@@ -414,21 +502,29 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
   contains no `add_header` at all — so no HSTS, `X-Frame-Options`,
   `X-Content-Type-Options`, `Referrer-Policy`, or CSP. With Livewire and
   Alpine, a CSP needs designing rather than pasting; the other four are
-  one middleware.
+  one middleware. **Confirmed by a live scan, not only by reading config —
+  see SEC-004** for the full ZAP finding and per-header fix.
 - **`SESSION_SECURE_COOKIE` is unset** and absent from `.env.example`.
   `http_only` (true) and `same_site` (lax) are correct; `secure` is what
   keeps the session cookie off plaintext HTTP, and production must set it.
 
 ## Not covered
 
-- **Automated scanning.** No ZAP, nikto, or sqlmap run — this pass is static
-  review plus targeted live exploitation of the two findings and a
-  route-level role sweep, not a fuzzing/scanner pass. Static reading finds
-  authorization bugs a scanner cannot see and misses the misconfiguration a
-  scanner finds first; a scanner pass remains owed for the second half.
-- **Authenticated deep crawl and response-header inspection** against every
-  live page were not done — the role sweep probed authorization status codes,
-  not each page's rendered content or headers.
+- **ZAP was run as a baseline scan only** (`zap-baseline.py` — passive
+  spider plus passive rules against two unauthenticated pages, SEC-004).
+  Not run: a **full active scan** (`zap-full-scan.py`, which attacks the
+  app rather than only observing it), an **authenticated scan** (logged in
+  as each of the four roles, to reach `/admin/*` and the pages behind
+  `auth` middleware), or a crawl past the two seed URLs. sqlmap and
+  Metasploit were deliberately not run — see the reasoning recorded
+  separately: sqlmap fuzzes for a class of bug (string-concatenated SQL)
+  already ruled out by reading every query path, and Metasploit targets
+  known CVEs in deployed services, not a bespoke app's business-logic
+  bugs, which is where this codebase's real findings (SEC-001, SEC-002)
+  actually were.
+- **Response-header inspection against every live page**, not only the two
+  ZAP scanned — the role sweep probed authorization status codes across
+  the full admin route set, not each page's headers.
 - **Filament's own surface** was read at the policy layer, not probed. Its
   form/table plumbing is upstream's to secure.
 - **No courier code exists yet** (§37 #12–15 unbuilt), so credential
