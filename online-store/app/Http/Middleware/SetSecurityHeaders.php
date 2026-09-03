@@ -93,14 +93,18 @@ class SetSecurityHeaders
             app()->isProduction()
                 ? "font-src 'self' data:"
                 : "font-src 'self' data: http://localhost:5173",
-            // No `https:` wildcard. Every image this application renders is
-            // same-origin — product photos from /storage, the logo from
-            // /images — verified against both the storefront and the panel.
-            // ZAP's CSP rule flags a wildcard img-src as Medium, and it is
-            // right to: `https:` would permit an injected <img> to beacon to
-            // any host on the internet. data: and blob: stay, for generated
-            // previews and Filament's upload previews.
-            "img-src 'self' data: blob:",
+            // No `https:` wildcard — see SEC-006/SEC-007's reasoning: it
+            // would let an injected <img> beacon to any host on the
+            // internet, and ZAP's CSP rule flags exactly that as Medium.
+            // One named exception, not a wildcard: Filament's default
+            // avatar provider (UiAvatarsProvider, unconfigured — nothing in
+            // this project chose it) fetches a generated placeholder from
+            // ui-avatars.com for any staff account with no uploaded avatar.
+            // Missed when this policy was first measured, because that
+            // pass checked the storefront and the panel's own asset paths,
+            // not every third-party call Filament itself makes by default —
+            // found via the admin panel blocking the request outright.
+            'img-src \'self\' data: blob: https://ui-avatars.com',
             // Livewire polls its own origin; Vite's dev server uses a
             // websocket for hot reload, which connect-src governs too.
             app()->isProduction()

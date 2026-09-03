@@ -108,6 +108,61 @@ success, not a rejection a bot could learn from and adapt to. A second,
 genuine submission with the honeypot empty **is** stored — one row,
 confirmed — so the fix path was verified working, not just the trap.
 
+**Combined: the honeypot filled and an XSS payload in every free-text
+field, together** — the shape an actual scraping bot's submission takes,
+not two separate tests. `name`, `subject`, and `message` all set to
+`<script>alert(document.cookie)</script>`, `website` (the honeypot) filled.
+
+![Fake success shown to the bot, after honeypot + XSS submission](../assets/phase1-honeypot-xss-fake-success.png)
+
+Same result as the honeypot alone — `sent = true`, a convincing "Message
+sent" success card, **zero rows created** (`ContactMessage::count()`
+unchanged before and after). The XSS payload never had anywhere to land:
+the honeypot check runs first and discards the whole submission before any
+field's content matters.
+
+**Then isolated: the same XSS payload with the honeypot left empty** — a
+genuine, if XSS-laced, submission, to separate "does the honeypot block
+this" from "does anything reflect it unescaped." This **does** create a
+row, and the row is stored with the literal, unescaped tag —
+`name = "<script>alert(document.cookie)</script>"` in the database — which
+is correct at the storage layer: sanitisation is a render-time concern in
+this codebase (`ArticleStatus`'s `safeContent()`/ADR-0015 is the pattern),
+not a write-time one, so storing exactly what was typed is expected.
+
+The question that matters is what happens when a human — a staff member —
+actually reads it. Checked in the admin panel, logged in as
+`admin@example.com`, both the `ContactMessagesTable` list column and the
+`ViewContactMessage` detail page:
+
+![The stored XSS payload viewed in the admin panel — inert text, not an executed script](../assets/phase1-admin-avatar-csp-blocked.png)
+
+The tag renders as **visible, inert text** — `<script>alert(...)</script>`
+sits on the page as characters a person can read, not as markup the browser
+parses. Confirmed at the DOM level, not just visually: the cell's raw
+`innerHTML` contains `&lt;script&gt;…&lt;/script&gt;`, HTML-entity-escaped.
+Filament's `TextColumn`/`TextEntry` escape by default; nothing in either
+resource opts into raw rendering. No console error, no `alert()` fired.
+
+**A genuine, unrelated finding surfaced by this same screenshot**: the
+broken-image icon top-right. Filament's default avatar provider
+(`UiAvatarsProvider`, unconfigured — nothing in this project chose it)
+fetches a generated placeholder from `ui-avatars.com` for any staff account
+with no uploaded avatar, and `SetSecurityHeaders`' `img-src` (SEC-006/
+SEC-007) had no exception for it — the policy's own comment claimed "every
+image this application renders is same-origin," which this proved wrong.
+Fixed same session: one named exception added
+(`img-src 'self' data: blob: https://ui-avatars.com`), not a wildcard.
+
+![Fixed: the same page, avatar loading, zero console errors](../assets/phase1-admin-avatar-csp-fixed.png)
+
+The lesson worth keeping: **the CSP was measured against the storefront and
+the panel's own asset paths, not against every third-party call a
+dependency makes by default.** It took logging into the admin panel and
+reading the console — not reading the middleware — to find the gap, the
+same "verify against the running app" discipline this project already
+states for everything else.
+
 ## What did not hold — two crashes, both fixed
 
 Neither was found by clicking; both were found by sending the values a

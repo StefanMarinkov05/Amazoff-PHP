@@ -70,9 +70,17 @@ these three components.
 | `ContactForm` | `name` | `string` | XSS | No reflection — `->assertDontSee` confirmed the raw `<script>` tag never appears unescaped |
 | `NewsletterSignup` | `email` | `string` | 5000-char, XSS | Validation error (`email:rfc\|max:100`), no crash |
 
-`ContactForm::$website` (the honeypot field) not independently tested —
-worth a pass to confirm a non-empty value there is actually silently
-discarded/ignored rather than merely unused by the current happy path.
+`ContactForm::$website` (the honeypot) — **tested (2026-09-03)**, combined
+with XSS in the same submission (`name`, `subject`, `message` all
+`<script>alert(document.cookie)</script>`, honeypot filled). Confirmed: the
+component reports `sent = true` (fake success shown) while
+`ContactMessage::count()` is unchanged — a non-empty honeypot value is
+genuinely discarded, not merely unused by the happy path. Isolated from
+that: the same XSS payload with the honeypot empty **is** stored raw (the
+literal tag in the database, correct — sanitisation is a render-time
+concern here, not a write-time one) and renders as inert escaped text in
+both the admin table and detail view, confirmed at the `innerHTML` level.
+Full writeup and screenshots: `reference/storefront-ui-testing.md`.
 
 ## `App\Filament\Widgets\*` (admin dashboard)
 
