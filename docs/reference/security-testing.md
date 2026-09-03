@@ -38,7 +38,7 @@ Dependency scanning did complete once the host was repaired.
 
 ## Findings
 
-Five entries. Two are exploitable IDOR/authorization bypasses in this
+Six entries. Two are exploitable IDOR/authorization bypasses in this
 project's own code, both confirmed by live exploitation on 2026-09-03 and
 both since fixed; both share one shape — a client-writable Livewire public
 property that a query downstream trusts. The third is a dependency advisory
@@ -49,7 +49,9 @@ investigating rather than accepting at face value. The fifth records a
 because a clean scan is worth nothing unless what it actually covered, and
 what it could not see, is written down beside it. Each is written in
 bug-bounty report form: **Finding → Reason → Reproduction → Fix → Logic for
-future pentests.**
+future pentests.** The sixth records the headers added to close what the
+fifth found still open, including a wildcard the scanner caught in the first
+attempt at the fix.
 
 Severity uses CVSS-style qualitative bands (Critical / High / Medium / Low /
 Info), rated for this application in its current state, not in the abstract.
@@ -519,6 +521,103 @@ the HTML/XML reports were lost. Fix by ensuring the output directory is
 writable by uid 1000 before the run. A non-zero exit from this tool means
 "findings at or above the threshold, **or** a reporting failure" — check
 which before concluding the scan failed.
+
+---
+
+### SEC-006 — Missing CSP and CORP, and a wildcard in the first attempt at one
+
+**Severity:** Low (defence in depth — neither header stops an attack alone;
+both raise the cost of one another bug provides the entry point) ·
+**Type:** Security misconfiguration (OWASP A05) · **Component:**
+`app/Http/Middleware/SetSecurityHeaders.php` · **Status:** **Fixed**
+
+**Finding.** SEC-005 left two warnings genuinely open after the false
+positives and dev-only artifacts were separated out: no
+`Content-Security-Policy` and no `Cross-Origin-Resource-Policy`. A third
+appeared only *after* the first fix attempt, and is recorded here because
+the way it was caught is the point.
+
+**Reason.** No middleware set either header. CSP had been deliberately
+scoped out of SEC-004 as needing design rather than a pasted default, which
+was the right call — and the design question turned out to have a measured
+answer rather than a matter of taste.
+
+**This stack cannot run a strict CSP**, and that is a fact about the
+frontend, not a preference:
+
+- Alpine evaluates its attribute expressions (`x-data="{ open: false }"`,
+  `x-on:click="…"`) at runtime through the equivalent of `eval`, so it
+  requires **`unsafe-eval`**. Verified in a browser: Alpine components
+  initialise only when it is permitted.
+- The rendered catalogue carries inline `<script>` and `<style>` blocks and
+  **176 inline `style="…"` attributes**, so it requires **`unsafe-inline`**.
+
+A policy forbidding those does not harden the application, it stops it
+working. So the policy buys what it still can, and those directives are not
+nothing:
+
+| Directive | What it stops even with a permissive `script-src` |
+|---|---|
+| `frame-ancestors 'none'` | Clickjacking — and unlike `X-Frame-Options`, this is the standard modern browsers actually honour |
+| `object-src 'none'` | Plugin/object embedding |
+| `base-uri 'self'` | An injected `<base>` silently rewriting every relative URL on the page |
+| `form-action 'self'` | An injected form posting credentials to another origin |
+
+**Two mistakes in the first attempt, both caught by checking rather than by
+reading the header.** They are recorded because each is a general lesson:
+
+1. **`font-src 'self' data:` blocked 12 font loads.** Instrument Sans *is*
+   bundled through Vite rather than fetched from a CDN — but in development
+   Vite serves the `.woff2` files from `localhost:5173`, so they are
+   cross-origin locally. Those requests originate in CSS, so the
+   `curl | grep 'https://'` over the HTML that "confirmed" no external fonts
+   never saw them. The page fell back to a system face; nothing errored
+   server-side. **A header is not verified until a browser has rendered the
+   page under it.**
+2. **`img-src 'self' data: blob: https:` carried an unjustified wildcard.**
+   The `https:` was added speculatively for "an admin pasting a remote image
+   URL" — a case that does not exist here: every image is same-origin,
+   product photos from `/storage` and the logo from `/images`, verified
+   against both the storefront and the panel. The **authenticated scan's own
+   passive rules flagged it** (`CSP: Wildcard Directive`, Medium) and were
+   right to: `https:` would let an injected `<img>` beacon to any host on the
+   internet, which is most of what an `img-src` restriction exists to
+   prevent.
+
+The second is the more instructive: a speculative permission, added "just in
+case", is how a policy quietly becomes decorative.
+
+**Fix.** `SetSecurityHeaders` now sets a CSP with the four load-bearing
+directives above, `img-src 'self' data: blob:` with no wildcard, and
+`Cross-Origin-Resource-Policy: same-site`. Vite's dev-server origin is
+permitted in `script-src`, `style-src`, `font-src` and `connect-src`
+**outside production only**, via `app()->isProduction()` — a production
+build emits same-origin bundles and must not permit it.
+
+**Verified in a browser, not by reading the header** — the discipline the
+first attempt failed:
+
+- storefront back to its 4 pre-existing Vite CORS errors, **zero CSP
+  violations**
+- Alpine components initialising (so `unsafe-eval` is correctly permitted)
+- a **Livewire round-trip succeeding** (so `connect-src` is right)
+- 14 of 14 catalogue images loading, none broken
+- the Filament panel rendering 9 stylesheets, 50 widgets, 41 sidebar links,
+  and **zero console errors**
+
+Pinned by a fourth case in `tests/Feature/Support/SecurityHeadersTest.php`
+asserting the four directives that must survive any future loosening of
+`script-src`.
+
+**Logic for future pentests.** Two rules come out of this. **A CSP written
+for a framework you have not measured will either break the app or be
+decorative** — check what the framework actually needs (`grep` for
+`x-data`/`wire:`, count inline `style=` attributes) before choosing
+directives. And **every source in a policy needs a reason you can name**;
+`https:`, `*`, or a host added "in case" is a permission granted to an
+attacker as much as to the application. Re-run the scan after any CSP
+change: its passive rules grade the policy itself, which is the one part of
+this a scanner does better than a human.
 
 ---
 

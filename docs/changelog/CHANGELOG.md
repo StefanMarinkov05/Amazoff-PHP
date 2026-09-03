@@ -119,6 +119,29 @@ when the work happened, not when it was committed — nothing in
   now is that any public Livewire property holding an identifier or feeding
   an authorization decision needs `#[Locked]` and a re-check at point of use.
 
+- **Response security headers, closing an OWASP ZAP finding.**
+  `SetSecurityHeaders` sets `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, a `Content-Security-Policy` and
+  `Cross-Origin-Resource-Policy` on every response. Registered globally
+  rather than on the `web` group, because `AdminPanelProvider` builds its own
+  middleware stack and does not inherit `web` — a `web`-scoped middleware
+  would have left `/admin` unheadered, and the test proving it goes red if
+  the registration is narrowed.
+
+  The CSP is deliberately not a strict one, for a measured reason: Alpine
+  evaluates its attribute expressions at runtime (needs `unsafe-eval`) and
+  the pages carry 176 inline `style` attributes (needs `unsafe-inline`), so a
+  strict policy would stop the application working rather than harden it.
+  What it does enforce is `frame-ancestors 'none'`, `object-src 'none'`,
+  `base-uri 'self'` and `form-action 'self'` — the four that hold regardless
+  of a permissive `script-src`, and the four the test pins. See
+  `reference/security-testing.md` SEC-004 and SEC-006.
+
+  Dev-only, and recorded as such: `server_tokens off` and `expose_php = Off`
+  suppress the `Server` and `X-Powered-By` version banners in the Docker
+  stack. Production runs on Forge, which provisions its own nginx and PHP, so
+  both still need setting there.
+
 ### Known gaps
 
 - From the same review: **signing-secret rotation** and **dispute
