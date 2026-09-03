@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Payment\StripeWebhookController;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\SetSecurityHeaders;
 use App\Http\Middleware\VerifyStripeWebhookSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -60,6 +61,14 @@ return Application::configure(basePath: dirname(__DIR__))
             AuthenticateSession::class,
             EnsureAccountIsActive::class,
         ]);
+
+        // Global, not web-only: AdminPanelProvider builds its own
+        // middleware stack and does not inherit `web`, so a web-group-only
+        // middleware would leave /admin unheadered — the higher-value
+        // target. Reaching the Stripe webhook route too is harmless; Stripe
+        // ignores headers it does not recognise. See SetSecurityHeaders'
+        // own docblock and reference/security-testing.md, SEC-004.
+        $middleware->append(SetSecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
