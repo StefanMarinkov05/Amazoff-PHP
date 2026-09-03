@@ -333,7 +333,8 @@ diff the reachable set, not just the advisory count.
 **Severity:** Low (Informational — no header here enables an attack on its
 own; each raises the cost of one if another bug provides the entry point) ·
 **Type:** Security misconfiguration (OWASP A05) · **Component:** nginx
-response headers, storefront · **Status:** Confirmed by scan, open
+response headers, storefront · **Status:** **Fixed in dev/app code; the
+Forge equivalent is still owed** (see Remediation applied)
 
 **Finding.** `zap-baseline.py` (OWASP ZAP, stable, Docker) run against
 `/` and `/catalogue`: **0 FAIL, 12 WARN, 55 PASS.** This is the automated
@@ -402,6 +403,30 @@ PHP-FPM. CSP needs actual design (Livewire's inline `wire:` attributes
 and Alpine's `x-data` need `unsafe-inline` or nonces worked out
 deliberately) rather than a pasted default, so it is scoped separately
 from the other four, which are safe to add as a single small change.
+
+**Remediation applied (2026-09-03) — the app half.**
+`App\Http\Middleware\SetSecurityHeaders` sets the four headers, registered
+**globally** (`$middleware->append()`, not `$middleware->web()`) — a
+`web`-scoped middleware would leave `/admin` unheadered, since
+`AdminPanelProvider` builds its own middleware stack and does not inherit
+`web`. Verified against the running app with `curl -I` on both
+`/catalogue` and `/admin` before writing the test, and proven by
+`tests/Feature/Support/SecurityHeadersTest.php` (3 cases): scoping the
+middleware to `web()` instead of appending it globally turns the
+admin-panel case red, confirming the global registration is load-bearing,
+not incidental.
+
+**The version-disclosure half is dev-only, not production.** `server_tokens
+off` in `docker/nginx/default.conf` and `expose_php = Off` in a new
+`docker/php/conf.d/security.ini` suppress `Server` and `X-Powered-By`
+locally — confirmed with `curl -I`, both headers gone. **Neither reaches
+production**: this repo's Docker Compose stack is dev/CI only, and
+production runs on Forge, which provisions nginx and PHP-FPM directly on
+the VPS (ADR-0001) — a container config change here has no effect there.
+Forge's own nginx and `php.ini` need the same two directives set
+independently; recorded here rather than closed.
+
+**No CSP added.** Still open, deliberately, per the Fix note above.
 
 **Logic for future pentests.** An automated scanner's header/config
 category is cheap to run and safe to trust *for what it directly
