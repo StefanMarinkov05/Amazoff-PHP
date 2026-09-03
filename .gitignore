@@ -20,7 +20,20 @@ Thumbs.db
 
 # Personal Claude Code skill config — Windows directory junctions into a
 # per-machine archive, not project source. Wouldn't survive a clone anyway.
-.claude/
+#
+# ...except the parts that ARE project source and DO survive a clone: the
+# shared plugin list, and the hookify rules that encode CLAUDE.md's
+# invariants as mechanical guards. Both are self-contained, with no
+# machine-specific paths. `.claude/skills/` stays excluded — it is 30
+# symlinks into a personal library — and so does `settings.local.json`,
+# which is per-machine MCP config.
+#
+# Ignoring the directory itself would stop git from ever descending into
+# it, so the exclusion is on the contents (`.claude/*`) and the shares are
+# re-included below it.
+.claude/*
+!.claude/settings.json
+!.claude/hookify.*.local.md
 
 # Laravel's own .gitignore is added when the app is scaffolded and merges
 # with this file.

@@ -86,8 +86,10 @@ in agreement: if a rule here changes, change it there too.
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
-  `run-the-tests.md`, `seed-the-database.md`, `set-up-stripe.md`,
-  `start-a-session.md`,
+  `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
+  (the committed plugin list and the four hookify rules that enforce this
+  file's own invariants mechanically), `set-up-stripe.md`,
+  `start-a-session.md`, `test-for-input-crashes.md`,
   `use-ci.md`, `write-docs-and-comments.md`, and
   **`write-a-storefront-page.md`** — every way UI is written here and what
   breaks each one; read it before adding a Blade view, because most of
