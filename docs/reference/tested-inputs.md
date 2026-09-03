@@ -23,7 +23,7 @@ is `docs/reference/write-rules/catalogue-filters.md`. Summary:
 | `brandId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit), non-numeric, XSS-shaped, SQLi-shaped, negative, decimal | **Crashed live** — `TypeError: Cannot assign float to property App\Livewire\Catalogue\ProductList::$brandId of type ?int`, the third instance of this project's numeric-`#[Url]`-hydration incident (`quantity`, `variationId`, now `brandId`). Fixed: widened to `mixed`, normalised via `safeBrandId()` at both read sites. Confirmed red without the fix (same `data_set()` line, same exception), green with it — proven by `tests/Feature/Livewire/ProductListBrandFilterTest.php` |
 | `minPrice` / `maxPrice` | `mixed` | overflow (34-digit), non-numeric, negative, SQLi-shaped | No crash — resets to "no bound"; min pushed to match if it exceeds max |
 | `minRating` | `mixed` | overflow, non-numeric, XSS-shaped, value outside `RATING_TIERS` | No crash — resets to `null` |
-| `sortBy` / `sortDir` | `string` | — | Protected by `safeSortBy()`/`safeSortDir()`'s allow-list (ADR-0014); not independently re-tested this pass |
+| `sortBy` / `sortDir` | `string` | XSS, SQLi, 5000-char, non-allow-listed value, empty | No crash. `safeSortBy()`'s allow-list holds — confirmed by comparing the first product's slug across every garbage value against the `created_at desc` default: identical every time, so nothing reaches `ORDER BY` unfiltered. `safeSortDir()`'s binary fallback confirmed the same way: a garbage value produces output byte-identical to explicit `desc`, and explicit `asc` genuinely differs, proving the branch is live rather than coincidentally always taking one side |
 
 ## `App\Livewire\Catalogue\ProductDetails`
 
@@ -41,7 +41,7 @@ this was the fourth, already crashing live before the sweep even finished.
 | Property | Type | Playbook cases tried | Result |
 |---|---|---|---|
 | `categoryId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit), non-numeric, XSS-shaped, negative, decimal, non-matching id | **Crashed live** — identical `TypeError: Cannot assign float to property App\Livewire\Journal\ArticleList::$categoryId of type ?int`, same `data_set()` line as `ProductList::$brandId`. Fixed the same way: widened to `mixed`, normalised via `safeCategoryId()` at the one read site. Confirmed red without the fix, green with it — proven by `tests/Feature/Livewire/ArticleListCategoryFilterTest.php` |
-| `tag` | `?string` | — | Structurally immune to the overflow case (`string`); not independently re-tested this pass |
+| `tag` | `?string` | XSS, SQLi, 5000-char, non-matching value, empty | No crash, no reflection (`<script>` count in response: 0). Unlike `categorySlug`, a non-matching tag does **not** fall back to unfiltered — it is a real `whereHas('tags', …)` constraint, so a garbage value correctly narrows to zero articles (`16 pieces` baseline → `0 pieces`), not "no filter applied." Worth stating explicitly since the two `?string` filter properties on this codebase's two list components behave differently on a miss, and assuming they match would be wrong |
 
 The sweep that found this (`grep` across every `app/Livewire/*/*.php` for a
 `#[Url]` immediately preceding a strictly `int`/`float`-typed property)
@@ -53,9 +53,9 @@ in the codebase as of 2026-09-03.
 | Component | Property | Type | Cases tried | Result |
 |---|---|---|---|---|
 | `Login` | `email` | `string` | 5000-char, XSS, SQLi | Validation error (`email:rfc\|max:100`), no crash |
-| `Login` | `password` | `string` | — | Not independently tested; `required\|string` only, no `max:` — a very long password is valid input by the rules as written, not a bug, just unbounded on purpose (password length is not meant to be capped the way a name is) |
+| `Login` | `password` | `string` | 5000-char, XSS, SQLi, empty | No crash on any payload, including the 5000-char one — `required\|string` only, no `max:`, unbounded on purpose. Every non-empty wrong password produced the identical generic message ("These credentials do not match our records") regardless of payload shape — no enumeration signal leaks through abuse. The real admin account still logged in normally immediately afterward, confirming the attempts did not corrupt state or (at this count) trip the 5-per-minute rate limit |
 | `Register` | `first_name` | `string` | 5000-char, XSS | Validation error (`max:50`), no crash, no reflection |
-| `Register` | `email` | `string` | — | Same rule shape as `Login`'s; not independently re-run |
+| `Register` | `email` | `string` | 5000-char, XSS, malformed (`not-an-email`), empty, RFC-legal-but-unusual (`admin'--@example.com`) | 5000-char, XSS-shaped, and malformed all correctly refused (`email:rfc\|max:100`). One case initially looked like a bypass — `admin'--@example.com` created a user — until checked against Laravel's own `email:rfc` validator directly: it **passes** RFC 5322, because an unquoted `'` is legal `atext` in a local-part. Not a bug; a reminder that a string merely *looking* SQLi-shaped does not make it invalid input. Confirmed separately that the users table was untouched by the attempt (parameter binding held) and cleaned up the one legitimately-created test row afterward |
 | `ChangePassword` | `current_password` | `string` | 5000-char | Validation passes through to `current_password` rule, which itself rejects a wrong value — no crash |
 
 All three are `string`-typed throughout — the hydration-overflow case
