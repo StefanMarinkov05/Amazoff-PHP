@@ -94,6 +94,9 @@ in agreement: if a rule here changes, change it there too.
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
   `emulate-a-device.md` (isolated browser sessions and device profiles —
   why resizing a desktop window is not the same as testing a phone),
+  `pentest-the-system.md` (the full security-pass procedure — which layer
+  finds which bug class, the model/effort split it needs, and why
+  downgrading the model for the reasoning half produces a false all-clear),
   `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
   (the committed plugin list and the four hookify rules that enforce this
   file's own invariants mechanically), `set-up-stripe.md`,

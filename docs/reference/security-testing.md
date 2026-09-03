@@ -1,9 +1,14 @@
 # Security testing — what was probed, what held, what did not
 
-The third page in the family `stripe-testing.md` and `browser-testing.md`
+Another page in the family `stripe-testing.md` and `browser-testing.md`
 belong to: an honest record of a security pass, including what it could not
 reach. `explanation/security-model.md` states the model this checks against;
 this page is the result of checking.
+
+**`how-to/pentest-the-system.md` is the procedure that produces this page** —
+the tools, the scan commands, the model and effort each phase needs, and the
+traps that turn a pass into a false all-clear. Read it before running the
+next pass; read this one to see what the last pass found.
 
 A pass here is a claim about the code as read on one date, plus whatever
 runtime probing the environment allowed that day. It is not a claim that the
