@@ -239,6 +239,88 @@ Verified, not assumed. Each of these was probed and refused:
   by removal** — the guard is deleted, the test is watched going red, and the
   guard restored. A test never observed failing proves nothing.
 
+## The CSP `unsafe-*` alerts will not go away, and why that is correct
+
+Three of the four remaining Medium alerts are the same finding in different
+clothes: `CSP: script-src unsafe-eval`, `CSP: script-src unsafe-inline`, and
+`CSP: style-src unsafe-inline`. They are permanent under the current
+frontend, they are **not** an unfinished task, and anyone reading this report
+will ask about them — so the reasoning is recorded here rather than left in a
+commit message.
+
+### The constraint is measured, not assumed
+
+Two facts about this application's frontend, both checked against the
+rendered page rather than inferred from the framework's documentation:
+
+- **Alpine evaluates its attribute expressions at runtime.**
+  `x-data="{ open: false }"`, `x-on:mouseenter="open = true"` and
+  `wire:click="$set('categorySlug', 'beauty')"` are strings that become
+  JavaScript when the component initialises. That is `eval` by another name,
+  and it requires **`unsafe-eval`**. Verified in a browser: with the
+  directive withheld, Alpine components do not initialise at all.
+- **The rendered pages carry inline styles and scripts.** 176 inline
+  `style="…"` attributes on the catalogue alone, plus inline `<script>` and
+  `<style>` blocks. Those require **`unsafe-inline`**.
+
+A policy forbidding either does not harden this application. It stops it
+working — no interactive navigation, no filters, no cart. **A CSP that breaks
+the site is not a stricter CSP; it is an outage.**
+
+### What the policy still buys
+
+The honest framing is that `script-src` is permissive and four other
+directives are not. Those four hold regardless, and each blocks a real attack
+class:
+
+| Directive | Blocks |
+|---|---|
+| `frame-ancestors 'none'` | Clickjacking — and unlike `X-Frame-Options`, this is the directive modern browsers actually honour |
+| `object-src 'none'` | Plugin and object embedding |
+| `base-uri 'self'` | An injected `<base>` tag silently rewriting every relative URL on the page |
+| `form-action 'self'` | An injected form posting credentials to an attacker's origin |
+
+Those are the four pinned by `tests/Feature/Support/SecurityHeadersTest.php`,
+so a future loosening of `script-src` cannot quietly take them with it.
+
+### What would actually remove the alerts
+
+Not a header change — frontend work, and a substantial amount:
+
+1. Replace every inline `style="…"` attribute with a class.
+2. Move every inline `<script>` block into a bundled file, or give each one a
+   per-request nonce.
+3. Adopt Alpine's **CSP build**, which trades expression syntax for
+   `eval`-free evaluation and requires rewriting every `x-data` and `x-on:`
+   expression in the codebase.
+
+That is a real project with a real regression risk, weighed against alerts
+whose exploitability depends on an XSS hole that the scan and the review both
+failed to find. It is recorded as a deliberate, costed decision — not an
+oversight, and not something to "just fix" in a header.
+
+## False positives, and why they are recorded rather than removed
+
+Four alerts across the scans are false positives. They are kept in the
+reports, each with the evidence that settles it, because **a suppressed alert
+and an unexamined one look identical six months later.** Deleting them would
+make the report look cleaner and be worth less.
+
+| Alert | Why it is not a finding | Evidence |
+|---|---|---|
+| **`Cookie No HttpOnly Flag`** | Flags `XSRF-TOKEN`, which Laravel's CSRF double-submit pattern **requires** JavaScript to read so it can echo `X-XSRF-TOKEN`. Making it `HttpOnly` would break CSRF protection, not improve it. The cookie that matters — `amazoff-session` — does carry `HttpOnly` | `curl -I` shows `amazoff-session=…; httponly` and `XSRF-TOKEN=…` without it |
+| **`Cross-Domain JavaScript Source File Inclusion`** and **`Sub Resource Integrity Attribute Missing`** | Both point at `http://localhost:5173/…` — the **Vite dev server**. A production build emits bundled, same-origin assets and no dev server exists there | The flagged URLs are `@vite/client` and `resources/js/app.js` on port 5173 |
+| **`Information Disclosure - Sensitive Information in URL`** | Fires on `/login?email=zaproxy%40example.com&password=ZAP` — **ZAP's own fuzzer URL**, not a request the application generates. The real login is a Livewire `POST`, which never puts credentials in a query string | The URL appears only in ZAP's request log, never in the application's routes |
+| **`User Controllable HTML Element Attribute (Potential XSS)`** | ZAP's own wording is "try injecting special characters to see if XSS **might** be possible" — a hint to investigate, not a finding. Investigated and refuted | `?category="><script>alert(1)</script>` is not reflected; `?category=ZZQUOTE"ZZ` renders as `ZZQUOTE\&quot;ZZ`, HTML-escaped *and* backslash-escaped inside the Livewire payload |
+
+**The general rule this project follows:** a scanner's output is raw material,
+not findings. Every alert gets a decision — real, false positive, or
+already-known — and a false positive gets the same written justification a
+real finding gets. The `Cookie No HttpOnly` case is the one worth
+remembering: transcribed blindly it reads as a session-security bug, and
+"fixing" it would have broken CSRF protection. **The scanner cannot know the
+framework's design; a human has to.**
+
 ## Limits — what this does *not* claim
 
 Stated plainly, because a coverage claim without its limits is not
