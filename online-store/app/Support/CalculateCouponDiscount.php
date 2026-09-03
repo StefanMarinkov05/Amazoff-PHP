@@ -64,7 +64,11 @@ final class CalculateCouponDiscount
         // is still correct. The discount itself stays one order-level figure
         // (decision 3) — this apportionment is notional, computed here and
         // never written back onto a line.
-        $vat = self::vatAfterDiscount($matched, $discount, $matchedSubtotal);
+        //
+        // Covers every line in $lines, not just $matched: a scoped coupon
+        // leaves an unmatched line's price untouched, but its VAT is still
+        // part of the total both callers treat this return value as.
+        $vat = self::vatAfterDiscount($lines, $matched, $discount, $matchedSubtotal);
 
         return ['discount' => $discount, 'vat' => $vat];
     }
@@ -150,28 +154,38 @@ final class CalculateCouponDiscount
     }
 
     /**
+     * VAT across every line passed to `forLines()`, not only the matched
+     * ones. An unmatched line's price is untouched by the coupon, but its
+     * VAT still belongs in the total this method returns.
+     *
+     * @param  Collection<int, CouponDiscountLine>  $lines
      * @param  Collection<int, CouponDiscountLine>  $matched
      */
-    private static function vatAfterDiscount(Collection $matched, string $discount, string $matchedSubtotal): string
+    private static function vatAfterDiscount(Collection $lines, Collection $matched, string $discount, string $matchedSubtotal): string
     {
-        $total = Money::of($matchedSubtotal);
-
-        if ($total->isZero()) {
-            return (string) Money::zero();
-        }
-
-        $vat = Money::zero();
+        $matchedTotal = Money::of($matchedSubtotal);
         $pool = Money::of($discount);
 
-        foreach ($matched as $line) {
+        // Identity, not value equality: two distinct lines can legitimately
+        // share the same productId/lineTotal/vatRate (two variations of one
+        // product priced the same), and $matched is a filtered view over the
+        // same objects as $lines, not copies.
+        $matchedIds = $matched->map(spl_object_id(...))->all();
+
+        $vat = Money::zero();
+
+        foreach ($lines as $line) {
             $lineTotal = Money::of($line->lineTotal);
 
-            // This line's share of the discount, proportional to its share
-            // of the matched subtotal — computed here only, never persisted
-            // per line (decision 3).
-            $lineAfterDiscount = $lineTotal->subtract($lineTotal->shareOf($pool, $total));
+            if (in_array(spl_object_id($line), $matchedIds, true)) {
+                // This line's share of the discount, proportional to its
+                // share of the matched subtotal — computed here only, never
+                // persisted per line (decision 3). `shareOf()` returns zero
+                // when $matchedTotal is zero rather than dividing by it.
+                $lineTotal = $lineTotal->subtract($lineTotal->shareOf($pool, $matchedTotal));
+            }
 
-            $vat = $vat->add($lineAfterDiscount->percentageOf($line->vatRate));
+            $vat = $vat->add($lineTotal->percentageOf($line->vatRate));
         }
 
         return (string) $vat;
