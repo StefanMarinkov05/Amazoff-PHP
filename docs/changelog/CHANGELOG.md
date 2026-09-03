@@ -87,6 +87,38 @@ when the work happened, not when it was committed — nothing in
   `explanation/secrets-and-env.md`, the standing policy on `.env` and why
   an agent reads `.env.example`, never `.env`.
 
+### Fixed
+
+- **Two IDOR / broken-access-control bugs found by a security pass, both
+  fixed and regression-tested.** Both were the same shape — a client-writable
+  Livewire public property that a query downstream trusted — and both were
+  confirmed by live exploitation against the running app before being fixed.
+  `reference/security-testing.md` (new) is the full report, in bug-bounty
+  format, with the role-access matrix and what held.
+
+  - **SEC-001 (High): draft and embargoed articles were publicly readable.**
+    `ArticleDetails::mount()` checked `->visible()`, but the `article()`
+    computed property that feeds the page did not — and `articleId`, a public
+    property Livewire re-hydrates from the client on every update, could be
+    set to a draft's id after mount. Fixed by re-applying `->visible()` in
+    `article()` (the load-bearing guard: a non-public id now 404s) and
+    `#[Locked]` on `$articleId` (defence in depth).
+
+  - **SEC-002 (Medium): a guest could read another customer's order serial.**
+    `CheckoutPage::order()` did a bare, unscoped `Order::find()` on a
+    client-writable `orderId`, printing `serial_number` on the payment step —
+    the sequential-number enumeration `OrderConfirmation` was built to
+    prevent, on a second path. Fixed by scoping `order()` to
+    owner-or-session-claim (matching `OrderConfirmation`) and `#[Locked]` on
+    `$orderId` and `$clientSecret`.
+
+  Both fixes are proven by tests that go red when the fix is removed —
+  `ArticleDetailsVisibilityTest` (5 cases) and four cases added to
+  `CheckoutTest` — verified by the removal method this project requires. No
+  `#[Locked]` existed anywhere in the codebase before this; the standing rule
+  now is that any public Livewire property holding an identifier or feeding
+  an authorization decision needs `#[Locked]` and a re-check at point of use.
+
 ### Known gaps
 
 - From the same review: **signing-secret rotation** and **dispute

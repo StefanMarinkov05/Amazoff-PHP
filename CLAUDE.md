@@ -68,6 +68,9 @@ in agreement: if a rule here changes, change it there too.
   `browser-testing.md` is the third in that family, covering what only a
   real browser can prove (§37 #19, responsive) and carrying the same honest
   list of gaps — one browser, no real devices, no text zoom;
+  `security-testing.md` is the fourth, recording what a security pass
+  probed, what held, and what it could not reach — read it before trusting
+  any claim that an authorization path is safe;
   `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
