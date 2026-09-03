@@ -73,6 +73,10 @@ in agreement: if a rule here changes, change it there too.
   any claim that an authorization path is safe; `security-tooling.md` is its
   inventory half — which scanners are configured how, the exact surface they
   reached, and the measured numbers behind every coverage claim;
+  `storefront-ui-testing.md` is the fifth, the interactive click-through —
+  every storefront page driven live, every defined behaviour (a honeypot,
+  a validation error, a 404) screenshotted next to the claim it proves, and
+  the missing-pages inventory checked by `curl`, not inferred from routes;
   `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
