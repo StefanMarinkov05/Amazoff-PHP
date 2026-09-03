@@ -93,10 +93,14 @@ class SetSecurityHeaders
             app()->isProduction()
                 ? "font-src 'self' data:"
                 : "font-src 'self' data: http://localhost:5173",
-            // data: and blob: because product images and any generated
-            // preview are served that way; https: so an admin-pasted remote
-            // image renders rather than silently breaking the panel.
-            "img-src 'self' data: blob: https:",
+            // No `https:` wildcard. Every image this application renders is
+            // same-origin — product photos from /storage, the logo from
+            // /images — verified against both the storefront and the panel.
+            // ZAP's CSP rule flags a wildcard img-src as Medium, and it is
+            // right to: `https:` would permit an injected <img> to beacon to
+            // any host on the internet. data: and blob: stay, for generated
+            // previews and Filament's upload previews.
+            "img-src 'self' data: blob:",
             // Livewire polls its own origin; Vite's dev server uses a
             // websocket for hot reload, which connect-src governs too.
             app()->isProduction()
