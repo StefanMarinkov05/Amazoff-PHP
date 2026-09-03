@@ -20,7 +20,23 @@ it('sets the hardening headers on a storefront response', function (): void {
         ->assertHeader('X-Content-Type-Options', 'nosniff')
         ->assertHeader('X-Frame-Options', 'DENY')
         ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-        ->assertHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(), payment=()');
+        ->assertHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(), payment=()')
+        ->assertHeader('Cross-Origin-Resource-Policy', 'same-site');
+});
+
+it('sets a CSP carrying the four directives that hold despite a permissive script-src', function (): void {
+    // This stack cannot run a strict CSP: Alpine evaluates its attribute
+    // expressions at runtime (needs unsafe-eval) and the pages carry inline
+    // style attributes (needs unsafe-inline) — see SetSecurityHeaders'
+    // docblock and SEC-005. What the policy can still enforce is these four,
+    // so they are what this test pins. Deleting any one turns it red.
+    $csp = $this->get('/catalogue')->headers->get('Content-Security-Policy');
+
+    expect($csp)
+        ->toContain("frame-ancestors 'none'")   // clickjacking
+        ->toContain("object-src 'none'")        // plugin embedding
+        ->toContain("base-uri 'self'")          // injected <base> rewriting URLs
+        ->toContain("form-action 'self'");      // injected form posting off-site
 });
 
 it('sets the hardening headers on the admin panel, which does not inherit the web middleware group', function (): void {
