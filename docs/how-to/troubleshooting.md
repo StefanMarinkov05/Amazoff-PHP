@@ -1939,3 +1939,59 @@ rule (`->regex(null)`) over an indirect setter, and prove it by running the
 suite enough times (or with different Faker seeds) for a randomised value to
 actually exercise the path — a single green run after the "fix" is not
 evidence, per CLAUDE.md's own testing discipline.
+
+---
+
+## Every storefront page returns 500 with `touch(): Utime failed: Operation not permitted`
+
+**Symptom.** The whole storefront 500s. `/`, `/catalogue`, everything. The
+response body is nearly a megabyte and *looks* like a real page — it carries
+the `<title>Amazoff</title>` and the full compiled CSS — so a quick `curl`
+that greps for "Whoops" or "Stack trace" finds nothing and suggests the page
+rendered. It did not. Only the status line says so.
+
+`storage/logs/laravel.log` has the real message, and it is not a Laravel
+error at all:
+
+```
+local.ERROR: touch(): Utime failed: Operation not permitted
+(View: /var/www/html/resources/views/components/site/header.blade.php)
+```
+
+**Cause.** Blade writes compiled views to `storage/framework/views/` and
+`touch()`es them to track staleness. `touch()` on a file you do not own
+fails even when the directory is world-writable — POSIX allows setting an
+arbitrary mtime only to the file's owner or root.
+
+The bind mount is what creates the mismatch. Files written during an earlier
+run (or by `docker compose exec`, which runs as **root**) end up owned by
+`root`, while PHP-FPM serves requests as **www-data**. `ls -l` is reassuring
+and wrong: the files are `-rwxrwxrwx`, so permissions look fine. Ownership
+is the problem, not the mode.
+
+**Fix.**
+
+```bash
+docker compose exec app php artisan view:clear
+docker compose exec app chown -R www-data:www-data \
+    storage/framework/views storage/logs bootstrap/cache
+```
+
+Compiled views are regenerated on demand, so clearing them is safe.
+
+**Why it recurs.** Any `docker compose exec app php artisan ...` that writes
+into `storage/` does so as root. The next web request, as www-data, then
+cannot touch what root left behind. Running an Artisan command that warms a
+cache is enough to bring it back.
+
+**Prevention.** Prefer `docker compose exec -u www-data app php artisan ...`
+for anything that writes to `storage/` or `bootstrap/cache`, so the files
+land with the ownership the web request expects. If a page 500s right after
+an Artisan command, check ownership before looking for a code change —
+nothing in `app/` caused it.
+
+**The wider trap.** A 500 whose body renders as a plausible page defeats
+grepping for error markers. Check the status code first, then read
+`storage/logs/laravel.log` for the message; the HTML body is the least
+reliable source. This is the same shape as the other entries here: a failure
+that presents as something other than what it is.

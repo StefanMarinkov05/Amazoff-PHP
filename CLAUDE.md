@@ -65,6 +65,9 @@ in agreement: if a rule here changes, change it there too.
   up front rather than discovered by a broken run; `stripe-testing.md` is
   the payment suite's own version of that, and is the honest record of what
   is *not* covered and why — read it before trusting the payment path;
+  `browser-testing.md` is the third in that family, covering what only a
+  real browser can prove (§37 #19, responsive) and carrying the same honest
+  list of gaps — one browser, no real devices, no text zoom;
   `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
@@ -86,6 +89,8 @@ in agreement: if a rule here changes, change it there too.
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
   `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
+  `emulate-a-device.md` (isolated browser sessions and device profiles —
+  why resizing a desktop window is not the same as testing a phone),
   `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
   (the committed plugin list and the four hookify rules that enforce this
   file's own invariants mechanically), `set-up-stripe.md`,

@@ -46,3 +46,7 @@ Thumbs.db
 online-store/CLAUDE.md
 online-store/boost.json
 online-store/.claude/skills/
+
+# Playwright MCP session output — console logs, snapshots, screenshots from
+# browser-driven checks. Regenerated per session, never source.
+.playwright-mcp/
