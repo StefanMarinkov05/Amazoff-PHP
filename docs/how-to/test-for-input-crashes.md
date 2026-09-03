@@ -126,6 +126,40 @@ of the same root cause is a pattern a systematic sweep would have caught in
 one sitting, at the cost of one property being reviewed slightly before its
 own bug was found "by accident."
 
+## The second class: not a crash, a silently wrong answer
+
+`ProductList::$attributeValueIds` (2026-09-03) found a different failure
+mode, and it is worth its own heading because **the playbook above would
+not have caught it and neither did the test that already existed for this
+exact input.**
+
+The property was already `mixed`, so nothing crashed. The bug was that
+`intval()` of a *non-empty array* is `1`, not `0` — so a nested array
+(`?attributeValueIds[0][0]=1&attributeValueIds[0][1]=2`) did not degrade
+into a harmless non-matching id, it collapsed onto the real, filterable id
+`1` and applied that filter, chip and all. 164 products became 37 under a
+"Black" filter the visitor never selected.
+
+A test for this input already existed — `'does not crash on a non-numeric
+or nested attribute value id'` — and it passed throughout, because it
+asserted `assertOk()` and nothing more. The input was right, the assertion
+was too weak: **a wrong answer returns 200.**
+
+Two rules follow:
+
+- **For any value that reaches a query, assert the resulting set, not the
+  status code.** `assertOk()` proves the request survived; only
+  `viewData('products')` (or an equivalent) proves it survived *correctly*.
+  Every "does not crash on X" test is worth a sibling "and X changes
+  nothing" test.
+- **Casting is a per-reader decision, so put it in one place.** Four
+  readers of this property each cast for themselves and diverged: only
+  `updatedAttributeValueIds()` filtered on `is_numeric` first. That gap is
+  reachable precisely because `updated*` hooks never fire on a first page
+  load from `#[Url]` hydration — the same timing that makes the crash class
+  above possible. One shared `safeX()` method, called by every reader, is
+  the shape that closes both.
+
 ## What already came back clean
 
 Storefront auth (`Login`, `Register`, `ChangePassword`) and contact

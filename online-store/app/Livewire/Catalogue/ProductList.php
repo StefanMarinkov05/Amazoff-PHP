@@ -129,10 +129,13 @@ class ProductList extends Component
      * picking Cotton and Organic means both, which is what a shopper
      * narrowing a list expects.
      *
-     * `mixed` and sanitised in `updatedAttributeValueIds()`, for the same
-     * reason `$minRating` and `$minPrice` are: `#[Url]` hydration assigns
-     * the raw request value before any validation runs, so a strictly typed
-     * property throws on anything it cannot represent. The list is
+     * `mixed` for the same reason `$minRating` and `$minPrice` are: `#[Url]`
+     * hydration assigns the raw request value before any validation runs, so
+     * a strictly typed property throws on anything it cannot represent.
+     *
+     * Every read goes through `safeAttributeValueIds()` rather than casting
+     * in place — see that method for why the four readers that once cast for
+     * themselves were a bug rather than a duplication. The list is
      * additionally intersected against real, filterable ids in
      * `applyFilters()` — an unknown id narrows nothing rather than erroring.
      */
@@ -156,7 +159,7 @@ class ProductList extends Component
      */
     public function toggleAttributeValue(int $valueId): void
     {
-        $selected = collect((array) $this->attributeValueIds)->map(fn (mixed $id): int => (int) $id);
+        $selected = collect($this->safeAttributeValueIds());
 
         $this->attributeValueIds = $selected->contains($valueId)
             ? $selected->reject(fn (int $id): bool => $id === $valueId)->values()->all()
@@ -226,8 +229,7 @@ class ProductList extends Component
         if (str_starts_with($filter, 'attributeValue:')) {
             $target = (int) substr($filter, strlen('attributeValue:'));
 
-            $this->attributeValueIds = collect((array) $this->attributeValueIds)
-                ->map(fn (mixed $id): int => (int) $id)
+            $this->attributeValueIds = collect($this->safeAttributeValueIds())
                 ->reject(fn (int $id): bool => $id === $target)
                 ->values()
                 ->all();
@@ -310,7 +312,39 @@ class ProductList extends Component
      */
     public function updatedAttributeValueIds(): void
     {
-        $this->attributeValueIds = collect((array) $this->attributeValueIds)
+        $this->attributeValueIds = $this->safeAttributeValueIds();
+    }
+
+    /**
+     * `$attributeValueIds` as a clean `list<int>`, whatever arrived.
+     *
+     * Shared by every reader rather than each casting for itself, because
+     * they did and they diverged: `updatedAttributeValueIds()` filtered on
+     * `is_numeric` first, while `toggleAttributeValue()`, the chip-removal
+     * branch of `clearFilter()`, and `filterableAttributeValueIdsByAttribute()`
+     * each ran a bare `(int)` map. That gap is only reachable on the paths an
+     * `updated*` hook never runs on — a first page load straight from
+     * `#[Url]` hydration — which is exactly where a crafted URL lands.
+     *
+     * The case it lets through is specific and worse than a crash, because
+     * nothing looks wrong: `intval()` of a *non-empty array* is `1`, not `0`,
+     * so `?attributeValueIds[0][0]=1&attributeValueIds[0][1]=2` collapsed to
+     * the real, filterable id `1` — "Colour: Black" in the seeded catalogue.
+     * Confirmed live before this fix: 164 products narrowed to 37 and the
+     * page rendered a "Black" chip the visitor never chose. A garbage
+     * *string* was always harmless by comparison (`intval('abc') === 0`, an
+     * id nothing matches, so the filter falls through unapplied) — it is the
+     * array shape alone that fabricates a plausible id out of nothing.
+     *
+     * Shape only. Whether an id exists, is filterable, or is descriptive
+     * rather than a variation axis stays in `applyFilters()`, against the
+     * database, which is the only place that knows.
+     *
+     * @return list<int>
+     */
+    private function safeAttributeValueIds(): array
+    {
+        return collect((array) $this->attributeValueIds)
             ->filter(fn (mixed $id): bool => is_numeric($id))
             ->map(fn (mixed $id): int => (int) $id)
             ->unique()
@@ -425,7 +459,7 @@ class ProductList extends Component
      */
     private function filterableAttributeValueIdsByAttribute(): SupportCollection
     {
-        $selected = array_map(intval(...), (array) $this->attributeValueIds);
+        $selected = $this->safeAttributeValueIds();
 
         if ($selected === []) {
             return collect();
