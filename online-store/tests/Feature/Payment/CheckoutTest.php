@@ -437,6 +437,33 @@ it('404s for a stranger guessing an order id', function (): void {
     $this->get('/checkout/confirmation/'.$order->getKey())->assertNotFound();
 });
 
+/*
+ * `{order}` is a plain route segment, not `Order $order` (the docblock on
+ * `$orderId` explains why: a matching route-model-bound property name would
+ * collide with Livewire's own hydration). `mount(int $order)` meant PHP
+ * itself threw TypeError on anything the route sent that could not coerce
+ * to int — before mount()'s own body ran, the same "hydration happens
+ * before your code does" shape as the #[Url] incidents in
+ * test-for-input-crashes.md, on route binding instead of query-string
+ * hydration. Confirmed live: a full debug trace (container-resolution
+ * stack, absolute vendor paths) to an anonymous visitor under local's
+ * APP_DEBUG=true — /checkout/confirmation/abc. 404, the same outcome a
+ * well-formed id nothing matches already gets, is what `is_numeric` in
+ * mount() now produces instead.
+ */
+
+it('404s rather than crashes on a non-numeric order id in the URL', function (): void {
+    $this->get('/checkout/confirmation/abc')->assertNotFound();
+});
+
+it('404s rather than crashes on a decimal order id in the URL', function (): void {
+    $this->get('/checkout/confirmation/3.5')->assertNotFound();
+});
+
+it('404s rather than crashes on an order id too large for PHP to represent as an int', function (): void {
+    $this->get('/checkout/confirmation/99999999999999999999999999999999')->assertNotFound();
+});
+
 it('404s for a signed-in customer looking at someone else\'s order', function (): void {
     $cart = checkoutCart();
     $component = Livewire::test(CheckoutPage::class);

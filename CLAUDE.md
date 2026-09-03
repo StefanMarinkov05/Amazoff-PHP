@@ -78,11 +78,15 @@ in agreement: if a rule here changes, change it there too.
   (every storefront page driven live, every defined behaviour — a
   honeypot, a validation error, a 404 — screenshotted next to the claim it
   proves, and the missing-pages inventory checked by `curl`, not inferred
-  from routes) and `phase-2-admin-created-data.md` (the same discipline
+  from routes), `phase-2-admin-created-data.md` (the same discipline
   from the admin side — real broken catalogue data created through the
-  actual Actions, and what the customer's browser does with it); its
-  screenshots live in `docs/assets/ui-testing/`, not loose in `assets/`;
-  `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
+  actual Actions, and what the customer's browser does with it), and
+  `phase-3-error-leak-sweep.md` (what an *unhandled* failure actually
+  shows an anonymous visitor — verbose traces, leaked paths, the
+  `value=""` attribute-breakout case checked against rendered output, not
+  assumed safe from source); its screenshots live in
+  `docs/assets/ui-testing/`, not loose in `assets/`; `permissions.md`,
+  `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and

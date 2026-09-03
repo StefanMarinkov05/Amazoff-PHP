@@ -49,6 +49,28 @@ The sweep that found this (`grep` across every `app/Livewire/*/*.php` for a
 found nothing else — `categoryId` was the last instance of this exact shape
 in the codebase as of 2026-09-03.
 
+## `App\Livewire\Checkout\OrderConfirmation`
+
+A different binding path from every property above — `{order}` is a plain
+route segment consumed by `mount(int $order)`, not a `#[Url]` query-string
+property — but the same root shape: something types-coerces a request
+value before the component's own code runs.
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `$order` (route param) | was `int`, now `mixed` | non-numeric (`abc`), decimal (`3.5`), overflow (34-digit), a real order id from a session with no claim to it | **Crashed live** — `TypeError: OrderConfirmation::mount(): Argument #1 ($order) must be of type int, string given` on `/checkout/confirmation/abc`. Route-model binding on a typed model (`Order $order`) would have 404d automatically via `ModelNotFoundException`; this route deliberately binds a plain `int` instead (`$orderId`'s own docblock explains the Livewire property-name collision that forces it), which loses that automatic handling. Confirmed live under local's `APP_DEBUG=true`: a full Ignition debug page to an anonymous visitor — exception class, `app/Livewire/Checkout/OrderConfirmation.php:60`, absolute `/var/www/html/vendor/...` paths, the full container dependency-resolution stack. Gated to a bare 500 once `APP_DEBUG=false`, but still an unhandled crash either way. Fixed: widened to `mixed`, `is_numeric` check throws the same `NotFoundHttpException` `authorizedOrder()` already throws for a well-formed id nothing matches — one 404 shape for "not an order" and "not your order" alike. Confirmed red without the fix (same `TypeError`, reproduced in the test suite), green with it — proven by 3 cases in `tests/Feature/Payment/CheckoutTest.php`. The codebase-wide sweep for this exact shape (a strictly-typed scalar route or `#[Url]` parameter) found no other instance — every other `mount()` taking a route parameter binds a model, not a scalar |
+
+**Why this is Phase 3, not Phase 2.** The four `#[Url]` crashes were found by
+testing individual properties against the playbook. This one was found by
+the different discipline `how-to/pentest-the-system.md`'s Phase 3 exists
+for — checking what an unhandled exception actually *shows* an anonymous
+visitor, with `APP_DEBUG` at its real local value rather than assumed off.
+The crash and the leak are two separate facts about the same bug: fixing
+the crash closes the leak as a side effect, but a pass that only checked
+"does this crash" would have found it via `test-for-input-crashes.md`'s
+playbook regardless — the leak's *content* is what needed `APP_DEBUG=true`
+and reading the actual response body to see.
+
 ## Storefront authentication (`App\Livewire\Auth\*`)
 
 | Component | Property | Type | Cases tried | Result |

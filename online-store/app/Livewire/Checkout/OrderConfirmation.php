@@ -57,11 +57,34 @@ class OrderConfirmation extends Component
      */
     public int $orderId;
 
-    public function mount(int $order): void
+    /**
+     * `mixed`, not `int` — `{order}` is a plain route segment (not
+     * `Order $order`; see `$orderId`'s own docblock for why), so nothing
+     * validates its shape before this signature does. PHP itself throws
+     * `TypeError: OrderConfirmation::mount(): Argument #1 ($order) must be
+     * of type int, string given` on a non-numeric segment
+     * (`/checkout/confirmation/abc`) — before this method's own body runs,
+     * the same "hydration happens before your code does" shape as the
+     * `#[Url]` incidents in `test-for-input-crashes.md`, on route binding
+     * instead of query-string hydration. Confirmed live: a full debug trace
+     * (file paths, the container's dependency-resolution stack) to an
+     * anonymous visitor under local's `APP_DEBUG=true`; gated to a bare 500
+     * once debug is off, per the pre-deploy checklist in
+     * `how-to/pentest-the-system.md`, but still an unhandled crash for a
+     * customer who mistypes a URL, not the same clean 404 a bad order id
+     * already gets. `is_numeric` here turns "not an order id at all" into
+     * exactly that 404, same as `authorizedOrder()` already gives a
+     * well-formed id nothing matches.
+     */
+    public function mount(mixed $order): void
     {
+        if (! is_numeric($order)) {
+            throw new NotFoundHttpException;
+        }
+
         // Checked here so an unauthorised id 404s on arrival rather than
         // rendering an empty page.
-        $this->orderId = $this->authorizedOrder($order)->getKey();
+        $this->orderId = $this->authorizedOrder((int) $order)->getKey();
     }
 
     #[Computed]
