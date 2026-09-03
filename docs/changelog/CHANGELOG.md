@@ -8,6 +8,47 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **First storefront Livewire test coverage for the cart** —
+  `CartPageTest` (17 cases) and `CartBadgeTest` (6 cases), under
+  `tests/Feature/Livewire/`. `CartPage` and `CartBadge` already existed and
+  were already wired into `AddToCart`/`UpdateCartItemQuantity`/
+  `RemoveFromCart`/`TouchCartExpiry`/`ApplyCoupon`/`RemoveCoupon`, but
+  nothing tested that wiring directly — `write-rules/cart.md` and
+  `write-rules/coupon.md` both still claimed no storefront caller existed
+  for any of these Actions, which was already false by the time this was
+  written and is corrected in the same change. Covers the ownership gate
+  on ids arriving from the browser (a tampered id for someone else's line
+  is a silent no-op, not a crash or a leak), the quantity box snapping
+  back to the row's stored value on a server-side refusal, coupon
+  apply/remove error mapping, and a dedicated regression case for the VAT
+  fix below, exercised at the component layer rather than only the
+  Support-class layer.
+
+### Fixed
+
+- **A scoped coupon understated an order's recorded VAT.**
+  `CalculateCouponDiscount::vatAfterDiscount()` summed VAT over only the
+  lines a `products`/`categories`-scoped coupon matched, dropping an
+  unmatched line's VAT out of the total entirely rather than keeping it at
+  its untouched value. `CreateOrder` assigns that return value straight
+  onto `orders.vat_amount`, so any order redeeming a scoped coupon against
+  a cart it only partially matched had its recorded VAT wrong — the
+  customer was still charged the correct total, only the VAT breakdown on
+  the order itself was off. Measured against the running app with the
+  seeded `TOOLDEAL` coupon (products-scoped, matching part of a real
+  cart): `vat_amount` came back 56.59 where the correct figure is 59.90.
+  Fixed to cover every line passed to `forLines()`, not only the matched
+  ones — a matched line's share of the discount is still subtracted before
+  VAT extraction, exactly as before; an unmatched line's VAT is now
+  extracted from its untouched total, identified by `spl_object_id()`
+  rather than value equality, since two distinct lines can legitimately
+  share the same product, total, and VAT rate. `CalculateCouponDiscountTest`'s
+  two scoped-coupon cases gained `vat` assertions — they had only ever
+  checked `discount`, which is how this went unnoticed. `write-rules/coupon.md`'s
+  "Known gaps" has the full account.
+
+### Added
+
 - **Stripe integration hardened against a review from Stripe's own tooling.**
   The `stripe_implementation_planner` MCP tool endorsed the architecture —
   its decision tree terminates at "Elements with the Payment Intents API",

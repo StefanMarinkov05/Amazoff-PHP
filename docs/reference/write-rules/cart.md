@@ -12,8 +12,13 @@ page is the outcomes, in the same shape as its sibling, `reference/write-rules/p
 The Actions in `app/Actions/Cart`, and nothing else. Direct Eloquent, a
 factory, a seeder, or a raw query builder all bypass every rule below.
 
-**No storefront controller or Livewire component calls these Actions yet.**
-They are exercised only by tests.
+**[Changed]** `CartPage` calls `UpdateCartItemQuantity`, `RemoveFromCart`,
+and `TouchCartExpiry`; `ProductDetails` calls `AddToCart`. `CartPageTest`
+(`reference/ui-tests.md`) is what proves the storefront wiring, on top of
+this page's own outcomes. **`MergeGuestCart` is still the exception** — no
+storefront path calls it. A guest's cart is not folded into a customer's on
+login, so signing in loses whatever the guest had in their basket; see
+"Known gaps".
 
 ## One actor at a time
 
@@ -120,5 +125,13 @@ these Actions to HTTP input yet — but `cart_items.quantity` and
 while PHP's `int` is 64-bit. Belongs on the future cart Form Request as a
 `max:` rule, not on the Action.
 
-**3. Nothing enforces any of this outside the Actions,** and no storefront
-code calls them yet.
+**3. [Changed] `MergeGuestCart` has no caller.** The other Cart Actions
+gained storefront callers (see "What enforces any of this" above), but
+nothing invokes `MergeGuestCart` outside tests and `RaceWorker`. Concretely:
+`Login` never calls it, so a guest's basket is not folded into their
+account's cart on sign-in — it is simply left behind, unreachable once
+`session()->regenerate()` rotates the session id `ResolveCurrentCart` keyed
+it by. A fix has to capture the guest cart *before* that call, not after.
+Not yet built; flagged here rather than assumed fixed because the previous
+wording implied no storefront caller existed for any Cart Action, which is
+no longer true for the other five.
