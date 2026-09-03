@@ -70,7 +70,9 @@ in agreement: if a rule here changes, change it there too.
   list of gaps — one browser, no real devices, no text zoom;
   `security-testing.md` is the fourth, recording what a security pass
   probed, what held, and what it could not reach — read it before trusting
-  any claim that an authorization path is safe;
+  any claim that an authorization path is safe; `security-tooling.md` is its
+  inventory half — which scanners are configured how, the exact surface they
+  reached, and the measured numbers behind every coverage claim;
   `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
