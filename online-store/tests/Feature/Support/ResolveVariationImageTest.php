@@ -20,10 +20,21 @@ beforeEach(function (): void {
     Storage::fake(ProductImage::DISK);
 });
 
+/**
+ * A real file on the fake disk, not only a row — `AddProductImage` only
+ * ever writes the row (the actual upload happens earlier, through
+ * Filament's own upload field, before this Action runs), and
+ * `ProductImage::servableUrl()` now checks the disk, not only the row, so
+ * a caller of this helper needs the file to genuinely exist the same way
+ * production data would.
+ */
 function galleryImage(Product $product): ProductImage
 {
+    $path = ProductImage::DIRECTORY.'/'.fake()->unique()->slug(2).'.jpg';
+    Storage::disk(ProductImage::DISK)->put($path, 'fake-image-bytes');
+
     return app(AddProductImage::class)->handle($product, [
-        'path' => ProductImage::DIRECTORY.'/'.fake()->unique()->slug(2).'.jpg',
+        'path' => $path,
         'alt_text' => null,
         'sort_order' => 0,
     ], null);
@@ -79,4 +90,55 @@ it('urlOrDefault falls back to the placeholder asset when nothing resolves', fun
     expect(ResolveVariationImage::current($variation))->toBeNull()
         ->and(ResolveVariationImage::urlOrDefault($variation))
         ->toBe(asset(ResolveVariationImage::DEFAULT_PATH));
+});
+
+/*
+ * A product_images row existing is not the same guarantee as its file
+ * existing — an admin action, a manual disk change, or a database restore
+ * against a fresh disk can all leave a row with a path nothing is at. This
+ * is not hypothetical: confirmed live against the running app (a row
+ * created pointing at a path that was never a real file) with every one of
+ * the catalogue card, product gallery, and cart rendering the browser's
+ * native broken-image icon before this fix — ResolveVariationImage's own
+ * "no row" fallback never triggered, because a row did exist.
+ */
+
+it('urlOrDefault falls back to the placeholder when the row exists but its file does not', function (): void {
+    $product = Product::factory()->create();
+    $variation = app(AddProductVariation::class)->handle($product, variationAttributes(), 0, null);
+
+    // A row via the real Action, but never written to the fake disk — the
+    // exact state a broken upload, a manual DB edit, or a restored database
+    // against a fresh disk leaves.
+    $broken = app(AddProductImage::class)->handle($product, [
+        'path' => ProductImage::DIRECTORY.'/never-actually-written.jpg',
+        'alt_text' => null,
+        'sort_order' => 0,
+    ], null);
+
+    app(SetVariationImages::class)->handle($variation, [$broken->id], null);
+
+    expect(ResolveVariationImage::current($variation)?->id)->toBe($broken->id)
+        ->and(ResolveVariationImage::urlOrDefault($variation))
+        ->toBe(asset(ResolveVariationImage::DEFAULT_PATH));
+});
+
+it('ProductImage::servableUrl falls back for a row whose file is missing', function (): void {
+    $product = Product::factory()->create();
+
+    $broken = app(AddProductImage::class)->handle($product, [
+        'path' => ProductImage::DIRECTORY.'/also-never-written.jpg',
+        'alt_text' => null,
+        'sort_order' => 0,
+    ], null);
+
+    expect($broken->servableUrl())->toBe(asset('images/default-product.png'));
+});
+
+it('ProductImage::servableUrl resolves normally when the file is really there', function (): void {
+    $product = Product::factory()->create();
+    $real = galleryImage($product);
+
+    expect($real->servableUrl())
+        ->toBe(Storage::disk(ProductImage::DISK)->url($real->path));
 });

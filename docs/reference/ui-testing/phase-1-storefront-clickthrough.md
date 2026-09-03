@@ -1,6 +1,6 @@
-# Storefront UI testing — what was clicked, what held, what did not
+# Phase 1 — storefront click-through: what was clicked, what held, what did not
 
-Another page in the family `stripe-testing.md`, `browser-testing.md`,
+Part of the family `stripe-testing.md`, `browser-testing.md`,
 `security-testing.md`, and `security-tooling.md` belong to: a dated record
 of a manual pass, what it verified, and what it did not reach. Where those
 pages focus on payments, responsive layout, and exploitable
@@ -8,6 +8,10 @@ vulnerabilities respectively, this one is the interactive storefront
 walkthrough — every page a real customer reaches, clicked and abused the
 way a person (or a careless bot) actually would, with each defined
 behaviour it proves screenshotted rather than merely asserted.
+
+Phase 2 (`phase-2-admin-created-data.md`) is the companion pass — the same
+discipline, from the admin side: what a staff member can create through
+the real admin panel, and what a customer's browser does with it.
 
 **Date of record:** 2026-09-03. Driven live with the Playwright MCP
 (`playwright-chromium`) against the running Docker stack, guest session,
@@ -33,7 +37,7 @@ Filters panel (search, availability, category, brand, price range, rating)
 opens and every control is interactive; brand dropdown correctly lists all
 34 real brands with per-brand product counts.
 
-![Catalogue filters open: search, availability, category, brand, price, rating](../assets/phase1-catalogue-filters-open.png)
+![Catalogue filters open: search, availability, category, brand, price, rating](../../assets/ui-testing/phase1-catalogue-filters-open.png)
 
 ### Product detail — variant switching, gallery, add-to-cart
 
@@ -44,7 +48,7 @@ confirmed by reading the DOM after the click, not just visually. Add to
 cart updates the header badge (`"Basket, 1 item"`) with no round-trip
 error.
 
-![Product detail page: variant pickers, stock badge, quantity stepper, specifications](../assets/phase1-product-detail-variant-picker.png)
+![Product detail page: variant pickers, stock badge, quantity stepper, specifications](../../assets/ui-testing/phase1-product-detail-variant-picker.png)
 
 **Not present**: no "related products" section, despite §8–9 listing one;
 no favourite/wishlist button; no review-submission form (only "No reviews
@@ -53,7 +57,7 @@ nothing calls it from the storefront, tracked in `misc/todo.md`).
 
 ### Cart — quantity, discount code, totals
 
-![Cart: item row, discount code field, order summary with VAT breakdown](../assets/phase1-cart-summary.png)
+![Cart: item row, discount code field, order summary with VAT breakdown](../../assets/ui-testing/phase1-cart-summary.png)
 
 - Discount-code field: submitting `<script>alert(1)</script>` produces a
   clean "That code was not recognised." with **zero unescaped reflection**
@@ -67,7 +71,7 @@ nothing calls it from the storefront, tracked in `misc/todo.md`).
 
 ### Checkout — validation, guest flow, injection resistance
 
-![Checkout form: guest details, delivery address, payment method toggle, order summary](../assets/phase1-checkout-form.png)
+![Checkout form: guest details, delivery address, payment method toggle, order summary](../../assets/ui-testing/phase1-checkout-form.png)
 
 - Submitting with every field empty produces **7 specific, correctly-worded
   validation errors** ("The first name field is required.", etc.) and
@@ -80,9 +84,9 @@ nothing calls it from the storefront, tracked in `misc/todo.md`).
 
 ### Journal — article listing and detail
 
-![Journal index: category tabs, featured article, article cards](../assets/phase1-journal-index.png)
+![Journal index: category tabs, featured article, article cards](../../assets/ui-testing/phase1-journal-index.png)
 
-![Article detail: full rendered body, "Keep reading" related articles, tags](../assets/phase1-article-detail-rendered.png)
+![Article detail: full rendered body, "Keep reading" related articles, tags](../../assets/ui-testing/phase1-article-detail-rendered.png)
 
 This closes a gap `misc/todo.md` had marked open since 2026-09-01 — the
 article/blog frontend is now fully built: 16 published articles, category
@@ -113,7 +117,7 @@ field, together** — the shape an actual scraping bot's submission takes,
 not two separate tests. `name`, `subject`, and `message` all set to
 `<script>alert(document.cookie)</script>`, `website` (the honeypot) filled.
 
-![Fake success shown to the bot, after honeypot + XSS submission](../assets/phase1-honeypot-xss-fake-success.png)
+![Fake success shown to the bot, after honeypot + XSS submission](../../assets/ui-testing/phase1-honeypot-xss-fake-success.png)
 
 Same result as the honeypot alone — `sent = true`, a convincing "Message
 sent" success card, **zero rows created** (`ContactMessage::count()`
@@ -135,7 +139,7 @@ actually reads it. Checked in the admin panel, logged in as
 `admin@example.com`, both the `ContactMessagesTable` list column and the
 `ViewContactMessage` detail page:
 
-![The stored XSS payload viewed in the admin panel — inert text, not an executed script](../assets/phase1-admin-avatar-csp-blocked.png)
+![The stored XSS payload viewed in the admin panel — inert text, not an executed script](../../assets/ui-testing/phase1-admin-avatar-csp-blocked.png)
 
 The tag renders as **visible, inert text** — `<script>alert(...)</script>`
 sits on the page as characters a person can read, not as markup the browser
@@ -154,7 +158,7 @@ image this application renders is same-origin," which this proved wrong.
 Fixed same session: one named exception added
 (`img-src 'self' data: blob: https://ui-avatars.com`), not a wildcard.
 
-![Fixed: the same page, avatar loading, zero console errors](../assets/phase1-admin-avatar-csp-fixed.png)
+![Fixed: the same page, avatar loading, zero console errors](../../assets/ui-testing/phase1-admin-avatar-csp-fixed.png)
 
 The lesson worth keeping: **the CSP was measured against the storefront and
 the panel's own asset paths, not against every third-party call a
@@ -184,7 +188,7 @@ all six, `curl`-checked status codes, not inferred from the route list:
 `/delivery`, `/payment-information`, `/orders/track`, `/terms`, `/privacy`,
 `/cookies`.
 
-![A footer-linked page: the 404 a customer actually reaches](../assets/phase1-footer-link-404.png)
+![A footer-linked page: the 404 a customer actually reaches](../../assets/ui-testing/phase1-footer-link-404.png)
 
 **Defined behaviour of the 404 itself**: no stack trace, no debug
 information — `APP_DEBUG` is correctly off — but also no site chrome, no
@@ -216,11 +220,12 @@ works in this same file.
 
 ## Not covered by this pass
 
-- **The admin panel's UI**, beyond what the security scans already probed
-  (`reference/security-tooling.md`). This pass is the public storefront.
-- **Filament resource forms** — creating/editing a product, an order status
-  change, and so on — `misc/todo.md`'s "Not yet covered" section already
-  names this as open.
+- **The admin panel's own UI**, beyond what the security scans already
+  probed (`reference/security-tooling.md`). See Phase 2 for the one
+  admin-created-data case this covered; clicking through Filament's forms
+  field by field (attribute deletion mid-edit, a malformed price, a
+  dummy-format upload the widget itself might reject before it ever reaches
+  an Action) is still open — `misc/todo.md`'s "Not yet covered" names this.
 - **Real devices and a second browser engine** — same limitation
   `browser-testing.md` states; this pass used the same Chromium instance.
 - **Every product page**, not a sample — 162 products exist; this pass

@@ -73,10 +73,15 @@ in agreement: if a rule here changes, change it there too.
   any claim that an authorization path is safe; `security-tooling.md` is its
   inventory half — which scanners are configured how, the exact surface they
   reached, and the measured numbers behind every coverage claim;
-  `storefront-ui-testing.md` is the fifth, the interactive click-through —
-  every storefront page driven live, every defined behaviour (a honeypot,
-  a validation error, a 404) screenshotted next to the claim it proves, and
-  the missing-pages inventory checked by `curl`, not inferred from routes;
+  `ui-testing/` is the fifth, the interactive click-through, one file per
+  pass rather than one growing file — `phase-1-storefront-clickthrough.md`
+  (every storefront page driven live, every defined behaviour — a
+  honeypot, a validation error, a 404 — screenshotted next to the claim it
+  proves, and the missing-pages inventory checked by `curl`, not inferred
+  from routes) and `phase-2-admin-created-data.md` (the same discipline
+  from the admin side — real broken catalogue data created through the
+  actual Actions, and what the customer's browser does with it); its
+  screenshots live in `docs/assets/ui-testing/`, not loose in `assets/`;
   `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
 
   `schema/` is everything about the shape of the data: `schema.md` (the

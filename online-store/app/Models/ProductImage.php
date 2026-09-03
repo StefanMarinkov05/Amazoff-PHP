@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
 class ProductImage extends Model
 {
@@ -85,5 +86,34 @@ class ProductImage extends Model
     public function productVariations(): BelongsToMany
     {
         return $this->belongsToMany(ProductVariation::class);
+    }
+
+    /**
+     * A servable URL for this row, falling back to the shipped placeholder
+     * when the file the row points at does not actually exist on disk.
+     *
+     * `product_images.path` having a row is not the same guarantee as the
+     * file being there — an admin action that deletes/moves the file
+     * without deleting the row (a manual disk change, a failed upload that
+     * still wrote its row, a restored database against a fresh disk) leaves
+     * exactly this state, and it is not hypothetical: confirmed live by
+     * creating a row with a path that was never a real file and watching
+     * every one of the catalogue card, product gallery, and cart all
+     * render the browser's native broken-image icon — `ResolveVariationImage
+     * ::urlOrDefault()`'s "no image row" fallback never triggers, because a
+     * row does exist; it is simply pointing at nothing.
+     *
+     * `Storage::exists()` is one extra disk check per image render. Accepted
+     * here rather than optimised away, because a broken image is a worse
+     * failure mode than one stat call — see `explanation/storefront-pages.md`
+     * if this needs revisiting under real load.
+     */
+    public function servableUrl(): string
+    {
+        if (! Storage::disk(self::DISK)->exists($this->path)) {
+            return asset('images/default-product.png');
+        }
+
+        return Storage::disk(self::DISK)->url($this->path);
     }
 }
