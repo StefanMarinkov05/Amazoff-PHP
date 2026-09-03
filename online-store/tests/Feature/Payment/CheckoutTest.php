@@ -15,6 +15,7 @@ use App\Support\Money;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Session;
 use Livewire\Exceptions\PublicPropertyNotFoundException;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Stripe\StripeClient;
 
@@ -243,6 +244,72 @@ it('has no price property a client could set, and refuses one that is invented',
     fillCheckout($component)->call('placeOrder')->assertHasNoErrors();
 
     expect((string) Order::query()->latest('id')->first()->total_amount)->toBe('100.00');
+});
+
+/*
+ * ── SEC-002: order serial numbers are not enumerable via CheckoutPage ────
+ *
+ * The payment step renders the placed order's serial number. It once did so
+ * from a bare, unscoped Order::find() on `orderId` — a client-writable
+ * public property — so a visitor could point it at another customer's order
+ * and read that serial (reference/security-testing.md, SEC-002). Two
+ * mechanisms fix it, each with a test that goes red if removed:
+ *   1. `order()` scopes to owner-or-session-claim, never a bare find().
+ *   2. #[Locked] on `orderId` and `clientSecret` refuses the client write.
+ */
+
+it('locks orderId and clientSecret against client tampering', function (): void {
+    checkoutCart(quantity: 2, price: '50.00');
+
+    $component = Livewire::test(CheckoutPage::class);
+
+    // The exploit's own move — set orderId to a foreign order and a forged
+    // clientSecret to open the render branch. #[Locked] refuses both. Remove
+    // either attribute and the matching set() stops throwing: red.
+    expect(fn () => $component->set('orderId', 999999))
+        ->toThrow(CannotUpdateLockedPropertyException::class);
+
+    expect(fn () => $component->set('clientSecret', 'pi_forged'))
+        ->toThrow(CannotUpdateLockedPropertyException::class);
+});
+
+it('does not disclose an order the visitor neither owns nor placed this session', function (): void {
+    // A victim order owned by another customer.
+    $victim = User::factory()->create();
+    $victimOrder = Order::factory()->for($victim)->create();
+
+    // A guest visitor with no claim to it: order() must return null, so the
+    // serial never reaches the page. With the scope removed, order() falls
+    // back to Order::find() and returns the victim's row — red.
+    $component = new CheckoutPage;
+    $component->orderId = $victimOrder->getKey();
+
+    expect($component->order())->toBeNull();
+});
+
+it('shows a signed-in customer their own placed order on the payment step', function (): void {
+    // The legitimate owner path still works — the fix must not break it.
+    $user = User::factory()->create();
+    $ownOrder = Order::factory()->for($user)->create();
+
+    $component = new CheckoutPage;
+    $component->orderId = $ownOrder->getKey();
+
+    Livewire::actingAs($user);
+
+    expect($component->order()?->getKey())->toBe($ownOrder->getKey());
+});
+
+it('shows a guest the order they just placed via the session claim', function (): void {
+    // The legitimate guest path: the session claim CheckoutPage writes in
+    // placeOrder() (before setting orderId) is what lets order() resolve it.
+    $order = Order::factory()->create(['user_id' => null]);
+    session([OrderConfirmation::SESSION_KEY => $order->getKey()]);
+
+    $component = new CheckoutPage;
+    $component->orderId = $order->getKey();
+
+    expect($component->order()?->getKey())->toBe($order->getKey());
 });
 
 /*
