@@ -102,6 +102,30 @@ against each individually. Fixed the same way: widened to `mixed`,
 normalised explicitly (in `mount()`, since that is where this property's own
 "fall back to a valid default" logic already lived).
 
+**A third instance, a different session (2026-09-03), a different
+component**: `ProductList::$brandId` (`?int`, `#[Url]`) — the property
+sitting one field below `$categorySlug` in the same class, on the same
+component that had already been reviewed for this exact class of bug.
+`?brandId=99999999999999999999999999999999` produced the identical
+`TypeError: Cannot assign float to property ... of type ?int`, confirmed
+live before the fix. This is the strongest confirmation yet of the doc's own
+thesis: `ProductList` was not an unreviewed component, `$categorySlug` had
+been checked and correctly found clean (it is a `string`, structurally
+immune), and that clean result on one property said nothing about `$brandId`
+two lines below it. Fixed the same way — widened to `mixed`, normalised via
+a `safeBrandId()` method (this component has no `mount()`, so normalisation
+lives at the two read sites instead) — and proven by
+`tests/Feature/Livewire/ProductListBrandFilterTest.php`, verified red
+without the fix by reverting the type and watching the same `TypeError`
+reproduce at the same `data_set()` line.
+
+**If a fourth instance turns up, treat it as the signal to stop fixing these
+one at a time and instead grep every `#[Url]`/`wire:model` property in the
+codebase for a strict numeric type in one pass** — three separate discoveries
+of the same root cause is a pattern a systematic sweep would have caught in
+one sitting, at the cost of one property being reviewed slightly before its
+own bug was found "by accident."
+
 ## What already came back clean
 
 Storefront auth (`Login`, `Register`, `ChangePassword`) and contact

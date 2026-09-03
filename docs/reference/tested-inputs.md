@@ -6,7 +6,7 @@ per component, since the playbook is per property (a component checked once
 can still gain an untested property later). "Not yet checked" is not the
 same as "safe" — it means exactly what it says.
 
-Facts as of 2026-08-29, each verified against the running app (Livewire
+Facts as of 2026-09-03, each verified against the running app (Livewire
 component tests, some cross-checked with live `curl` against
 `http://localhost:8080`) — not read off the code, not assumed from a
 property's type alone.
@@ -20,7 +20,7 @@ is `docs/reference/write-rules/catalogue-filters.md`. Summary:
 |---|---|---|---|
 | `search` | `string` | XSS, SQLi, 5000-char string | No crash, no reflection, no query effect from the payload |
 | `categorySlug` | `string` | XSS, SQLi, 5000-char string, non-matching slug | No crash, no reflection; falls back to unfiltered — parameterised `where()`, structural |
-| `brandId` | `?int` | — | Not yet run against this playbook; same shape as `categorySlug` numerically, worth a pass |
+| `brandId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit), non-numeric, XSS-shaped, SQLi-shaped, negative, decimal | **Crashed live** — `TypeError: Cannot assign float to property App\Livewire\Catalogue\ProductList::$brandId of type ?int`, the third instance of this project's numeric-`#[Url]`-hydration incident (`quantity`, `variationId`, now `brandId`). Fixed: widened to `mixed`, normalised via `safeBrandId()` at both read sites. Confirmed red without the fix (same `data_set()` line, same exception), green with it — proven by `tests/Feature/Livewire/ProductListBrandFilterTest.php` |
 | `minPrice` / `maxPrice` | `mixed` | overflow (34-digit), non-numeric, negative, SQLi-shaped | No crash — resets to "no bound"; min pushed to match if it exceeds max |
 | `minRating` | `mixed` | overflow, non-numeric, XSS-shaped, value outside `RATING_TIERS` | No crash — resets to `null` |
 | `sortBy` / `sortDir` | `string` | — | Protected by `safeSortBy()`/`safeSortDir()`'s allow-list (ADR-0014); not independently re-tested this pass |
@@ -71,4 +71,3 @@ absence rather than assuming it.
 - Filament resource forms (`ProductForm`, `CouponForm`, and the rest) —
   staff-only, but §37's authorization requirements apply regardless of who
   is behind the keyboard.
-- `brandId` on `ProductList` (flagged above).

@@ -79,8 +79,17 @@ class ProductList extends Component
     #[Url(as: 'category')]
     public ?string $categorySlug = null;
 
+    /**
+     * Deliberately `mixed`, not `?int` — same incident as
+     * `ProductDetails::$variationId` and `$quantity`: a number too large for
+     * PHP to represent as an `int` (`?brandId=99999999999999999999999999999999`)
+     * decodes to a `float` during Livewire's `#[Url]` hydration, which runs
+     * before any of this class's own code — `?int` refuses the assignment
+     * right there, an unhandled 500 from a crafted URL, confirmed live
+     * before this fix. `safeBrandId()` normalises it wherever it is read.
+     */
     #[Url]
-    public ?int $brandId = null;
+    public mixed $brandId = null;
 
     #[Url]
     public bool $inStockOnly = false;
@@ -595,8 +604,8 @@ class ProductList extends Component
             $chips[] = ['key' => 'categorySlug', 'label' => $category->name];
         }
 
-        if ($this->brandId !== null) {
-            $name = Brand::query()->whereKey($this->brandId)->value('name');
+        if ($this->safeBrandId() !== null) {
+            $name = Brand::query()->whereKey($this->safeBrandId())->value('name');
             if ($name !== null) {
                 $chips[] = ['key' => 'brandId', 'label' => $name];
             }
@@ -831,8 +840,8 @@ class ProductList extends Component
             }
         }
 
-        if ($skip !== 'brandId' && $this->brandId !== null) {
-            $query->where('brand_id', $this->brandId);
+        if ($skip !== 'brandId' && $this->safeBrandId() !== null) {
+            $query->where('brand_id', $this->safeBrandId());
         }
 
         if ($skip !== 'attributeValueIds') {
@@ -937,6 +946,20 @@ class ProductList extends Component
                     );
             });
         }
+    }
+
+    /**
+     * A clean int-shaped value normalises; anything else (non-numeric, a
+     * decimal, a number PHP represents as a float once past its int range)
+     * becomes null, same as a well-formed id for a brand that does not
+     * exist — both fall through to "no brand filter applied" rather than
+     * erroring.
+     */
+    private function safeBrandId(): ?int
+    {
+        return is_numeric($this->brandId) && (int) $this->brandId == $this->brandId
+            ? (int) $this->brandId
+            : null;
     }
 
     private function safeSortBy(): string
