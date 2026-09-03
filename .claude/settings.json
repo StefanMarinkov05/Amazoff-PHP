@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "semgrep@claude-plugins-official": false,
+    "hookify@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false
+  }
+}
