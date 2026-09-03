@@ -1995,3 +1995,125 @@ grepping for error markers. Check the status code first, then read
 `storage/logs/laravel.log` for the message; the HTML body is the least
 reliable source. This is the same shape as the other entries here: a failure
 that presents as something other than what it is.
+
+## Every container is healthy and every request 504s
+
+**Symptom.** `docker compose ps` shows all five services `running`, `db` and
+`mailpit` `(healthy)`, PHP-FPM logging `NOTICE: ready to handle connections`.
+Nothing has crashed and nothing is in a restart loop. Yet:
+
+```
+$ curl -o /dev/null -w '%{http_code}' http://localhost:8080/catalogue
+504
+$ docker compose exec app php artisan db:show
+SQLSTATE[HY000] [2002] Connection timed out
+```
+
+nginx logs the matching half:
+
+```
+upstream timed out (110: Operation timed out) while connecting to upstream,
+  upstream: "fastcgi://172.18.0.5:9000"
+```
+
+**What it is not.** Not a Laravel fault, not a wrong `DB_HOST`, not a
+crashed worker, not a missing `.env`. Service DNS resolves correctly —
+`getent hosts db` returns the right address — so the name resolution layer
+is fine. The application code is never reached at all.
+
+**Cause.** Host firewall. `ufw` ships `DEFAULT_FORWARD_POLICY="DROP"` in
+`/etc/default/ufw`, which sets the iptables `FORWARD` chain policy to DROP.
+Every packet between two containers on Docker's bridge traverses `FORWARD`,
+so all container-to-container traffic is silently dropped — including
+outbound traffic to the internet, which is why `composer audit` also fails
+with a curl timeout.
+
+The diagnostic that isolates it in one step, from inside the app container:
+
+```php
+php -r '$s=@fsockopen("db",3306,$e,$m,3); echo $s?"OPEN":"FAIL($m)";'
+```
+
+Pair it with a probe of `127.0.0.1:9000`. **Loopback works, everything else
+times out** — that asymmetry is the signature, because loopback never
+crosses the bridge and so never hits `FORWARD`.
+
+**Fix.**
+
+```bash
+sudo sed -i 's/^DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
+sudo ufw reload
+sudo systemctl restart docker
+```
+
+This opens nothing to the outside world: ufw's `INPUT` rules are untouched,
+so published ports stay governed exactly as before. It stops ufw dropping
+traffic *between* containers on Docker's own bridge. The narrower
+alternative, if `DROP` must stay global, is a bridge-scoped accept —
+`sudo iptables -I DOCKER-USER -i br-<id> -o br-<id> -j ACCEPT` — which does
+not survive a reboot unless persisted.
+
+**Why it recurs.** Docker installs its own iptables rules at start; a
+`ufw reload`, a ufw package upgrade, or enabling ufw for the first time
+re-applies the DROP policy over them. So a stack that worked yesterday
+fails today with no change to the repository — and `git log` shows nothing,
+because nothing in the project changed.
+
+### The second fault, and why the fix above may not appear to work
+
+On the occasion this entry was written, changing the ufw policy did **not**
+restore the stack, and the reason is worth recording because it wasted an
+hour and produced two confidently wrong diagnoses along the way.
+
+The firewall fix had in fact worked. Proving it took one command — two
+containers on a *freshly created* network, pinging each other:
+
+```bash
+docker network create probe-net
+docker run --rm --network probe-net --name probe-a -d alpine sleep 60
+docker run --rm --network probe-net alpine ping -c2 probe-a   # 0% packet loss
+```
+
+A clean network passed traffic immediately. The project's own network did
+not, because it predated the fix — and it could not be recreated, because
+`docker compose down` failed on every container with:
+
+```
+Error response from daemon: cannot stop container: <id>: permission denied
+```
+
+The host had reached a state where the Docker daemon could not signal
+container processes. `kill -9` as root *did* terminate them (the process
+left the process table), but the daemon's own bookkeeping never caught up,
+and **newly created containers entered the same state within minutes** —
+so killing them one at a time never converged: each round cleared some
+containers and broke others.
+
+Two theories were advanced and both were wrong, which is the useful part
+of this entry. **AppArmor** was blamed because it was enabled — but
+"enabled" is not "implicated," and a Docker restart would normally clear an
+AppArmor-mediated signal failure. **Kernel orphaning** was blamed next,
+because two kernels were installed (`7.0.0-14` and `7.0.0-30`) and the
+stuck containers were the oldest — but containers created minutes earlier,
+on the running kernel, became stuck too, which the theory cannot explain.
+
+**The fix is a reboot**, and it should be reached for early rather than
+last. It resets the kernel, the container runtime, the daemon's state, and
+the firewall rules together. After a reboot the stack came up clean on the
+first `docker compose up -d`, with `DB OPEN` and HTTP 200.
+
+**The rule this suggests.** When `docker compose down` reports
+`permission denied` on containers the daemon itself created, stop issuing
+container-level commands. That error means the daemon has lost authority
+over its own processes, and no `docker` subcommand can repair a daemon in
+that state. The one-command network probe above distinguishes "the firewall
+is still blocking" from "the daemon is broken" in about ten seconds, and it
+is worth running *before* forming any theory about the cause.
+
+**Prevention.** Restart Docker after any ufw change, and reboot if a stop
+or restart is refused with `permission denied`. When every service is
+healthy and every request still times out, probe the network from inside a
+container *before* reading application code: the loopback-works /
+cross-container-fails asymmetry takes one command and rules the entire
+application layer out at once. Same shape as the other entries here — the
+failure presents as an application error and is not one.
