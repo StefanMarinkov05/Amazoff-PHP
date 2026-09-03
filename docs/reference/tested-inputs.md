@@ -32,6 +32,22 @@ is `docs/reference/write-rules/catalogue-filters.md`. Summary:
 | `quantity` | `mixed` (was `int` — see the incident in `test-for-input-crashes.md`) | overflow (34-digit), non-numeric, decimal, negative, in-range-but-past-stock | No crash — resets to `min_order_quantity` on unparseable input, clamps to `[min_order_quantity, stock]` otherwise |
 | `variationId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit, via `?v=` on the real route), non-numeric, non-matching id | **Crashed live** — `TypeError: Cannot assign float to property ... of type ?int` (an oversized numeric string decodes to a float during `#[Url]` hydration, which `?int` then refuses). Fixed: widened to `mixed`, normalised at the top of `mount()` before the existing "fall back to the default variation" branch runs. Confirmed red without the fix, green with it |
 
+## `App\Livewire\Journal\ArticleList`
+
+Found by the full-codebase grep `test-for-input-crashes.md` recommends
+running once a third instance of this incident class turns up — it did, and
+this was the fourth, already crashing live before the sweep even finished.
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `categoryId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit), non-numeric, XSS-shaped, negative, decimal, non-matching id | **Crashed live** — identical `TypeError: Cannot assign float to property App\Livewire\Journal\ArticleList::$categoryId of type ?int`, same `data_set()` line as `ProductList::$brandId`. Fixed the same way: widened to `mixed`, normalised via `safeCategoryId()` at the one read site. Confirmed red without the fix, green with it — proven by `tests/Feature/Livewire/ArticleListCategoryFilterTest.php` |
+| `tag` | `?string` | — | Structurally immune to the overflow case (`string`); not independently re-tested this pass |
+
+The sweep that found this (`grep` across every `app/Livewire/*/*.php` for a
+`#[Url]` immediately preceding a strictly `int`/`float`-typed property)
+found nothing else — `categoryId` was the last instance of this exact shape
+in the codebase as of 2026-09-03.
+
 ## Storefront authentication (`App\Livewire\Auth\*`)
 
 | Component | Property | Type | Cases tried | Result |

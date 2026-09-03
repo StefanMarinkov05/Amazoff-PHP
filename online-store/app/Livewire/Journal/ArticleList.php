@@ -23,8 +23,17 @@ use Livewire\WithPagination;
  */
 class ArticleList extends Component
 {
+    /**
+     * Deliberately `mixed`, not `?int` — the same incident as
+     * `ProductList::$brandId`: a number too large for PHP to represent as an
+     * `int` (`?categoryId=99999999999999999999999999999999`) decodes to a
+     * `float` during Livewire's `#[Url]` hydration, which runs before any of
+     * this class's own code — `?int` refuses the assignment right there, an
+     * unhandled 500 from a crafted URL, confirmed live before this fix.
+     * `safeCategoryId()` normalises it wherever it is read.
+     */
     #[Url]
-    public ?int $categoryId = null;
+    public mixed $categoryId = null;
 
     #[Url]
     public ?string $tag = null;
@@ -75,13 +84,27 @@ class ArticleList extends Component
 
     private function applyFilters(Builder $query, ?string $skip = null): void
     {
-        if ($skip !== 'categoryId' && $this->categoryId !== null) {
-            $query->where('article_category_id', $this->categoryId);
+        if ($skip !== 'categoryId' && $this->safeCategoryId() !== null) {
+            $query->where('article_category_id', $this->safeCategoryId());
         }
 
         if ($skip !== 'tag' && $this->tag !== null) {
             $query->whereHas('tags', fn (Builder $t) => $t->where('slug', $this->tag));
         }
+    }
+
+    /**
+     * A clean int-shaped value normalises; anything else (non-numeric, a
+     * decimal, a number PHP represents as a float once past its int range)
+     * becomes null, same as a well-formed id for a category that does not
+     * exist — both fall through to "no category filter applied" rather than
+     * erroring.
+     */
+    private function safeCategoryId(): ?int
+    {
+        return is_numeric($this->categoryId) && (int) $this->categoryId == $this->categoryId
+            ? (int) $this->categoryId
+            : null;
     }
 
     public function render(): View
