@@ -109,13 +109,13 @@ class CartPage extends Component
      * and the honest answer is to show no discount rather than a stale one.
      * `RedeemCoupon` at checkout is what finally decides.
      *
-     * @return array{discount: string, payable: string}
+     * @return array{discount: string, payable: string, vat: string}
      */
     #[Computed]
     public function discount(): array
     {
         $totals = $this->totals;
-        $none = ['discount' => '0.00', 'payable' => $totals['total']];
+        $none = ['discount' => '0.00', 'payable' => $totals['total'], 'vat' => $totals['vat']];
 
         $coupon = $this->cart->coupon;
 
@@ -136,6 +136,7 @@ class CartPage extends Component
         return [
             'discount' => $result['discount'],
             'payable' => (string) Money::of($totals['total'])->subtract(Money::of($result['discount'])),
+            'vat' => $result['vat'],
         ];
     }
 

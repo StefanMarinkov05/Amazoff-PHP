@@ -354,10 +354,15 @@
                                 </div>
 
                                 {{-- Gross pricing: VAT is extracted from the total,
-                                     never added to it. `CalculateCartTotals`. --}}
+                                     never added to it. `CalculateCartTotals`.
+                                     $discount['vat'] rather than $totals['vat'] once a
+                                     coupon is applied — the payable total above is
+                                     already net of the discount, and this figure has
+                                     to describe that same total, not the undiscounted
+                                     one. --}}
                                 <div class="flex justify-between text-[0.7rem]">
                                     <dt class="text-ink-400">of which VAT</dt>
-                                    <dd class="tabular-nums text-ink-400">€{{ number_format((float) $totals['vat'], 2) }}</dd>
+                                    <dd class="tabular-nums text-ink-400">€{{ number_format((float) $discount['vat'], 2) }}</dd>
                                 </div>
                             </dl>
 
