@@ -40,6 +40,11 @@ class ArticleForm
                 FileUpload::make('main_image_path')
                     ->image()
                     ->imageEditor()
+                    // Named, not defaulted: Filament falls back to
+                    // `filament.default_filesystem_disk` (`local` here), whose
+                    // root is storage/app/private — never web-servable, so the
+                    // storefront could not render an uploaded cover at all.
+                    ->disk(Article::IMAGE_DISK)
                     ->directory(Article::IMAGE_DIRECTORY)
                     ->acceptedFileTypes(Article::IMAGE_ACCEPTED_MIME_TYPES)
                     ->maxSize(Article::IMAGE_MAX_SIZE_KB)

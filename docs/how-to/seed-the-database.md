@@ -318,6 +318,39 @@ This command is **not** part of the seed chain — it is not wired into any
 depends on an API key nobody else's environment has. Run it once, by hand,
 after the catalogue exists.
 
+## Article images
+
+The same gap, for `articles.main_image_path`: nothing ever wrote a real
+value there, so `components/journal/cover.blade.php` has always fallen back
+to its generated cover art. `demo:fetch-article-images` is the article
+sibling of `demo:fetch-images` above — same Pexels source, same reliability
+history (see that section's "Why Pexels" before reaching for anything
+else), same re-check against `Article::IMAGE_ACCEPTED_MIME_TYPES`/
+`MAX_SIZE_KB`/`MIN_WIDTH_PX`/`MIN_HEIGHT_PX`.
+
+```bash
+docker compose exec app php artisan demo:fetch-article-images
+```
+
+Requires `PEXELS_API_KEY` in `.env`, same as `demo:fetch-images`. One
+search per article (title, plus the article's category as a fallback
+relevance signal), `orientation=landscape` rather than `square` — every
+journal cover slot renders wider than tall. Resumable the same way:
+re-running skips any article whose `main_image_path` already points at a
+real file on disk.
+
+```bash
+docker compose exec app php artisan demo:fetch-article-images --dry-run   # validates without writing
+docker compose exec app php artisan demo:fetch-article-images --limit=5   # process a subset
+```
+
+Once a real file exists, `ResolveArticleImage::urlOrNull()` picks it up
+automatically — the same is true the moment an editor uploads a cover
+photo through `ArticleForm`'s `FileUpload` field in the panel. Nothing
+needs re-running for that case; the generated art is a fallback for "no
+real file yet," checked fresh on every render, not a one-time decision
+baked in at seed time.
+
 ## Authoring the demo catalogue
 
 `database/fixtures/SKELETON.md` is the working prompt, including which model

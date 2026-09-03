@@ -15,6 +15,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
 | `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |
 | `demo:fetch-images` | Downloads real Pexels photos for `product_images` rows still pointing at a placeholder path that does not exist on disk. One search per product; the whole catalogue finishes in a single run (25,000 requests/hour free tier), still resumable if interrupted. `how-to/seed-the-database.md`, "Product images" | A human, once, after the catalogue is seeded — already run; the 182 result files are committed |
+| `demo:fetch-article-images` | The article sibling of `demo:fetch-images` — downloads a real Pexels photo for every article whose `main_image_path` is empty or missing on disk, and writes the path onto the row. `components/journal/cover.blade.php` prefers it once it exists; falls back to generated art until then. `how-to/seed-the-database.md`, "Article images" | A human, once, after the article fixtures are loaded |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
 ## What belongs in a command

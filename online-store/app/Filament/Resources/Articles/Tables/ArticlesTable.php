@@ -32,6 +32,7 @@ class ArticlesTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['articleCategory', 'author']))
             ->columns([
                 ImageColumn::make('main_image_path')
+                    ->disk(Article::IMAGE_DISK)
                     ->label('Image'),
                 TextColumn::make('title')
                     ->searchable()

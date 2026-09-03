@@ -20,7 +20,10 @@ use Illuminate\Support\HtmlString;
  */
 class Article extends Model
 {
-    /** Directory within the default `public` disk. Mirrors `ProductImage::DIRECTORY`. */
+    /** Mirrors `ProductImage::DISK` — named so the upload field and any command writing here cannot drift onto a different disk. */
+    public const IMAGE_DISK = 'public';
+
+    /** Directory within `IMAGE_DISK`. Mirrors `ProductImage::DIRECTORY`. */
     public const IMAGE_DIRECTORY = 'articles';
 
     /** See `ProductImage::ACCEPTED_MIME_TYPES` — same reasoning, no SVG in user-facing content. */
