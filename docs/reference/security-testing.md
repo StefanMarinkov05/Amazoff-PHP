@@ -38,15 +38,18 @@ Dependency scanning did complete once the host was repaired.
 
 ## Findings
 
-Four issues. Two are exploitable IDOR/authorization bypasses in this
+Five entries. Two are exploitable IDOR/authorization bypasses in this
 project's own code, both confirmed by live exploitation on 2026-09-03 and
 both since fixed; both share one shape — a client-writable Livewire public
 property that a query downstream trusts. The third is a dependency advisory
 with no reachable path today. The fourth is an OWASP ZAP baseline scan
-(2026-09-03) confirming the missing-headers gap mechanically and catching
-one item worth investigating rather than accepting at face value. Each is
-written in bug-bounty report form: **Finding → Reason → Reproduction → Fix
-→ Logic for future pentests.**
+confirming the missing-headers gap mechanically and catching one item worth
+investigating rather than accepting at face value. The fifth records a
+**negative** result — a full active scan finding no injection vulnerability —
+because a clean scan is worth nothing unless what it actually covered, and
+what it could not see, is written down beside it. Each is written in
+bug-bounty report form: **Finding → Reason → Reproduction → Fix → Logic for
+future pentests.**
 
 Severity uses CVSS-style qualitative bands (Critical / High / Medium / Low /
 Info), rated for this application in its current state, not in the abstract.
@@ -443,6 +446,82 @@ is present, not whether it is correctly scoped for Livewire/Alpine.
 
 ---
 
+### SEC-005 — Full active scan (OWASP ZAP): no injection vulnerability found
+
+**Severity:** n/a — this records a *negative* result · **Status:** Complete,
+2026-09-03
+
+Recorded because a clean scan is only worth anything if what it actually
+covered is written down. `zap-full-scan.py` — the baseline's passive rules
+**plus** active attack payloads fired at every discovered parameter — run
+against `/catalogue` after the SEC-004 header fix was deployed.
+
+**Result: 136 rules, 0 FAIL, 5 WARN.** Every injection class passed *under
+active attack*, not merely by inspection:
+
+| Attack class | Rules passed |
+|---|---|
+| SQL injection | 7 — generic, plus time-based blind for MySQL, PostgreSQL, Oracle, MsSQL, Hypersonic |
+| Cross-site scripting | 5 — reflected, persistent (3 variants), DOM-based |
+| Path traversal / RFI | 2 |
+| OS command injection | 2 — direct and time-based |
+| Server-side template injection | 2 — direct and blind |
+| XXE, XSLT, XPath, LDAP, SSI, NoSQL | 6 |
+
+This is independent confirmation of the static review's conclusions rather
+than new information: the review had already established that every query
+binds its parameters, that `ORDER BY` sits behind an `array_key_exists`
+allow-list (`ProductList::safeSortBy()`), and that the view layer contains
+zero `{!! !!}`. ZAP attacked those paths and agreed. **Two methods, same
+answer, is worth more than either alone** — and neither found the other's
+bugs, which is the point made at the top of `how-to/pentest-the-system.md`.
+
+**The header fix is confirmed mechanically.** Three rules that the baseline
+scan failed now pass: `X-Content-Type-Options Header Missing [10021]`,
+`Server Leaks Information via "X-Powered-By" [10037]`, and `Permissions
+Policy Header Not Set [10063]`. Baseline reported 12 warnings; this run
+reports 5. That is the fix-then-rescan loop closing, rather than a claim
+that the config file was edited.
+
+**The 5 remaining warnings, each triaged rather than transcribed:**
+
+| Warning | Assessment |
+|---|---|
+| `Cookie No HttpOnly Flag [10010]` | **False positive**, same as the baseline — it flags `XSRF-TOKEN`, which must be JS-readable for Laravel's CSRF double-submit. The session cookie does carry `HttpOnly`. See SEC-004 |
+| `Cross-Domain JavaScript Source File Inclusion [10017]` | **Dev-environment artifact.** The flagged scripts are `http://localhost:5173/@vite/client` and `.../app.js` — the Vite dev server. Production serves bundled, same-origin assets from `npm run build`; no dev server exists there |
+| `Sub Resource Integrity Attribute Missing [90003]` | **Same cause.** SRI hashes are for third-party CDN assets; these are the local Vite dev server. Not applicable to the built production bundle |
+| `CSP Header Not Set [10038]` | **Real, and knowingly open.** SEC-004 scopes CSP out as separate work needing deliberate design for Livewire/Alpine |
+| `Cross-Origin-Resource-Policy Missing [90004]` | **Real, low.** CORP matters when a page opts into cross-origin isolation; nothing here does. Worth adding with the CSP work, not before |
+
+So: **one genuinely open item (CSP), two false positives, two dev-only
+artifacts.** Nothing actionable was found that was not already known.
+
+**What this scan did *not* cover, and it is the important half.** The scan
+began from an unauthenticated spider, so **everything behind login was
+invisible to it** — the entire Filament admin panel, the account pages, and
+every authenticated flow. Its 0-FAIL result is a statement about the public
+storefront only. An authenticated scan requires giving ZAP a session
+(context plus a logged-in user), which was not done; **the admin panel's
+automated coverage remains zero.**
+
+The scan also spent most of its runtime on low-value work: it probed each of
+the 182 demo product images for `.bak`, `.backup`, `.zip` and similar
+variants — thousands of requests returning 404, at ~77 requests/second — and
+took **over an hour** as a result. `how-to/pentest-the-system.md` records the
+timing and how to scope this down; excluding `/storage/*` would cut the
+runtime dramatically without losing coverage that matters.
+
+**One operational note.** The run finished its scanning successfully and
+then exited **3** on `Permission denied: /zap/wrk/zap-full-report.html` —
+the mounted output directory was owned by `root` from an earlier run, and
+ZAP runs as the `zap` user. The findings survived in the container's stdout;
+the HTML/XML reports were lost. Fix by ensuring the output directory is
+writable by uid 1000 before the run. A non-zero exit from this tool means
+"findings at or above the threshold, **or** a reporting failure" — check
+which before concluding the scan failed.
+
+---
+
 ### The pattern behind SEC-001 and SEC-002 — `#[Locked]` is absent project-wide
 
 `grep -rn '#\[Locked\]' app/` returns **zero** results. Both exploitable
@@ -540,12 +619,13 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
 
 ## Not covered
 
-- **ZAP was run as a baseline scan only** (`zap-baseline.py` — passive
-  spider plus passive rules against two unauthenticated pages, SEC-004).
-  Not run: a **full active scan** (`zap-full-scan.py`, which attacks the
-  app rather than only observing it), an **authenticated scan** (logged in
-  as each of the four roles, to reach `/admin/*` and the pages behind
-  `auth` middleware), or a crawl past the two seed URLs. sqlmap and
+- **Both ZAP scans ran unauthenticated** — the baseline (SEC-004) and the
+  full active scan (SEC-005). Neither saw a single page behind login, so
+  **the admin panel's automated coverage is zero**, and SEC-005's 0-FAIL
+  result is a statement about the public storefront only. An
+  **authenticated scan** — ZAP given a context and a logged-in session for
+  each of the four roles — is the largest remaining gap in automated
+  coverage. sqlmap and
   Metasploit were deliberately not run — see the reasoning recorded
   separately: sqlmap fuzzes for a class of bug (string-concatenated SQL)
   already ruled out by reading every query path, and Metasploit targets
