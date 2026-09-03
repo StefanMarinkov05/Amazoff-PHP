@@ -135,6 +135,53 @@ Those 12,172 non-`200` requests are not "pages tested"; they are the attack
 itself. Counting them as coverage would be dishonest, which is why the two
 numbers are kept apart here.
 
+### The final authenticated run
+
+The last run in the sequence, after every fix above was applied — the number
+that describes the system as it stands rather than as it was found.
+
+| | Value |
+|---|---|
+| URLs discovered | 761 (traditional spider) + 135 (AJAX spider) |
+| Endpoints scanned | 376 |
+| Active scan duration | 20m00s |
+| **High-risk alerts** | **0** |
+| Medium | 4 |
+| Low | 4 |
+| Informational | 2 |
+
+**Two alerts cleared between the previous run and this one, each confirming a
+fix rather than merely disappearing:**
+
+- `X-Content-Type-Options Header Missing` — **gone**, confirming SEC-007's
+  nginx `add_header`.
+- `Big Redirect Detected` — **120 instances down to 3**, confirming the
+  `threadPerHost: 2` session fix. The remaining 3 are the unauthenticated
+  probes that *should* redirect.
+
+`CSP: Wildcard Directive` had already cleared in the previous run, confirming
+SEC-006's `img-src` fix.
+
+**The 4 Medium are all known and previously assessed**: three are the
+`unsafe-eval`/`unsafe-inline` CSP trade-off that SEC-006 measured and
+documented as unavoidable on this stack, and one is `Sub Resource Integrity`
+against the Vite dev server, which does not exist in a production build.
+
+**One informational alert was investigated rather than dismissed.** `User
+Controllable HTML Element Attribute (Potential XSS)` fired on
+`/catalogue?category=garden` — ZAP's own wording is "try injecting special
+characters to see if XSS might be possible," a hint rather than a finding.
+Tested by hand with two payloads:
+
+```
+?category="><script>alert(1)</script>   → not reflected
+?category=ZZQUOTE"ZZ                    → rendered as ZZQUOTE\&quot;ZZ
+```
+
+The quote is HTML-escaped to `&quot;` *and* backslash-escaped inside the
+Livewire JSON payload. Blade's `{{ }}` escaping holds; there is no attribute
+breakout. **Confirmed false positive.**
+
 ### Rule coverage
 
 The unauthenticated full scan ran **136 active rules**. Every injection class

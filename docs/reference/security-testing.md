@@ -709,6 +709,26 @@ improvement.
 URL" fires on `/login?email=zaproxy%40example.com&password=ZAP` — ZAP's own
 fuzzer URL, not a request the application ever generates.
 
+### The re-run, after the fixes
+
+A second authenticated run with `threadPerHost: 2` (the session fix above)
+and SEC-007's nginx header in place: **376 endpoints, 0 High, 4 Medium, 4
+Low.** Three alerts cleared, each confirming a specific fix rather than
+merely vanishing — `X-Content-Type-Options Header Missing` (SEC-007's nginx
+`add_header`), `CSP: Wildcard Directive` (SEC-006's `img-src`), and
+`Big Redirect` falling from **120 instances to 3** (the session fix; the
+remaining 3 are unauthenticated probes that *should* redirect).
+
+One informational alert was investigated rather than dismissed: `User
+Controllable HTML Element Attribute (Potential XSS)` on
+`/catalogue?category=garden`. ZAP's own wording is "try injecting special
+characters to see if XSS might be possible" — a hint, not a finding. Tested
+by hand: `?category="><script>alert(1)</script>` is not reflected at all,
+and `?category=ZZQUOTE"ZZ` renders as `ZZQUOTE\&quot;ZZ` — HTML-escaped
+*and* backslash-escaped inside the Livewire JSON payload. Blade's `{{ }}`
+escaping holds, there is no attribute breakout. **Confirmed false
+positive.**
+
 ---
 
 ### The pattern behind SEC-001 and SEC-002 — `#[Locked]` is absent project-wide
