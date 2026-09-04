@@ -52,7 +52,14 @@ final class FetchDemoArticleImages extends Command
         }
 
         $limitOption = $this->option('limit');
-        $limit = is_string($limitOption) ? (int) $limitOption : PHP_INT_MAX;
+        // is_numeric, not is_string: the CLI always hands options over as
+        // strings, but Artisan::call(..., ['--limit' => 1]) — how this was
+        // exercised in testing, since there's no PEXELS_API_KEY in every
+        // environment — passes a real int. A string-only check silently
+        // treated that as "no limit" and processed every article instead of
+        // the requested subset; caught by running the command that way and
+        // finding it had rewritten far more rows than --limit=1 asked for.
+        $limit = is_numeric($limitOption) ? max(1, (int) $limitOption) : PHP_INT_MAX;
         $dryRun = (bool) $this->option('dry-run');
 
         $articles = $this->articlesNeedingImages($limit);
