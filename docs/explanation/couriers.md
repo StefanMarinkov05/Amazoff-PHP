@@ -174,6 +174,130 @@ against a real sandbox response — the same discipline `CarrierSeeder`
 already asks for its placeholder `cod_fee`/`base_delivery_price` figures —
 before any of this reaches a real customer.
 
+## Closing the verification gap — what research found, 2026-09-06
+
+The section above was accurate but incomplete: it named the gap without
+saying what would close it. Researched against each vendor's own current
+documentation (not a package README or a Stack Overflow answer) because
+that is the only source `EcontGateway`/`SpeedyGateway`'s own docblocks
+defer to. Recorded here rather than only in a PR description, because the
+gap is exactly the kind of thing a later developer re-discovers from
+scratch if it isn't written down — this doc is where `EcontGateway`'s and
+`SpeedyGateway`'s own docblocks already point.
+
+### Econt — the demo host takes a real, published login, right now
+
+`ECONT_USERNAME`/`ECONT_PASSWORD` are blank in `.env.example`, which reads
+as "needs an account nobody has yet." That is not quite right for the demo
+host specifically: **`http://demo.econt.com/ee/services/` accepts a
+standing public test login — `iasp-dev` / `1Asp-dev`** — documented by
+Econt itself and independently confirmed by at least one third-party Econt
+SDK using the identical pair as its own default. This is the demo
+environment's credential, not a production one; it does nothing against
+`ee.econt.com` (the live host), which still needs a real merchant account.
+
+Practically: **§37 #13 ("at least one courier works with a real test
+environment") is reachable today**, without waiting on anyone. Set
+`ECONT_USERNAME=iasp-dev` and `ECONT_PASSWORD=1Asp-dev` locally (never
+commit real values — `explanation/secrets-and-env.md`), leave
+`ECONT_API_URL` at its existing demo default, and run `EcontGateway`
+against it directly — `cities()`/`offices()` are read-only and the safest
+first call.
+
+There is also a real, machine-readable **OpenAPI spec**:
+`https://ee.econt.com/services/openapi.yaml`. Every endpoint path this
+codebase's Econt requests use was checked against it directly and matches
+exactly:
+
+| Request class | Path | Confirmed against spec |
+|---|---|---|
+| `SearchCitiesRequest` | `/Nomenclatures/NomenclaturesService.getCities.json` | yes |
+| `GetOfficesRequest` | `/Nomenclatures/NomenclaturesService.getOffices.json` | yes |
+| `CalculateShipmentRequest` (`mode: calculate`) | `/Shipments/LabelService.createLabel.json` | yes |
+| `CreateShipmentLabelRequest` (`mode: create`) | `/Shipments/LabelService.createLabel.json` | yes |
+| `GetShipmentStatusesRequest` | `/Shipments/ShipmentService.getShipmentStatuses.json` | yes |
+
+The `mode` field distinguishing a price calculation from a real label
+creation, both through the same endpoint, is Econt's own design — not a
+guess `EcontGateway` made up, and not something to "simplify" into two
+separate calls. **The paths were right all along; only a live call was
+missing.** Read the spec directly before changing any Econt request shape —
+it is the same authority `EcontGateway`'s own docblock already names,
+just not yet fetched and checked line by line until now.
+
+### Speedy — the SOAP service this doc's history might suggest is gone
+
+Two things worth stating plainly, because the search results for "Speedy
+API" surface both eras at once and it is easy to land on the wrong one:
+
+**Speedy's legacy SOAP service (WSDL at `speedy.bg/eps/main01.wsdl`) was
+fully decommissioned — support ended 2024-09-30, and the service itself is
+gone.** `SpeedyConnector`'s existing docblock already says "Speedy's REST
+Web API," and that is the correct, current choice — nothing here needs
+changing on that account. This is recorded so nobody "fixes" the connector
+by porting it to SOAP after finding an old WSDL link; that migration would
+run backward.
+
+**The REST API's base URL had no default in `config/services.php` — fixed
+alongside this research, not left as a finding for someone else to apply.**
+`SPEEDY_API_URL` was required with no fallback, unlike Econt's demo URL.
+Confirmed current base: `https://api.speedy.bg/v1`, now
+`services.php`'s default.
+
+**Not the same default form Econt uses, and that difference matters.**
+`env('SPEEDY_API_URL', 'https://api.speedy.bg/v1')` — the array-default
+form, matching Econt's — looked right and was wrong: this repo's `.env`
+carries `SPEEDY_API_URL=` present but blank (a checked-out placeholder line
+nobody filled in), so `env()` returns `''`, not `null`, and an array
+default only fires when the key is *absent* entirely. Confirmed live: with
+the array-default form, `config('services.speedy.api_url')` resolved to an
+empty string, not the URL. Fixed to `env('SPEEDY_API_URL') ?: '...'`
+instead — the exact same trap this file's own `webhook_tolerance` config
+already documents for a number (`(int) '' === 0`, which is why that line
+wraps its default in `max()` rather than trusting `env()`'s own default
+argument). A present-but-blank env var defeating a config default is a
+recurring shape in this codebase, not a one-off; check for it before
+trusting any `env('X', 'default')` a fresh `.env.example` produces.
+
+**No public sandbox exists — this part of the original gap stands.**
+Getting a real Speedy test account is a request, not a signup form: email
+`sandbox@speedy.bg` with a name, company name, and phone number (`api.speedy.bg/web-api.html`'s
+own onboarding section). There is no credential anyone can drop in today
+the way Econt's demo login allows — closing §37 #13 via Speedy specifically
+still depends on someone actually sending that email and waiting for a
+reply, which is why Econt is the faster path to satisfying that criterion.
+
+Field names were checked against the same source and match what
+`HasSpeedyCredentials` already sends — `userName`, `password`, with
+`language` and `clientSystemId` as optional fields the current trait
+doesn't send yet (both have sane defaults server-side, so not sending them
+is not a bug). Endpoint paths confirmed:
+
+| Function | Path |
+|---|---|
+| Create Shipment | `/shipment` |
+| Calculate Price | `/calculate` |
+| Find Offices | `/location/office` |
+| Find Sites | `/location/site` |
+| Track Shipment | `/track` |
+| Print Labels | `/print` |
+
+A JSON schema is published at `https://api.speedy.bg/v1/schema` — the
+right place to check a field name against before assuming
+`SpeedyGateway`'s mapping is wrong, rather than guessing from the response
+shape alone.
+
+### No MCP server exists for either vendor
+
+Checked directly, since an MCP server would have been the fastest path to
+verifying both gateways without hand-rolling requests: neither Econt nor
+Speedy publishes one, and none of the generic community MCP-server
+registries list one either. Not surprising for a pair of regional Bulgarian
+logistics APIs with no existing SDK ecosystem beyond a couple of
+community-maintained wrappers. Nothing to revisit here unless one of the
+vendors ships an official server later — worth a repeat search then, not a
+recurring task now.
+
 ## Testing
 
 `EcontGatewayTest` and `SpeedyGatewayTest` use Saloon's `MockClient` against

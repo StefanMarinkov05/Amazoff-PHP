@@ -97,7 +97,20 @@ return [
     ],
 
     'speedy' => [
-        'api_url' => env('SPEEDY_API_URL'),
+        // Speedy's current REST Web API, confirmed against api.speedy.bg's
+        // own published docs 2026-09-06 — the legacy SOAP service (a
+        // different host entirely) was fully decommissioned 2024-09-30, so
+        // this is not a demo/production split the way Econt's is, just the
+        // one live base URL. See docs/explanation/couriers.md, "Speedy —
+        // the SOAP service this doc's history might suggest is gone".
+        //
+        // `?:`, not env()'s own default argument: a present-but-blank
+        // SPEEDY_API_URL= in .env (a checked-out placeholder nobody filled
+        // in) makes env() return '' rather than null, and env()'s default
+        // only fires when the key is absent entirely — the same trap
+        // documented on webhook_tolerance below, for a string instead of a
+        // number.
+        'api_url' => env('SPEEDY_API_URL') ?: 'https://api.speedy.bg/v1',
         'username' => env('SPEEDY_USERNAME'),
         'password' => env('SPEEDY_PASSWORD'),
     ],
