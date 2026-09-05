@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Contracts\CourierGateway;
 use App\Enums\OrderStatus;
+use App\Facades\Courier;
+use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\Inventory;
 use App\Models\Order;
@@ -10,7 +13,13 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
+use App\Support\Courier\CourierOffice;
+use App\Support\Courier\CourierTrackingEvent;
+use App\Support\Courier\DeliveryQuote;
+use App\Support\Courier\ShipmentRequest;
+use App\Support\Courier\ShipmentResult;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 /*
@@ -229,4 +238,109 @@ function orderWithVariationLine(ProductVariation $variation, OrderStatus $status
     ]);
 
     return $order->fresh();
+}
+
+/*
+ * Shared by every test that exercises checkout or CreateOrder with a
+ * carrier attached — CheckoutTest, CreateOrderTest and
+ * CalculateDeliveryPriceTest all need one, and Pest loads every file's
+ * top-level declarations into one global scope, so a class or function
+ * defined in any one of them would collide if a second file declared its
+ * own copy.
+ */
+
+/**
+ * An in-memory `CourierGateway`. No test may let Econt or Speedy be reached
+ * over the network — `swapFakeCourier()` replaces the whole `Courier`
+ * facade with this rather than mocking a Saloon connector, because nothing
+ * above `CourierManager` should need to know Saloon exists.
+ */
+class FakeCourierGateway implements CourierGateway
+{
+    /** @var Collection<int, CourierOffice> */
+    public Collection $fakeOffices;
+
+    public string $fakeQuoteAmount = '5.00';
+
+    public function __construct()
+    {
+        $this->fakeOffices = collect([
+            new CourierOffice(code: 'OFF1', name: 'Test Office 1', address: 'Main St 1', city: 'Sofia', postcode: '1000'),
+            new CourierOffice(code: 'OFF2', name: 'Test Office 2', address: 'Main St 2', city: 'Sofia', postcode: '1000'),
+        ]);
+    }
+
+    public function code(): string
+    {
+        return 'fake';
+    }
+
+    public function cities(string $term): Collection
+    {
+        return collect();
+    }
+
+    public function offices(string $city, ?string $postcode = null): Collection
+    {
+        return $this->fakeOffices;
+    }
+
+    public function quote(ShipmentRequest $request): DeliveryQuote
+    {
+        return new DeliveryQuote(amount: $this->fakeQuoteAmount, currency: 'BGN');
+    }
+
+    public function createShipment(ShipmentRequest $request): ShipmentResult
+    {
+        return new ShipmentResult(shipmentNumber: 'FAKE-1', trackingNumber: 'FAKE-1', labelUrl: null, trackingUrl: null);
+    }
+
+    public function label(string $shipmentNumber): string
+    {
+        return '%PDF-1.4';
+    }
+
+    public function track(string $trackingNumber): Collection
+    {
+        /** @var Collection<int, CourierTrackingEvent> */
+        return collect();
+    }
+}
+
+/**
+ * Swaps the `Courier` facade for a fresh `FakeCourierGateway` and returns
+ * it, so a test can adjust `fakeQuoteAmount` or `fakeOffices` before acting.
+ * Bound into the container the same way `fakeStripeIntents()` binds its
+ * Mockery double, rather than as a dynamic property on the test case.
+ */
+function swapFakeCourier(): FakeCourierGateway
+{
+    app()->instance(FakeCourierGateway::class, new FakeCourierGateway);
+
+    Courier::swap(new class
+    {
+        public function for(Carrier $carrier): CourierGateway
+        {
+            return app(FakeCourierGateway::class);
+        }
+    });
+
+    return app(FakeCourierGateway::class);
+}
+
+/** The `FakeCourierGateway` `swapFakeCourier()` bound, for adjusting mid-test. */
+function fakeCourier(): FakeCourierGateway
+{
+    return app(FakeCourierGateway::class);
+}
+
+/**
+ * An active carrier. `cod_fee` is pinned to zero so a test that does not
+ * care about it gets a deterministic `shipping_amount` — just the
+ * `FakeCourierGateway` quote — rather than one of `CarrierFactory`'s three
+ * random values.
+ */
+function checkoutCarrier(array $attributes = []): Carrier
+{
+    return Carrier::factory()->create(array_merge(['is_active' => true, 'cod_fee' => '0.00'], $attributes));
 }

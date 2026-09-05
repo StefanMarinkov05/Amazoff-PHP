@@ -265,6 +265,14 @@ own arithmetic is `StripePaymentTest` and the endpoint is
   signed-in customer looking at someone else's order — sequential serial
   numbers would otherwise enumerate every customer's address. 404 and not
   403, since a 403 confirms the order exists.
+- A carrier is required, and an inactive one is refused even if its id is
+  submitted directly. An office delivery only succeeds once `selectOffice()`
+  has picked one from `offices()`; a `courier_office_code` set to a string
+  that was never resolved from that list is refused on the form, and the
+  carrier's `cod_fee` is added to the resolved delivery price only for cash
+  on delivery. Every test in this file swaps the whole `Courier` facade for
+  `FakeCourierGateway` (`tests/Pest.php`) — checkout must never reach Econt
+  or Speedy over the network. See `docs/explanation/couriers.md`.
 
 **A trap worth knowing.** `ResolveCurrentCart` finds a guest's cart by
 `Session::getId()` and a customer's by `user_id`. A cart created any other

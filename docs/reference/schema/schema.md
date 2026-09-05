@@ -126,8 +126,10 @@ shows the number back — see `schema/fixture-format.md`'s field notes.
 
 `carriers.cod_fee` is a BG cash-on-delivery handling surcharge — it lives on
 the carrier because Econt and Speedy tariff it differently, not on `products`
-or `orders`; not yet folded into an order total since carrier selection
-(`CalculateDeliveryPrice`, slice 8) isn't built.
+or `orders`. Folded into `orders.shipping_amount` by `CalculateDeliveryPrice`
+whenever `CreateOrder` is given a carrier. `carriers.base_delivery_price` is
+the fallback figure used when the carrier's own quote API is unreachable —
+see `docs/explanation/couriers.md`.
 
 ## Enum columns
 

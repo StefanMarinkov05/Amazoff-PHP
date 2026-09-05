@@ -247,7 +247,7 @@ a `Coupon` row is single-table with no second writer, decision 10.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
+| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon`, `ReserveStock`, and `CalculateDeliveryPrice` (for `shipping_amount`/`carrier_id`, given a carrier) | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
 | `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
 | `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
@@ -263,6 +263,16 @@ a `Coupon` row is single-table with no second writer, decision 10.
 The shipment Actions are the *domain* half of slice 8, deliberately split
 from its connector: every courier column is nullable, so a shipment can be
 opened, transitioned and reported on before any Saloon connector exists.
+The connector half now exists (`App\Contracts\CourierGateway`,
+`docs/explanation/couriers.md`), but nothing yet calls it from
+`CreateShipment` — a future `DispatchShipment` Action, not built here, is
+what would create the real vendor shipment and fill in the columns
+`CreateShipment` currently leaves null.
+
+`CreateOrder` calls `CalculateDeliveryPrice` (a `Support` function, not an
+Action — it writes nothing) whenever it is given a carrier, resolving
+`shipping_amount` and `orders.carrier_id` from it. See
+`write-rules/order.md`'s "known gaps" #2.
 
 The Stripe half is now built. `CreateStripeIntent` fills
 `stripe_payment_intent_id` on a row `RecordPayment` opened rather than

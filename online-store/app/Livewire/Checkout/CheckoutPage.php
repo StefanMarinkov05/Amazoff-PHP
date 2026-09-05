@@ -9,12 +9,21 @@ use App\Actions\Payment\CreateStripeIntent;
 use App\Actions\Payment\RecordPayment;
 use App\Enums\DeliveryType;
 use App\Enums\PaymentMethod;
+use App\Exceptions\CourierUnavailableException;
+use App\Facades\Courier;
+use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\CalculateCartTotals;
+use App\Support\CalculateDeliveryPrice;
+use App\Support\Courier\CourierOffice;
+use App\Support\Courier\DeliveryQuote;
 use App\Support\ResolveCurrentCart;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
@@ -55,6 +64,16 @@ use RuntimeException;
  * rollback returns the same intent rather than creating a second one, so the
  * cost of the occasional orphaned intent is bounded and the alternative —
  * an order that exists with no way to pay for it — is not.
+ *
+ * ## Carrier and office selection (§12–14)
+ *
+ * `carriers()` lists the active rows for the radio group; `offices()` calls
+ * `Courier::for($carrier)->offices()` for the typed city and is what
+ * `selectOffice()` resolves a click against. `courier_office_code`/`_name`
+ * are therefore never customer-typed text — `placeOrder()` re-resolves the
+ * submitted code against `offices()` one more time before trusting it,
+ * because the browser can still submit any string as the property value.
+ * `docs/explanation/couriers.md` has the full read-path/write-path split.
  */
 #[Layout('components.layouts.app')]
 class CheckoutPage extends Component
@@ -71,6 +90,8 @@ class CheckoutPage extends Component
 
     public string $delivery_type = DeliveryType::Address->value;
 
+    public ?int $carrier_id = null;
+
     public string $country = 'BG';
 
     public string $city = '';
@@ -79,6 +100,13 @@ class CheckoutPage extends Component
 
     public string $street = '';
 
+    /** Filters `offices()` client-side; never sent to a courier per keystroke. */
+    public string $office_search = '';
+
+    /**
+     * Set only by `selectOffice()`, from an office `offices()` itself
+     * returned — never typed by the customer. See its own docblock for why.
+     */
     public string $courier_office_code = '';
 
     public string $courier_office_name = '';
@@ -97,6 +125,16 @@ class CheckoutPage extends Component
     public ?int $orderId = null;
 
     public ?string $clientSecret = null;
+
+    /**
+     * Set by `offices()` on every call, for `courierUnavailable()` to read —
+     * distinguishes "the carrier answered with zero offices here" from "the
+     * carrier could not be reached at all" (Speedy today: no sandbox exists
+     * yet, so `SPEEDY_API_URL` stays blank and every call fails instantly).
+     * Both cases return an empty `offices()` collection, so the UI needs a
+     * second signal to avoid telling the customer a real city has no offices.
+     */
+    private bool $courierUnavailable = false;
 
     public function mount(): void
     {
@@ -122,14 +160,18 @@ class CheckoutPage extends Component
             'last_name' => ['required', 'string', 'min:2', 'max:50'],
             'payment_method' => ['required', 'string', 'in:'.implode(',', array_column(PaymentMethod::cases(), 'value'))],
             'delivery_type' => ['required', 'string', 'in:'.implode(',', array_column(DeliveryType::cases(), 'value'))],
+            'carrier_id' => ['required', 'integer', Rule::exists('carriers', 'id')->where('is_active', true)],
             'country' => ['required', 'string', 'size:2'],
             'city' => ['required', 'string', 'max:50'],
             'postcode' => ['required', 'string', 'max:20'],
             // Exactly one of the two address shapes, decided by delivery_type
             // rather than by which fields happen to be filled.
             'street' => ['nullable', 'required_if:delivery_type,address', 'string', 'max:150'],
+            // courier_office_name carries no rule: it is never customer
+            // input. selectOffice() sets it alongside the code, from an
+            // office offices() itself returned, and placeOrder() re-resolves
+            // both against that same list before trusting either.
             'courier_office_code' => ['nullable', 'required_if:delivery_type,office', 'string', 'max:50'],
-            'courier_office_name' => ['nullable', 'required_if:delivery_type,office', 'string', 'max:150'],
             'billing_same_as_delivery' => ['boolean'],
             'billing_city' => ['nullable', 'required_if:billing_same_as_delivery,false', 'string', 'max:50'],
             'billing_postcode' => ['nullable', 'required_if:billing_same_as_delivery,false', 'string', 'max:20'],
@@ -157,6 +199,127 @@ class CheckoutPage extends Component
         return $this->cart()->cartItems()->count() === 0;
     }
 
+    /** @return EloquentCollection<int, Carrier> */
+    #[Computed]
+    public function carriers(): EloquentCollection
+    {
+        return Carrier::query()->where('is_active', true)->orderBy('name')->get();
+    }
+
+    /**
+     * The selected carrier's offices for the typed city, cached a day at a
+     * time by `CachedCourierGateway` — `office_search` then filters this
+     * result in PHP rather than firing a request per keystroke.
+     *
+     * @return Collection<int, CourierOffice>
+     */
+    #[Computed]
+    public function offices(): Collection
+    {
+        $this->courierUnavailable = false;
+
+        if ($this->delivery_type !== DeliveryType::Office->value || $this->carrier_id === null || trim($this->city) === '') {
+            return collect();
+        }
+
+        $carrier = $this->carriers()->firstWhere('id', $this->carrier_id);
+
+        if (! $carrier instanceof Carrier) {
+            return collect();
+        }
+
+        try {
+            $offices = Courier::for($carrier)->offices($this->city, $this->postcode ?: null);
+        } catch (CourierUnavailableException) {
+            $this->courierUnavailable = true;
+
+            return collect();
+        }
+
+        if (trim($this->office_search) === '') {
+            return $offices;
+        }
+
+        $term = mb_strtolower($this->office_search);
+
+        return $offices->filter(
+            fn (CourierOffice $office): bool => str_contains(mb_strtolower($office->name), $term)
+                || str_contains(mb_strtolower($office->address), $term),
+        )->values();
+    }
+
+    /** Reads the flag `offices()` sets — call after `offices()` this render, not before. */
+    public function courierUnavailable(): bool
+    {
+        $this->offices();
+
+        return $this->courierUnavailable;
+    }
+
+    /**
+     * Display only — `CreateOrder`/`CalculateDeliveryPrice` resolve the
+     * charged figure again from the order's own rows, per this class's
+     * "total is never taken from the browser" rule.
+     */
+    #[Computed]
+    public function deliveryPrice(): ?DeliveryQuote
+    {
+        if ($this->isEmpty() || $this->carrier_id === null || trim($this->city) === '' || trim($this->postcode) === '') {
+            return null;
+        }
+
+        if ($this->delivery_type === DeliveryType::Office->value && $this->courier_office_code === '') {
+            return null;
+        }
+
+        $carrier = $this->carriers()->firstWhere('id', $this->carrier_id);
+
+        if (! $carrier instanceof Carrier) {
+            return null;
+        }
+
+        return CalculateDeliveryPrice::forCart(
+            $this->cart(),
+            $carrier,
+            PaymentMethod::from($this->payment_method),
+            $this->addressPayload(billing: false),
+        );
+    }
+
+    /** Sets both the code and the name from an office `offices()` itself returned. */
+    public function selectOffice(string $code): void
+    {
+        $office = $this->offices()->firstWhere('code', $code);
+
+        if ($office === null) {
+            return;
+        }
+
+        $this->courier_office_code = $office->code;
+        $this->courier_office_name = $office->name;
+        unset($this->deliveryPrice);
+    }
+
+    /**
+     * An Econt office submitted while Speedy is selected — or an office from
+     * a city the customer has since changed — is a shipment that would fail
+     * at label time, in the warehouse, days later. Clearing the selection on
+     * every input that changes what a "valid office" means is what prevents
+     * it from ever being submitted in the first place.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['carrier_id', 'city', 'postcode', 'delivery_type'], true)) {
+            $this->courier_office_code = '';
+            $this->courier_office_name = '';
+            unset($this->offices, $this->deliveryPrice);
+        }
+
+        if (in_array($property, ['payment_method', 'billing_same_as_delivery'], true)) {
+            unset($this->deliveryPrice);
+        }
+    }
+
     public function placeOrder(): void
     {
         $validated = $this->validate();
@@ -170,8 +333,23 @@ class CheckoutPage extends Component
         $actor = auth()->user() instanceof User ? auth()->user() : null;
         $method = PaymentMethod::from($validated['payment_method']);
 
+        /** @var Carrier $carrier */
+        $carrier = Carrier::query()->findOrFail($validated['carrier_id']);
+
+        // The browser can submit any courier_office_code; only one resolved
+        // from this carrier's own office list, for this city, is trusted —
+        // the same principle CLAUDE.md applies to a submitted total. A stale
+        // code (the customer changed carrier or city after picking one, or
+        // never picked one at all) fails here rather than at label time.
+        if ($this->delivery_type === DeliveryType::Office->value
+            && $this->offices()->firstWhere('code', $validated['courier_office_code']) === null) {
+            $this->addError('courier_office_code', 'Please choose a courier office from the list.');
+
+            return;
+        }
+
         try {
-            [$order, $clientSecret] = DB::transaction(function () use ($validated, $actor, $method): array {
+            [$order, $clientSecret] = DB::transaction(function () use ($validated, $actor, $method, $carrier): array {
                 $order = app(CreateOrder::class)->handle(
                     $this->cart(),
                     [
@@ -185,6 +363,7 @@ class CheckoutPage extends Component
                     $this->addressPayload(billing: true),
                     $this->addressPayload(billing: false),
                     $actor,
+                    $carrier,
                 );
 
                 $payment = app(RecordPayment::class)->handle($order, $method, $actor);

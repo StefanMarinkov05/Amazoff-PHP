@@ -8,6 +8,7 @@ use App\Actions\Coupon\RedeemCoupon;
 use App\Actions\Inventory\ReserveStock;
 use App\Enums\AddressType;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Exceptions\CartAlreadyCheckedOutException;
 use App\Exceptions\CheckoutActorRemovedException;
@@ -15,6 +16,7 @@ use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\EmptyCartException;
 use App\Exceptions\InsufficientStockException;
 use App\Models\Address;
+use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
@@ -25,6 +27,7 @@ use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
 use App\Support\CalculateCouponDiscount;
+use App\Support\CalculateDeliveryPrice;
 use App\Support\CouponDiscountLine;
 use App\Support\Money;
 use App\Support\ResolveVariationPrice;
@@ -41,6 +44,11 @@ use Illuminate\Support\Str;
  * both addresses, redeems the coupon if one is applied, and reserves
  * stock. Every order starts at `OrderStatus::New`, `PaymentStatus::Pending`,
  * for both payment methods.
+ *
+ * `shipping_amount` is resolved by `CalculateDeliveryPrice`, from `$carrier`
+ * and `$deliveryAddress` — never from `$customer` or anything else the
+ * browser could have submitted as a price, the same discipline this class
+ * already applies to every order item's line total.
  *
  * Locks `coupons` before `inventories` (one row per line, sorted by
  * `product_variation_id`). Full reasoning, the lock order, and known gaps:
@@ -64,6 +72,11 @@ final class CreateOrder
      *                                                source_address_id.
      * @param  array<string, mixed>  $deliveryAddress  Same shape as
      *                                                 `$billingAddress`.
+     * @param  ?Carrier  $carrier  Null only for a cash/legacy path with no
+     *                             delivery — `shipping_amount` stays `0.00` and
+     *                             `orders.carrier_id` stays null. `CheckoutPage`
+     *                             always supplies one; §17 requires an order to
+     *                             carry its courier.
      *
      * @throws EmptyCartException
      * @throws CouponNotApplicableException
@@ -77,6 +90,7 @@ final class CreateOrder
         array $billingAddress,
         array $deliveryAddress,
         ?User $actor,
+        ?Carrier $carrier = null,
     ): Order {
         /** @var EloquentCollection<int, CartItem> $items */
         $items = $cart->cartItems()->with(['productVariation.product', 'productVariation.attributeValues'])->get();
@@ -142,7 +156,12 @@ final class CreateOrder
             $vat = $amounts['vat'];
         }
 
-        $shipping = '0.00'; // CalculateDeliveryPrice is slice 8, not built.
+        // Resolved from the same $deliveryAddress this method writes onto
+        // order_addresses — never from anything the browser could submit as
+        // a price. $carrier === null is the only case with nothing to quote.
+        $shipping = $carrier === null
+            ? '0.00'
+            : CalculateDeliveryPrice::forCart($cart, $carrier, $this->resolvePaymentMethod($customer), $deliveryAddress)->amount;
         $total = (string) Money::of($subtotal)
             ->subtract(Money::of($discount))
             ->add(Money::of($shipping));
@@ -154,6 +173,7 @@ final class CreateOrder
             $billingAddress,
             $deliveryAddress,
             $actor,
+            $carrier,
             $coupon,
             $subtotal,
             $discount,
@@ -161,7 +181,7 @@ final class CreateOrder
             $shipping,
             $total,
         ): Order {
-            $order = $this->createOrderRow($cart, $customer, $actor, $subtotal, $discount, $shipping, $vat, $total);
+            $order = $this->createOrderRow($cart, $customer, $actor, $carrier, $subtotal, $discount, $shipping, $vat, $total);
 
             foreach ($lines as $line) {
                 $this->createOrderItem($order, $line);
@@ -251,6 +271,16 @@ final class CreateOrder
 
     /**
      * @param  array<string, mixed>  $customer
+     */
+    private function resolvePaymentMethod(array $customer): PaymentMethod
+    {
+        $method = $customer['payment_method'];
+
+        return $method instanceof PaymentMethod ? $method : PaymentMethod::from($method);
+    }
+
+    /**
+     * @param  array<string, mixed>  $customer
      *
      * @throws CartAlreadyCheckedOutException
      * @throws CheckoutActorRemovedException
@@ -259,6 +289,7 @@ final class CreateOrder
         Cart $cart,
         array $customer,
         ?User $actor,
+        ?Carrier $carrier,
         string $subtotal,
         string $discount,
         string $shipping,
@@ -269,6 +300,7 @@ final class CreateOrder
             /** @var Order $order */
             $order = Order::query()->create([
                 'user_id' => $actor?->getKey(),
+                'carrier_id' => $carrier?->getKey(),
                 'cart_id' => $cart->getKey(),
                 // Placeholder, unique on its own — overwritten from the row's
                 // own id once it exists, before this transaction commits.

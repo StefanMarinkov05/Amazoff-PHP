@@ -8,6 +8,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Carrier and courier-office selection at checkout, and delivery
+  pricing** — §37 criteria 12–14. `App\Contracts\CourierGateway` behind
+  `EcontGateway` and `SpeedyGateway` (Saloon connectors under
+  `App\Http\Integrations`), resolved by `carriers.code` through
+  `App\Support\Courier\CourierManager` and the `Courier` facade,
+  decorated with `CachedCourierGateway` so an office picker doesn't fire a
+  request per keystroke. `CalculateDeliveryPrice` resolves
+  `orders.shipping_amount` from a live vendor quote or, on
+  `CourierUnavailableException`, `carriers.base_delivery_price` —
+  `carriers.cod_fee` is added on top for cash-on-delivery orders only.
+  `CheckoutPage` gained a carrier radio group and an office picker whose
+  `courier_office_code`/`_name` are set only by `selectOffice()`, from an
+  office the picker itself returned — never typed as free text — and
+  `placeOrder()` re-resolves the submitted code against that list once
+  more before trusting it. `CreateOrder` takes an optional `Carrier` and
+  writes `orders.carrier_id` alongside the resolved shipping figure. Two
+  new migrations (`orders.carrier_id`, `carriers.base_delivery_price`).
+  New: `EcontGatewayTest`, `SpeedyGatewayTest` (Saloon `MockClient`, no
+  network), `CachedCourierGatewayTest`, `CalculateDeliveryPriceTest`;
+  extended `CheckoutTest` and `CreateOrderTest`. Speedy's request/response
+  shapes are taken from its published API docs, not a confirmed sandbox
+  response — no public Speedy sandbox exists. `docs/explanation/couriers.md`
+  has the full picture.
+
 - **First storefront Livewire test coverage for the cart** —
   `CartPageTest` (17 cases) and `CartBadgeTest` (6 cases), under
   `tests/Feature/Livewire/`. `CartPage` and `CartBadge` already existed and

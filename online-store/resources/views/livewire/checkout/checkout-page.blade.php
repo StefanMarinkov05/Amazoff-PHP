@@ -104,6 +104,21 @@
                 </section>
 
                 <section>
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-500">Courier</h2>
+
+                    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                        @foreach ($this->carriers as $carrier)
+                            <label class="flex items-center gap-2.5 rounded-control border border-ink-200 px-3 py-2.5 text-sm text-ink-700">
+                                <input type="radio" wire:model.live="carrier_id" value="{{ $carrier->id }}"
+                                       class="h-4 w-4 border-ink-300 text-marine-700 focus:ring-4 focus:ring-marine-600/20">
+                                {{ $carrier->name }}
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('carrier_id') <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p> @enderror
+                </section>
+
+                <section>
                     <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-500">Delivery</h2>
 
                     <div class="mt-4 flex gap-4">
@@ -123,11 +138,56 @@
 
                         @if ($delivery_type === \App\Enums\DeliveryType::Address->value)
                             <x-checkout.field name="street" label="Street and number" class="sm:col-span-2" />
-                        @else
-                            <x-checkout.field name="courier_office_code" label="Courier office code" />
-                            <x-checkout.field name="courier_office_name" label="Courier office name" />
                         @endif
                     </div>
+
+                    @if ($delivery_type === \App\Enums\DeliveryType::Office->value)
+                        <div class="mt-4">
+                            <label for="office_search" class="block text-sm font-medium text-ink-800">Find an office</label>
+                            <input wire:model.live.debounce.400ms="office_search" id="office_search" type="text"
+                                   placeholder="Search by office name or street"
+                                   class="mt-1.5 block w-full rounded-control border border-ink-300 bg-white px-3 py-2.5
+                                          text-sm text-ink-900 placeholder:text-ink-400
+                                          focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/20">
+
+                            @if ($courier_office_code !== '')
+                                <p class="mt-2 flex items-center gap-1.5 text-sm text-ink-700">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0 text-marine-700"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" /></svg>
+                                    Selected: <span class="font-medium">{{ $courier_office_name }}</span>
+                                </p>
+                            @elseif ($carrier_id === null)
+                                <p class="mt-2 text-sm text-ink-500">Choose a courier above to see its offices.</p>
+                            @elseif (trim($city) === '')
+                                <p class="mt-2 text-sm text-ink-500">Enter a city to see its offices.</p>
+                            @elseif ($this->courierUnavailable())
+                                <p class="mt-2 text-sm text-amber-600">
+                                    {{ $this->carriers->firstWhere('id', $carrier_id)?->name }}'s office lookup isn't reachable right now — try the other courier, or enter a delivery address instead.
+                                </p>
+                            @endif
+
+                            @error('courier_office_code') <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p> @enderror
+
+                            @if ($carrier_id !== null && trim($city) !== '' && ! $this->courierUnavailable())
+                                <ul wire:loading.class="opacity-50" wire:target="office_search, carrier_id, city, postcode"
+                                    class="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-control border border-ink-200 p-1.5 transition-opacity">
+                                    @forelse ($this->offices as $office)
+                                        <li wire:key="office-{{ $office->code }}">
+                                            <button type="button" wire:click="selectOffice('{{ $office->code }}')"
+                                                    wire:loading.class="opacity-50" wire:target="selectOffice('{{ $office->code }}')"
+                                                    aria-pressed="{{ $courier_office_code === $office->code ? 'true' : 'false' }}"
+                                                    class="w-full rounded-control px-2.5 py-2 text-left text-sm transition-colors duration-150
+                                                           {{ $courier_office_code === $office->code ? 'bg-marine-50 text-marine-800 ring-1 ring-inset ring-marine-200' : 'text-ink-700 hover:bg-ink-50' }}">
+                                                <span class="block font-medium">{{ $office->name }}</span>
+                                                <span class="block text-ink-500">{{ $office->address }}</span>
+                                            </button>
+                                        </li>
+                                    @empty
+                                        <li class="px-2.5 py-2 text-sm text-ink-500">No offices found for this city.</li>
+                                    @endforelse
+                                </ul>
+                            @endif
+                        </div>
+                    @endif
                 </section>
 
                 <section>
@@ -184,11 +244,29 @@
                         <dt class="text-ink-500">of which VAT</dt>
                         <dd class="text-ink-500">{{ $this->totals['vat'] }}</dd>
                     </div>
+                    <div class="flex justify-between">
+                        <dt class="text-ink-500">
+                            Delivery
+                            @if ($this->deliveryPrice?->isEstimate)
+                                <span class="text-ink-400">(estimated)</span>
+                            @endif
+                        </dt>
+                        <dd class="text-ink-800">
+                            {{ $this->deliveryPrice?->amount ?? '—' }}
+                        </dd>
+                    </div>
                     <div class="flex justify-between border-t border-ink-200 pt-2 text-base font-semibold">
                         <dt class="text-ink-900">Total</dt>
-                        <dd class="text-ink-900">{{ $this->totals['total'] }}</dd>
+                        <dd class="text-ink-900">
+                            {{ $this->deliveryPrice === null ? $this->totals['total'] : \App\Support\Money::of($this->totals['total'])->add(\App\Support\Money::of($this->deliveryPrice->amount)) }}
+                        </dd>
                     </div>
                 </dl>
+
+                <p class="mt-2 text-[0.7rem] text-ink-400">
+                    Delivery is calculated once a courier, city and postcode are entered. The order total is always
+                    recalculated on the server before you pay.
+                </p>
 
                 <button type="submit"
                         class="mt-5 w-full rounded-control bg-marine-700 px-4 py-2.5 text-sm font-medium text-white
