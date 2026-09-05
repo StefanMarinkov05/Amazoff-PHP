@@ -295,8 +295,7 @@ protects nothing.
 ### SEC-003 — Vulnerable dependency: `league/commonmark` 2.9.0 (no reachable path)
 
 **Severity:** Low (Informational for this app today) · **Type:** Vulnerable
-& outdated component (OWASP A06) · **Status:** Reported by `composer audit`,
-exposure verified nil
+& outdated component (OWASP A06) · **Status:** **Fixed** 2026-09-05
 
 **Finding.** `composer audit` reports four advisories against
 `league/commonmark` 2.9.0, two rated **high** by the advisory database: an
@@ -319,14 +318,17 @@ boundary that enforces anything.
 security vulnerability advisories affecting 1 package." There is no
 application-level reproduction because no route reaches the parser.
 
-**Fix.**
+**Fix (applied 2026-09-05).**
 
 ```bash
 composer update league/commonmark --with-dependencies
 ```
 
-Bumps to ≥ 2.9.1. Low-risk (patch release); do it on the next dependency
-pass.
+Bumped 2.9.0 → **2.10.0**, past the 2.9.1 fix threshold. `composer audit`
+after: "No security vulnerability advisories found." Only `composer.lock`
+changed — the package is transitive and was never named in `composer.json`,
+so there is nothing to bump there. Full gate re-run after: Pint 560 files,
+Larastan clean, 880 Feature tests passing, no regressions.
 
 **Re-run 2026-09-05.** Same 4 advisories, same 1 package, no new dependency
 findings. The 2026-09-04 pass had recorded this as unreachable — the
