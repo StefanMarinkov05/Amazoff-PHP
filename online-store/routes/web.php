@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Account\OrderHistory;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
@@ -13,6 +14,7 @@ use App\Livewire\Checkout\OrderConfirmation;
 use App\Livewire\Contact\ContactForm;
 use App\Livewire\Journal\ArticleDetails;
 use App\Livewire\Journal\ArticleList;
+use App\Livewire\Orders\TrackOrder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +38,15 @@ Route::get('/cart', CartPage::class)->name('cart');
  */
 Route::get('/checkout', CheckoutPage::class)->name('checkout');
 Route::get('/checkout/confirmation/{order}', OrderConfirmation::class)->name('checkout.confirmation');
+
+/*
+ * Public tracking. Deliberately outside `auth`: a guest who ordered has no
+ * session a week later and no account to sign into, so the only workable key
+ * is the pair CLAUDE.md's security rules name — order number *and* email,
+ * matched in one query and rate-limited. TrackOrder's docblock has the
+ * reasoning for both halves.
+ */
+Route::get('/orders/track', TrackOrder::class)->name('orders.track');
 
 Route::get('/journal', ArticleList::class)->name('journal');
 Route::get('/journal/{article:slug}', ArticleDetails::class);
@@ -65,6 +76,11 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/account/password', ChangePassword::class)->name('password.change');
+
+    // Scoped to auth()->user()->orders() inside the component, never
+    // Order::query() — the middleware answers "is anyone signed in", the
+    // scoping answers "whose orders are these".
+    Route::get('/account/orders', OrderHistory::class)->name('account.orders');
 
     // POST, not GET: a GET logout is triggerable by any <img> tag on any page
     // the user visits, which is CSRF by prefetch rather than by form.
