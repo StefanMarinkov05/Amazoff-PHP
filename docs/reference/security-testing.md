@@ -1060,6 +1060,57 @@ of the login idiom; contact and newsletter did not, because nothing about a
 limiter* rather than reasoning form by form — `grep -L RateLimiter` over
 `app/Livewire` is the whole check.
 
+---
+
+### SEC-011 — Tracking lookup leniency, examined and dismissed
+
+**Severity:** none — this records a *negative* result · **Status:** Not a
+finding
+
+Recorded because the first probe of `/orders/track` produced two apparent
+hits, and "we looked and it was fine" is worth writing down so the next pass
+does not re-derive it.
+
+**What looked wrong.** Against a known order, two payload shapes matched
+where exact string equality would not have:
+
+| Payload | Result |
+|---|---|
+| `ORD-000001\x00` + correct email | order found |
+| `ord-000001` + `PENTEST.GUEST@EXAMPLE.COM` | order found |
+
+**Why neither is exploitable.** Both required the attacker to already supply
+the **correct email**. The entitlement is the pair, and neither payload
+weakens that half — they only make the *match* on an already-known value more
+lenient than `=`.
+
+Confirmed by attacking the actual escalation rather than reasoning about it.
+Every attempt to reach the order knowing only the serial was refused:
+
+```
+right serial, wrong email      => refused
+right serial, null-byte email  => refused
+right serial, empty email      => refused
+right serial, % email          => refused
+right serial, _ email          => refused
+right serial, email prefix     => refused
+right serial, email + nullbyte => refused
+```
+
+Case-insensitivity is `utf8mb4_unicode_ci` on both columns, and is *correct*
+for email — the domain part is case-insensitive by RFC and users type it
+inconsistently. Making the lookup case-sensitive would lock legitimate
+customers out of their own orders to prevent nothing.
+
+Injection shapes were refused throughout (`' OR '1'='1`, `UNION SELECT`, `%`
+and `_` as wildcards, `<script>`), which is what parameter binding predicts —
+`%` reaching a `where()` rather than a `LIKE` is a literal, not a wildcard.
+
+**Logic for future pentests.** A probe result is a hypothesis, not a finding.
+The question is never "did this payload behave unusually" but "does it grant
+access that the correct credentials would not". Two of eight payloads here
+looked alarming and neither moved the entitlement boundary an inch.
+
 ## What held
 
 ### Role-based access control — verified live at the route level
