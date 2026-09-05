@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Auth;
 
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Models\User;
 use App\Support\MergeCartOnAuthentication;
 use Illuminate\Auth\Events\Registered;
@@ -31,6 +32,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class Register extends Component
 {
+    use ThrottlesSubmissions;
+
     public string $first_name = '';
 
     public string $last_name = '';
@@ -62,6 +65,11 @@ class Register extends Component
     public function register(): void
     {
         $validated = $this->validate();
+
+        // Keyed on IP with a wider window than login's: registration is
+        // rarer than sign-in, and the thing being limited is bulk account
+        // creation rather than guessing. SEC-010.
+        $this->throttleSubmission('register|'.$this->requestIp(), 'email', maxAttempts: 5, decaySeconds: 600);
 
         // Before session()->regenerate() below — a guest cart is keyed on
         // session_id, and regeneration issues a new one. See
