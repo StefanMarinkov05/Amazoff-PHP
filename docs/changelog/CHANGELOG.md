@@ -276,6 +276,35 @@ when the work happened, not when it was committed — nothing in
 
 ### Known gaps
 
+- **SEC-012: Stripe client secrets are written to the nginx access log.**
+  Stripe's `return_url` redirect carries
+  `?payment_intent_client_secret=…`, and nginx logs the full request line —
+  so every completed card payment writes its secret to the log in plaintext.
+  Already present in this environment before the check was run.
+
+  Confirmed exploitable: a leaked secret plus the *publishable* key (public
+  by design) retrieves the PaymentIntent from a browser with no
+  authentication. Bounded to Low–Medium by two facts established rather than
+  assumed — `CreateStripeIntent` puts **no PII on the intent** (amount,
+  currency and internal ids only, no `shipping`, no `receipt_email`), and a
+  `succeeded` intent cannot be re-confirmed, so no charge or refund is
+  reachable. `Referrer-Policy: strict-origin-when-cross-origin` also keeps
+  it out of third-party `Referer` headers, which was checked.
+
+  Fix is to strip the query string at the confirmation route — the page
+  reads none of those parameters, resolving everything from `{order}` and
+  the session claim, and deliberately reporting the *webhook's* status
+  rather than `redirect_status`. That also clears it from browser history,
+  which an nginx log-format change alone would not.
+
+- **SEC-013: `SESSION_SECURE_COOKIE` is unset and absent from
+  `.env.example`.** It resolves to `null` and the session cookie ships with
+  no `Secure` attribute. Correct locally — a Secure cookie is not sent over
+  `http://localhost` — but nothing prompts a deployer to set it, so the same
+  `null` reaches production, where the session cookie may travel over plain
+  HTTP. `httponly` and `samesite=lax` are already correct, and
+  `XSRF-TOKEN` being readable by JS is correct by design.
+
 - **SEC-009: the CSP blocks Stripe.js, so card checkout cannot complete.**
   `SetSecurityHeaders` names no Stripe origin in `script-src`, no
   `api.stripe.com` in `connect-src`, and has no `frame-src` at all (so

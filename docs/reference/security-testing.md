@@ -1111,6 +1111,132 @@ The question is never "did this payload behave unusually" but "does it grant
 access that the correct credentials would not". Two of eight payloads here
 looked alarming and neither moved the entitlement boundary an inch.
 
+---
+
+### SEC-012 — Stripe client secrets are written to the web server access log
+
+**Severity:** Low–Medium (information disclosure; no charge or refund is
+reachable) · **Type:** Sensitive data in logs (OWASP A09)
+
+**Status:** **Open** — confirmed by exploitation
+
+**Finding.** Stripe's `return_url` redirect lands on
+`/checkout/confirmation/{order}` carrying
+`?payment_intent=…&payment_intent_client_secret=…&redirect_status=…`. nginx
+logs the full request line including the query string, so **every completed
+card payment writes its client secret to the access log in plaintext**.
+
+Already present in this environment's log before the check was run:
+
+```
+payment_intent_client_secret=pi_3UC6dY…_secret_vJ74OVctCTTwEbr49BuVN2Xvy
+```
+
+**What a leaked secret actually grants.** Confirmed by exploitation, not
+assumed — a client secret plus the *publishable* key (public by design,
+served in the page) retrieves the PaymentIntent from the browser with no
+authentication:
+
+```js
+Stripe(pk).retrievePaymentIntent(leakedSecret)
+// => { id, amount: 1990, currency: 'eur', status: 'succeeded', … }
+```
+
+Readable fields include `amount`, `currency`, `status`, `receipt_email`,
+`shipping`, `last_payment_error` and `payment_method`.
+
+**Why this is Low–Medium and not High**, established by reading what this
+application actually sends: `CreateStripeIntent` puts **no PII on the
+intent** — only `amount`, `currency`, `automatic_payment_methods`, and
+`metadata` holding internal `payment_id`/`order_id`. No `shipping`, no
+`receipt_email`, no customer name. So the disclosure is payment *metadata*
+for an order the reader already has the id of, not customer identity.
+
+Nor is a charge reachable: the intent is `succeeded` by the time the secret
+reaches the log, and `confirmPayment` will not re-confirm a settled intent.
+
+**What already limits it.** `Referrer-Policy: strict-origin-when-cross-origin`
+means cross-origin requests send only the origin — no path, no query — so the
+secret does **not** leak to third parties via `Referer`. That was checked
+rather than assumed.
+
+The exposure is therefore: the access log, the customer's own browser
+history, and anywhere the log is shipped. In production the last one is the
+concern — log aggregators routinely have wider read access than the database.
+
+**Fix (proposed, not applied).** Three options, cheapest first:
+
+1. **Strip the query string at the confirmation route.** The page does not
+   read any of those parameters — `OrderConfirmation` resolves everything
+   from `{order}` and the session claim, and deliberately reports the
+   *webhook's* status rather than `redirect_status`. A redirect to the clean
+   URL on arrival removes it from history as well as from any later log line.
+2. **Exclude the parameter in nginx**, via a `log_format` that omits
+   `$query_string`, or a `map` that blanks it for this location.
+3. Both. (1) is the one that also fixes browser history.
+
+**Logic for future pentests.** The pattern is **a secret placed in a URL by a
+third party's own redirect design**. Nothing in this codebase chose to put it
+there, which is exactly why it was not noticed: the grep for secrets covers
+what *we* write, and this arrives from Stripe. Whenever an integration
+specifies a `return_url`, ask what the provider appends to it and where that
+URL then gets recorded.
+
+---
+
+### SEC-013 — `SESSION_SECURE_COOKIE` is unset and undocumented
+
+**Severity:** Low locally, **Medium in production** · **Type:** Security
+misconfiguration (OWASP A05)
+
+**Status:** **Open** — configuration gap, no code change needed
+
+**Finding.** `config/session.php` reads
+`'secure' => env('SESSION_SECURE_COOKIE')`, and that variable appears
+**nowhere in `.env.example`**. It resolves to `null`, and the observed
+`Set-Cookie` carries no `secure` attribute:
+
+```
+Set-Cookie: amazoff-session=…; path=/; httponly; samesite=lax
+```
+
+Locally that is correct — a `Secure` cookie is not sent over
+`http://localhost` and marking it would break the dev session. The problem is
+that **nothing prompts a deployer to set it**, so the same `null` reaches
+production, where it means the session cookie may be transmitted over plain
+HTTP if any request ever reaches the site that way.
+
+**What is already right**, and worth recording so it is not "fixed" twice:
+
+| Attribute | Value | Assessment |
+|---|---|---|
+| `httponly` | on (session cookie) | correct — JS cannot read the session id |
+| `httponly` | *off* on `XSRF-TOKEN` | correct **by design** — the front end must read it to send the header |
+| `samesite` | `lax` | correct — blocks cross-site POST, keeps top-level navigation working |
+| `SESSION_ENCRYPT` | `false` | acceptable — the cookie holds only a signed session id; the data is in the `database` driver |
+| `partitioned` | `false` | fine — nothing embeds this site in a third-party context |
+| `lifetime` | 120 min | reasonable |
+
+**Fix (proposed, not applied).** Add to `.env.example`, with the comment
+explaining the local/production split:
+
+```
+# Leave false locally (a Secure cookie is not sent over http://localhost).
+# MUST be true in production — without it the session cookie can travel over
+# plain HTTP and be captured on the network.
+SESSION_SECURE_COOKIE=false
+```
+
+Forge terminates TLS and this project's own deployment target is HTTPS, so
+the practical risk is bounded — but "the platform happens to redirect" is a
+weaker guarantee than the cookie refusing to leave over HTTP at all.
+
+**Logic for future pentests.** A config key that is *absent* from
+`.env.example` is invisible in a way an incorrect value is not: nothing
+surfaces it in review, in onboarding, or in a diff. Sweep `config/` for
+`env()` calls whose key does not appear in `.env.example` — the gap is a
+class, not one variable.
+
 ## What held
 
 ### Role-based access control — verified live at the route level
