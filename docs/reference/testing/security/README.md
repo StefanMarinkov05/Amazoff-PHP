@@ -15,7 +15,7 @@ different rates and for different reasons.
   `zap-authenticated-<date>-run<n>.md`; `run<n>` distinguishes same-day
   reruns (a config fix followed immediately by a corrected re-run, say).
 
-This mirrors `docs/reference/ui-testing/` — reusable procedure separate from
+This mirrors `docs/reference/testing/ui-testing/` — reusable procedure separate from
 one dated pass's record — for the same reason: a reader asking "how do I run
 this" and a reader asking "what did the last run find" want different files.
 
@@ -24,7 +24,7 @@ this" and a reader asking "what did the last run find" want different files.
 A ZAP report is raw material, not a finding. Every alert in `reports/` has
 been triaged — real, false positive with a stated reason, or already known
 — and the ones worth keeping are written up in
-`docs/reference/security-testing.md` in the project's own numbered
+`docs/reference/testing/security-testing.md` in the project's own numbered
 (`SEC-NNN`) finding format. Read that file for "what is actually wrong and
 what was done about it"; read a report here only to see the raw scan output
 a given entry's reasoning was built from.

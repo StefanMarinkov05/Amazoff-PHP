@@ -8,6 +8,15 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`how-to/deploy-and-host.md`** — new, deliberately small. A checklist of
+  settings that are correct in local dev only by accident of dev's own
+  environment (plain HTTP, no real host), starting with
+  `SESSION_SECURE_COOKIE` (SEC-013, half closed until this is actually set
+  on Forge) and the nginx/PHP-FPM hardening that only applies to this
+  repo's Docker config today. Meant to grow one rule at a time as each area
+  gets a real deploy target, rather than being discovered by an incident
+  after launch.
+
 - **The guest cart now survives sign-in and registration.** `MergeGuestCart`
   had existed since the cart slice — built, documented, and covered by two
   concurrency tests — with **no caller**. A customer who filled a basket as a

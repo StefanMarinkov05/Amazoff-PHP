@@ -1,8 +1,9 @@
 # Authenticated OWASP ZAP scan plan for this project.
 #
-# See docs/reference/security/README.md for the full procedure this plan is
-# part of, and ~/.claude/skills/website-testing/references/security-tooling.md
-# for the general (project-agnostic) traps this plan's shape avoids.
+# See docs/reference/testing/security/README.md for the full procedure this
+# plan is part of, and
+# ~/.claude/skills/website-testing/references/security-tooling.md for the
+# general (project-agnostic) traps this plan's shape avoids.
 #
 # BEFORE RUNNING: replace both placeholders below with a fresh session —
 # authenticate via the real Livewire login handshake (see the skill

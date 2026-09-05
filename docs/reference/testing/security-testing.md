@@ -754,7 +754,7 @@ via two *global* `-config` flags rather than job parameters —
 `-config spider.thread=1` and `-config scanner.threadPerHost=1` (a
 different global key from the job-level `threadPerHost`, discovered by
 inspecting ZAP's own jar for the real config keys). Full procedure and the
-launch command are in `docs/reference/security/zap-auth.yaml`'s header
+launch command are in `docs/reference/testing/security/zap-auth.yaml`'s header
 comment and `~/.claude/skills/website-testing/references/security-tooling.md`.
 
 **Result: 469 endpoints, 0 High, 4 Medium, 4 Low, 2 Informational** — no new
@@ -767,7 +767,7 @@ apart. That is the expected, low-severity "session shorter than scan"
 coverage caveat already named above — not the race. **The concurrency race
 first identified in the run above is confirmed closed**, and this is now
 the highest-coverage authenticated pass to date (469 vs. 376 endpoints).
-Full report: `docs/reference/security/reports/zap-authenticated-2026-09-05-run2.md`.
+Full report: `docs/reference/testing/security/reports/zap-authenticated-2026-09-05-run2.md`.
 
 ---
 
@@ -1253,7 +1253,9 @@ misconfiguration (OWASP A05)
 
 **Status:** **Half closed** 2026-09-05 — `.env.example` now documents the
 key; setting it to `true` on the deployed environment remains an ops step
-this repository cannot perform.
+this repository cannot perform. Tracked as a checklist item in
+`how-to/deploy-and-host.md` so it is not only findable by re-reading this
+file.
 
 **Finding.** `config/session.php` reads
 `'secure' => env('SESSION_SECURE_COOKIE')`, and that variable appears

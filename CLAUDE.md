@@ -122,7 +122,11 @@ in agreement: if a rule here changes, change it there too.
   it, add an entry: symptom, cause, fix, why it recurs, prevention — not
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
-  `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
+  `choose-a-model.md`, `deploy-and-host.md` (small today, on purpose — the
+  checklist of settings that are correct in dev only by accident of dev's
+  own environment, starting with `SESSION_SECURE_COOKIE`, and meant to grow
+  one rule at a time as each area gets a real deploy target), `edit-a-role.md`,
+  `regenerate-with-blueprint.md`,
   `emulate-a-device.md` (isolated browser sessions and device profiles —
   why resizing a desktop window is not the same as testing a phone),
   `pentest-the-system.md` (the full security-pass procedure — which layer

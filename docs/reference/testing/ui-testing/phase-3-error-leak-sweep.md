@@ -88,7 +88,7 @@ one 404 shape for "not an order at all" and "not your order," rather than
 two different failure modes for two adjacent cases. 3 new tests in
 `tests/Feature/Payment/CheckoutTest.php`, each verified red without the fix
 (the exact same `TypeError`, reproduced inside the test suite). Full detail:
-`reference/tested-inputs.md`'s `OrderConfirmation` section.
+`reference/testing/tested-inputs.md`'s `OrderConfirmation` section.
 
 ## Not covered by this pass
 

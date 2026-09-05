@@ -1,7 +1,7 @@
 # Security tooling — what is configured, what it covered, what it found
 
 The factual companion to two other pages. `how-to/pentest-the-system.md` is
-the *procedure*; `reference/security-testing.md` is the *findings*, one
+the *procedure*; `reference/testing/security-testing.md` is the *findings*, one
 bug-bounty entry per issue. This page is the *inventory*: which tools are
 wired up, how each is configured, exactly what surface they reached, and what
 came out — so a reader can judge the coverage rather than take a summary on
@@ -200,7 +200,7 @@ passed *under attack*, not by inspection:
 
 ### What was found, and fixed
 
-Seven entries are recorded in `reference/security-testing.md`, in bug-bounty
+Seven entries are recorded in `reference/testing/security-testing.md`, in bug-bounty
 form with reproductions. In short:
 
 | ID | Finding | Severity | Found by | Status |

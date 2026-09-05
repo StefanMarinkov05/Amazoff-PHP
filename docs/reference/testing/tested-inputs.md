@@ -103,7 +103,7 @@ that: the same XSS payload with the honeypot empty **is** stored raw (the
 literal tag in the database, correct — sanitisation is a render-time
 concern here, not a write-time one) and renders as inert escaped text in
 both the admin table and detail view, confirmed at the `innerHTML` level.
-Full writeup and screenshots: `reference/ui-testing/phase-1-storefront-clickthrough.md`.
+Full writeup and screenshots: `reference/testing/ui-testing/phase-1-storefront-clickthrough.md`.
 
 ## `App\Filament\Widgets\*` (admin dashboard)
 

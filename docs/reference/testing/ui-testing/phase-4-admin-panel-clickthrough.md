@@ -45,7 +45,7 @@ the same case is answered below through the rolled-back path instead.
 
 Every admin resource requested **by URL** as each seeded account. A hidden nav
 link is not access control, so the route is what was probed. Complete results
-are in `reference/security-testing.md` ("Role-based access control"), which
+are in `reference/testing/security-testing.md` ("Role-based access control"), which
 this pass extended from 13 routes to all 19; the summary is that each role
 reaches exactly what the permission catalogue grants it and nothing else:
 

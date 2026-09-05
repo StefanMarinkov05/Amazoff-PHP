@@ -178,7 +178,7 @@ fourth instances of this project's numeric-`#[Url]`-hydration incident
 (`ProductDetails::$quantity`, `::$variationId` were the first two). A
 34-digit number in `?brandId=` or `?categoryId=` produced an unhandled 500.
 Both fixed the same session, each with 6 regression tests proven red
-without the fix. Full detail: `reference/tested-inputs.md`, commits
+without the fix. Full detail: `reference/testing/tested-inputs.md`, commits
 `6378a4e` and `58eba11`.
 
 ## What did not hold — six dead links, unfixed
@@ -221,7 +221,7 @@ works in this same file.
 ## Not covered by this pass
 
 - **The admin panel's own UI**, beyond what the security scans already
-  probed (`reference/security-tooling.md`). See Phase 2 for the one
+  probed (`reference/testing/security-tooling.md`). See Phase 2 for the one
   admin-created-data case this covered; clicking through Filament's forms
   field by field (attribute deletion mid-edit, a malformed price, a
   dummy-format upload the widget itself might reject before it ever reaches
