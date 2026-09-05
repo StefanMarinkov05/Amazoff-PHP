@@ -274,6 +274,27 @@ when the work happened, not when it was committed — nothing in
   stack. Production runs on Forge, which provisions its own nginx and PHP, so
   both still need setting there.
 
+- **Authenticated ZAP scan reached full coverage after fixing a concurrency
+  race, not a config typo.** A `threadPerHost: 2` re-run (SEC-007) still
+  showed the same admin URL returning both `200` and `302` seconds apart —
+  cross-referenced against nginx's own access log, not just ZAP's exit code.
+  Root cause: `AuthenticateSession` re-validates session state on every
+  request, so any scan concurrency above 1 can race it regardless of which
+  parameter carries the setting or whether ZAP silently accepted it. Fixed
+  by making both scan phases fully serial via two *global* `-config` flags —
+  `spider.thread=1` and `scanner.threadPerHost=1` — rather than job
+  parameters; the spider phase in particular has no job-level equivalent at
+  all, and silently drops an unrecognised one without failing the run.
+
+  Result: **469 endpoints, 0 High, 4 Medium, 4 Low, 2 Informational** — the
+  highest-coverage authenticated pass to date (vs. 376 previously), with the
+  race confirmed closed by re-checking the full access log for interleaved
+  same-URL status codes rather than trusting the summary table. See
+  `reference/security-testing.md`'s "third run" note under SEC-007, and
+  `reference/security/zap-auth.yaml` for the corrected launch command and
+  the general trap write-up in
+  `~/.claude/skills/website-testing/references/security-tooling.md`.
+
 ### Known gaps
 
 - **SEC-012: Stripe client secrets are written to the nginx access log.**

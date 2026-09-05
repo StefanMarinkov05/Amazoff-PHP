@@ -737,6 +737,38 @@ and `?category=ZZQUOTE"ZZ` renders as `ZZQUOTE\&quot;ZZ` — HTML-escaped
 escaping holds, there is no attribute breakout. **Confirmed false
 positive.**
 
+### The third run — `threadPerHost: 2` was not actually enough
+
+The "re-run" above still raced. Cross-referencing nginx's access log
+against the scan window (not just trusting ZAP's own exit code) showed the
+exact same URL — `/admin/inventories/27` — returning both `200` and `302`
+seconds apart, during the *active-scan* phase, even though `threadPerHost: 2`
+is a valid, accepted parameter there. The cause is not a ZAP config-naming
+bug at all: Laravel's `AuthenticateSession` middleware re-validates session
+state on every request, so **any concurrency greater than 1 can race it**,
+independent of which parameter name carries the setting or whether ZAP
+accepted it. `threadPerHost: 2` reduced the window; it did not close it.
+
+The fix that actually closed it: fully serial traffic on both scan phases,
+via two *global* `-config` flags rather than job parameters —
+`-config spider.thread=1` and `-config scanner.threadPerHost=1` (a
+different global key from the job-level `threadPerHost`, discovered by
+inspecting ZAP's own jar for the real config keys). Full procedure and the
+launch command are in `docs/reference/security/zap-auth.yaml`'s header
+comment and `~/.claude/skills/website-testing/references/security-tooling.md`.
+
+**Result: 469 endpoints, 0 High, 4 Medium, 4 Low, 2 Informational** — no new
+alert type beyond what SEC-006/SEC-007/SEC-009 already cover. Verified
+against nginx's access log for the whole scan window, not just ZAP's
+summary: the only same-URL 200-then-302 pairs are single transitions
+separated by most of the scan's duration (the session finally outliving the
+last few minutes of a 25-minute run), never interleaved requests seconds
+apart. That is the expected, low-severity "session shorter than scan"
+coverage caveat already named above — not the race. **The concurrency race
+first identified in the run above is confirmed closed**, and this is now
+the highest-coverage authenticated pass to date (469 vs. 376 endpoints).
+Full report: `docs/reference/security/reports/zap-authenticated-2026-09-05-run2.md`.
+
 ---
 
 ### The pattern behind SEC-001 and SEC-002 — `#[Locked]` is absent project-wide
