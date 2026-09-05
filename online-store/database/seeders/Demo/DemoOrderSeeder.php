@@ -40,7 +40,14 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * 140 orders, checked out through real carts and walked through
+ * 158 orders — 140 spread across the whole customer base on a fixed status
+ * distribution, plus 18 pinned to the two named demo accounts
+ * (`SHOWCASE_ACCOUNTS`). `customer@example.com` holds all eleven
+ * `OrderStatus` cases by itself, so a demo can walk the entire order
+ * lifecycle on one login instead of hunting for an account that happens to
+ * own the state it wants to show.
+ *
+ * Every one of them is checked out through real carts and walked through
  * `TransitionOrderStatus` exactly like a real order would be — never
  * fabricated with `Order::factory()`. `CreateOrder` composes `ReserveStock`
  * itself, so building the order this way is what makes the classic
@@ -82,6 +89,119 @@ class DemoOrderSeeder extends Seeder
         'cancelled' => 12,
         'returned' => 5,
         'refunded' => 3,
+    ];
+
+    /**
+     * The one account a demo signs in as, and every order state it holds.
+     *
+     * The 140-order distribution above spreads across 100 factory customers,
+     * so any *particular* account ends up with somewhere between zero and a
+     * handful of orders, on whatever statuses the shuffle happened to hand
+     * it. That is correct for a realistic dataset and useless for a demo:
+     * signing in as the account a presenter actually knows the password for
+     * and finding an empty `/account/orders` is the common case, not the
+     * unlucky one.
+     *
+     * So this set is pinned, and it is deliberately **exhaustive rather than
+     * representative**: all eleven `OrderStatus` cases appear on this single
+     * account, so the whole lifecycle can be walked through on one login
+     * without signing out. `delivered` appears three times and `shipped`
+     * twice because those are the states carrying the most downstream
+     * variation worth showing — a partial refund, a review already written,
+     * a shipment mid-transit — and one row each would force a choice between
+     * them.
+     *
+     * `admin@example.com` keeps a small set of its own. Not for the panel,
+     * which reads every order regardless of owner, but so the *storefront*
+     * half of the app is reachable while signed in as staff — an order
+     * history is what makes `/account/orders` show anything at all.
+     *
+     * These are *additional* to `STATUS_DISTRIBUTION`, not carved out of it:
+     * carving would silently shrink whichever statuses were borrowed from,
+     * and the distribution is asserted against the live database afterward.
+     * `TOTAL_ORDERS` counts the distribution only; `reportActual()` reports
+     * the real total including these.
+     *
+     * @var array<string, list<string>>
+     */
+    private const SHOWCASE_ACCOUNTS = [
+        // Every OrderStatus case, on one account, in lifecycle order.
+        'customer@example.com' => [
+            'new',
+            'awaiting_payment',
+            'paid',
+            'confirmed',
+            'preparing',
+            'ready_for_shipment',
+            'shipped',
+            'shipped',
+            'delivered',
+            'delivered',
+            'delivered',
+            'cancelled',
+            'returned',
+            'refunded',
+        ],
+        'admin@example.com' => [
+            'delivered',
+            'shipped',
+            'confirmed',
+            'cancelled',
+        ],
+    ];
+
+    /**
+     * Which showcase slots redeem a coupon, keyed by account and by index
+     * into that account's status list above. Pinned rather than sampled for
+     * the same reason the statuses are: a demo of the coupon line on an
+     * order needs an order that definitely has one.
+     *
+     * Spread across the lifecycle on purpose — an in-flight order and a
+     * settled one both carry a discount line, so the coupon is visible
+     * whichever order the demo happens to open.
+     *
+     * Two constraints shaped this table, both found by a run failing rather
+     * than by reading `ApplyCoupon`:
+     *
+     * **No code repeats within one account.** `CouponFactory` randomizes
+     * `usage_limit_per_customer` per seed run, and `FLAT15` came up as 1 on
+     * a real run — so a second assignment of the same code to the same
+     * account was refused by `RedeemCoupon`, and because the coupon is
+     * applied before checkout, the refusal took the whole order with it.
+     * Assigning distinct codes removes the dependency on a randomized limit
+     * entirely, rather than pinning the limit and coupling this table to
+     * `DemoCouponSeeder`'s factory defaults.
+     *
+     * **Order-scoped codes only.** `TOOLDEAL` is `scope: products`, so
+     * `ApplyCoupon` refuses it unless the cart holds one of its 3 assigned
+     * products. `fillCart()` forces one in for that code, but only if one is
+     * still sufficiently stocked — and `COUPON_ASSIGNMENT` already spends
+     * `TOOLDEAL` 4 times against the same 3 products, so a 5th showcase call
+     * competes for what is left and fails outright when it runs dry.
+     * `TOOLDEAL`'s product-scoped behaviour is already demonstrated by those
+     * 4; the showcase slots do not need to re-prove it at the cost of a
+     * pinned status.
+     *
+     * Both failures were silent in the summary line — the run reported 157
+     * of 158 created and the missing state was only visible by querying —
+     * which is why `reportShowcaseAccounts()` now counts these against the
+     * live database and says `SHORT` out loud.
+     *
+     * Only currently-valid coupons appear — `SUMMER20` (expired) and
+     * `WINTER25` (scheduled) cannot be redeemed at all, by design, and
+     * `ONEUSEONLY` is spent by the main distribution so that a further
+     * checkout against it demonstrates the refusal live.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private const SHOWCASE_COUPONS = [
+        'customer@example.com' => [
+            2 => 'WELCOME10',
+            8 => 'FLAT15',
+        ],
+        'admin@example.com' => [
+            0 => 'WELCOME10',
+        ],
     ];
 
     private const GUEST_ORDER_COUNT = 28;
@@ -307,10 +427,70 @@ class DemoOrderSeeder extends Seeder
                 'method' => $method,
                 'guest' => $isGuest,
                 'coupon' => $coupon,
+                'owner' => null,
             ];
         }
 
-        return $result;
+        return [...$result, ...$this->buildShowcasePlan()];
+    }
+
+    /**
+     * The pinned per-account orders described on `SHOWCASE_ACCOUNTS`.
+     *
+     * Payment method is derived from the target rather than chosen: a COD
+     * order cannot legitimately reach `AwaitingPayment` or `Paid`, since COD
+     * skips the payment leg entirely (`New => Confirmed`, the edge
+     * `OrderStatus` carries for exactly this). Alternating the rest gives
+     * each account both methods on its history without ever producing an
+     * illegal pairing.
+     *
+     * @return list<array{target: string, origins: list<string>, method: PaymentMethod, guest: bool, coupon: string|null, owner: string|null}>
+     */
+    private function buildShowcasePlan(): array
+    {
+        $plan = [];
+
+        foreach (self::SHOWCASE_ACCOUNTS as $email => $targets) {
+            foreach ($targets as $slot => $targetValue) {
+                $target = OrderStatus::from($targetValue);
+
+                $stripeOnly = in_array($targetValue, ['awaiting_payment', 'paid'], true);
+                $method = ($stripeOnly || $slot % 2 === 0)
+                    ? PaymentMethod::Stripe
+                    : PaymentMethod::CashOnDelivery;
+
+                $plan[] = [
+                    'target' => $target->value,
+                    'origins' => $this->originsFor($target, $slot, $method),
+                    'method' => $method,
+                    'guest' => false,
+                    'coupon' => self::SHOWCASE_COUPONS[$email][$slot] ?? null,
+                    'owner' => $email,
+                ];
+            }
+        }
+
+        return $plan;
+    }
+
+    /**
+     * A showcase account, by email. Fails loudly rather than falling back to
+     * a random customer: a silent fallback would produce a run that reports
+     * success while leaving the account the demo is about with no orders,
+     * which is the exact failure SHOWCASE_ACCOUNTS exists to prevent.
+     */
+    private function customerByEmail(string $email): User
+    {
+        /** @var User|null $user */
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null) {
+            throw new RuntimeException(
+                "Showcase account [{$email}] does not exist — run the System\\UserSeeder (php artisan migrate:fresh --seed) before seeding demo orders."
+            );
+        }
+
+        return $user;
     }
 
     /**
@@ -376,7 +556,7 @@ class DemoOrderSeeder extends Seeder
     }
 
     /**
-     * @param  array{target: string, origins: list<string>, method: PaymentMethod, guest: bool, coupon: string|null}  $spec
+     * @param  array{target: string, origins: list<string>, method: PaymentMethod, guest: bool, coupon: string|null, owner?: string|null}  $spec
      */
     protected function seedOneOrder(array $spec): void
     {
@@ -384,7 +564,17 @@ class DemoOrderSeeder extends Seeder
         $isGuest = $spec['guest'];
         $walk = $spec['origins'];
 
-        $customer = $isGuest ? null : $this->randomRegisteredCustomer();
+        // A pinned owner is the showcase pass (see SHOWCASE_ACCOUNTS): those
+        // orders must land on a known email so a demo can sign in and find
+        // them, rather than on whichever of the 100 factory customers the
+        // random draw happened to pick.
+        $owner = $spec['owner'] ?? null;
+
+        $customer = match (true) {
+            $owner !== null => $this->customerByEmail($owner),
+            $isGuest => null,
+            default => $this->randomRegisteredCustomer(),
+        };
 
         $cart = $isGuest
             ? Cart::query()->create(['session_id' => (string) Str::uuid()])
@@ -606,7 +796,22 @@ class DemoOrderSeeder extends Seeder
 
     private function fillCart(Cart $cart, ?string $couponCode): void
     {
-        $target = random_int(1, 4);
+        // Weighted rather than uniform: most real baskets are one or two
+        // lines, and a flat random_int(1, 6) would make a six-line order as
+        // common as a single-line one, which reads as generated data the
+        // moment anyone scrolls the order list. The long tail is what makes
+        // the multi-line order-items table worth looking at on a demo, so it
+        // has to exist — just not as often as the common case.
+        $roll = random_int(1, 100);
+        $target = match (true) {
+            $roll <= 34 => 1,
+            $roll <= 62 => 2,
+            $roll <= 80 => 3,
+            $roll <= 91 => 4,
+            $roll <= 97 => 5,
+            default => 6,
+        };
+
         $addedVariationIds = [];
 
         // TOOLDEAL is scope=products: ApplyCoupon refuses it unless the cart
@@ -657,7 +862,14 @@ class DemoOrderSeeder extends Seeder
             $this->protectedSkus->assertSelectable($variation);
 
             $floor = $this->protectedSkus->floorFor($variation);
-            $quantity = max($floor, random_int($floor, $floor + 2));
+
+            // Mostly small quantities with an occasional bulk line, for the
+            // same reason the line count above is weighted — and never below
+            // the variation's own min_order_quantity floor, which
+            // `AddToCart` would refuse.
+            $quantity = random_int(1, 100) <= 12
+                ? max($floor, random_int($floor + 2, $floor + 6))
+                : max($floor, random_int($floor, $floor + 2));
 
             if (! $this->hasAvailableStock($variation, $quantity)) {
                 continue;
@@ -887,6 +1099,40 @@ class DemoOrderSeeder extends Seeder
         $this->command?->info('Shipments by status:');
         foreach (Shipment::query()->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status') as $s => $c) {
             $this->command?->line("  {$s}: {$c}");
+        }
+
+        $this->reportShowcaseAccounts();
+    }
+
+    /**
+     * Counts what each showcase account actually ended up owning.
+     *
+     * `run()` catches a per-order failure and continues, which is right for a
+     * 140-order set where one exhausted variation should not abort the run —
+     * but it means a showcase account can silently end up with 8 orders
+     * instead of 10. That is invisible in the summary line above, and it is
+     * precisely the thing a presenter finds out about mid-demo. So it is
+     * checked here, against the live rows, and said out loud when short.
+     */
+    private function reportShowcaseAccounts(): void
+    {
+        $this->command?->info('Showcase accounts:');
+
+        foreach (self::SHOWCASE_ACCOUNTS as $email => $targets) {
+            $expected = count($targets);
+            $actual = Order::query()
+                ->whereHas('user', fn ($q) => $q->where('email', $email))
+                ->count();
+
+            $line = "  {$email}: {$actual} order(s), expected {$expected}";
+
+            if ($actual < $expected) {
+                $this->command?->warn($line.' — SHORT');
+
+                continue;
+            }
+
+            $this->command?->line($line);
         }
     }
 }
