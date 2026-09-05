@@ -29,7 +29,7 @@ constructor injection.
 | `ReleaseStock` | `inventories.reserved_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `CompleteSale` | `inventories.reserved_quantity`, `inventories.current_quantity`, `inventories.sold_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `RestockReturn` | `inventories.sold_quantity`, `inventories.current_quantity`, `inventories.returned_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
-| `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InsufficientStockToDamageException`, `InvalidArgumentException` |
 | `AdjustStock` | `inventories.current_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 
 `AdjustStock` is the counterpart to `AddProductVariation`'s create-only
@@ -64,12 +64,19 @@ status change these record. `RestockReturn` assumes a return is resellable.
 `ReserveStock`/`ReleaseStock` rather than composed by `TransitionOrderStatus`:
 a warehouse employee marking N units damaged on the shelf is independent of
 any specific order, and a damaged *return* is a separate, later call after
-`RestockReturn` rather than a branch inside it — no admin surface triggers
-either path yet. Guards `available()` (current minus reserved), not
-`current_quantity` alone: damaging reserved stock would push
-`reserved_quantity` above `current_quantity`, which the same `CHECK`
-constraint rejects, and doing so silently would leave a reservation pointing
-at stock that no longer exists.
+`RestockReturn` rather than a branch inside it. Both paths go through the
+same admin surface, `ViewInventory`'s "Record damage" header action. Guards
+`available()` (current minus reserved), not `current_quantity` alone:
+damaging reserved stock would push `reserved_quantity` above
+`current_quantity`, which the same `CHECK` constraint rejects, and doing so
+silently would leave a reservation pointing at stock that no longer exists.
+Exceeding `available()` throws `InsufficientStockToDamageException` rather
+than `InvalidArgumentException` — unlike its three siblings above, this
+Action is reached directly from a quantity a warehouse employee types into
+the panel, where exceeding available stock is a mistake to correct rather
+than a caller bug (ADR-0007). `ViewInventory` also disables the button and
+caps the quantity field at `available()`, so the exception is normally a
+race-condition backstop, not the primary guard.
 
 ## Catalogue
 
@@ -627,7 +634,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `CreateOrder` | tests only |
 | `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
-| `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
+| `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |
 | `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
 | `DeleteProductCategory` | `EditProductCategory` header action, tests |
 | `UpdateProductCategory` | `EditProductCategory`, tests |

@@ -118,6 +118,14 @@ damaging reserved stock would push `reserved_quantity` above
 respects, and silently allowing it would leave a reservation pointing at
 stock that no longer exists. A damaged *return* is `RestockReturn` followed
 by a separate `RecordDamage` call once inspection finds it unsellable — two
-ledger rows, not a branch inside 1 Action (ADR-0011). No admin surface
-triggers either `RecordDamage` or the manual-correction movement yet; both
-are reachable only from tests until one does.
+ledger rows, not a branch inside 1 Action (ADR-0011). `RecordDamage` throws
+`InsufficientStockToDamageException` rather than `InvalidArgumentException`
+for exceeding `available()` — the one guard among this file's Actions
+reached directly from a quantity a warehouse employee types into the panel,
+where exceeding available stock is a mistake to correct rather than a caller
+bug (ADR-0007); its three siblings above only ever receive a quantity
+computed by another Action, so their own equivalent guard stays
+`InvalidArgumentException`. Both `RecordDamage` and the manual-correction
+movement (`AdjustStock`) have admin surfaces: `RecordDamage` only in
+`ViewInventory`'s "Record damage" action; `AdjustStock` in both
+`ViewInventory` and `ProductVariationsRelationManager`.

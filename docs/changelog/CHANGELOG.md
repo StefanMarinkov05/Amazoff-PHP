@@ -50,6 +50,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- **Recording damage on an inventory row with nothing available crashed
+  the admin panel instead of refusing cleanly.** `RecordDamage` guards
+  `available()` the same way `ReserveStock` does, but threw a plain
+  `InvalidArgumentException` for it — correct for its three siblings
+  (`ReleaseStock`/`CompleteSale`/`RestockReturn`), whose quantity always
+  comes from another Action, making "more than available" a genuine caller
+  bug, but wrong here: `RecordDamage` is reached directly from a quantity a
+  warehouse employee types into `ViewInventory`'s "Record damage" panel
+  action, where exceeding available stock is a mistake to correct, not a
+  programming error (ADR-0007). `ReportsDomainFailures` only converts
+  `App\Exceptions\*`, so the plain `InvalidArgumentException` reached
+  Livewire uncaught. Added `InsufficientStockToDamageException` (same shape
+  as `ReserveStock`'s `InsufficientStockException`, deliberately not reused —
+  its message says "reserve") and switched `RecordDamage` to throw it for
+  this specific refusal; a non-positive quantity is still
+  `InvalidArgumentException`, since the panel's own form already refuses
+  that below 1. `ViewInventory`'s "Record damage" button is now also
+  disabled once `available() <= 0`, and its quantity field capped at
+  `available()`, so the exception is normally a race-condition backstop
+  rather than the primary guard. `docs/reference/actions.md`,
+  `docs/explanation/inventory.md`, and ADR-0011's "damaged returns" note
+  also corrected — all three still described `RecordDamage` as having no
+  admin surface, which had gone stale.
+
 - **Checkout's office picker: Speedy's empty list looked identical to a
   real city with no offices, a picked office left the whole search UI
   open, and a single render could reach the courier up to three times

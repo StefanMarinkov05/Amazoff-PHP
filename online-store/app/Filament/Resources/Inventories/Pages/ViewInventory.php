@@ -20,9 +20,10 @@ use Filament\Support\Icons\Heroicon;
 /**
  * No `EditAction`: `InventoryPolicy::update()` authorizes recording a
  * movement, not editing `current_quantity` by hand — the Action enforces
- * that distinction, a policy cannot. Same two actions, same modal shape, as
- * `ProductVariationsRelationManager`'s row actions — this page is the
- * `warehouse_employee`-reachable copy of that surface, not a second design.
+ * that distinction, a policy cannot. `adjustStock` is the same action, same
+ * modal shape, as `ProductVariationsRelationManager`'s row action — this
+ * page is the `warehouse_employee`-reachable copy of that one. `recordDamage`
+ * exists only here; the relation manager has no equivalent.
  */
 class ViewInventory extends ViewRecord
 {
@@ -84,6 +85,10 @@ class ViewInventory extends ViewRecord
                 ->label('Record damage')
                 ->icon(Heroicon::OutlinedExclamationTriangle)
                 ->color('danger')
+                ->disabled(fn (Inventory $record): bool => $record->available() <= 0)
+                ->tooltip(fn (Inventory $record): ?string => $record->available() <= 0
+                    ? 'Nothing available to damage — all stock is either already damaged or reserved for an order.'
+                    : null)
                 ->modalHeading(fn (Inventory $record): string => "Record damage for {$record->productVariation->sku}")
                 ->modalDescription(fn (Inventory $record): string => sprintf(
                     'Currently %d on hand, %d reserved, %d available. Damaged stock cannot come from what is already reserved for an order.',
@@ -97,6 +102,7 @@ class ViewInventory extends ViewRecord
                         ->label('Quantity damaged')
                         ->integer()
                         ->minValue(1)
+                        ->maxValue(fn (Inventory $record): int => $record->available())
                         ->required(),
                     TextInput::make('reason')
                         ->label('Note')

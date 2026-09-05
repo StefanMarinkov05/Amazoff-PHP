@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Inventory\RecordDamage;
 use App\Enums\InventoryMovementType;
+use App\Exceptions\InsufficientStockToDamageException;
 use App\Models\Inventory;
 use App\Models\User;
 
@@ -71,12 +72,25 @@ it('refuses to damage reserved stock and writes nothing', function (): void {
     $variation = variationWithStock(current: 5, reserved: 5);
 
     expect(fn () => app(RecordDamage::class)->handle($variation, 1, null))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(InsufficientStockToDamageException::class);
 
     $inventory = Inventory::where('product_variation_id', $variation->getKey())->sole();
     expect($inventory->current_quantity)->toBe(5)
         ->and($inventory->damaged_quantity)->toBe(0)
         ->and($inventory->inventoryMovements()->count())->toBe(0);
+});
+
+it('reports the requested and available quantities on the exception, for the panel to show', function (): void {
+    $variation = variationWithStock(current: 5, reserved: 2);
+
+    try {
+        app(RecordDamage::class)->handle($variation, 4, null);
+        $this->fail('Expected InsufficientStockToDamageException.');
+    } catch (InsufficientStockToDamageException $e) {
+        expect($e->variation->is($variation))->toBeTrue()
+            ->and($e->requested)->toBe(4)
+            ->and($e->available)->toBe(3);
+    }
 });
 
 it('allows damaging exactly up to the available quantity', function (): void {
