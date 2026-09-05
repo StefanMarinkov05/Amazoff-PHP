@@ -1118,7 +1118,7 @@ looked alarming and neither moved the entitlement boundary an inch.
 **Severity:** Low–Medium (information disclosure; no charge or refund is
 reachable) · **Type:** Sensitive data in logs (OWASP A09)
 
-**Status:** **Open** — confirmed by exploitation
+**Status:** **Fixed** 2026-09-05 — confirmed by exploitation, then closed
 
 **Finding.** Stripe's `return_url` redirect lands on
 `/checkout/confirmation/{order}` carrying
@@ -1164,7 +1164,29 @@ The exposure is therefore: the access log, the customer's own browser
 history, and anywhere the log is shipped. In production the last one is the
 concern — log aggregators routinely have wider read access than the database.
 
-**Fix (proposed, not applied).** Three options, cheapest first:
+**Fix (applied 2026-09-05).** Option 1 below, chosen because it is the only
+one that also clears the browser history entry — an nginx log-format change
+would fix the log alone and leave the history, and any screenshot or shared
+link, still carrying it.
+
+`OrderConfirmation::rendering()` redirects to the clean route URL whenever
+any of the three parameters is present. The ownership check still runs first,
+so a stranger arriving with the parameters attached gets the same 404 as one
+arriving without them — verified, because a scrub that redirected before
+authorising would confirm the order exists.
+
+3 regression tests, proven able to fail: disabling the guard turns exactly
+one red (the redirect case), while the clean-URL control and the ownership
+case correctly hold. The control matters — a component that redirected
+unconditionally would pass the redirect test while looping forever in a
+browser.
+
+One note for whoever reads the test: it drives real HTTP requests rather
+than `Livewire::test()`, because the test harness builds its own request and
+carries no query string into the component, so the redirect case would pass
+vacuously.
+
+The options considered:
 
 1. **Strip the query string at the confirmation route.** The page does not
    read any of those parameters — `OrderConfirmation` resolves everything

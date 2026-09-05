@@ -87,6 +87,52 @@ class OrderConfirmation extends Component
         $this->orderId = $this->authorizedOrder((int) $order)->getKey();
     }
 
+    /**
+     * Drops Stripe's redirect parameters from the address bar (SEC-012).
+     *
+     * Stripe appends `payment_intent`, `payment_intent_client_secret` and
+     * `redirect_status` to whatever `return_url` it was given. The client
+     * secret is not a credential for anything this application owns, but it
+     * *is* enough — with the publishable key, which is public by design — to
+     * retrieve the PaymentIntent from a browser and read its amount,
+     * currency and status. Confirmed by doing exactly that.
+     *
+     * Left alone it persists in three places: the customer's browser
+     * history, the web server's access log (nginx logs the full request
+     * line), and anywhere that log is shipped. The last is the real concern
+     * — log aggregators routinely have wider read access than the database.
+     *
+     * Nothing here reads any of the three: this page resolves the order from
+     * the `{order}` segment and the session claim, and deliberately reports
+     * the *webhook's* payment status rather than `redirect_status`, because
+     * a redirect is trivially forgeable by typing the URL. So they can be
+     * discarded with no loss.
+     *
+     * A redirect rather than a header tweak, because only replacing the URL
+     * clears the browser history entry as well. An nginx log-format change
+     * would fix the log alone and leave the history and any future
+     * screenshot or shared link carrying it.
+     */
+    public function rendering(): void
+    {
+        if ($this->stripeParametersPresent()) {
+            $this->redirectRoute(
+                'checkout.confirmation',
+                ['order' => $this->orderId],
+                navigate: false,
+            );
+        }
+    }
+
+    private function stripeParametersPresent(): bool
+    {
+        return request()->hasAny([
+            'payment_intent',
+            'payment_intent_client_secret',
+            'redirect_status',
+        ]);
+    }
+
     #[Computed]
     public function order(): Order
     {
