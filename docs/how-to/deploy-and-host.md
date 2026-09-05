@@ -31,6 +31,19 @@ owed again here:
 - `server_tokens off;` (nginx) and `expose_php = Off;` (`php.ini`) to
   suppress version banners (see `reference/testing/security-testing.md`,
   "What held").
+- **Stripe webhook IP allowlist.** `docker/nginx/stripe-ip-allowlist.conf.example`
+  has the full setup — deliberately not enabled here, because
+  `stripe listen --forward-to` delivers local test events from a Docker
+  bridge address, never from Stripe's published ranges, so turning this on
+  in dev rejects every forwarded event and looks exactly like a broken
+  signature. On the real host: fetch the current list
+  (`curl https://stripe.com/files/ips/ips_webhooks.txt`, do not trust the
+  snapshot in that file), include it inside the `/stripe/webhook` location
+  block, and if TLS terminates at a load balancer or CDN set
+  `real_ip_header`/`set_real_ip_from` first or every request is denied. This
+  is one of two layers Stripe expects together — signature verification
+  (`App\Http\Middleware\VerifyStripeWebhookSignature`) already runs
+  unconditionally and is not affected by whether this is enabled.
 
 ## What this file is not
 
