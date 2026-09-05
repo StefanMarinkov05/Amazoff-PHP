@@ -97,7 +97,11 @@ two different failure modes for two adjacent cases. 3 new tests in
   specifically, because that is where the one confirmed instance was and
   where the crash class established in Phase 2 predicted the next one would
   be. Form-submission paths, Filament resource actions, and console
-  commands were not swept the same way.
+  commands were not swept the same way. **Filament's resource actions are
+  now covered** by Phase 4 (`phase-4-admin-panel-clickthrough.md`), which
+  found the same crash-then-leak shape behind a bare `DeleteAction`: an
+  uncaught `QueryException` reaching an Ignition page under `APP_DEBUG`.
+  Console commands remain unswept.
 - **Log-file disclosure** — whether `storage/logs/laravel.log` or any debug
   artifact is reachable over HTTP. Not attempted; `docker/nginx/default.conf`
   serves only `public/`, which does not contain the log directory, so this

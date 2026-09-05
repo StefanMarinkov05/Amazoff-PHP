@@ -92,3 +92,7 @@ Full detail and the fix's own reasoning: `app/Models/ProductImage.php`'s
 - **Every other resource** — this pass covered products and their images
   only. Articles, coupons, categories, and the rest of Filament's forms are
   still open, per Phase 1's own "not covered" section.
+  **Partly closed by Phase 4** (`phase-4-admin-panel-clickthrough.md`),
+  which swept the panel's role denial and its destructive actions across
+  every resource; the deleting-a-non-nullable-attribute case above is
+  answered there, and turned out to be one instance of a wider finding.

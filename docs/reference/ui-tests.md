@@ -188,6 +188,80 @@ test; that page owns the behaviour it proves, so the two do not drift out
 of step by being maintained in both places. New auth test cases get their
 behaviour documented there, not here.
 
+### `CartMergeOnAuthenticationTest`
+
+Eight cases over the guest→user cart merge at `Login` and `Register`. The
+Action (`MergeGuestCart`) was already covered by `MergeGuestCartTest` and two
+concurrency tests; this file pins the **caller**, which did not exist until
+2026-09-04.
+
+The case carrying the most weight is the ordering. A guest cart is keyed on
+`session_id`, and both call sites regenerate the session immediately after
+authenticating — so the capture must happen *before* regeneration or it
+matches nothing and loses the basket silently. `MergeCartOnAuthentication`
+splits into `capture()`/`apply()` for exactly this, and the test suite is
+what holds it in place.
+
+Covered: a guest basket surviving sign-in; the same through registration;
+quantities summing when both carts hold the same variation; both lines
+surviving when they hold different ones; the guest expiry being cleared from
+the surviving cart (or `ExpireCarts` deletes a customer's basket a day
+later); a normal sign-in with no guest cart; a login still succeeding when
+the captured cart has since been deleted; and another session's cart being
+left alone.
+
+Verified by moving the capture back after `session()->regenerate()`: **4 of 8
+failed** — precisely the four involving a guest basket. The four that held
+are the no-cart sign-in, the deleted-cart tolerance, the other-session case,
+and registration (which was not reverted) — the split that shows each case
+targets what it claims.
+
+### `TrackOrderTest`
+
+Nine cases over `/orders/track`, the one order route deliberately open to
+anyone. The rules it pins are CLAUDE.md's own, and each case goes red when
+its mechanism is removed:
+
+- **Both fields required.** A real serial with the wrong email is refused,
+  and so is a real email with the wrong serial. Removing the `email` half of
+  the query turns the first red.
+- **The refusal is not an oracle.** "Wrong email" and "no such order"
+  produce the *same* message, asserted by comparing the two directly — a
+  difference would confirm which serials exist to an attacker walking the
+  sequential range.
+- **Throttled** at 5 attempts, and the counter **clears on success**, so a
+  customer who mistypes twice is not locked out of their own order.
+- **No disclosure.** An order with a delivery address is tracked, and the
+  test asserts the street, phone and name are absent from the response.
+  Email possession unlocks status, dates and a total — not the contents.
+- **The entitlement property is `#[Locked]`.** A client write to
+  `foundOrderId` throws, the SEC-001/SEC-002 shape.
+
+The success case is the control: without it a component that refused
+*everything* would pass every denial case above.
+
+Verified by deleting the email half of the lookup: **2 of 9 failed** — the
+wrong-email refusal, and the disclosure case, which starts leaking once a
+wrong email succeeds. The other 7 correctly held, since they do not depend
+on that half.
+
+### `OrderHistoryTest`
+
+Five cases over `/account/orders`. The component is a scoped read, so the
+scoping is the whole of what is worth testing:
+
+- Lists the signed-in customer's own orders (the control).
+- **Never shows another customer's orders** — two users, one order each.
+- Does not show **guest orders** (`user_id` null) to anyone's account list.
+- The empty state is asserted *while another user's order exists*, so it
+  proves scoping rather than an empty table.
+- The route requires authentication.
+
+Verified by replacing `$user->orders()` with `Order::query()`: **3 of 5
+failed.** The 2 that held are the success control and the auth redirect,
+neither of which touches the scoping — which is what shows each case targets
+what it claims.
+
 ### `CheckoutTest` (`tests/Feature/Payment/`)
 
 The full cycle — cart → checkout → order → payment → intent →

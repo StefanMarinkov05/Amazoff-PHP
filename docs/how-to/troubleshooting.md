@@ -1996,6 +1996,60 @@ grepping for error markers. Check the status code first, then read
 reliable source. This is the same shape as the other entries here: a failure
 that presents as something other than what it is.
 
+## Stripe says a payment succeeded and the app still shows it pending
+
+**Symptom.** A card payment completes at Stripe — `stripe listen` is running
+and said `Ready!`, the PaymentIntent reads `succeeded` with a non-zero
+`amount_received` — but `payments.status` stays `pending`, `paid_at` is null,
+and `payment_events` is empty. No error anywhere: not in `laravel.log`, not
+in the web server's access log (which shows **zero** hits on
+`/stripe/webhook`), not in the forwarder's own output.
+
+**Cause.** The Stripe CLI is authenticated to a **different account** than
+the application's API keys belong to. `stripe listen` is forwarding
+faithfully — just some other account's events. Confirmed 2026-09-04: the CLI
+sat on `acct_1UAbacHSYCrSsH7T` while `STRIPE_SECRET` belonged to
+`acct_1U9BTmEinvfvnBsb`.
+
+**The signing secrets matching is not evidence the accounts match.** The
+`whsec_…` a `stripe listen` session prints is generated per session, so
+copying it into `.env` makes the signature check pass for whatever events do
+arrive — while the events you care about are never sent at all.
+
+**Fix.** Compare the two directly:
+
+```bash
+stripe config --list | grep account_id
+docker compose exec -T app php artisan tinker --execute='echo app(Stripe\StripeClient::class)->accounts->retrieve()->id;'
+```
+
+If they differ, re-authenticate the CLI against the right account
+(`stripe login`), or point `.env` at the account the CLI already holds.
+
+To verify the handler itself without touching the CLI, fetch the event from
+the app's *own* account, sign it with the app's *own* secret, and POST it to
+the endpoint — that exercises the real middleware with real bytes:
+
+```php
+$event = app(Stripe\StripeClient::class)->events->retrieve('evt_…', []);
+$payload = json_encode($event->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$ts = time();
+$sig = hash_hmac('sha256', "{$ts}.{$payload}", config('services.stripe.webhook_secret'));
+// POST to http://webserver/stripe/webhook with Stripe-Signature: t={$ts},v1={$sig}
+```
+
+**Why it recurs.** Every symptom points somewhere else — a webhook-handling
+bug, a signature mismatch, a container networking problem. Nothing in the
+CLI's output names the account it is listening for, and a developer with
+more than one Stripe account (a personal sandbox and a team one) can switch
+the app's keys without the CLI following.
+
+**Prevention.** Check the account pair before debugging a missing webhook,
+and re-check it whenever `STRIPE_SECRET` changes. `stripe listen` printing
+`Ready!` proves a websocket opened, not that it will carry your events.
+
+---
+
 ## Every container is healthy and every request 504s
 
 **Symptom.** `docker compose ps` shows all five services `running`, `db` and

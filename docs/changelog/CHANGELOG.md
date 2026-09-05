@@ -8,6 +8,138 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **The guest cart now survives sign-in and registration.** `MergeGuestCart`
+  had existed since the cart slice — built, documented, and covered by two
+  concurrency tests — with **no caller**. A customer who filled a basket as a
+  guest and then signed in found it empty, and the guest row orphaned.
+  Confirmed live on 2026-09-04 while testing something else.
+
+  `App\Support\MergeCartOnAuthentication` is the caller, used by both
+  `Login` and `Register`, and it exists as its own class for one reason: the
+  **ordering**. A guest cart is keyed on `session_id`, and both call sites
+  regenerate the session immediately after authenticating — which they must,
+  since the pre-login id is what a fixation attack plants. Regeneration
+  issues a new id with nothing carrying the old forward, so the obvious
+  implementation (merge after login) looks up an id that has never had a
+  cart, finds nothing, and *reports success*. The basket is lost silently.
+
+  So the class splits into `capture()`, called before regeneration, and
+  `apply()`, called after — making the constraint visible at both call sites
+  rather than a comment nobody re-reads.
+
+  **A failed merge never fails the login.** Someone who has proved their
+  identity is signed in even if their basket cannot be folded in; the
+  alternative is an account locked out by a cart bug. `apply()` re-reads the
+  captured row and returns quietly if it has gone — the reachable case being
+  a second tab finishing its own merge first.
+
+  8 tests, proven able to fail: **moving the capture back after
+  `session()->regenerate()` turns 4 of the 8 red** — exactly the four
+  involving a guest basket — while the four that do not (no-cart sign-in,
+  deleted-cart tolerance, another session's cart, and registration, which
+  was not reverted) correctly stay green. That split is what shows each case
+  targets what it claims. Also verified end to end in a real browser: item
+  added as a guest, sign-in, and the item present afterwards with the guest
+  row consumed and `expires_at` cleared.
+
+- **The nine missing storefront pages, closing every footer 404.** All six
+  footer "Help" and "Legal" links pointed at routes that did not exist,
+  confirmed live across three separate passes; `/faq` was in §4–5 with no
+  link at all. Every one of them now resolves.
+
+  **Six informational pages** — `/delivery`, `/payment-information`, `/faq`,
+  `/terms`, `/privacy`, `/cookies` — as plain `Route::view()`s, not Livewire
+  components: they hold no state and run no query, so a component would be
+  pattern-following (ADR-0014, the reasoning `/about` already follows). A
+  shared `<x-site.prose-page>` carries the heading, standfirst, typography
+  and back-link, so implementation standard #8 ("repeated markup extracted
+  into components") stays true as they were added rather than six
+  near-identical files diverging at the edges.
+
+  The copy is written against what this system actually does rather than
+  boilerplate: the cookie policy names only the session and CSRF cookies
+  plus Stripe's, and says outright that there is no analytics or advertising
+  cookie — which is why no consent banner exists. The privacy page says a
+  deletion request does *not* erase past orders, because the accounting
+  obligation outlives it (`explanation/gdpr.md`). The payment page explains
+  3-D Secure and the "still confirming" state a customer can genuinely hit
+  when the webhook lands after the redirect.
+
+- **`/orders/track` — public order tracking (§4–5), the page CLAUDE.md's
+  security rules already assumed existed.** Requires order number **and**
+  email, matched in a *single* `where` rather than looked up by serial and
+  then compared: a two-step lookup would answer "does this serial exist"
+  separately from "is this the right email", which is precisely the
+  enumeration oracle the rule exists to prevent.
+
+  One refusal message for all three failure modes — no such order, wrong
+  email, right order with the wrong email — for the same reason `Login`
+  gives one message for a bad address and a bad password. Rate limited at 5
+  attempts, keyed on IP alone: keying on the serial too would let an
+  attacker walk the sequential range at 5 attempts *each*, which is not a
+  limit. `#[Locked]` on the entitlement property, per the standing rule from
+  SEC-001/SEC-002.
+
+  It deliberately shows status, dates and a total — **no address, phone,
+  name or line items**. Email possession is a weaker claim than an
+  authenticated session, so it unlocks correspondingly less; the order
+  contents stay behind ownership.
+
+- **`/account/orders` — order history (§19, §26).** Every query starts from
+  `auth()->user()->orders()`, never `Order::query()`. Eager-loads `payment`
+  and `orderItems`, which the list renders — without both it is one extra
+  query per row, which renders correctly and is invisible until the order
+  count grows. Linked from the account menu in both the desktop and mobile
+  headers.
+
+  No per-order detail route: a row links to `checkout.confirmation`, which
+  already re-checks ownership on every render. A second detail page would
+  mean a second entitlement check to keep correct.
+
+  **14 tests, both suites proven able to fail.** Removing the email half of
+  the tracking query turned 2 of 9 red (the wrong-email refusal, and the
+  disclosure test — which starts leaking once a wrong email succeeds), with
+  the other 7 correctly unaffected since they do not depend on that half.
+  Replacing `$user->orders()` with `Order::query()` turned 3 of 5 red; the 2
+  that held are the success control and the auth redirect, neither of which
+  touches the scoping. Both splits are the evidence that each test targets
+  what it claims.
+
+- **Phase 4 of the interactive UI testing record — the admin panel.**
+  `reference/ui-testing/phase-4-admin-panel-clickthrough.md`, closing the gap
+  all three earlier phases named in their own "not covered" sections: the
+  panel's own forms and actions, driven rather than read.
+
+  §37 #18 is now verified across **all 19 admin resources × 4 accounts**
+  (the earlier sweep covered 13 routes), extending the role matrix in
+  `reference/security-testing.md`. Each role reaches exactly what the
+  permission catalogue grants and nothing else. The two 200s that were added
+  are the point of the extension: `content_editor` holds `viewAny_tag` and
+  `viewAny_article_category`, so a 403 there would have been a *missing
+  grant* rather than a leak.
+
+  The article status menu was confirmed **enforced, not merely hidden**, by
+  calling `PublishArticle` directly in three configurations — an illegal
+  move by an authorized actor (refused by the matrix), a legal move by an
+  unauthorized one (refused by the policy), and a legal move by the right
+  actor (**accepted**). The third is the control, and it is what makes the
+  first two mean anything.
+
+  **A method note worth keeping**, because it produced a false pass
+  mid-session: the first price-abuse table reported all five malformed values
+  "refused", which read as clean. They were refused on a missing `sku` — the
+  probe's payload used the wrong key shape, so the price column was never
+  reached. Only the control row, which is *required to pass*, exposed it. A
+  probe that never reaches the code under test is indistinguishable from a
+  defence that works, so every table in that document now carries a control.
+
+  Two harness notes: Filament's destructive actions open a confirmation
+  modal, and a driver that awaits such a call never returns (one probe hung
+  for the full 30-minute MCP idle timeout), so every write was run through
+  the Action the panel calls, inside a rolled-back transaction; and one live
+  `Delete` click was refused by auto-mode's classifier and deliberately not
+  retried.
+
 - **Stripe integration hardened against a review from Stripe's own tooling.**
   The `stripe_implementation_planner` MCP tool endorsed the architecture —
   its decision tree terminates at "Elements with the Payment Intents API",
@@ -143,6 +275,95 @@ when the work happened, not when it was committed — nothing in
   both still need setting there.
 
 ### Known gaps
+
+- **SEC-009: the CSP blocks Stripe.js, so card checkout cannot complete.**
+  `SetSecurityHeaders` names no Stripe origin in `script-src`, no
+  `api.stripe.com` in `connect-src`, and has no `frame-src` at all (so
+  `default-src 'self'` blocks the 3-D Secure iframe). `Permissions-Policy:
+  payment=()` additionally disables the Payment Request API. The production
+  branch is stricter, not looser, so this breaks production too.
+
+  Confirmed live: loading `https://js.stripe.com/v3/` produces a CSP
+  violation naming the directive verbatim, `window.Stripe` stays undefined,
+  and a fetch to `api.stripe.com` fails. The checkout genuinely loads that
+  script (`checkout-page.blade.php:39`).
+
+  **Why nothing caught it**: every payment test fakes `StripeClient`
+  server-side, while the CSP is a response header the *browser* enforces —
+  neither half can observe the other. The header test pins the four
+  directives SEC-006 chose and never asserts that a script is loadable. The
+  fix is four named origins, not a wildcard; recorded in
+  `reference/security-testing.md` rather than applied, because changing a
+  security header deserves a deliberate review.
+
+- **SEC-010: four public forms have no rate limit.** `ContactForm`,
+  `NewsletterSignup`, `Register` and `ChangePassword`. Measured: 12 of 12
+  newsletter signups and 8 of 8 contact messages accepted back to back.
+  Bounded by a fact worth stating — **neither form sends mail** (Mailpit
+  stayed at 0), so this is database flooding and moderation noise, not mail
+  amplification. `ChangePassword` is the one with a security edge: it takes
+  `current_password`, so unthrottled it is a guessing oracle against an
+  already-authenticated session. The pattern exists twice already
+  (`Login`, `TrackOrder`); what needs deciding is the key per form.
+
+- **Filament's delete actions turn a foreseeable click into an uncaught
+  `QueryException`, on two separate call sites.**
+
+  **Single deletes:** `EditAttribute`, `EditBrand`, `EditArticleCategory`,
+  `EditCarrier` and `EditCoupon` expose a bare `DeleteAction::make()` on a
+  table other rows point at; MySQL refuses with error 1451 and the panel
+  shows an Ignition page (`APP_DEBUG=true`) or a bare 500 in production,
+  rather than a message naming what blocked it. All five confirmed live in
+  rolled-back transactions — `EditCarrier` and `EditCoupon` each needed
+  their blocking child row created first, since neither a shipment nor a
+  redemption is seeded, so both are proven rather than inferred.
+
+  **Bulk deletes, which is the worse half:** 13 resources expose a bare
+  `DeleteBulkAction::make()`, and it calls `$record->delete()` per record —
+  bypassing the Action the *single* delete was deliberately routed through.
+  `ProductCategories` proves it: `EditProductCategory` correctly routes to
+  `DeleteProductCategory` (which locks, counts dependants, and throws a
+  domain exception naming the blocker), while the same category deleted in
+  bulk reaches the raw foreign key instead. `Products` is a third shape —
+  it deletes *cleanly* under the bulk path because `Product` soft-deletes,
+  so `DeleteProduct`'s refusals are skipped with no error at all, which is
+  harder to notice than a 500. **Routing a single delete through an Action
+  does not protect the resource**; the bulk action is an independent call
+  site Filament wires up by default.
+
+  **Not a missing decision — an applied one that stopped half-way.**
+  `EditProduct` and `EditProductCategory` already route their delete through
+  an Action wrapped in `ReportsDomainFailures`, and the latter's docblock
+  names this exact failure verbatim. The pattern was applied to 2 of the 6
+  resources that need it.
+
+  Deliberately **not** fixed by widening `ReportsDomainFailures` to catch
+  `QueryException`: the trait refuses to, on purpose, and says why — *"a
+  `QueryException` or a `TypeError` is a defect rather than a refusal, and
+  swallowing those into a toast would hide exactly the failures that should
+  be loud."* That reasoning is right. The fix is the existing one — check the
+  dependency in an Action and throw a domain exception naming it, so the
+  trait has something it is willing to catch — which is four vertical slices
+  rather than a patch. Severity is low: staff-only, the delete is correctly
+  refused, nothing is lost or corrupted; what is wrong is the failure shape.
+  `reference/ui-testing/phase-4-admin-panel-clickthrough.md` has the table.
+
+- **SEC-008: a role granted `update_role` can grant itself everything.**
+  Latent, not exploitable on `main` — no role holds it, and the escalation
+  needs an administrator to tick the box first. But `role` sits in
+  `PermissionCatalogue::CRUD_RESOURCES`, so `update_role` renders as an
+  ordinary checkbox beside `update_brand`, and `RolePolicy::update()` has no
+  relationship between the actor and the role being edited. Confirmed by live
+  exploitation in a rolled-back transaction: granting `content_editor` that
+  permission let it reach `delete_user`, which §3.3 denies it by name.
+
+  The same bug class `UserPolicy` already closed once by splitting out
+  `assignRole_user` and putting the self-edit refusal in
+  `EditUser::mutateFormDataBeforeSave()` — where `Gate::before` cannot make
+  it dead code. `RoleResource` never got the equivalent guard. Fix proposed
+  and not applied: it changes what an administrator may do to their own role,
+  which is a decision about who can lock themselves out, not only a security
+  patch. Full write-up in `reference/security-testing.md`.
 
 - From the same review: **signing-secret rotation** and **dispute
   handling** are now closed — see the follow-up entry above. **IP
@@ -290,12 +511,22 @@ when the work happened, not when it was committed — nothing in
   about rounding policy rather than part of the Stripe work.
   `CheckoutTest` asserts the current value and says why.
 
-- **The Stripe integration has not been run against the real Stripe test
-  API.** `STRIPE_KEY`/`STRIPE_SECRET`/`STRIPE_WEBHOOK_SECRET` are blank, so
-  every test fakes `StripeClient`. What is proven is this application's own
-  arithmetic, state machine, and endpoint behaviour; what is *not* proven is
-  that Stripe accepts the exact request shapes sent. `.env` now carries a
-  commented template with the dashboard and CLI steps for filling them in.
+- **~~The Stripe integration has not been run against the real Stripe test
+  API.~~ Closed 2026-09-04.** Credentials are now populated and the whole
+  cycle has been driven end to end against sandbox account
+  `acct_1U9BTmEinvfvnBsb`, including a **real 3-D Secure challenge**: intent
+  created (`requires_payment_method`, 1990 eur), confirmed with
+  `tok_threeDSecure2Required` (`requires_action`), the hosted 3DS2 page
+  completed in a real browser (`succeeded`, `amount_received: 1990`), and
+  the resulting `payment_intent.succeeded` accepted by the webhook — moving
+  the payment `pending` → `paid`. Redelivering the same event stayed at one
+  `payment_events` row; the same payload unsigned returned 400.
+  `reference/stripe-testing.md` has the full table.
+
+  The tests still fake `StripeClient`, deliberately — a suite that reaches
+  the network depends on credentials and connectivity. What has changed is
+  that the request shapes those fakes assert are now known to be the ones
+  Stripe actually accepts.
 
 - **One flaky test.** A full run showed `1 failed, 977 passed`; the
   immediately following run showed `978 passed`, and a repeat of the whole

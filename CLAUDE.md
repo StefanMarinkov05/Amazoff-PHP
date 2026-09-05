@@ -84,7 +84,14 @@ in agreement: if a rule here changes, change it there too.
   `phase-3-error-leak-sweep.md` (what an *unhandled* failure actually
   shows an anonymous visitor — verbose traces, leaked paths, the
   `value=""` attribute-breakout case checked against rendered output, not
-  assumed safe from source); its screenshots live in
+  assumed safe from source), and
+  `phase-4-admin-panel-clickthrough.md` (inside the panel — the role-denial
+  matrix at all 19 resources, whether a status menu is enforced or merely
+  hidden, and the six bare `DeleteAction`s that turn a foreseeable click
+  into an uncaught `QueryException`; every write run through the Action a
+  modal-driving click cannot reach, and every table carrying a control row
+  so a probe that never reaches the code under test cannot read as a
+  pass); its screenshots live in
   `docs/assets/ui-testing/`, not loose in `assets/`; `permissions.md`,
   `coverage.md`, and `tech-stack.md` are the rest.
 
