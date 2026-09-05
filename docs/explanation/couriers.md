@@ -110,6 +110,22 @@ either vendor's `quote()` call already knows to include, and it is added in
 `CalculateDeliveryPrice` rather than inside either gateway so both vendors
 apply it identically.
 
+`CheckoutPage`'s own office picker has a second, narrower fallback for the
+same reason: Econt's demo host is a shared public environment, and every
+field on the checkout form re-renders the whole component, so any field's
+render can be the one whose live `offices()` call happens to land during a
+slow moment on that host. `CheckoutPage::$lastKnownOffices` keeps the last
+successfully fetched list (as plain arrays, same reasoning as
+`CachedCourierGateway`'s own caching — see above); a later render whose live
+call fails falls back to it instead of blanking a list the customer is
+already looking at. `updated()` clears it the moment carrier, city, postcode
+or delivery type actually changes, so a stale list is never shown for the
+wrong city. `resolveOffices()` is also the single place that live call
+happens — `offices()` and `courierUnavailable()` both delegate to it rather
+than each running their own, since Blade reads both on every render and two
+independent live calls within the same render had no guarantee of agreeing
+with each other.
+
 ## What the customer's browser is never trusted with
 
 `CheckoutPage`'s office fields (`courier_office_code`, `courier_office_name`)

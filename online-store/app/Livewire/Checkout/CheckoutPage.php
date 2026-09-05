@@ -111,7 +111,7 @@ class CheckoutPage extends Component
 
     public string $courier_office_name = '';
 
-    public bool $billing_same_as_delivery = true;
+    public bool $billing_same_as_delivery = false;
 
     public string $billing_city = '';
 
@@ -127,14 +127,47 @@ class CheckoutPage extends Component
     public ?string $clientSecret = null;
 
     /**
-     * Set by `offices()` on every call, for `courierUnavailable()` to read —
+     * Set by `resolveOffices()`, for `courierUnavailable()` to read —
      * distinguishes "the carrier answered with zero offices here" from "the
      * carrier could not be reached at all" (Speedy today: no sandbox exists
      * yet, so `SPEEDY_API_URL` stays blank and every call fails instantly).
-     * Both cases return an empty `offices()` collection, so the UI needs a
-     * second signal to avoid telling the customer a real city has no offices.
+     * Both cases would otherwise return an empty office list, so the UI
+     * needs a second signal to avoid telling the customer a real city has no
+     * offices.
      */
     private bool $courierUnavailable = false;
+
+    /**
+     * Set once per request by `resolveOffices()`, the first time either
+     * `offices()` or `courierUnavailable()` is read — Blade reads both, in
+     * that order, on every render (the "unavailable" message and the list
+     * are alternatives), and each is a real courier call if evaluated raw.
+     * Memoising here means the live lookup runs at most once per render
+     * rather than once per reader.
+     *
+     * @var Collection<int, CourierOffice>|null
+     */
+    private ?Collection $resolvedOffices = null;
+
+    /**
+     * The last successfully fetched office list for the *current*
+     * carrier/city/postcode, kept as plain arrays — Livewire's property
+     * hydration has no synthesizer for a bare readonly DTO like
+     * `CourierOffice`, the same reason `CachedCourierGateway` caches arrays
+     * rather than objects (`docs/how-to/troubleshooting.md`, "A cached
+     * object comes back as `__PHP_Incomplete_Class`").
+     *
+     * Once a real fetch has succeeded, a *later* render's fetch failing —
+     * Econt's demo host is a shared public environment, and every field on
+     * this page re-renders the whole component, so any of them can be the
+     * one whose request happens to land during a slow moment — no longer
+     * blanks a list the customer is already looking at. `updated()` clears
+     * this the moment anything that changes what "this city's offices"
+     * means changes, so a stale list is never shown for the wrong city.
+     *
+     * @var list<array{code: string, name: string, address: string, city: string, postcode: string, maxWeightGrams: ?int, supportsCod: bool}>
+     */
+    public array $lastKnownOffices = [];
 
     public function mount(): void
     {
@@ -216,44 +249,69 @@ class CheckoutPage extends Component
     #[Computed]
     public function offices(): Collection
     {
-        $this->courierUnavailable = false;
-
-        if ($this->delivery_type !== DeliveryType::Office->value || $this->carrier_id === null || trim($this->city) === '') {
-            return collect();
-        }
-
-        $carrier = $this->carriers()->firstWhere('id', $this->carrier_id);
-
-        if (! $carrier instanceof Carrier) {
-            return collect();
-        }
-
-        try {
-            $offices = Courier::for($carrier)->offices($this->city, $this->postcode ?: null);
-        } catch (CourierUnavailableException) {
-            $this->courierUnavailable = true;
-
-            return collect();
-        }
+        $all = $this->resolveOffices();
 
         if (trim($this->office_search) === '') {
-            return $offices;
+            return $all;
         }
 
         $term = mb_strtolower($this->office_search);
 
-        return $offices->filter(
+        return $all->filter(
             fn (CourierOffice $office): bool => str_contains(mb_strtolower($office->name), $term)
                 || str_contains(mb_strtolower($office->address), $term),
         )->values();
     }
 
-    /** Reads the flag `offices()` sets — call after `offices()` this render, not before. */
     public function courierUnavailable(): bool
     {
-        $this->offices();
+        $this->resolveOffices();
 
         return $this->courierUnavailable;
+    }
+
+    /**
+     * The one real courier call per render — `offices()` and
+     * `courierUnavailable()` both delegate here instead of each running
+     * their own, so they can never observe two different outcomes of what
+     * is meant to be the same lookup.
+     *
+     * @return Collection<int, CourierOffice>
+     */
+    private function resolveOffices(): Collection
+    {
+        if ($this->resolvedOffices !== null) {
+            return $this->resolvedOffices;
+        }
+
+        $this->courierUnavailable = false;
+
+        if ($this->delivery_type !== DeliveryType::Office->value || $this->carrier_id === null || trim($this->city) === '') {
+            return $this->resolvedOffices = collect();
+        }
+
+        $carrier = $this->carriers()->firstWhere('id', $this->carrier_id);
+
+        if (! $carrier instanceof Carrier) {
+            return $this->resolvedOffices = collect();
+        }
+
+        try {
+            $offices = Courier::for($carrier)->offices($this->city, $this->postcode ?: null);
+        } catch (CourierUnavailableException) {
+            if ($this->lastKnownOffices !== []) {
+                return $this->resolvedOffices = collect($this->lastKnownOffices)
+                    ->map(fn (array $row): CourierOffice => new CourierOffice(...$row));
+            }
+
+            $this->courierUnavailable = true;
+
+            return $this->resolvedOffices = collect();
+        }
+
+        $this->lastKnownOffices = $offices->map(fn (CourierOffice $office): array => (array) $office)->all();
+
+        return $this->resolvedOffices = $offices;
     }
 
     /**
@@ -300,6 +358,14 @@ class CheckoutPage extends Component
         unset($this->deliveryPrice);
     }
 
+    /** Reopens the picker — the office list itself is still cached, so this is free. */
+    public function changeOffice(): void
+    {
+        $this->courier_office_code = '';
+        $this->courier_office_name = '';
+        unset($this->deliveryPrice);
+    }
+
     /**
      * An Econt office submitted while Speedy is selected — or an office from
      * a city the customer has since changed — is a shipment that would fail
@@ -312,6 +378,7 @@ class CheckoutPage extends Component
         if (in_array($property, ['carrier_id', 'city', 'postcode', 'delivery_type'], true)) {
             $this->courier_office_code = '';
             $this->courier_office_name = '';
+            $this->lastKnownOffices = [];
             unset($this->offices, $this->deliveryPrice);
         }
 

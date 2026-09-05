@@ -390,6 +390,98 @@ it('refuses an office code that was never resolved from the carrier\'s own list'
     expect(Order::count())->toBe(0);
 });
 
+it('keeps the office list untouched by a field the office selection does not depend on', function (): void {
+    // Reported bug: toggling billing_same_as_delivery made the office list
+    // disappear. updated() only clears offices()/courier_office_code for
+    // carrier_id/city/postcode/delivery_type — billing_same_as_delivery is
+    // not one of them, so the office list and any already-picked office must
+    // survive it untouched.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->call('selectOffice', 'OFF1');
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty();
+
+    $component->set('billing_same_as_delivery', false);
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+
+    $component->set('billing_same_as_delivery', true);
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty();
+});
+
+it('evaluates the live courier lookup once per render, not once per reader', function (): void {
+    // offices() and courierUnavailable() both read the same underlying
+    // lookup; Blade calls both on every render (the "unavailable" message
+    // and the list are alternatives to each other). Before this was
+    // memoised per-request, each reader ran its own live call, so a single
+    // render on a cold cache could reach the real courier up to three times.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '', 'city' => 'Sofia']);
+
+    $callsBeforeOneMoreRender = fakeCourier()->officesCalls;
+
+    // Any further field triggers one more full render, with both readers
+    // hitting the same already-established carrier/city.
+    $component->set('office_search', 'Test');
+
+    expect(fakeCourier()->officesCalls)->toBe($callsBeforeOneMoreRender + 1);
+});
+
+it('keeps showing the last successful office list when a later render\'s courier call fails transiently', function (): void {
+    // Reported symptom: the office list would render, then vanish, on a
+    // render triggered by a field the office selection does not depend on
+    // (billing_same_as_delivery). Econt's demo host is public and shared —
+    // any render can be the one whose live call happens to fail — so a
+    // list already shown to the customer must not disappear because of it.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->set('city', 'Sofia');
+
+    expect($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+
+    fakeCourier()->failNextOfficesCall = true;
+    $component->set('billing_same_as_delivery', false);
+
+    expect($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+});
+
+it('drops the stale office list once the city actually changes, even after a transient failure fallback', function (): void {
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->set('city', 'Sofia');
+
+    expect($component->instance()->offices())->not->toBeEmpty();
+
+    fakeCourier()->fakeOffices = collect();
+    $component->set('city', 'Plovdiv');
+
+    // A genuinely empty result for the new city must not be masked by the
+    // old city's list — the fallback only covers a *failed* call, not an
+    // honestly empty one.
+    expect($component->instance()->offices())->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+});
+
 it('adds the carrier\'s cash-on-delivery fee to the delivery price only for COD orders', function (): void {
     $cart = checkoutCart(quantity: 1, price: '10.00');
     $carrier = checkoutCarrier(['cod_fee' => '1.50']);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Contracts\CourierGateway;
 use App\Enums\OrderStatus;
+use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
 use App\Models\Carrier;
 use App\Models\Cart;
@@ -262,6 +263,11 @@ class FakeCourierGateway implements CourierGateway
 
     public string $fakeQuoteAmount = '5.00';
 
+    public int $officesCalls = 0;
+
+    /** Makes the *next* offices() call throw, then reverts to fakeOffices — for a test proving a transient failure is tolerated. */
+    public bool $failNextOfficesCall = false;
+
     public function __construct()
     {
         $this->fakeOffices = collect([
@@ -282,6 +288,14 @@ class FakeCourierGateway implements CourierGateway
 
     public function offices(string $city, ?string $postcode = null): Collection
     {
+        $this->officesCalls++;
+
+        if ($this->failNextOfficesCall) {
+            $this->failNextOfficesCall = false;
+
+            throw CourierUnavailableException::requestFailed($this->code(), 'offices');
+        }
+
         return $this->fakeOffices;
     }
 

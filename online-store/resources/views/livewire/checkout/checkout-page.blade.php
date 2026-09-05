@@ -143,49 +143,66 @@
 
                     @if ($delivery_type === \App\Enums\DeliveryType::Office->value)
                         <div class="mt-4">
-                            <label for="office_search" class="block text-sm font-medium text-ink-800">Find an office</label>
-                            <input wire:model.live.debounce.400ms="office_search" id="office_search" type="text"
-                                   placeholder="Search by office name or street"
-                                   class="mt-1.5 block w-full rounded-control border border-ink-300 bg-white px-3 py-2.5
-                                          text-sm text-ink-900 placeholder:text-ink-400
-                                          focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/20">
-
                             @if ($courier_office_code !== '')
-                                <p class="mt-2 flex items-center gap-1.5 text-sm text-ink-700">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0 text-marine-700"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" /></svg>
-                                    Selected: <span class="font-medium">{{ $courier_office_name }}</span>
-                                </p>
-                            @elseif ($carrier_id === null)
-                                <p class="mt-2 text-sm text-ink-500">Choose a courier above to see its offices.</p>
-                            @elseif (trim($city) === '')
-                                <p class="mt-2 text-sm text-ink-500">Enter a city to see its offices.</p>
-                            @elseif ($this->courierUnavailable())
-                                <p class="mt-2 text-sm text-amber-600">
-                                    {{ $this->carriers->firstWhere('id', $carrier_id)?->name }}'s office lookup isn't reachable right now — try the other courier, or enter a delivery address instead.
-                                </p>
+                                {{-- Picked: the search UI has done its job and only takes up
+                                     space and re-invites a second click from here on. --}}
+                                <div wire:key="office-picked-card" wire:transition.duration.200ms
+                                     class="flex items-start justify-between gap-3 rounded-control border border-marine-200 bg-marine-50 px-3 py-2.5">
+                                    <p class="flex items-start gap-1.5 text-sm text-marine-800">
+                                        <svg viewBox="0 0 20 20" fill="currentColor" class="mt-0.5 h-4 w-4 shrink-0 text-marine-700"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd" /></svg>
+                                        <span>
+                                            <span class="block font-medium">{{ $courier_office_name }}</span>
+                                            <span class="block text-xs text-marine-700">Pickup office selected</span>
+                                        </span>
+                                    </p>
+                                    <button type="button" wire:click="changeOffice"
+                                            class="shrink-0 text-sm font-medium text-marine-700 underline-offset-4 hover:underline">
+                                        Change
+                                    </button>
+                                </div>
+                            @else
+                                <div wire:key="office-search-panel" wire:transition.duration.200ms
+                                     x-data x-init="$nextTick(() => $refs.office_search?.focus())">
+                                    <label for="office_search" class="block text-sm font-medium text-ink-800">Find an office</label>
+                                    <input wire:model.live.debounce.400ms="office_search" wire:key="office-search-input"
+                                           x-ref="office_search" id="office_search" type="text"
+                                           placeholder="Search by office name or street"
+                                           class="mt-1.5 block w-full rounded-control border border-ink-300 bg-white px-3 py-2.5
+                                                  text-sm text-ink-900 placeholder:text-ink-400
+                                                  focus:border-marine-600 focus:outline-none focus:ring-4 focus:ring-marine-600/20">
+
+                                    @if ($carrier_id === null)
+                                        <p class="mt-2 text-sm text-ink-500">Choose a courier above to see its offices.</p>
+                                    @elseif (trim($city) === '')
+                                        <p class="mt-2 text-sm text-ink-500">Enter a city to see its offices.</p>
+                                    @elseif ($this->courierUnavailable())
+                                        <p class="mt-2 text-sm text-amber-600">
+                                            {{ $this->carriers->firstWhere('id', $carrier_id)?->name }}'s office lookup isn't reachable right now — try the other courier, or enter a delivery address instead.
+                                        </p>
+                                    @endif
+
+                                    @if ($carrier_id !== null && trim($city) !== '' && ! $this->courierUnavailable())
+                                        <ul wire:loading.class="opacity-50" wire:target="office_search, carrier_id, city, postcode"
+                                            class="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-control border border-ink-200 p-1.5 transition-opacity">
+                                            @forelse ($this->offices as $office)
+                                                <li wire:key="office-{{ $office->code }}">
+                                                    <button type="button" wire:click="selectOffice('{{ $office->code }}')"
+                                                            wire:loading.class="opacity-50" wire:target="selectOffice('{{ $office->code }}')"
+                                                            class="w-full rounded-control px-2.5 py-2 text-left text-sm text-ink-700
+                                                                   transition-colors duration-150 hover:bg-ink-50">
+                                                        <span class="block font-medium">{{ $office->name }}</span>
+                                                        <span class="block text-ink-500">{{ $office->address }}</span>
+                                                    </button>
+                                                </li>
+                                            @empty
+                                                <li class="px-2.5 py-2 text-sm text-ink-500">No offices found for this city.</li>
+                                            @endforelse
+                                        </ul>
+                                    @endif
+                                </div>
                             @endif
 
                             @error('courier_office_code') <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p> @enderror
-
-                            @if ($carrier_id !== null && trim($city) !== '' && ! $this->courierUnavailable())
-                                <ul wire:loading.class="opacity-50" wire:target="office_search, carrier_id, city, postcode"
-                                    class="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-control border border-ink-200 p-1.5 transition-opacity">
-                                    @forelse ($this->offices as $office)
-                                        <li wire:key="office-{{ $office->code }}">
-                                            <button type="button" wire:click="selectOffice('{{ $office->code }}')"
-                                                    wire:loading.class="opacity-50" wire:target="selectOffice('{{ $office->code }}')"
-                                                    aria-pressed="{{ $courier_office_code === $office->code ? 'true' : 'false' }}"
-                                                    class="w-full rounded-control px-2.5 py-2 text-left text-sm transition-colors duration-150
-                                                           {{ $courier_office_code === $office->code ? 'bg-marine-50 text-marine-800 ring-1 ring-inset ring-marine-200' : 'text-ink-700 hover:bg-ink-50' }}">
-                                                <span class="block font-medium">{{ $office->name }}</span>
-                                                <span class="block text-ink-500">{{ $office->address }}</span>
-                                            </button>
-                                        </li>
-                                    @empty
-                                        <li class="px-2.5 py-2 text-sm text-ink-500">No offices found for this city.</li>
-                                    @endforelse
-                                </ul>
-                            @endif
                         </div>
                     @endif
                 </section>
@@ -198,7 +215,7 @@
                     </label>
 
                     @unless ($billing_same_as_delivery)
-                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div wire:key="billing-address-fields" class="mt-4 grid gap-4 sm:grid-cols-2">
                             <x-checkout.field name="billing_city" label="Billing city" />
                             <x-checkout.field name="billing_postcode" label="Billing postcode" />
                             <x-checkout.field name="billing_street" label="Billing street" class="sm:col-span-2" />
