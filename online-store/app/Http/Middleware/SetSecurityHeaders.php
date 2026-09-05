@@ -43,6 +43,32 @@ use Symfony\Component\HttpFoundation\Response;
 class SetSecurityHeaders
 {
     /**
+     * Stripe's own origins, by the job each one does.
+     *
+     * Named constants rather than literals scattered through the policy,
+     * because the four directives below have to agree: adding a Stripe
+     * origin to `script-src` and forgetting `connect-src` produces a
+     * payment form that renders and cannot talk to Stripe, which is a worse
+     * failure than blocking it outright — it looks like it works.
+     *
+     * SEC-009: the first version of this policy named none of them, so
+     * `js.stripe.com` was blocked and card payment could not complete in any
+     * environment. Stripe documents these as the required set.
+     */
+    private const STRIPE_SCRIPT = 'https://js.stripe.com';
+
+    private const STRIPE_API = 'https://api.stripe.com';
+
+    /**
+     * `js.stripe.com` frames the Payment Element's own card fields (PCI:
+     * the card number must be served by Stripe, never by us);
+     * `hooks.stripe.com` serves the 3-D Secure challenge. Both are frames
+     * *we* embed, which is `frame-src` — unrelated to `frame-ancestors`,
+     * which governs who may embed **us** and stays `'none'`.
+     */
+    private const STRIPE_FRAMES = 'https://js.stripe.com https://hooks.stripe.com';
+
+    /**
      * Sources permitted for scripts and styles.
      *
      * `unsafe-eval` and `unsafe-inline` are required by Alpine and Livewire —
@@ -72,16 +98,25 @@ class SetSecurityHeaders
         // Deny every browser feature this application does not use. Add an
         // entry here only when a feature is actually wired up, never
         // pre-emptively.
+        //
+        // `payment` is the one exception, and it is wired up: the Payment
+        // Element renders Apple Pay / Google Pay through the Payment Request
+        // API, which `payment=()` disables outright. Delegated to Stripe's
+        // own frame rather than opened to `*` — the allow-list form is what
+        // keeps this a policy rather than a hole.
         $response->headers->set(
             'Permissions-Policy',
-            'geolocation=(), camera=(), microphone=(), payment=()'
+            'geolocation=(), camera=(), microphone=(), payment=(self "'.self::STRIPE_SCRIPT.'")'
         );
 
         $sources = $this->scriptAndStyleSources();
 
         $response->headers->set('Content-Security-Policy', implode('; ', [
             "default-src 'self'",
-            "script-src {$sources}",
+            // Stripe.js is loaded from Stripe's own domain deliberately (PCI
+            // guidance: card fields must be served by Stripe, not by us), so
+            // the policy has to permit the one origin that serves it.
+            'script-src '.$sources.' '.self::STRIPE_SCRIPT,
             "style-src {$sources}",
             // No third-party font host — Instrument Sans is bundled through
             // Vite rather than fetched from Google or Bunny. It still needs
@@ -107,9 +142,19 @@ class SetSecurityHeaders
             'img-src \'self\' data: blob: https://ui-avatars.com',
             // Livewire polls its own origin; Vite's dev server uses a
             // websocket for hot reload, which connect-src governs too.
+            // Stripe.js calls api.stripe.com directly from the browser to
+            // tokenise the card and confirm the intent. Without it the
+            // Payment Element renders and silently cannot submit.
             app()->isProduction()
-                ? "connect-src 'self'"
-                : "connect-src 'self' http://localhost:5173 ws://localhost:5173",
+                ? 'connect-src \'self\' '.self::STRIPE_API
+                : 'connect-src \'self\' http://localhost:5173 ws://localhost:5173 '.self::STRIPE_API,
+            // The card fields and the 3-D Secure challenge are Stripe-served
+            // iframes this page embeds. Without this directive `default-src
+            // 'self'` blocks both, and 3DS fails at the moment a bank asks
+            // the customer to authenticate.
+            'frame-src '.self::STRIPE_FRAMES,
+            // Unchanged, and unrelated to frame-src above: this governs who
+            // may embed *us*, and the answer is still nobody.
             "frame-ancestors 'none'",
             "object-src 'none'",
             "base-uri 'self'",
