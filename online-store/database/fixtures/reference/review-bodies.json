@@ -1,0 +1,82 @@
+{
+  "_comment": [
+    "Review body text, keyed by star rating, for DemoReviewSeeder to draw from.",
+    "",
+    "Why this file exists: these are prose strings with no behaviour attached —",
+    "a seeder picks one at random and writes it to product_reviews.comment. That",
+    "is content, not logic, and it was previously a ~40-line PHP const in the",
+    "middle of the seeder, where it pushed the actual sampling and approval code",
+    "off the screen and made a wording change a PHP edit.",
+    "",
+    "Same reasoning as reference/catalogue.json: the part most likely to be",
+    "regenerated or extended in bulk should not be able to introduce a PHP syntax",
+    "error into database/. It also means the pool can grow without the seeder",
+    "changing at all.",
+    "",
+    "Not a fixture in the DemoSeeder sense — there is no document shape, no",
+    "validator, and no loader. It is a vocabulary file, like catalogue.json.",
+    "",
+    "Ratings must cover 1-5; DemoReviewSeeder fails loudly if one is missing or",
+    "empty, rather than silently writing blank review bodies."
+  ],
+
+  "_why_the_spread": "The tone tracks the rating deliberately. Every body at 4 and below names something specific that was wrong - a late delivery, fiddly assembly, a colour that did not match the photo - because a moderation queue full of vague praise proves nothing about the moderation screen. The 1 and 2 star bodies are the ones worth having: an approved low rating is what shows the storefront does not quietly hide criticism.",
+
+  "bodies": {
+    "5": [
+      "Exactly what I needed and arrived faster than expected. Build quality feels solid, not flimsy at all. Would buy again without hesitation.",
+      "This exceeded my expectations honestly. I was a bit worried after reading mixed reviews on similar products elsewhere, but this one is genuinely well made.",
+      "Perfect fit for what I was looking for. Easy to use straight out of the box, no fuss setup, and it looks even better in person than in the photos.",
+      "Been using this daily for a few weeks now and it's holding up great. No complaints at all - does exactly what it says on the box.",
+      "Fantastic value for the price. I compared a few options before buying and this one wins hands down. Highly recommend to anyone on the fence.",
+      "Second time ordering this exact item as a gift because the first one I bought for myself was so good. Consistent quality both times.",
+      "Really impressed with the packaging too - arrived in perfect condition. The product itself works flawlessly so far.",
+      "Five stars without a doubt. Customer service was also excellent when I had a quick question about sizing before ordering.",
+      "Bought this after putting it off for months and my only regret is not getting it sooner. It has genuinely made the job easier.",
+      "Weight and balance are spot on. You can tell the difference immediately compared to the cheaper one I was using before.",
+      "Ordered on a Tuesday, had it Thursday, and it worked first time with no setup headaches. Nothing more I could ask for.",
+      "The finish is excellent and there were no rough edges or gaps anywhere. Clearly made by someone who cared about the details.",
+      "Have recommended this to two colleagues already and both bought one. That is about the highest praise I can give.",
+      "Does one job and does it properly. No gimmicks, no features nobody asked for, just a well made piece of kit."
+    ],
+    "4": [
+      "Good product overall, does what it promises. Only minor gripe is the instructions could be clearer, but not a dealbreaker.",
+      "Solid purchase. Took off one star because the color was slightly different from the listing photo, but otherwise happy with it.",
+      "Works well for my needs. A bit pricier than I expected but the quality justifies it for the most part.",
+      "Pretty good, would recommend. Delivery took a couple days longer than estimated but the product itself is fine.",
+      "Does the job nicely. Not perfect but definitely worth the money at this price point.",
+      "Happy with this purchase. Assembly was a little fiddly at first but once set up it works great.",
+      "Good quality material, feels durable. Wish it came in more size options but otherwise no real complaints.",
+      "Very close to a five. The only thing holding it back is that the carry case feels like an afterthought compared to the product itself.",
+      "Performs exactly as described. Slightly heavier than I expected from the specs, which matters if you are holding it for long stretches.",
+      "No real faults, just a couple of small things. The packaging was excessive for what is quite a small item.",
+      "Been solid for about a month now. Docking a star only because one of the fittings needed a bit of persuasion to seat properly.",
+      "Great for the price bracket. If you need something professional grade you would spend more, but for home use this is plenty."
+    ],
+    "3": [
+      "It's okay - does what it says but nothing special. Might look elsewhere next time for something a bit more premium.",
+      "Average product. Works fine but feels a little overpriced for what you actually get.",
+      "Mixed feelings on this one. The core function is fine but a couple of small design choices feel like an afterthought.",
+      "Not bad, not amazing. Got the job done but I probably would not go out of my way to buy it again.",
+      "Decent but had higher expectations based on the description. It is functional, just not exciting.",
+      "Does the basics competently. The materials feel a grade below what the photos suggest, though nothing has actually failed.",
+      "Fine for occasional use. I would not trust it for anything heavy duty based on how it feels in hand.",
+      "Middle of the road. It works, it arrived on time, and I have no strong feelings about it either way."
+    ],
+    "2": [
+      "Disappointed with the quality for the price paid. Works but feels cheaper than expected in hand.",
+      "Had some issues out of the box - had to troubleshoot a bit before it worked properly. Functional now but not a great first impression.",
+      "Not quite what I expected from the listing photos. Usable but I would think twice before recommending it.",
+      "The fit is noticeably off compared to the measurements listed. Still using it but only because returning it was more hassle than it was worth.",
+      "Started making an odd noise within the first few uses. Still functioning, but I am not confident it will last.",
+      "Description oversells this quite a bit. It does technically do what is claimed, just not nearly as well as implied."
+    ],
+    "1": [
+      "Arrived with a visible defect and the return process took longer than it should have. Would not order again.",
+      "Stopped working properly after just over a week of normal use. Very disappointing given the price.",
+      "Completely wrong item in the box. Sorted eventually but it cost me a week I did not have.",
+      "Broke on the second use. Whatever the plastic housing is made of is not up to the job it is sold for.",
+      "Does not match the listing in any meaningful way - wrong size, wrong finish, and the mounting holes did not line up."
+    ]
+  }
+}

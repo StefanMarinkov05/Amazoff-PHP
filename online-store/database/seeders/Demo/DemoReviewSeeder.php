@@ -15,9 +15,10 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use RuntimeException;
 
 /**
- * 90 reviews, drawn only from delivered orders' own line items and their own
+ * 115 reviews, drawn only from delivered orders' own line items and their own
  * buyers — `CreateProductReview` enforces §24's verified-purchase rule
  * itself (a delivered order, same user, same product), so this seeder's job
  * is picking real eligible (reviewer, product) pairs and supplying rating +
@@ -25,62 +26,83 @@ use Illuminate\Support\Collection;
  *
  * Must run after `DemoOrderSeeder`: there is nothing to review before a
  * delivered order exists.
+ *
+ * Review body text lives in `database/fixtures/reference/review-bodies.json`
+ * rather than in a const here — it is content, not logic, so a wording
+ * change is a data edit and the pool can grow without this class changing.
  */
 class DemoReviewSeeder extends Seeder
 {
-    private const TOTAL_REVIEWS = 90;
+    /**
+     * The **upper bound**, not a fixed count. `reviewCount()` decides the
+     * real figure per run.
+     *
+     * There is a hard ceiling below this, and it is not arbitrary:
+     * `CreateProductReview` enforces §24's verified-purchase rule (one
+     * review per reviewer per product, and only from a delivered order they
+     * actually placed), so the pool is the count of *unique* (reviewer,
+     * product) pairs across delivered orders. That ceiling **moves a lot
+     * between runs** — 137, 123, and 107 on three consecutive seeds —
+     * because which orders reach `Delivered`, and how many distinct products
+     * they carry, is shuffled.
+     *
+     * A fixed constant is therefore wrong on nearly every run: set high it
+     * warns and under-delivers, set low it wastes an eligible pool. So this
+     * is a cap, and the count actually seeded is derived from the live pool.
+     */
+    private const TOTAL_REVIEWS = 130;
 
-    /** Rating => count. Sums to TOTAL_REVIEWS. */
+    /**
+     * What share of the eligible pool to review, when the pool is smaller
+     * than `TOTAL_REVIEWS`.
+     *
+     * Not 100%: a demo where every delivered line item has a review is as
+     * unrealistic as one where none does, and leaving a margin means the
+     * "write a review" path on `/account/orders` still has something to
+     * point at that has not already been reviewed.
+     */
+    private const POOL_UTILISATION = 0.85;
+
+    /**
+     * Rating => relative weight, not an absolute count. `buildRatingPlan()`
+     * scales these to whatever `reviewCount()` resolves to, so the shape
+     * holds at any pool size.
+     *
+     * Shaped like a real catalogue's ratings rather than flat — heavily
+     * weighted to 4 and 5, with a real tail. A uniform spread would make
+     * every product's average land near 3, which is both unrealistic and
+     * useless for demonstrating a sort-by-rating or a star display.
+     */
     private const RATING_DISTRIBUTION = [
-        5 => 34,
-        4 => 27,
-        3 => 15,
-        2 => 9,
+        5 => 38,
+        4 => 30,
+        3 => 17,
+        2 => 10,
         1 => 5,
     ];
 
-    private const APPROVED_COUNT = 62;
+    /**
+     * How many are approved. The remainder stay pending, which is the point:
+     * the moderation queue in the panel has to have something in it, and the
+     * approved set deliberately includes low ratings rather than only the
+     * flattering ones.
+     */
+    /**
+     * What share of the seeded reviews are approved. The remainder stay
+     * pending, which is the point: the moderation queue in the panel has to
+     * have something in it, and the approved set deliberately includes low
+     * ratings rather than only the flattering ones.
+     *
+     * A share rather than a count, for the same reason the total is.
+     */
+    private const APPROVED_SHARE = 0.7;
 
     /**
-     * @var array<int, list<string>>
+     * Lazily-loaded review bodies, keyed by rating. See `bodies()`.
+     *
+     * @var array<int, list<string>>|null
      */
-    private const BODIES = [
-        5 => [
-            'Exactly what I needed and arrived faster than expected. Build quality feels solid, not flimsy at all. Would buy again without hesitation.',
-            'This exceeded my expectations honestly. I was a bit worried after reading mixed reviews on similar products elsewhere, but this one is genuinely well made.',
-            'Perfect fit for what I was looking for. Easy to use straight out of the box, no fuss setup, and it looks even better in person than in the photos.',
-            "Been using this daily for a few weeks now and it's holding up great. No complaints at all - does exactly what it says on the box.",
-            'Fantastic value for the price. I compared a few options before buying and this one wins hands down. Highly recommend to anyone on the fence.',
-            'Second time ordering this exact item as a gift because the first one I bought for myself was so good. Consistent quality both times.',
-            'Really impressed with the packaging too - arrived in perfect condition. The product itself works flawlessly so far.',
-            'Five stars without a doubt. Customer service was also excellent when I had a quick question about sizing before ordering.',
-        ],
-        4 => [
-            'Good product overall, does what it promises. Only minor gripe is the instructions could be clearer, but not a dealbreaker.',
-            'Solid purchase. Took off one star because the color was slightly different from the listing photo, but otherwise happy with it.',
-            'Works well for my needs. A bit pricier than I expected but the quality justifies it for the most part.',
-            'Pretty good, would recommend. Delivery took a couple days longer than estimated but the product itself is fine.',
-            'Does the job nicely. Not perfect but definitely worth the money at this price point.',
-            'Happy with this purchase. Assembly was a little fiddly at first but once set up it works great.',
-            'Good quality material, feels durable. Wish it came in more size options but otherwise no real complaints.',
-        ],
-        3 => [
-            "It's okay - does what it says but nothing special. Might look elsewhere next time for something a bit more premium.",
-            'Average product. Works fine but feels a little overpriced for what you actually get.',
-            'Mixed feelings on this one. The core function is fine but a couple of small design choices feel like an afterthought.',
-            'Not bad, not amazing. Got the job done but I probably would not go out of my way to buy it again.',
-            'Decent but had higher expectations based on the description. It is functional, just not exciting.',
-        ],
-        2 => [
-            'Disappointed with the quality for the price paid. Works but feels cheaper than expected in hand.',
-            'Had some issues out of the box - had to troubleshoot a bit before it worked properly. Functional now but not a great first impression.',
-            'Not quite what I expected from the listing photos. Usable but I would think twice before recommending it.',
-        ],
-        1 => [
-            'Arrived with a visible defect and the return process took longer than it should have. Would not order again.',
-            'Stopped working properly after just over a week of normal use. Very disappointing given the price.',
-        ],
-    ];
+    private ?array $bodies = null;
 
     public function run(): void
     {
@@ -119,14 +141,13 @@ class DemoReviewSeeder extends Seeder
             ->unique(fn (array $row): string => $row['user_id'].'|'.$row['product_id'])
             ->values();
 
-        if ($pairs->count() < self::TOTAL_REVIEWS) {
-            $this->command?->warn(
-                'Only '.$pairs->count().' eligible (reviewer, product) pairs from delivered orders — '
-                .'requested '.self::TOTAL_REVIEWS.'. Seeding as many as are available.'
-            );
-        }
+        $target = $this->reviewCount($pairs->count());
 
-        $pool = $pairs->shuffle()->take(self::TOTAL_REVIEWS);
+        $this->command?->info(
+            "Eligible (reviewer, product) pairs: {$pairs->count()}; seeding {$target} review(s)."
+        );
+
+        $pool = $pairs->shuffle()->take($target);
 
         $plan = $this->buildRatingPlan($pool->count());
 
@@ -134,6 +155,8 @@ class DemoReviewSeeder extends Seeder
         $createReview = app(CreateProductReview::class);
         /** @var ApproveProductReview $approveReview */
         $approveReview = app(ApproveProductReview::class);
+
+        $approvalTarget = (int) round($pool->count() * self::APPROVED_SHARE);
 
         $created = 0;
         $approved = 0;
@@ -165,7 +188,7 @@ class DemoReviewSeeder extends Seeder
             $reviewAt = Carbon::parse($pair['order_created_at'])->addDays(random_int(1, 21));
             $review->forceFill(['created_at' => $reviewAt, 'updated_at' => $reviewAt])->saveQuietly();
 
-            if ($created <= self::APPROVED_COUNT) {
+            if ($created <= $approvalTarget) {
                 $approveReview->handle($review, null);
                 $approved++;
             }
@@ -176,9 +199,26 @@ class DemoReviewSeeder extends Seeder
     }
 
     /**
-     * A shuffled list of ratings matching RATING_DISTRIBUTION as closely as
-     * $count allows — exact when $count === TOTAL_REVIEWS, scaled down
-     * proportionally otherwise (the eligible-pairs pool ran short).
+     * How many reviews to actually seed, given the eligible pool this run
+     * produced.
+     *
+     * `TOTAL_REVIEWS` is a cap rather than a target because the pool moves
+     * substantially between runs (see that constant's own note). Taking a
+     * share of whatever is available means the set scales with the data
+     * instead of warning about it, and stays dense at any order count.
+     */
+    private function reviewCount(int $available): int
+    {
+        return min(
+            self::TOTAL_REVIEWS,
+            (int) floor($available * self::POOL_UTILISATION),
+        );
+    }
+
+    /**
+     * A shuffled list of ratings matching RATING_DISTRIBUTION's *shape* as
+     * closely as $count allows. The constants are relative weights, not
+     * counts, so this scales them to $count in every case.
      *
      * @return list<int>
      */
@@ -186,10 +226,10 @@ class DemoReviewSeeder extends Seeder
     {
         $plan = [];
 
-        foreach (self::RATING_DISTRIBUTION as $rating => $ratingCount) {
-            $scaled = $count === self::TOTAL_REVIEWS
-                ? $ratingCount
-                : (int) round($ratingCount * $count / self::TOTAL_REVIEWS);
+        $weightSum = array_sum(self::RATING_DISTRIBUTION);
+
+        foreach (self::RATING_DISTRIBUTION as $rating => $weight) {
+            $scaled = (int) round($weight * $count / $weightSum);
 
             for ($i = 0; $i < $scaled; $i++) {
                 $plan[] = $rating;
@@ -209,9 +249,57 @@ class DemoReviewSeeder extends Seeder
         return $plan;
     }
 
+    /**
+     * Review bodies, keyed by rating, read once from
+     * `database/fixtures/reference/review-bodies.json`.
+     *
+     * Content rather than logic, so it lives as data — same reasoning as
+     * `reference/catalogue.json`. Loaded lazily and cached on the instance:
+     * `bodyFor()` is called once per review, and re-reading the file 90
+     * times would be pointless I/O.
+     *
+     * @return array<int, list<string>>
+     */
+    private function bodies(): array
+    {
+        if ($this->bodies !== null) {
+            return $this->bodies;
+        }
+
+        $path = database_path('fixtures/reference/review-bodies.json');
+
+        if (! is_file($path)) {
+            throw new RuntimeException("Review bodies fixture missing at [{$path}].");
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($decoded) || ! isset($decoded['bodies']) || ! is_array($decoded['bodies'])) {
+            throw new RuntimeException("Review bodies fixture at [{$path}] has no 'bodies' object.");
+        }
+
+        $bodies = [];
+
+        // Every rating the distribution can produce must be present and
+        // non-empty. Checked here rather than at the point of use: a missing
+        // key would otherwise surface as a blank review body written to the
+        // database, which looks like a seeding success.
+        foreach (array_keys(self::RATING_DISTRIBUTION) as $rating) {
+            $set = $decoded['bodies'][(string) $rating] ?? null;
+
+            if (! is_array($set) || $set === []) {
+                throw new RuntimeException("Review bodies fixture has no entries for rating [{$rating}].");
+            }
+
+            $bodies[$rating] = array_values(array_map(strval(...), $set));
+        }
+
+        return $this->bodies = $bodies;
+    }
+
     private function bodyFor(int $rating): string
     {
-        $bodies = self::BODIES[$rating];
+        $bodies = $this->bodies()[$rating];
 
         return $bodies[array_rand($bodies)];
     }
