@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Cart extends Model
 {
@@ -53,5 +54,20 @@ class Cart extends Model
     public function coupon(): BelongsTo
     {
         return $this->belongsTo(Coupon::class);
+    }
+
+    /**
+     * The order this cart became, if it has been checked out.
+     *
+     * `orders.cart_id` is UNIQUE, so this is one-to-one rather than
+     * one-to-many. Its existence is what makes a cart *spent*:
+     * `ResolveCurrentCart` refuses to hand a spent cart back as the
+     * visitor's current one, because `CreateOrder` cannot consume it twice.
+     *
+     * @return HasOne<Order, $this>
+     */
+    public function order(): HasOne
+    {
+        return $this->hasOne(Order::class);
     }
 }
