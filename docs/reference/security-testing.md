@@ -328,6 +328,12 @@ composer update league/commonmark --with-dependencies
 Bumps to ≥ 2.9.1. Low-risk (patch release); do it on the next dependency
 pass.
 
+**Re-run 2026-09-05.** Same 4 advisories, same 1 package, no new dependency
+findings. The 2026-09-04 pass had recorded this as unreachable — the
+container's `composer audit` timed out reaching packagist that session, so it
+was reported as unverified rather than re-confirmed. `npm audit --omit=dev`
+also re-checked: 0 vulnerabilities, unchanged.
+
 **Logic for future pentests.** A transitive dependency advisory is only as
 real as its reachability — rate it by whether a request path feeds the
 vulnerable function, not by the advisory's headline CVSS. Re-check this one

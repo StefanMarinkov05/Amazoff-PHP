@@ -139,6 +139,32 @@ table above.
   the webhook reads (`amount_received`, `currency`, `id`) were unchanged
   between the two.
 
+## Refund verified against the real Stripe API
+
+**Date of record:** 2026-09-05, same sandbox account as the 3DS run. A real
+partial refund, issued and reconciled end to end:
+
+| Step | Result |
+|---|---|
+| Payment before | `paid`, `refunded_amount: 0.00`, amount `80.73` |
+| `$client->refunds->create()`, 2000 minor units | Stripe: `re_3UCKPKEinvfvnBsb0Fnx2ico`, `status: succeeded` |
+| Real `charge.refunded` event delivered to `POST /stripe/webhook` | 200, `{"received":true}` |
+| Payment after | **`partially_refunded`**, `refunded_amount: 20.00` |
+
+This was the one part of the payment lifecycle the 2026-09-04 pass had not
+exercised against the real API — `CreateStripeIntent` and the success webhook
+were verified there; `RefundPayment` and the refund webhook path were not.
+Together they now cover intent creation, 3DS confirmation, the success
+webhook, and a partial refund, all against real Stripe objects rather than
+the faked `StripeClient` the automated suite uses.
+
+Delivered directly rather than through `stripe listen`, for the same reason
+as the 3DS run: the CLI is authenticated to a different Stripe account than
+the app's keys (`troubleshooting.md`, "Stripe says a payment succeeded and
+the app still shows it pending"). Confirmed unchanged on 2026-09-05 — the
+CLI still reports `acct_1UAbacHSYCrSsH7T` against the app's
+`acct_1U9BTmEinvfvnBsb`.
+
 ## What is not tested, and why
 
 This section is the point of the page. Each item is a real limit, not an
