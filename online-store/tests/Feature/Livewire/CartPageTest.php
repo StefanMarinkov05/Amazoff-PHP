@@ -8,6 +8,8 @@ use App\Livewire\Cart\CartPage;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
+use App\Models\Inventory;
+use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Support\Facades\Session;
@@ -316,8 +318,8 @@ it('falls back to no discount once the applied coupon becomes inapplicable', fun
 
 function cartWithVariation(int $quantity = 1, ?int $available = 100, int $minOrderQuantity = 1): array
 {
-    /** @var App\Models\Product $product */
-    $product = App\Models\Product::factory()->create([
+    /** @var Product $product */
+    $product = Product::factory()->create([
         'is_available' => true,
         'min_order_quantity' => $minOrderQuantity,
     ]);
@@ -326,7 +328,7 @@ function cartWithVariation(int $quantity = 1, ?int $available = 100, int $minOrd
     $variation = ProductVariation::factory()->for($product)->create(['is_available' => true]);
 
     if ($available !== null) {
-        App\Models\Inventory::factory()->for($variation, 'productVariation')->create([
+        Inventory::factory()->for($variation, 'productVariation')->create([
             'current_quantity' => $available,
             'reserved_quantity' => 0,
         ]);
