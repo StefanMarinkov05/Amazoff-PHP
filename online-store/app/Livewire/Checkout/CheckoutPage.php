@@ -68,7 +68,16 @@ class CheckoutPage extends Component
 
     public string $last_name = '';
 
-    public string $payment_method = PaymentMethod::CashOnDelivery->value;
+    /**
+     * Card by default.
+     *
+     * Cash on delivery is the slower path for the shop — the money arrives
+     * days later, via the courier, and needs a remittance step — so the
+     * default should be the one that settles at checkout. A customer who
+     * wants COD selects it; a customer who does not gets the card fields
+     * without a click.
+     */
+    public string $payment_method = PaymentMethod::Stripe->value;
 
     public string $delivery_type = DeliveryType::Address->value;
 
