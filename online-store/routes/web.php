@@ -36,8 +36,21 @@ Route::get('/cart', CartPage::class)->name('cart');
  */
 Route::get('/checkout', CheckoutPage::class)->name('checkout');
 Route::get('/checkout/confirmation/{order}', OrderConfirmation::class)->name('checkout.confirmation');
+
 Route::get('/journal', ArticleList::class)->name('journal');
 Route::get('/journal/{article:slug}', ArticleDetails::class);
+
+/*
+ * Informational pages. Plain views, not Livewire components: they hold no
+ * state and run no query, so a component would be pattern-following (ADR-0014,
+ * the same reasoning `/about` already follows).
+ */
+Route::view('/delivery', 'pages.delivery')->name('delivery');
+Route::view('/payment-information', 'pages.payment-information')->name('payment-information');
+Route::view('/faq', 'pages.faq')->name('faq');
+Route::view('/terms', 'pages.terms')->name('terms');
+Route::view('/privacy', 'pages.privacy')->name('privacy');
+Route::view('/cookies', 'pages.cookies')->name('cookies');
 
 /*
  * Authentication. Laravel's own guard and session, no starter kit — the
