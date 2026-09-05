@@ -84,4 +84,22 @@ return [
         'webhook_tolerance' => max(60, (int) env('STRIPE_WEBHOOK_TOLERANCE', 300)),
     ],
 
+    /*
+     * Econt and Speedy — §37 criterion 14, both behind App\Contracts
+     * \CourierGateway. `api_url` defaults to Econt's public demo host;
+     * Speedy has no equivalent public sandbox, so its credentials are blank
+     * until a real account is issued. See docs/explanation/couriers.md.
+     */
+    'econt' => [
+        'api_url' => env('ECONT_API_URL', 'https://demo.econt.com/ee/services/'),
+        'username' => env('ECONT_USERNAME'),
+        'password' => env('ECONT_PASSWORD'),
+    ],
+
+    'speedy' => [
+        'api_url' => env('SPEEDY_API_URL'),
+        'username' => env('SPEEDY_USERNAME'),
+        'password' => env('SPEEDY_PASSWORD'),
+    ],
+
 ];

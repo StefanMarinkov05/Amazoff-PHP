@@ -48,6 +48,11 @@ beforeEach(function (): void {
     }
 });
 
+// FakeCourierGateway, swapFakeCourier() and checkoutCarrier() live in
+// tests/Pest.php — CreateOrderTest and CalculateDeliveryPriceTest need them
+// too. Checkout must never reach Econt or Speedy over the network.
+beforeEach(fn () => swapFakeCourier());
+
 /**
  * A cart with one line, bound to whoever the test is acting as.
  *
@@ -103,6 +108,7 @@ function fillCheckout(mixed $component, array $overrides = []): mixed
         'email' => 'ada@example.test',
         'phone' => '+359888123456',
         'delivery_type' => 'address',
+        'carrier_id' => checkoutCarrier()->getKey(),
         'country' => 'BG',
         'city' => 'Sofia',
         'postcode' => '1000',
@@ -203,7 +209,8 @@ it('records the user on an order placed by a signed-in customer', function (): v
  */
 
 it('charges the server-computed total, not anything the browser could send', function (): void {
-    // 2 × 50.00 = 100.00.
+    // 2 × 50.00 = 100.00, plus the fake courier's 5.00 quote (cod_fee
+    // pinned to zero by checkoutCarrier()) = 105.00.
     $cart = checkoutCart(quantity: 2, price: '50.00');
 
     $component = Livewire::test(CheckoutPage::class);
@@ -212,12 +219,14 @@ it('charges the server-computed total, not anything the browser could send', fun
 
     $order = Order::query()->latest('id')->first();
 
-    expect((string) $order->total_amount)->toBe('100.00')
+    expect((string) $order->total_amount)->toBe('105.00')
+        ->and((string) $order->shipping_amount)->toBe('5.00')
         // The payment copies the order's own figure, not the caller's.
-        ->and((string) $order->payment->amount)->toBe('100.00')
-        // VAT is extracted from the gross total (prices stored gross) rather
-        // than added on top — 20% of a 100.00 gross line is ~16.67, not
-        // 20.00.
+        ->and((string) $order->payment->amount)->toBe('105.00')
+        // VAT is extracted from the gross *item* total (prices stored
+        // gross) rather than added on top — 20% of a 100.00 gross line is
+        // ~16.67, not 20.00. shipping_amount carries no VAT of its own here
+        // (§37's delivery-VAT treatment is not part of this slice).
         //
         // 16.66 and not 16.67 because Money::percentageOf() truncates its
         // double-scale intermediate (bcadd does not round). The true value
@@ -240,10 +249,11 @@ it('has no price property a client could set, and refuses one that is invented',
     expect(fn () => $component->set('total', '0.01'))
         ->toThrow(PublicPropertyNotFoundException::class);
 
-    // And the order still prices itself from the cart.
+    // And the order still prices itself from the cart (+ the fake courier's
+    // 5.00 delivery quote).
     fillCheckout($component)->call('placeOrder')->assertHasNoErrors();
 
-    expect((string) Order::query()->latest('id')->first()->total_amount)->toBe('100.00');
+    expect((string) Order::query()->latest('id')->first()->total_amount)->toBe('105.00');
 });
 
 /*
@@ -387,6 +397,171 @@ it('requires a street for an address delivery and an office for an office delive
     fillCheckout($component, ['delivery_type' => 'office', 'street' => '', 'courier_office_code' => ''])
         ->call('placeOrder')
         ->assertHasErrors('courier_office_code');
+});
+
+/*
+ * ── Carrier and office selection ────────────────────────────────────────
+ */
+
+it('requires a carrier to be selected', function (): void {
+    $cart = checkoutCart();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => null])->call('placeOrder')->assertHasErrors('carrier_id');
+
+    expect(Order::count())->toBe(0);
+});
+
+it('refuses an inactive carrier even if its id is submitted directly', function (): void {
+    $cart = checkoutCart();
+    $inactive = checkoutCarrier(['is_active' => false]);
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $inactive->getKey()])
+        ->call('placeOrder')
+        ->assertHasErrors('carrier_id');
+
+    expect(Order::count())->toBe(0);
+});
+
+it('places an office delivery only once an office is picked through selectOffice()', function (): void {
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+
+    $component->call('selectOffice', 'OFF1')->call('placeOrder')->assertHasNoErrors();
+
+    $order = Order::query()->latest('id')->first();
+    $delivery = $order->orderAddresses()->where('type', 'delivery')->first();
+
+    expect($delivery->courier_office_code)->toBe('OFF1')
+        ->and($delivery->courier_office_name)->toBe('Test Office 1')
+        ->and($order->carrier_id)->toBe($carrier->getKey());
+});
+
+it('refuses an office code that was never resolved from the carrier\'s own list', function (): void {
+    // The browser can still submit any string as the property value even
+    // though the input is no longer free text — placeOrder() re-resolves it
+    // against offices() rather than trusting the property.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->set('courier_office_code', 'NOT-A-REAL-OFFICE');
+
+    $component->call('placeOrder')->assertHasErrors('courier_office_code');
+
+    expect(Order::count())->toBe(0);
+});
+
+it('keeps the office list untouched by a field the office selection does not depend on', function (): void {
+    // Reported bug: toggling billing_same_as_delivery made the office list
+    // disappear. updated() only clears offices()/courier_office_code for
+    // carrier_id/city/postcode/delivery_type — billing_same_as_delivery is
+    // not one of them, so the office list and any already-picked office must
+    // survive it untouched.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->call('selectOffice', 'OFF1');
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty();
+
+    $component->set('billing_same_as_delivery', false);
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+
+    $component->set('billing_same_as_delivery', true);
+
+    expect($component->get('courier_office_code'))->toBe('OFF1')
+        ->and($component->instance()->offices())->not->toBeEmpty();
+});
+
+it('evaluates the live courier lookup once per render, not once per reader', function (): void {
+    // offices() and courierUnavailable() both read the same underlying
+    // lookup; Blade calls both on every render (the "unavailable" message
+    // and the list are alternatives to each other). Before this was
+    // memoised per-request, each reader ran its own live call, so a single
+    // render on a cold cache could reach the real courier up to three times.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '', 'city' => 'Sofia']);
+
+    $callsBeforeOneMoreRender = fakeCourier()->officesCalls;
+
+    // Any further field triggers one more full render, with both readers
+    // hitting the same already-established carrier/city.
+    $component->set('office_search', 'Test');
+
+    expect(fakeCourier()->officesCalls)->toBe($callsBeforeOneMoreRender + 1);
+});
+
+it('keeps showing the last successful office list when a later render\'s courier call fails transiently', function (): void {
+    // Reported symptom: the office list would render, then vanish, on a
+    // render triggered by a field the office selection does not depend on
+    // (billing_same_as_delivery). Econt's demo host is public and shared —
+    // any render can be the one whose live call happens to fail — so a
+    // list already shown to the customer must not disappear because of it.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->set('city', 'Sofia');
+
+    expect($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+
+    fakeCourier()->failNextOfficesCall = true;
+    $component->set('billing_same_as_delivery', false);
+
+    expect($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+});
+
+it('drops the stale office list once the city actually changes, even after a transient failure fallback', function (): void {
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->set('city', 'Sofia');
+
+    expect($component->instance()->offices())->not->toBeEmpty();
+
+    fakeCourier()->fakeOffices = collect();
+    $component->set('city', 'Plovdiv');
+
+    // A genuinely empty result for the new city must not be masked by the
+    // old city's list — the fallback only covers a *failed* call, not an
+    // honestly empty one.
+    expect($component->instance()->offices())->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+});
+
+it('adds the carrier\'s cash-on-delivery fee to the delivery price only for COD orders', function (): void {
+    $cart = checkoutCart(quantity: 1, price: '10.00');
+    $carrier = checkoutCarrier(['cod_fee' => '1.50']);
+    fakeCourier()->fakeQuoteAmount = '5.00';
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, [
+        'carrier_id' => $carrier->getKey(),
+        'payment_method' => PaymentMethod::CashOnDelivery->value,
+    ])->call('placeOrder')->assertHasNoErrors();
+
+    // 5.00 quote + 1.50 COD handling fee.
+    expect((string) Order::query()->latest('id')->first()->shipping_amount)->toBe('6.50');
 });
 
 it('leaves nothing behind when the order fails', function (): void {

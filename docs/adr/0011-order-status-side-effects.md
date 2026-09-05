@@ -78,14 +78,16 @@ dead code the matrix already makes unreachable, and dead code defending an
 invariant the enum enforces is a second place to keep the same fact in sync,
 which CLAUDE.md rules out generally.
 
-**Damaged returns are out of scope.** `RestockReturn` assumes a return is
-resellable and puts it straight into `current_quantity`. A damaged item needs
-`inventories.damaged_quantity` and `InventoryMovementType::DamagedProduct` —
-both exist in the schema, unused — which needs a `RecordDamage` Action and an
-admin surface to trigger it. Neither exists. Until then a damaged return is
-corrected by hand. This is a known gap, recorded rather than closed, because
-closing it is a UI and workflow decision, not a mechanical follow-on to this
-Action.
+**Damaged returns are out of scope for this Action.** `RestockReturn`
+assumes a return is resellable and puts it straight into `current_quantity`.
+A damaged item moves on from there to `inventories.damaged_quantity` via a
+separate `RecordDamage` call — a warehouse employee's own inspection, not
+something this Action or `TransitionOrderStatus` decides automatically.
+`RecordDamage` and its admin surface (`ViewInventory`'s "Record damage"
+header action) exist and are wired up; the decision recorded here — that a
+damaged return is a distinct, later, manual step rather than a branch inside
+`RestockReturn` — is what stands, not the specific gap that used to follow
+from it.
 
 ## Consequences
 

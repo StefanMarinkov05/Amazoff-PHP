@@ -257,6 +257,123 @@ when the work happened, not when it was committed — nothing in
   the Action the panel calls, inside a rolled-back transaction; and one live
   `Delete` click was refused by auto-mode's classifier and deliberately not
   retried.
+- **Carrier and courier-office selection at checkout, and delivery
+  pricing** — §37 criteria 12–14. `App\Contracts\CourierGateway` behind
+  `EcontGateway` and `SpeedyGateway` (Saloon connectors under
+  `App\Http\Integrations`), resolved by `carriers.code` through
+  `App\Support\Courier\CourierManager` and the `Courier` facade,
+  decorated with `CachedCourierGateway` so an office picker doesn't fire a
+  request per keystroke. `CalculateDeliveryPrice` resolves
+  `orders.shipping_amount` from a live vendor quote or, on
+  `CourierUnavailableException`, `carriers.base_delivery_price` —
+  `carriers.cod_fee` is added on top for cash-on-delivery orders only.
+  `CheckoutPage` gained a carrier radio group and an office picker whose
+  `courier_office_code`/`_name` are set only by `selectOffice()`, from an
+  office the picker itself returned — never typed as free text — and
+  `placeOrder()` re-resolves the submitted code against that list once
+  more before trusting it. `CreateOrder` takes an optional `Carrier` and
+  writes `orders.carrier_id` alongside the resolved shipping figure. Two
+  new migrations (`orders.carrier_id`, `carriers.base_delivery_price`).
+  New: `EcontGatewayTest`, `SpeedyGatewayTest` (Saloon `MockClient`, no
+  network), `CachedCourierGatewayTest`, `CalculateDeliveryPriceTest`;
+  extended `CheckoutTest` and `CreateOrderTest`. Speedy's request/response
+  shapes are taken from its published API docs, not a confirmed sandbox
+  response — no public Speedy sandbox exists. `docs/explanation/couriers.md`
+  has the full picture.
+
+- **First storefront Livewire test coverage for the cart** —
+  `CartPageTest` (17 cases) and `CartBadgeTest` (6 cases), under
+  `tests/Feature/Livewire/`. `CartPage` and `CartBadge` already existed and
+  were already wired into `AddToCart`/`UpdateCartItemQuantity`/
+  `RemoveFromCart`/`TouchCartExpiry`/`ApplyCoupon`/`RemoveCoupon`, but
+  nothing tested that wiring directly — `write-rules/cart.md` and
+  `write-rules/coupon.md` both still claimed no storefront caller existed
+  for any of these Actions, which was already false by the time this was
+  written and is corrected in the same change. Covers the ownership gate
+  on ids arriving from the browser (a tampered id for someone else's line
+  is a silent no-op, not a crash or a leak), the quantity box snapping
+  back to the row's stored value on a server-side refusal, coupon
+  apply/remove error mapping, and a dedicated regression case for the VAT
+  fix below, exercised at the component layer rather than only the
+  Support-class layer.
+
+### Fixed
+
+- **Recording damage on an inventory row with nothing available crashed
+  the admin panel instead of refusing cleanly.** `RecordDamage` guards
+  `available()` the same way `ReserveStock` does, but threw a plain
+  `InvalidArgumentException` for it — correct for its three siblings
+  (`ReleaseStock`/`CompleteSale`/`RestockReturn`), whose quantity always
+  comes from another Action, making "more than available" a genuine caller
+  bug, but wrong here: `RecordDamage` is reached directly from a quantity a
+  warehouse employee types into `ViewInventory`'s "Record damage" panel
+  action, where exceeding available stock is a mistake to correct, not a
+  programming error (ADR-0007). `ReportsDomainFailures` only converts
+  `App\Exceptions\*`, so the plain `InvalidArgumentException` reached
+  Livewire uncaught. Added `InsufficientStockToDamageException` (same shape
+  as `ReserveStock`'s `InsufficientStockException`, deliberately not reused —
+  its message says "reserve") and switched `RecordDamage` to throw it for
+  this specific refusal; a non-positive quantity is still
+  `InvalidArgumentException`, since the panel's own form already refuses
+  that below 1. `ViewInventory`'s "Record damage" button is now also
+  disabled once `available() <= 0`, and its quantity field capped at
+  `available()`, so the exception is normally a race-condition backstop
+  rather than the primary guard. `docs/reference/actions.md`,
+  `docs/explanation/inventory.md`, and ADR-0011's "damaged returns" note
+  also corrected — all three still described `RecordDamage` as having no
+  admin surface, which had gone stale.
+
+- **Checkout's office picker: Speedy's empty list looked identical to a
+  real city with no offices, a picked office left the whole search UI
+  open, and a single render could reach the courier up to three times
+  with no guarantee those calls agreed with each other.** Speedy has no
+  configured `SPEEDY_API_URL` yet — no public sandbox exists — so every
+  Speedy office lookup failed instantly, and `CheckoutPage::offices()`
+  returned an empty collection identically for that and for a real
+  zero-office city. Added `courierUnavailable()` so the UI can tell them
+  apart. Both it and `offices()` now delegate to a single `resolveOffices()`
+  call, memoised per render, rather than each independently calling the
+  live courier — Blade reads both on every render (the "unavailable"
+  message and the list are alternatives to each other), and before this
+  change nothing guaranteed the two independent calls observed the same
+  outcome. `CheckoutPage::$lastKnownOffices` keeps the last successfully
+  fetched list as plain arrays (same reasoning as `CachedCourierGateway`'s
+  own array caching, `docs/how-to/troubleshooting.md`): a later render
+  whose live call fails transiently — Econt's demo host is a shared public
+  environment — now falls back to it instead of blanking a list the
+  customer is already looking at; `updated()` still clears it the moment
+  carrier, city, postcode, or delivery type actually changes. Picking an
+  office now collapses the search UI into a compact card with a "Change"
+  link (`wire:transition`, stabilized with `wire:key` against unrelated
+  re-renders) instead of leaving the full list open next to it.
+  `billing_same_as_delivery` defaults to unchecked for now — a reported
+  flicker in the office list, reproduced by toggling that field, persisted
+  through the fixes above even though the underlying data was proven
+  correct server-side on every attempt (`CheckoutTest`'s new cases); this
+  removes the trigger without a confirmed root cause, and is flagged here
+  rather than presented as resolved. `docs/explanation/couriers.md` has the
+  `resolveOffices()`/`lastKnownOffices` design.
+
+- **A scoped coupon understated an order's recorded VAT.**
+  `CalculateCouponDiscount::vatAfterDiscount()` summed VAT over only the
+  lines a `products`/`categories`-scoped coupon matched, dropping an
+  unmatched line's VAT out of the total entirely rather than keeping it at
+  its untouched value. `CreateOrder` assigns that return value straight
+  onto `orders.vat_amount`, so any order redeeming a scoped coupon against
+  a cart it only partially matched had its recorded VAT wrong — the
+  customer was still charged the correct total, only the VAT breakdown on
+  the order itself was off. Measured against the running app with the
+  seeded `TOOLDEAL` coupon (products-scoped, matching part of a real
+  cart): `vat_amount` came back 56.59 where the correct figure is 59.90.
+  Fixed to cover every line passed to `forLines()`, not only the matched
+  ones — a matched line's share of the discount is still subtracted before
+  VAT extraction, exactly as before; an unmatched line's VAT is now
+  extracted from its untouched total, identified by `spl_object_id()`
+  rather than value equality, since two distinct lines can legitimately
+  share the same product, total, and VAT rate. `CalculateCouponDiscountTest`'s
+  two scoped-coupon cases gained `vat` assertions — they had only ever
+  checked `discount`, which is how this went unnoticed. `write-rules/coupon.md`'s
+  "Known gaps" has the full account.
 
 - **Stripe integration hardened against a review from Stripe's own tooling.**
   The `stripe_implementation_planner` MCP tool endorsed the architecture —

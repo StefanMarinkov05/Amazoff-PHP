@@ -159,19 +159,24 @@ Larastan and Pest are configured and passing against what exists so far.
 
 ## Installed, not wired in
 
-Saloon, `astrotomic/laravel-translatable`, and `spatie/laravel-activitylog`
-are in `composer.json` with no application code using them yet — no
-`CourierGateway`, no translation storage, no audit log.
+`astrotomic/laravel-translatable` and `spatie/laravel-activitylog` are in
+`composer.json` with no application code using them yet — no translation
+storage, no audit log.
 
 Checkout exists too — `CheckoutPage` and `OrderConfirmation`, §37 #6-#8 —
-so the storefront now runs cart → checkout → order → payment → intent →
-confirmation end to end.
+so the storefront now runs cart → checkout → carrier and office selection →
+order → payment → intent → confirmation end to end. `docs/explanation/couriers.md`
+covers the courier layer specifically.
 
 **Stripe's SDK is no longer in this list.** `CreateStripeIntent`,
 `HandleStripeWebhookEvent`, and `RefundPayment` use it, `AppServiceProvider`
 binds `StripeClient` as a singleton, and `POST /stripe/webhook` is live
 behind `VerifyStripeWebhookSignature`. Per ADR-0001 there is no interface
 over it and no Saloon connector: one implementation, nothing to swap it for.
+
+**Saloon is no longer in this list either.** `App\Contracts\CourierGateway`,
+`EcontGateway`, and `SpeedyGateway` use it — see "Saloon, courier clients"
+in ADR-0001 and `docs/explanation/couriers.md`.
 The container binding exists so tests can substitute a fake, which is not
 the same as an abstraction in `app/`. Purify is wired in too, by ADR-0015.
 ADR-0001 has the reasoning for each; this is a statement that the reasoning

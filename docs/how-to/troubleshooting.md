@@ -2271,3 +2271,56 @@ container *before* reading application code: the loopback-works /
 cross-container-fails asymmetry takes one command and rules the entire
 application layer out at once. Same shape as the other entries here — the
 failure presents as an application error and is not one.
+
+---
+
+## A cached object comes back as `__PHP_Incomplete_Class`, only on the second request
+
+**Symptom.** The first checkout request for a given city/carrier works —
+`CachedCourierGateway::offices()` fetches from Econt or Speedy, maps it, and
+returns a real `Collection` of `CourierOffice`. The *next* request for the
+same city, inside the cache TTL, 500s with `TypeError: ...offices(): Return
+value must be of type Illuminate\Support\Collection, __PHP_Incomplete_Class
+returned`. The row is genuinely in the `cache` table, and manually reading it
+with a bare `unserialize($row->value)` in Tinker reconstructs the object
+perfectly — the stored bytes are not corrupted.
+
+**Cause.** `config('cache.serializable_classes')` is `false` — this
+project's own deliberate default, "to prevent gadget chain attacks if your
+APP_KEY is leaked." Every store built on PHP's `unserialize()` (the
+`database` driver included) then passes `allowed_classes: false` to it,
+which silently discards the class of *any* cached object and replaces it
+with `__PHP_Incomplete_Class` — not at write time, and not as an error, only
+as a different, useless object the next time it is read. A method typed to
+return a real class or a `Collection` of them then fails with a `TypeError`
+on the very read the cache exists to serve. `CachedCourierGateway` was
+caching `Collection<CourierOffice>` and `DeliveryQuote` objects directly,
+which can never survive a second read under this config, in any environment
+that uses it — not a flaky edge case, a guaranteed failure on cache hit.
+
+**Fix.** Cache plain arrays, never DTOs. Every DTO under `App\Support\Courier`
+has only public readonly scalar properties, so `(array) $dto` and
+`new Dto(...$row)` round-trip cleanly through a value that
+`serializable_classes: false` has no reason to touch — see
+`CachedCourierGateway::cities()`/`offices()`/`quote()`.
+
+**Why it recurs.** `tests/Feature/Support/Courier/CachedCourierGatewayTest.php`
+passed throughout — `phpunit.xml` sets `CACHE_STORE=array` for the whole
+suite, and the `array` store keeps live PHP values in an in-memory array with
+`'serialize' => false` (`config/cache.php`), so it never round-trips through
+`serialize()`/`unserialize()` at all. Every test environment in this project
+structurally cannot reproduce this class of bug; only the real `database`
+store (`CACHE_STORE` unset, or `=database`, as `.env` has it outside testing)
+does. This is the same shape as the Blueprint/factory entry at the top of
+this page — static checks and the test suite were green throughout, and nothing
+short of exercising the real cache store surfaces it.
+
+**Prevention.** Any new code that caches a value more complex than a scalar
+or a plain array must be checked against a real `database`-or-file-backed
+cache store by hand — `php artisan tinker` against the running container,
+calling the method twice, is enough, since the bug never appears on the
+first (cache-miss) call. Do not trust `CachedCourierGatewayTest`'s green run
+as proof that caching works end to end; it proves the *decision* of what to
+cache and what to bypass, never the *serialization* of what gets cached,
+because the `array` store makes that half of the class permanently
+untestable from within this suite.

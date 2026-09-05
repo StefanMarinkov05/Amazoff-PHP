@@ -46,9 +46,9 @@ in agreement: if a rule here changes, change it there too.
   `security-model.md`, `gdpr.md`, `filament-resources.md`,
   `storefront-pages.md`, `db-schema-design.md`, `inventory.md`,
   `product-variability.md`, `money.md`, `tech-stack-overview.md`,
-  `demo-seeding.md`, `stripe-payments.md`, `secrets-and-env.md` — the last
-  is the standing policy on credentials, and the one to read before an
-  agent goes anywhere near `.env`.
+  `demo-seeding.md`, `stripe-payments.md`, `couriers.md`,
+  `secrets-and-env.md` — the last is the standing policy on credentials,
+  and the one to read before an agent goes anywhere near `.env`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it

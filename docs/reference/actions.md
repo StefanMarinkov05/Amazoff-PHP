@@ -29,7 +29,7 @@ constructor injection.
 | `ReleaseStock` | `inventories.reserved_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `CompleteSale` | `inventories.reserved_quantity`, `inventories.current_quantity`, `inventories.sold_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 | `RestockReturn` | `inventories.sold_quantity`, `inventories.current_quantity`, `inventories.returned_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
-| `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
+| `RecordDamage` | `inventories.current_quantity`, `inventories.damaged_quantity`, `inventory_movements` | optional | `InsufficientStockToDamageException`, `InvalidArgumentException` |
 | `AdjustStock` | `inventories.current_quantity`, `inventory_movements` | optional | `InvalidArgumentException` |
 
 `AdjustStock` is the counterpart to `AddProductVariation`'s create-only
@@ -64,12 +64,19 @@ status change these record. `RestockReturn` assumes a return is resellable.
 `ReserveStock`/`ReleaseStock` rather than composed by `TransitionOrderStatus`:
 a warehouse employee marking N units damaged on the shelf is independent of
 any specific order, and a damaged *return* is a separate, later call after
-`RestockReturn` rather than a branch inside it — no admin surface triggers
-either path yet. Guards `available()` (current minus reserved), not
-`current_quantity` alone: damaging reserved stock would push
-`reserved_quantity` above `current_quantity`, which the same `CHECK`
-constraint rejects, and doing so silently would leave a reservation pointing
-at stock that no longer exists.
+`RestockReturn` rather than a branch inside it. Both paths go through the
+same admin surface, `ViewInventory`'s "Record damage" header action. Guards
+`available()` (current minus reserved), not `current_quantity` alone:
+damaging reserved stock would push `reserved_quantity` above
+`current_quantity`, which the same `CHECK` constraint rejects, and doing so
+silently would leave a reservation pointing at stock that no longer exists.
+Exceeding `available()` throws `InsufficientStockToDamageException` rather
+than `InvalidArgumentException` — unlike its three siblings above, this
+Action is reached directly from a quantity a warehouse employee types into
+the panel, where exceeding available stock is a mistake to correct rather
+than a caller bug (ADR-0007). `ViewInventory` also disables the button and
+caps the quantity field at `available()`, so the exception is normally a
+race-condition backstop, not the primary guard.
 
 ## Catalogue
 
@@ -247,7 +254,7 @@ a `Coupon` row is single-table with no second writer, decision 10.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon` and `ReserveStock` | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
+| `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon`, `ReserveStock`, and `CalculateDeliveryPrice` (for `shipping_amount`/`carrier_id`, given a carrier) | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
 | `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
 | `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
@@ -263,6 +270,16 @@ a `Coupon` row is single-table with no second writer, decision 10.
 The shipment Actions are the *domain* half of slice 8, deliberately split
 from its connector: every courier column is nullable, so a shipment can be
 opened, transitioned and reported on before any Saloon connector exists.
+The connector half now exists (`App\Contracts\CourierGateway`,
+`docs/explanation/couriers.md`), but nothing yet calls it from
+`CreateShipment` — a future `DispatchShipment` Action, not built here, is
+what would create the real vendor shipment and fill in the columns
+`CreateShipment` currently leaves null.
+
+`CreateOrder` calls `CalculateDeliveryPrice` (a `Support` function, not an
+Action — it writes nothing) whenever it is given a carrier, resolving
+`shipping_amount` and `orders.carrier_id` from it. See
+`write-rules/order.md`'s "known gaps" #2.
 
 The Stripe half is now built. `CreateStripeIntent` fills
 `stripe_payment_intent_id` on a row `RecordPayment` opened rather than
@@ -617,7 +634,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `CreateOrder` | tests only |
 | `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
-| `RecordDamage` | tests only — no caller composes it and no admin surface triggers it yet |
+| `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |
 | `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
 | `DeleteProductCategory` | `EditProductCategory` header action, tests |
 | `UpdateProductCategory` | `EditProductCategory`, tests |

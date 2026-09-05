@@ -313,14 +313,17 @@ Do not regress these; they are present across every view.
 - Fonts: `Vite::fonts()` in the layout head — **separate from `@vite`**. It
   is easy to omit, and the failure is silent: the manifest is generated and
   nothing injects it.
-- **Generated artwork** is a real option when no file exists.
-  `<x-journal.cover>` draws from `crc32($article->slug)` — deterministic, so
-  the artwork survives a re-seed, and it cannot 404. Same reasoning as
-  `App\Support\PlaceholderImage`.
+- **Generated artwork** is a real fallback when no file exists yet.
+  `<x-journal.cover>` prefers a real photo via `ResolveArticleImage::urlOrNull()`
+  when `main_image_path` points at one; otherwise it draws from
+  `crc32($article->slug)` — deterministic, so the artwork survives a
+  re-seed, and it cannot 404. Same reasoning as `App\Support\PlaceholderImage`.
 
-Before rendering a stored path, know whether the file exists. All 23 article
-images are missing from disk (`demo:fetch-images` covers `product_images`
-only), which is why the journal generates its covers instead.
+Before rendering a stored path, know whether the file exists — `Storage::disk($disk)->exists($path)`,
+not an assumption from the row having a non-null column. `demo:fetch-article-images`
+fills in real photos for the demo catalogue (`how-to/seed-the-database.md`,
+"Article images"); until it is run, or an editor uploads one through the
+panel, every article still falls back to generated art.
 
 ## Layout that survives editing
 

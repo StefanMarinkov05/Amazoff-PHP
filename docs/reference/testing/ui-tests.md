@@ -12,7 +12,7 @@ it rather than re-deriving it.
 This page does not replace the write-rules pages
 (`docs/reference/write-rules/catalogue-filters.md`,
 `product-attribute-values.md`, `product-variation-attribute-values.md`,
-`product-category.md`, `coupon.md`) — those state the *contract* a
+`product-category.md`, `cart.md`, `coupon.md`) — those state the *contract* a
 component or Action honours; this page states which test file proves which
 piece of that contract, so a change to behaviour has a known list of tests
 to check rather than a full-suite guess.
@@ -178,6 +178,56 @@ assumed from the type alone.
 - An id that matches nothing real falls back to the default variation
   rather than erroring.
 
+### `CartPageTest`
+
+What `CartPage` contributes on top of the Actions and Support classes it
+wires up, not their own rules — those are `AddToCartTest`,
+`UpdateCartItemQuantityTest`, and `CalculateCouponDiscountTest`'s job. See
+`write-rules/cart.md` and `write-rules/coupon.md` for the contract itself.
+
+- The ownership gate: an id for a line in someone else's cart is a no-op
+  for `increment`/`decrement`/`remove`, not an error and not a crash.
+- A typed quantity below 1, or past available stock, surfaces as a
+  line-scoped form error and snaps the input back to the row's real
+  quantity rather than leaving a value that was never saved.
+- A non-numeric typed quantity (mid-edit, backspacing) resets silently,
+  with no error — `AddToCart`'s own docblock names this as deliberate.
+- `TouchCartExpiry` actually fires on a successful quantity change — the
+  one thing distinguishing this from the many storefront writes that don't
+  touch it yet (see "Known gaps" below).
+- `applyCoupon`/`removeCoupon` map an unrecognised code and the Action's
+  own refusal (e.g. below the minimum) to distinct, correctly-scoped form
+  errors, and a successful apply clears the input field.
+- `discount()`'s bridge into `CalculateCouponDiscount`: with no coupon
+  applied it shows the plain undiscounted total and VAT; with a coupon
+  scoped to only part of the cart, it shows the discount, the payable
+  total, and VAT computed across the *whole* cart (discounted matched
+  lines plus untouched unmatched lines) — the regression test for the bug
+  `CalculateCouponDiscount::vatAfterDiscount()` had until 2026-09-03, where
+  an unmatched line's VAT was dropped from the total entirely rather than
+  kept at its original value. See `write-rules/coupon.md`, "Known gaps".
+- A coupon that was valid when applied but has since become inapplicable
+  (e.g. a price drop takes the cart below the minimum) shows no discount
+  on the next render, without the customer ever removing it explicitly.
+
+### `CartBadgeTest`
+
+The header's cart count — `CartBadge`'s own job over `ResolveCurrentCart`
+and `CartItem`.
+
+- Uses `ResolveCurrentCart::existing()`, not `forVisitor()`: rendering the
+  badge for a visitor with no cart yet creates no `carts` row — the
+  component's own docblock names this as the reason the two resolvers
+  differ (a `forVisitor()` badge would write a row for every crawler that
+  ever loaded the site).
+- Sums `quantity` across every line rather than counting rows.
+- The label caps at `9+` past `DISPLAY_CAP`, while the underlying count
+  stays exact (used for the `aria-label` and by other components).
+- Refreshes on the `cart-updated` event `CartPage` and `ProductDetails`
+  both dispatch — the badge reads no request input of its own, so without
+  the listener it would show whatever count was true at mount and never
+  again.
+
 ### `AuthSessionInvalidationTest`
 
 What each of this file's ten cases proves, the incidents that caused two of
@@ -289,6 +339,14 @@ own arithmetic is `StripePaymentTest` and the endpoint is
   signed-in customer looking at someone else's order — sequential serial
   numbers would otherwise enumerate every customer's address. 404 and not
   403, since a 403 confirms the order exists.
+- A carrier is required, and an inactive one is refused even if its id is
+  submitted directly. An office delivery only succeeds once `selectOffice()`
+  has picked one from `offices()`; a `courier_office_code` set to a string
+  that was never resolved from that list is refused on the form, and the
+  carrier's `cod_fee` is added to the resolved delivery price only for cash
+  on delivery. Every test in this file swaps the whole `Courier` facade for
+  `FakeCourierGateway` (`tests/Pest.php`) — checkout must never reach Econt
+  or Speedy over the network. See `docs/explanation/couriers.md`.
 
 **A trap worth knowing.** `ResolveCurrentCart` finds a guest's cart by
 `Session::getId()` and a customer's by `user_id`. A cart created any other

@@ -279,8 +279,14 @@ it('discounts only the matching lines for a product-scoped coupon', function ():
         couponDiscountLine(productId: 999999, lineTotal: '100.00'),
     ]);
 
+    $result = CalculateCouponDiscount::forLines($coupon, $lines, '200.00');
+
     // 10% of only the matched 100, not the full 200.
-    expect(CalculateCouponDiscount::forLines($coupon, $lines, '200.00')['discount'])->toBe('10.00');
+    // vat: matched line (100-10 discount) * 20/120 = 15.00, plus the
+    // unmatched line's untouched 100 * 20/120 = 16.66 — both matter, not
+    // only the matched line's, which is what regressed before this test.
+    expect($result['discount'])->toBe('10.00')
+        ->and($result['vat'])->toBe('31.66');
 });
 
 it('discounts only the matching lines for a category-scoped coupon', function (): void {
@@ -302,7 +308,12 @@ it('discounts only the matching lines for a category-scoped coupon', function ()
         couponDiscountLine(productId: 2, categoryId: 999999, lineTotal: '100.00'),
     ]);
 
-    expect(CalculateCouponDiscount::forLines($coupon, $lines, '200.00')['discount'])->toBe('5.00');
+    $result = CalculateCouponDiscount::forLines($coupon, $lines, '200.00');
+
+    // vat: matched line (100-5) * 20/120 = 15.83, plus the unmatched line's
+    // untouched 100 * 20/120 = 16.66.
+    expect($result['discount'])->toBe('5.00')
+        ->and($result['vat'])->toBe('32.49');
 });
 
 it('applies an entire-order coupon to every line regardless of pivots', function (): void {

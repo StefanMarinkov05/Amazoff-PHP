@@ -18,9 +18,11 @@ it — the outcomes below are the committed form.)
 The Actions in `app/Actions/Coupon`, and nothing else. Direct Eloquent, a
 factory, a seeder, or a raw query builder all bypass every rule below.
 
-**No storefront controller or Livewire component calls `ApplyCoupon` or
-`RemoveCoupon` yet, and `RedeemCoupon` has no caller** — `CreateOrder` does
-not exist. All three are exercised only by tests.
+**[Changed]** `CartPage` calls `ApplyCoupon` and `RemoveCoupon` —
+`CartPageTest` (`reference/ui-tests.md`) is what proves the wiring, on top
+of this page's own outcomes. `RedeemCoupon` is no longer callerless either:
+`CreateOrder` calls it directly at checkout. All three are still exercised
+directly by their own Action tests as well.
 
 `CouponResource` stays default Filament CRUD (decision 10) — creating or
 editing a `Coupon` row never touches `coupon_redemptions`, so none of this
@@ -163,14 +165,7 @@ blind overwrite needs none.
 
 ## Known gaps
 
-**1. No storefront entry point for `ApplyCoupon` or `RemoveCoupon`.** Same
-gap `cart.md` names for the Cart Actions — no Livewire component or
-controller calls either yet. `RedeemCoupon` itself is no longer gapless in
-this way: `CreateOrder` calls it directly, and `write-rules/order.md`'s
-"Two actors at once" table covers the concurrency shape that composition
-produces.
-
-**2. Mixed-VAT-rate apportionment is notional, not stored.** A
+**1. Mixed-VAT-rate apportionment is notional, not stored.** A
 `categories`-scoped coupon spanning lines at different `vat_rate`s has its
 discount apportioned per line, proportional to each line's share of the
 matched subtotal, purely inside `CalculateCouponDiscount::vatAfterDiscount()`
@@ -179,7 +174,23 @@ letter ("one number stored once on the order, not allocated back per
 line") but is an extension of it the plan itself left open ("Open, not
 settled here"), not something decision 3 states outright.
 
-**3. Same-order double redemption is proven single-process only.** The
+**[Changed]** Until 2026-09-03, `vatAfterDiscount()` went further than this
+gap describes: for a `products`/`categories`-scoped coupon, it summed VAT
+over the *matched* lines only, dropping an unmatched line's VAT from the
+total entirely rather than keeping it at its untouched value — a real
+defect, not the apportionment-is-notional characterization above, which
+concerns how a *matched* line's own share is computed and remains accurate.
+`CreateOrder` assigns this return value straight onto `orders.vat_amount`,
+so every order redeeming a scoped coupon against a partially-matched cart
+understated its recorded VAT until the fix. Now covers every line handed to
+`forLines()`: a matched line's share of the discount is subtracted before
+VAT extraction as before; an unmatched line's VAT is extracted from its
+untouched total. `CalculateCouponDiscountTest`'s two scoped-coupon cases
+gained `vat` assertions — previously they checked `discount` only, which is
+how this went unnoticed. `CartPageTest`'s scoped-coupon case exercises the
+same fix at the component layer.
+
+**2. Same-order double redemption is proven single-process only.** The
 `UNIQUE(coupon_id, order_id)` retry path (`RedeemCouponTest`, "returns the
 existing row") is not raced across two real connections — per the plan's
 own test-obligations table, no window between two connections needs

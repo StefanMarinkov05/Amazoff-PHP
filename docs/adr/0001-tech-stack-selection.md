@@ -46,12 +46,21 @@ Larastan. See `docs/how-to/regenerate-with-blueprint.md`.
 
 ### Saloon, courier clients
 
-Installed, not used yet — no `CourierGateway` interface or courier
-connector exists in this repo. §37 requires Econt and Speedy behind one
-shared interface. §36 requires external APIs to be mockable in tests.
-Intended use: Saloon for structured requests and built-in mocking per
-courier, behind a `CourierGateway` interface both implement. Stripe uses
-its own SDK directly and is not part of this decision.
+Built: `App\Contracts\CourierGateway`, implemented by `EcontGateway` and
+`SpeedyGateway` over Saloon connectors in `App\Http\Integrations`, satisfies
+§37's #14 (one shared interface for both couriers) and #36 (external APIs
+mockable in tests, via Saloon's `MockClient`). `App\Support\Courier
+\CourierManager` resolves a gateway by `carriers.code` and wraps it in
+`CachedCourierGateway`; the `Courier` facade is the storefront's read-path
+entry point. `docs/explanation/couriers.md` has the full picture. Stripe
+uses its own SDK directly and was never part of this decision.
+
+Speedy's request/response field names are taken from its published API
+documentation, not a confirmed sandbox response — no public Speedy sandbox
+exists, so `SPEEDY_USERNAME`/`SPEEDY_PASSWORD` stay blank in `.env.example`
+until a real account is issued. Econt's shapes are similarly unconfirmed
+against a live payload beyond its documented method signatures. Both
+gateways carry this caveat in their own class docblocks.
 
 ### Purify, content sanitization
 
@@ -122,9 +131,9 @@ both machines and in CI. Production runs on Forge, no containers.
   it.
 − Two packages installed without a settled design behind them
   (`astrotomic/laravel-translatable`, `spatie/laravel-activitylog`).
-− Filament, Saloon, Purify, and Livewire are installed but not yet used
-  anywhere in `app/`. Whether they deliver on the reasoning above is not yet
-  tested against real code.
+− Purify is installed but not yet used anywhere in `app/`. Whether it
+  delivers on the reasoning above is not yet tested against real code.
+  Saloon now is — see "Saloon, courier clients" above.
 − Blueprint's output needs correcting after every run: it maps column names
   to Faker methods without checking column types, and generates a factory
   reference for every foreign key regardless of nullability. Both produced

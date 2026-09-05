@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Inventory;
 
 use App\Enums\InventoryMovementType;
+use App\Exceptions\InsufficientStockToDamageException;
 use App\Models\Inventory;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -22,10 +23,15 @@ use InvalidArgumentException;
  * actually inspected it. See `write-rules/order.md`, "Known gaps" and
  * ADR-0011.
  *
- * Damaging more than is currently on hand is a caller bug rather than a
- * customer-facing condition, mirroring `ReleaseStock`/`CompleteSale`/
- * `RestockReturn`, so it throws `InvalidArgumentException` rather than a
- * domain exception.
+ * Damaging more than is available throws `InsufficientStockToDamageException`
+ * — unlike `ReleaseStock`/`CompleteSale`/`RestockReturn`, whose quantity
+ * always comes from another Action (making "more than available" a caller
+ * bug there), this one is reached directly from a quantity a warehouse
+ * employee types into the panel (`ViewInventory`'s `recordDamage` action),
+ * where exceeding available stock is a mistake to correct, not a
+ * programming error. A non-positive quantity is still `InvalidArgumentException`
+ * — the panel's own form already refuses that below 1, so reaching here is a
+ * caller bug regardless of who the caller is.
  *
  * Authorizes nothing — like its three siblings, the caller is responsible
  * for having already authorized the correction this records.
@@ -35,6 +41,9 @@ final class RecordDamage
 {
     public function __construct(private readonly RecordInventoryMovement $recordMovement) {}
 
+    /**
+     * @throws InsufficientStockToDamageException
+     */
     public function handle(
         ProductVariation $variation,
         int $quantity,
@@ -61,14 +70,7 @@ final class RecordDamage
             // decision about someone's order this Action does not make on
             // its own.
             if ($inventory->available() < $quantity) {
-                throw new InvalidArgumentException(sprintf(
-                    'Cannot damage %d of variation %s: only %d available (%d on hand, %d reserved).',
-                    $quantity,
-                    $variation->sku,
-                    $inventory->available(),
-                    $inventory->current_quantity,
-                    $inventory->reserved_quantity,
-                ));
+                throw new InsufficientStockToDamageException($variation, $quantity, $inventory->available());
             }
 
             $inventory->decrement('current_quantity', $quantity);

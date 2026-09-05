@@ -30,6 +30,7 @@ class Order extends Model
      */
     protected $fillable = [
         'user_id',
+        'carrier_id',
         'cart_id',
         'serial_number',
         'email',
@@ -63,6 +64,7 @@ class Order extends Model
         return [
             'id' => 'integer',
             'user_id' => 'integer',
+            'carrier_id' => 'integer',
             'cart_id' => 'integer',
             'status' => OrderStatus::class,
             'payment_method' => PaymentMethod::class,
@@ -153,6 +155,11 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function carrier(): BelongsTo
+    {
+        return $this->belongsTo(Carrier::class);
     }
 
     /**

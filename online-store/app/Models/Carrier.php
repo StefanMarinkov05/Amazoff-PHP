@@ -21,6 +21,7 @@ class Carrier extends Model
         'name',
         'code',
         'cod_fee',
+        'base_delivery_price',
         'is_active',
     ];
 
@@ -34,6 +35,7 @@ class Carrier extends Model
         return [
             'id' => 'integer',
             'cod_fee' => 'decimal:2',
+            'base_delivery_price' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -41,5 +43,10 @@ class Carrier extends Model
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 }

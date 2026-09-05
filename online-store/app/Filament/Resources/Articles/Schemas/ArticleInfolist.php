@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Articles\Schemas;
 
+use App\Models\Article;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -27,6 +28,7 @@ class ArticleInfolist
                 TextEntry::make('content')
                     ->columnSpanFull(),
                 ImageEntry::make('main_image_path')
+                    ->disk(Article::IMAGE_DISK)
                     ->placeholder('-'),
                 TextEntry::make('status')
                     ->badge(),

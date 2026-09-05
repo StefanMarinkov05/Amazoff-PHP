@@ -82,6 +82,7 @@ jobs:
               tests/Feature/ExampleTest.php
               tests/Feature/FactoryTest.php
               tests/Feature/Filament
+              tests/Feature/Http
               tests/Feature/Livewire
               tests/Feature/Models
               tests/Feature/Payment

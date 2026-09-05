@@ -95,9 +95,52 @@ it('recomputes the total from the cart rather than trusting any input', function
 
     $order = app(CreateOrder::class)->handle($cart, checkoutCustomer(), checkoutAddress(), checkoutAddress(), null);
 
-    // 19.99 * 3 = 59.97, no discount, no shipping yet (slice 8).
+    // 19.99 * 3 = 59.97, no discount. shipping_amount stays 0.00 because no
+    // carrier was passed — CalculateDeliveryPriceTest and the carrier tests
+    // below cover the case where one is.
     expect((string) $order->subtotal_amount)->toBe('59.97')
+        ->and((string) $order->shipping_amount)->toBe('0.00')
         ->and((string) $order->total_amount)->toBe('59.97');
+});
+
+it('resolves shipping_amount and carrier_id from the given carrier, never from $customer', function (): void {
+    swapFakeCourier()->fakeQuoteAmount = '7.50';
+    $carrier = checkoutCarrier(['cod_fee' => '0.00']);
+
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(product: ['regular_price' => '20.00', 'vat_rate' => 20.00]), 1);
+
+    $order = app(CreateOrder::class)->handle(
+        $cart,
+        checkoutCustomer(),
+        checkoutAddress(),
+        checkoutAddress(),
+        null,
+        $carrier,
+    );
+
+    expect($order->carrier_id)->toBe($carrier->getKey())
+        ->and((string) $order->shipping_amount)->toBe('7.50')
+        ->and((string) $order->total_amount)->toBe('27.50');
+});
+
+it('adds the carrier\'s cash-on-delivery fee to shipping only when paying cash on delivery', function (): void {
+    swapFakeCourier()->fakeQuoteAmount = '5.00';
+    $carrier = checkoutCarrier(['cod_fee' => '2.00']);
+
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(product: ['regular_price' => '10.00']), 1);
+
+    $order = app(CreateOrder::class)->handle(
+        $cart,
+        checkoutCustomer(['payment_method' => PaymentMethod::CashOnDelivery]),
+        checkoutAddress(),
+        checkoutAddress(),
+        null,
+        $carrier,
+    );
+
+    expect((string) $order->shipping_amount)->toBe('7.00');
 });
 
 it('writes one billing and one delivery address, each typed correctly', function (): void {

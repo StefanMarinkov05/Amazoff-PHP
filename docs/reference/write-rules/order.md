@@ -171,9 +171,14 @@ The fix is structural rather than something a race test demonstrates: the
 window between locking two rows inside one transaction is milliseconds,
 too narrow for a barrier-based test to force reliably without being flaky.
 
-**2. `shipping_amount` is hardcoded to `'0.00'`.** No delivery-price
-calculation exists yet to feed it. `carriers.cod_fee` exists and is seeded
-but is likewise unread, for the same reason.
+**2. `shipping_amount` is `'0.00'` only when no carrier is given.**
+`CalculateDeliveryPrice::forCart()` now resolves it from the chosen carrier
+and the delivery address whenever `CreateOrder` receives one — `carrier_id`
+is a normal, non-required parameter, so an existing caller that never
+passes one (a seeder, an older test) keeps getting `'0.00'` rather than
+breaking. `carriers.cod_fee` is read and added on top of the resolved
+figure for cash-on-delivery orders specifically. See
+`docs/explanation/couriers.md`.
 
 **3. Webhook replay is undefended, because there is no webhook.** Slice 6 is
 unbuilt: there is no Stripe route, controller, or signature check anywhere in

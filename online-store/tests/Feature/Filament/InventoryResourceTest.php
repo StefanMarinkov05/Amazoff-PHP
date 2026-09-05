@@ -104,3 +104,37 @@ it('records damage through the panel, reaching RecordDamage', function (): void 
         ->and($inventory->inventoryMovements()->latest()->first()->movement_type)
         ->toBe(InventoryMovementType::DamagedProduct);
 });
+
+it('disables Record damage once there is nothing available to damage', function (): void {
+    $this->actingAs(User::where('email', 'warehouse@example.com')->firstOrFail());
+
+    $variation = variationWithStock(current: 5, reserved: 5);
+
+    Livewire::test(ViewInventory::class, ['record' => $variation->inventory->getKey()])
+        ->assertActionDisabled('recordDamage');
+});
+
+it('keeps the enabled Record damage button under maxValue for the quantity available', function (): void {
+    // The button's disabled() and the quantity field's maxValue() are two
+    // separate guards (a race between them and submission is why
+    // RecordDamage still throws its own domain exception — see
+    // InsufficientStockToDamageException and RecordDamageTest's coverage of
+    // the throw itself; ReportsDomainFailuresTest covers the panel turning
+    // any App\Exceptions\* RuntimeException into a notification generically,
+    // so nothing here needs to re-prove that mechanism). This is the
+    // maxValue() half: submitting more than available refuses with a
+    // validation error before RecordDamage is ever called.
+    $this->actingAs(User::where('email', 'warehouse@example.com')->firstOrFail());
+
+    $variation = variationWithStock(current: 5, reserved: 2);
+
+    Livewire::test(ViewInventory::class, ['record' => $variation->inventory->getKey()])
+        ->callAction('recordDamage', data: ['quantity' => 4, 'reason' => null])
+        ->assertHasActionErrors(['quantity']);
+
+    $inventory = $variation->inventory->fresh();
+
+    expect($inventory->damaged_quantity)->toBe(0)
+        ->and($inventory->current_quantity)->toBe(5)
+        ->and($inventory->inventoryMovements()->count())->toBe(0);
+});

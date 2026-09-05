@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Policies\RolePolicy;
+use App\Support\Courier\CourierManager;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -91,6 +92,13 @@ class AppServiceProvider extends ServiceProvider
                 'stripe_version' => ApiVersion::CURRENT,
             ]);
         });
+
+        /*
+         * The `Courier` facade's accessor and every Action's constructor
+         * injection resolve through this one singleton — see
+         * App\Support\Courier\CourierManager.
+         */
+        $this->app->singleton(CourierManager::class, fn (): CourierManager => new CourierManager($this->app));
     }
 
     /**
