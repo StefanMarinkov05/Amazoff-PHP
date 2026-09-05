@@ -1189,7 +1189,9 @@ URL then gets recorded.
 **Severity:** Low locally, **Medium in production** · **Type:** Security
 misconfiguration (OWASP A05)
 
-**Status:** **Open** — configuration gap, no code change needed
+**Status:** **Half closed** 2026-09-05 — `.env.example` now documents the
+key; setting it to `true` on the deployed environment remains an ops step
+this repository cannot perform.
 
 **Finding.** `config/session.php` reads
 `'secure' => env('SESSION_SECURE_COOKIE')`, and that variable appears
@@ -1217,8 +1219,10 @@ HTTP if any request ever reaches the site that way.
 | `partitioned` | `false` | fine — nothing embeds this site in a third-party context |
 | `lifetime` | 120 min | reasonable |
 
-**Fix (proposed, not applied).** Add to `.env.example`, with the comment
-explaining the local/production split:
+**Fix (applied 2026-09-05, half).** Added to `.env.example` with the comment
+explaining the local/production split, so a deployer is prompted rather than
+left to discover it. The other half — actually setting it `true` in
+production — is an ops action, not a code change:
 
 ```
 # Leave false locally (a Secure cookie is not sent over http://localhost).
