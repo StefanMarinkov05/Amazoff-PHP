@@ -8,6 +8,115 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`demo:seed` — the whole demo dataset in one command.** `DatabaseSeeder`
+  seeds only what every environment needs (permissions, roles, carriers,
+  staff accounts), so `migrate:fresh --seed` left an empty catalogue and
+  loading the demo content meant thirteen `db:seed --class=` invocations by
+  hand, in an order where five steps are load-bearing and none of them said
+  so at the point of use. The ordering now lives in
+  `Demo\DemoDatabaseSeeder`, next to the calls it constrains, and
+  `demo:seed --fresh` composes the reset and the load.
+
+  Not wired into `migrate:fresh --seed`, and it must not be: CI wants the
+  smallest fixture that exercises the code, and this set is neither small
+  nor fast (ADR-0003).
+
+- **One account that holds every order state.** The 140-order distribution
+  spreads across 100 factory customers, so any *particular* account ended up
+  with between zero and a handful of orders on whatever statuses the shuffle
+  happened to hand it — correct for a realistic dataset, useless for a demo
+  where the presenter signs in as the one account whose password they know.
+
+  `DemoOrderSeeder::SHOWCASE_ACCOUNTS` pins 18 additional orders on top of
+  the distribution, 14 of them on `customer@example.com`, covering **all
+  eleven `OrderStatus` cases on that single login** — so the whole lifecycle
+  can be walked through without signing out. Both payment methods, three
+  different coupons, 1–5 line items, and payment states including
+  `partially_refunded` and `refunded`. `admin@example.com` keeps a small set
+  so the storefront half of the app is reachable while signed in as staff.
+
+  Additional to the distribution rather than carved out of it — carving
+  would silently shrink whichever statuses were borrowed from, and the
+  distribution is asserted against the live database after every run.
+
+  **A pinned coupon assignment cost a whole order, twice, before this was
+  right.** `CouponFactory` randomizes `usage_limit_per_customer`, `FLAT15`
+  came up as 1, and assigning the same code twice to one account meant
+  `RedeemCoupon` refused the second — which, because the coupon is applied
+  before checkout, took the entire order with it. The run reported 157 of
+  158 created and the missing state was only visible by querying. Fixed by
+  never repeating a code within one account, rather than by pinning the
+  limit and coupling the table to `DemoCouponSeeder`'s factory defaults.
+
+- **`demo:stripe-payments` — real Stripe test intents against seeded
+  orders.** Every `stripe_payment_intent_id` in a seeded database was null:
+  `DemoOrderSeeder` produces payment rows through the real Actions but no
+  Stripe object anywhere. This opt-in command opens real test PaymentIntents
+  for end-to-end payment simulation.
+
+  Not part of the seed chain and never should be — same shape as
+  `demo:fetch-images`, same reasoning (ADR-0003 makes seeding offline and
+  deterministic). It refuses any key that is not `sk_test_`, so a live key
+  cannot open real intents against demo orders by accident. It goes through
+  `CreateStripeIntent` rather than the SDK, so the run exercises the real
+  checkout path — server-side amount, `lockForUpdate` re-read, idempotency
+  key, and the `metadata` the webhook matches on. It creates but never
+  confirms: confirmation and the resulting webhook are exactly what an
+  end-to-end run exists to exercise.
+
+  Verified against the real test API: intents created, amounts matching the
+  payment rows to the minor unit, metadata carrying the payment and order
+  ids, and `CreateStripeIntent` proven idempotent live (a second call on the
+  same payment returns the first intent rather than a second charge).
+
+  **Re-seeding within 24 hours skips some payments, and that is correct.**
+  The idempotency key is `payment-intent-{id}`; ids restart at 1 on every
+  `migrate:fresh` while Stripe remembers a key account-wide for 24 hours, so
+  low ids collide with a previous seed's payments at different amounts. The
+  command reports these as skips rather than failures. The key is a
+  double-charge defence and was deliberately not weakened to make the demo
+  tidier.
+
+### Changed
+
+- **Review and contact-message text moved out of PHP and into JSON.**
+  `DemoReviewSeeder` carried a ~40-line `BODIES` const and
+  `DemoEngagementSeeder` a ~30-line `CONTACT_MESSAGES` const, both of which
+  pushed the actual sampling and approval code off the screen and made a
+  wording change a PHP edit. They are now
+  `database/fixtures/reference/review-bodies.json` (45 bodies, up from 25)
+  and `contact-messages.json` (40 pairs, up from 25) — vocabulary files, the
+  same category as `catalogue.json`, not fixtures with a document shape.
+
+  Both loaders fail loudly on a missing file, a malformed document, a rating
+  with no bodies, or a pool smaller than the count the seeder writes. The
+  silent alternatives are worse than a crash: `array_slice` on a short pool
+  returns fewer rows and a missing rating key writes blank review bodies,
+  both of which report as a successful seed.
+
+- **The seeded review count now adapts to the eligible pool.**
+  `CreateProductReview` enforces §24's verified-purchase rule itself — one
+  review per reviewer per product, from a delivered order they placed — so
+  the ceiling is the count of unique (reviewer, product) pairs, and that
+  moves substantially between runs: 137, 123, 107 and 149 on four
+  consecutive seeds. A fixed constant is wrong on nearly every run, warning
+  and under-delivering when set high, wasting an eligible pool when set low.
+
+  `TOTAL_REVIEWS` is now an upper bound and the seeder takes 85% of what is
+  available, scaling `RATING_DISTRIBUTION`'s weights to match. ~125 reviews
+  on a typical run, up from 90, with no warning. The 15% left unreviewed is
+  deliberate: a demo where every delivered line item already has a review
+  has nothing to point at for the "write a review" path.
+
+- **More seeded content across the board**, verified against the live
+  database after a run rather than asserted: 158 orders (was 140), 405 order
+  items (was 344), 118 payments, 89 shipments, ~126 reviews (was 90), 32
+  contact messages (was 25). Cart line counts and quantities are now
+  weighted rather than uniform — most baskets are one or two lines with a
+  real tail out to six, because a flat spread makes a six-line order as
+  common as a single-line one, which reads as generated data the moment
+  anyone scrolls the order list.
+
 - **`how-to/deploy-and-host.md`** — new, deliberately small. A checklist of
   settings that are correct in local dev only by accident of dev's own
   environment (plain HTTP, no real host), starting with

@@ -2005,18 +2005,71 @@ and `payment_events` is empty. No error anywhere: not in `laravel.log`, not
 in the web server's access log (which shows **zero** hits on
 `/stripe/webhook`), not in the forwarder's own output.
 
-**Cause.** The Stripe CLI is authenticated to a **different account** than
-the application's API keys belong to. `stripe listen` is forwarding
-faithfully — just some other account's events. Confirmed 2026-09-04: the CLI
-sat on `acct_1UAbacHSYCrSsH7T` while `STRIPE_SECRET` belonged to
-`acct_1U9BTmEinvfvnBsb`.
+The same account mismatch shows up through the **Stripe MCP connector**
+too, not just the CLI: `list_available_accounts_or_orgs` (or whatever the
+client calls it) reports one `stripe_context`, and any write made through it
+— creating an intent, confirming one, fetching an event — silently operates
+on that account instead of the one the app's keys belong to. Confirmed
+2026-09-06: an MCP session connected to `acct_1UAbacHSYCrSsH7T` while
+`STRIPE_SECRET` in `.env` belonged to `acct_1U9BTmEinvfvnBsb` — the same pair
+as the CLI incident below, on a different machine, months apart, which is
+itself evidence for the cause described next.
+
+**Cause.** Whatever tool is being used — CLI or MCP — is authenticated to a
+**different account** than the application's API keys belong to. `stripe
+listen` is forwarding faithfully — just some other account's events; the MCP
+connector is reading/writing faithfully — just against some other account's
+data. Confirmed 2026-09-04 (CLI): the tool sat on `acct_1UAbacHSYCrSsH7T`
+while `STRIPE_SECRET` belonged to `acct_1U9BTmEinvfvnBsb`. Confirmed again
+2026-09-06 (MCP), same two account ids.
+
+**Likely root cause, on a team project: an individual auth, not a shared
+one.** Both the CLI and the MCP connector authenticate *per developer*, not
+per repository — `stripe login` and an MCP OAuth grant both attach to
+whichever Stripe account the person doing it is signed into at the time,
+which has nothing to do with which account issued the keys in the team's
+`.env`.
+
+**`acct_1UAbacHSYCrSsH7T` is not an empty scratch account — it is a second,
+actively-used Stripe sandbox also named "Amazoff".** Checked 2026-09-06: its
+dashboard shows real-looking activity (`€1,994.53` gross volume, a nonzero
+EUR balance) that does **not** come from this app — the app's own database
+at the time held only 2 payments with a real Stripe intent, both opened
+during that session's testing. That rules out "someone logged into it once
+by accident and it happened to have leftover data"; the volume on
+`acct_1UAbac...` was produced by something else, running against that
+account, believing it to be the project's.
+
+**Whose account each one actually is remains unconfirmed — do not treat a
+guess as settled here.** What is verified: this application's `.env` (and
+therefore every seeder, every Action, and this doc's own worked examples)
+points at `acct_1U9BTmEinvfvnBsb`. What is *not* verified: which of the two
+accounts a given teammate considers "theirs", or which one is the one the
+team originally intended as canonical versus one that came later. A
+plausible read is that `acct_1U9BTmEinvfvnBsb` is a particular teammate's
+own account and `.env` has pointed at it since setup — which would mean the
+"wrong" account in every incident above is actually the one nobody has been
+using, not a stray personal login. Resolve this by asking, not by
+inference: whoever owns each account should say so, and the team should
+then pick one and update `.env` (and the vault) to match — rather than
+continuing to call whichever one `.env` currently has "canonical" by
+default.
+
+**Until that conversation happens, treat `acct_1U9BTmEinvfvnBsb` as
+canonical only because it is what `.env` currently contains** — not because
+anyone has confirmed it is the account the team meant to standardize on.
+Anyone setting up the CLI or an MCP connector for this repo should still
+match whatever `.env` has *today*, since that is what every actual write
+this app makes uses — but a `.env` change is on the table pending that
+conversation, and would flip which account is "correct" for this whole
+entry.
 
 **The signing secrets matching is not evidence the accounts match.** The
 `whsec_…` a `stripe listen` session prints is generated per session, so
 copying it into `.env` makes the signature check pass for whatever events do
 arrive — while the events you care about are never sent at all.
 
-**Fix.** Compare the two directly:
+**Fix, CLI.** Compare the two directly:
 
 ```bash
 stripe config --list | grep account_id
@@ -2026,27 +2079,74 @@ docker compose exec -T app php artisan tinker --execute='echo app(Stripe\StripeC
 If they differ, re-authenticate the CLI against the right account
 (`stripe login`), or point `.env` at the account the CLI already holds.
 
-To verify the handler itself without touching the CLI, fetch the event from
-the app's *own* account, sign it with the app's *own* secret, and POST it to
-the endpoint — that exercises the real middleware with real bytes:
+**Fix, MCP.** List the connector's accounts and compare the same way:
+
+```
+list_available_accounts_or_orgs   → stripe_context, e.g. acct_1UAbac...
+docker compose exec -T app php artisan tinker --execute='echo app(Stripe\StripeClient::class)->accounts->retrieve()->id;'   → acct_1U9BTm...
+```
+
+If they differ, the connector needs re-authorizing against
+`acct_1U9BTmEinvfvnBsb`. The `manage_stripe_accounts` MCP tool returns a
+Stripe-hosted URL for this — open it, sign into the right account (or add it
+alongside the wrong one), and re-run `list_available_accounts_or_orgs` to
+confirm. This is an account-level authorization change on Stripe's side;
+nothing in the repo or `.env` causes or fixes it, and there is no way to
+force a teammate's already-authorized session to switch — each person's CLI
+login and MCP grant only they can re-point, from their own machine.
+
+**To verify the handler itself without touching either tool**, fetch the
+event from the app's *own* account (inside the container, using the app's
+own key — this sidesteps the CLI/MCP mismatch entirely rather than working
+around it), sign it with the app's *own* secret, and POST it to the
+endpoint. This is the real middleware, real bytes, not a simulation:
 
 ```php
-$event = app(Stripe\StripeClient::class)->events->retrieve('evt_…', []);
+// Everything below runs with the app's own StripeClient, so it always
+// targets the right account regardless of what the CLI or MCP hold.
+$stripe = app(Stripe\StripeClient::class);
+
+// 1. Open an intent the normal way, or use one demo:stripe-payments made.
+$intent = app(App\Actions\Payment\CreateStripeIntent::class)->handle($payment);
+
+// 2. Confirm it with a test card. automatic_payment_methods needs a
+//    return_url for a server-side confirm outside the browser flow.
+$intent = $stripe->paymentIntents->confirm($intent->stripe_payment_intent_id, [
+    'payment_method' => 'pm_card_visa',
+    'return_url' => 'https://example.com/return',
+]);
+
+// 3. Fetch the resulting event and sign it exactly as Stripe would.
+$event = $stripe->events->all(['type' => 'payment_intent.succeeded', 'limit' => 1])->data[0];
 $payload = json_encode($event->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $ts = time();
 $sig = hash_hmac('sha256', "{$ts}.{$payload}", config('services.stripe.webhook_secret'));
-// POST to http://webserver/stripe/webhook with Stripe-Signature: t={$ts},v1={$sig}
+// 4. POST $payload to /stripe/webhook with header:
+//    Stripe-Signature: t={$ts},v1={$sig}
 ```
 
-**Why it recurs.** Every symptom points somewhere else — a webhook-handling
-bug, a signature mismatch, a container networking problem. Nothing in the
-CLI's output names the account it is listening for, and a developer with
-more than one Stripe account (a personal sandbox and a team one) can switch
-the app's keys without the CLI following.
+Verified end to end 2026-09-06 this way: intent confirmed
+(`amount_received` matching the payment row to the minor unit), webhook
+returned `200 {"received":true}`, and `payments.status` moved to `paid` with
+a `payment_events` row recorded — proving the full path without either tool
+needing to hold the right account.
 
-**Prevention.** Check the account pair before debugging a missing webhook,
-and re-check it whenever `STRIPE_SECRET` changes. `stripe listen` printing
-`Ready!` proves a websocket opened, not that it will carry your events.
+**Why it recurs.** Every symptom points somewhere else — a webhook-handling
+bug, a signature mismatch, a container networking problem. Neither the CLI's
+output nor the MCP connector's tool list names the account by default, and a
+developer with more than one Stripe account (a personal sandbox and a team
+one) can switch the app's keys without either tool following — worse on a
+team project, where the account a *teammate* authenticated months ago for an
+unrelated reason can be the one still attached when someone else hits this.
+
+**Prevention.** Check the account pair before debugging a missing webhook or
+a failed MCP write, and re-check it whenever `STRIPE_SECRET` changes or a
+new person authenticates a tool for this repo. `stripe listen` printing
+`Ready!`, or an MCP tool call succeeding, proves a connection opened — not
+that it is the right account. State the canonical account
+(`acct_1U9BTmEinvfvnBsb`) explicitly when onboarding a teammate to Stripe
+tooling on this project, rather than letting each person's tool default to
+whatever they last signed into.
 
 ---
 
