@@ -58,21 +58,31 @@ in agreement: if a rule here changes, change it there too.
   `coupon.md`, `order.md`, `auth.md`, `concurrency.md`) is the
   expected-behaviour page per aggregate — refusals, races, what a change
   does to state that already exists; `console-commands.md` lists every
-  custom Artisan command and what invokes it; `ui-tests.md` lists every
-  storefront and admin-panel UI test and what it proves, grouped by
-  component/resource — check it before changing a Livewire component or
-  Filament resource, so the tests that pin its current behaviour are known
-  up front rather than discovered by a broken run; `stripe-testing.md` is
-  the payment suite's own version of that, and is the honest record of what
-  is *not* covered and why — read it before trusting the payment path;
-  `browser-testing.md` is the third in that family, covering what only a
-  real browser can prove (§37 #19, responsive) and carrying the same honest
-  list of gaps — one browser, no real devices, no text zoom;
-  `security-testing.md` is the fourth, recording what a security pass
-  probed, what held, and what it could not reach — read it before trusting
-  any claim that an authorization path is safe; `security-tooling.md` is its
-  inventory half — which scanners are configured how, the exact surface they
-  reached, and the measured numbers behind every coverage claim;
+  custom Artisan command and what invokes it; `permissions.md` and
+  `tech-stack.md` are the rest.
+
+  **[`docs/reference/testing/`](docs/reference/testing/)** groups every
+  "what did testing prove" document apart from the system-fact files
+  above, since they change at a different rate and for different reasons.
+  `ui-tests.md` lists every storefront and admin-panel UI test and what it
+  proves, grouped by component/resource — check it before changing a
+  Livewire component or Filament resource, so the tests that pin its
+  current behaviour are known up front rather than discovered by a broken
+  run; `stripe-testing.md` is the payment suite's own version of that, and
+  is the honest record of what is *not* covered and why — read it before
+  trusting the payment path; `browser-testing.md` is the third in that
+  family, covering what only a real browser can prove (§37 #19,
+  responsive) and carrying the same honest list of gaps — one browser, no
+  real devices, no text zoom; `security-testing.md` is the fourth,
+  recording what a security pass probed, what held, and what it could not
+  reach — read it before trusting any claim that an authorization path is
+  safe; `security-tooling.md` is its inventory half — which scanners are
+  configured how, the exact surface they reached, and the measured numbers
+  behind every coverage claim; `security/` holds that tooling's actual
+  inputs and outputs — `zap-auth.yaml` (the reusable authenticated-scan
+  plan) and `reports/` (the dated, never-edited-after-the-fact output of
+  each run); `tested-inputs.md` and `coverage.md` round out the numbers.
+
   `ui-testing/` is the fifth, the interactive click-through, one file per
   pass rather than one growing file — `phase-1-storefront-clickthrough.md`
   (every storefront page driven live, every defined behaviour — a
@@ -92,8 +102,7 @@ in agreement: if a rule here changes, change it there too.
   modal-driving click cannot reach, and every table carrying a control row
   so a probe that never reaches the code under test cannot read as a
   pass); its screenshots live in
-  `docs/assets/ui-testing/`, not loose in `assets/`; `permissions.md`,
-  `coverage.md`, and `tech-stack.md` are the rest.
+  `docs/assets/ui-testing/`, not loose in `assets/`.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and

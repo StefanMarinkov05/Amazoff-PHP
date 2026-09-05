@@ -24,7 +24,7 @@ class ArticleDetails extends Component
      * mount() has already run its visibility check. `#[Locked]` is defence
      * in depth; the load-bearing guard is that `article()` below re-applies
      * `->visible()` on every read, so the entitlement travels with the id
-     * rather than being checked once. See `reference/security-testing.md`
+     * rather than being checked once. See `reference/testing/security-testing.md`
      * SEC-001.
      */
     #[Locked]

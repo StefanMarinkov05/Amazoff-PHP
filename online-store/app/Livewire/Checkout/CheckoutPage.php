@@ -111,7 +111,7 @@ class CheckoutPage extends Component
      * let a crafted request point the page at another customer's order.
      * `#[Locked]` blocks the tampering; `order()` below still scopes the
      * lookup, so the id is safe even if it arrives some other way.
-     * See `reference/security-testing.md` SEC-002.
+     * See `reference/testing/security-testing.md` SEC-002.
      */
     #[Locked]
     public ?int $orderId = null;

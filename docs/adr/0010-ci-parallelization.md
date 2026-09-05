@@ -111,11 +111,11 @@ whichever shard is slowest plus fixed per-job overhead.
 Coverage (`--coverage --coverage-clover`) is dropped from CI entirely,
 rather than merged across `test`'s two shards or kept on one shard only.
 Once `test` is sharded, no single shard's report is the number
-`reference/coverage.md` and ADR-0009 describe — a merge step
+`reference/testing/coverage.md` and ADR-0009 describe — a merge step
 (`phpcov merge` or similar) is real infrastructure to add and maintain for
 a number that was already reported-not-gated (ADR-0009) and had no
 regular reader of the CI artifact. Generate coverage locally
-(`docs/reference/coverage.md` has the command) instead.
+(`docs/reference/testing/coverage.md` has the command) instead.
 
 ### Both suites are 2–3-shard matrices, hand-partitioned by measured time
 

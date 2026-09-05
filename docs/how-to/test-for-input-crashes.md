@@ -1,7 +1,7 @@
 # How to test a form or filter for input crashes
 
 What to actually try against a Livewire component's public properties before
-calling it safe, and why each case matters. `docs/reference/tested-inputs.md`
+calling it safe, and why each case matters. `docs/reference/testing/tested-inputs.md`
 is the running log of what has been checked where — read that first to see
 if the thing you're about to test is already covered; add to it once you've
 checked something new.
@@ -169,4 +169,4 @@ every property is covered by a `rules()`/`validate()` call whose `max:`
 length matches its column exactly (verified against the migrations, not
 assumed). XSS- and SQLi-shaped input against all five returns a validation
 error, never a reflection or a query change. Full detail in
-`docs/reference/tested-inputs.md`.
+`docs/reference/testing/tested-inputs.md`.

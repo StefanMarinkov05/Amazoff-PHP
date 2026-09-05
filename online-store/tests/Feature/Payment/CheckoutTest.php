@@ -252,7 +252,7 @@ it('has no price property a client could set, and refuses one that is invented',
  * The payment step renders the placed order's serial number. It once did so
  * from a bare, unscoped Order::find() on `orderId` — a client-writable
  * public property — so a visitor could point it at another customer's order
- * and read that serial (reference/security-testing.md, SEC-002). Two
+ * and read that serial (reference/testing/security-testing.md, SEC-002). Two
  * mechanisms fix it, each with a test that goes red if removed:
  *   1. `order()` scopes to owner-or-session-claim, never a bare find().
  *   2. #[Locked] on `orderId` and `clientSecret` refuses the client write.

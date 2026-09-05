@@ -106,13 +106,13 @@ when the work happened, not when it was committed — nothing in
   what it claims.
 
 - **Phase 4 of the interactive UI testing record — the admin panel.**
-  `reference/ui-testing/phase-4-admin-panel-clickthrough.md`, closing the gap
+  `reference/testing/ui-testing/phase-4-admin-panel-clickthrough.md`, closing the gap
   all three earlier phases named in their own "not covered" sections: the
   panel's own forms and actions, driven rather than read.
 
   §37 #18 is now verified across **all 19 admin resources × 4 accounts**
   (the earlier sweep covered 13 routes), extending the role matrix in
-  `reference/security-testing.md`. Each role reaches exactly what the
+  `reference/testing/security-testing.md`. Each role reaches exactly what the
   permission catalogue grants and nothing else. The two 200s that were added
   are the point of the extension: `content_editor` holds `viewAny_tag` and
   `viewAny_article_category`, so a 403 there would have been a *missing
@@ -213,7 +213,7 @@ when the work happened, not when it was committed — nothing in
   failure.
 
   Three new docs: `explanation/stripe-payments.md` (how the integration
-  works end to end), `reference/stripe-testing.md` (what is tested, what
+  works end to end), `reference/testing/stripe-testing.md` (what is tested, what
   is not, and why), and `how-to/set-up-stripe.md` (MCP install through
   keys, the CLI, and how to extend it) — plus
   `explanation/secrets-and-env.md`, the standing policy on `.env` and why
@@ -225,7 +225,7 @@ when the work happened, not when it was committed — nothing in
   fixed and regression-tested.** Both were the same shape — a client-writable
   Livewire public property that a query downstream trusted — and both were
   confirmed by live exploitation against the running app before being fixed.
-  `reference/security-testing.md` (new) is the full report, in bug-bounty
+  `reference/testing/security-testing.md` (new) is the full report, in bug-bounty
   format, with the role-access matrix and what held.
 
   - **SEC-001 (High): draft and embargoed articles were publicly readable.**
@@ -267,7 +267,7 @@ when the work happened, not when it was committed — nothing in
   What it does enforce is `frame-ancestors 'none'`, `object-src 'none'`,
   `base-uri 'self'` and `form-action 'self'` — the four that hold regardless
   of a permissive `script-src`, and the four the test pins. See
-  `reference/security-testing.md` SEC-004 and SEC-006.
+  `reference/testing/security-testing.md` SEC-004 and SEC-006.
 
   Dev-only, and recorded as such: `server_tokens off` and `expose_php = Off`
   suppress the `Server` and `X-Powered-By` version banners in the Docker
@@ -290,8 +290,8 @@ when the work happened, not when it was committed — nothing in
   highest-coverage authenticated pass to date (vs. 376 previously), with the
   race confirmed closed by re-checking the full access log for interleaved
   same-URL status codes rather than trusting the summary table. See
-  `reference/security-testing.md`'s "third run" note under SEC-007, and
-  `reference/security/zap-auth.yaml` for the corrected launch command and
+  `reference/testing/security-testing.md`'s "third run" note under SEC-007, and
+  `reference/testing/security/zap-auth.yaml` for the corrected launch command and
   the general trap write-up in
   `~/.claude/skills/website-testing/references/security-tooling.md`.
 
@@ -343,7 +343,7 @@ when the work happened, not when it was committed — nothing in
   neither half can observe the other. The header test pins the four
   directives SEC-006 chose and never asserts that a script is loadable. The
   fix is four named origins, not a wildcard; recorded in
-  `reference/security-testing.md` rather than applied, because changing a
+  `reference/testing/security-testing.md` rather than applied, because changing a
   security header deserves a deliberate review.
 
 - **SEC-010: four public forms have no rate limit.** `ContactForm`,
@@ -396,7 +396,7 @@ when the work happened, not when it was committed — nothing in
   trait has something it is willing to catch — which is four vertical slices
   rather than a patch. Severity is low: staff-only, the delete is correctly
   refused, nothing is lost or corrupted; what is wrong is the failure shape.
-  `reference/ui-testing/phase-4-admin-panel-clickthrough.md` has the table.
+  `reference/testing/ui-testing/phase-4-admin-panel-clickthrough.md` has the table.
 
 - **SEC-008: a role granted `update_role` can grant itself everything.**
   Latent, not exploitable on `main` — no role holds it, and the escalation
@@ -413,7 +413,7 @@ when the work happened, not when it was committed — nothing in
   it dead code. `RoleResource` never got the equivalent guard. Fix proposed
   and not applied: it changes what an administrator may do to their own role,
   which is a decision about who can lock themselves out, not only a security
-  patch. Full write-up in `reference/security-testing.md`.
+  patch. Full write-up in `reference/testing/security-testing.md`.
 
 - From the same review: **signing-secret rotation** and **dispute
   handling** are now closed — see the follow-up entry above. **IP
@@ -571,7 +571,7 @@ when the work happened, not when it was committed — nothing in
   the resulting `payment_intent.succeeded` accepted by the webhook — moving
   the payment `pending` → `paid`. Redelivering the same event stayed at one
   `payment_events` row; the same payload unsigned returned 400.
-  `reference/stripe-testing.md` has the full table.
+  `reference/testing/stripe-testing.md` has the full table.
 
   The tests still fake `StripeClient`, deliberately — a suite that reaches
   the network depends on credentials and connectivity. What has changed is
@@ -754,7 +754,7 @@ when the work happened, not when it was committed — nothing in
   `EnsureAccountIsActive`'s explanation of why the session ended would
   otherwise have been set and silently discarded.
 
-- `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
+- `docs/reference/testing/ui-tests.md` — every storefront and admin-panel UI test
   (`tests/Feature/Livewire/*`, `tests/Feature/Filament/*`), grouped by
   component or resource, stating what each one actually proves and, where a
   test exists because of a real incident, what that incident was. Not a
@@ -1159,7 +1159,7 @@ when the work happened, not when it was committed — nothing in
   a Livewire component test — plus the value playbook: overflow,
   malformed-numeric, negative, XSS-shaped, SQLi-shaped, oversized string,
   value outside a fixed allow-list) and
-  `docs/reference/tested-inputs.md` (the running per-property index of
+  `docs/reference/testing/tested-inputs.md` (the running per-property index of
   what has actually been checked, where, and the result — not one row per
   component, since the lesson below is specifically that a property, not a
   component, is the right unit of coverage).
@@ -2787,7 +2787,7 @@ when the work happened, not when it was committed — nothing in
   passing test is not evidence without deletion-proof.
   `docker/php/conf.d/pcov.ini`, `docker/php/conf.d/cli-memory.ini` (the
   default 128M `memory_limit` cannot assemble a full-project report).
-- `docs/reference/coverage.md` — per-class PCOV breakdown, distinguishing
+- `docs/reference/testing/coverage.md` — per-class PCOV breakdown, distinguishing
   lines proven by a concurrency test PCOV cannot see from lines genuinely
   untested.
 - `docs/reference/write-rules/` — `product-write-rules.md`,
@@ -2981,10 +2981,10 @@ when the work happened, not when it was committed — nothing in
   three seeders before every test (deliberate — the permission registrar
   caches for 24h) and is over a third of the Feature/Unit suite's time.
   Coverage collection dropped from CI entirely — sharding `test` means no
-  single shard's report matches `reference/coverage.md`'s numbers, and
+  single shard's report matches `reference/testing/coverage.md`'s numbers, and
   merging two partial reports is real infrastructure for a number ADR-0009
   already established nothing gates on. Regenerate locally
-  (`docs/reference/coverage.md` has the command) when the numbers are
+  (`docs/reference/testing/coverage.md` has the command) when the numbers are
   needed.
 - Local database container runs with relaxed durability
   (`innodb_flush_log_at_trx_commit=2`, `sync_binlog=0`, `--skip-log-bin`).

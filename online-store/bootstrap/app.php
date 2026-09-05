@@ -67,7 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // middleware would leave /admin unheadered — the higher-value
         // target. Reaching the Stripe webhook route too is harmless; Stripe
         // ignores headers it does not recognise. See SetSecurityHeaders'
-        // own docblock and reference/security-testing.md, SEC-004.
+        // own docblock and reference/testing/security-testing.md, SEC-004.
         $middleware->append(SetSecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -19,7 +19,7 @@ use Livewire\Livewire;
  * docs/how-to/test-for-input-crashes.md's playbook is per property, not per
  * component — this is the third property on the third component this
  * project has found the same class of bug on, which is why the coverage
- * index (reference/tested-inputs.md) exists: reviewing $categorySlug clean
+ * index (reference/testing/tested-inputs.md) exists: reviewing $categorySlug clean
  * on this same component did not mean $brandId was.
  */
 

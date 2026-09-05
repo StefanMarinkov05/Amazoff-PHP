@@ -1797,7 +1797,7 @@ for its side effect, check its precondition is registered in the stack that
 actually serves the route — `php artisan tinker` printing
 `app('router')->getMiddlewareGroups()['web']` answers this directly, and is
 what confirmed both halves here. `AuthSessionInvalidationTest` pins the
-group's contents for this reason; `docs/reference/ui-tests.md` records what
+group's contents for this reason; `docs/reference/testing/ui-tests.md` records what
 each of its cases proves.
 
 ## A Feature test passes locally and fails in CI with `ViteManifestNotFoundException`

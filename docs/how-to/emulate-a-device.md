@@ -5,7 +5,7 @@ empty starting state**, and a **real device profile**. Both matter for this
 project — a cart persists in a cookie, and "responsive" is a claim about
 phones rather than about a narrow desktop window.
 
-`docs/reference/browser-testing.md` records what has been verified and what
+`docs/reference/testing/browser-testing.md` records what has been verified and what
 has not. This page is how to run it yourself.
 
 ## The problem with the default session
