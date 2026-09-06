@@ -8,6 +8,15 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`/orders/track` full active ZAP scan now completes, and passed with 0
+  injection-class alerts.** Closes the gap the previous baseline-only pass
+  left open. Four earlier attempts were OOM-killed at `DomXssScanRule`'s
+  headless-browser launch, confirmed via `docker inspect`'s `OOMKilled`
+  field at both a 6 GB and a 10 GB Docker memory cap; a fifth attempt at
+  12 GB completed cleanly (~1h33m). `set-up-security-and-quality-tools.md`'s
+  recommended cap is now 12 GB; `security-testing.md`'s "Other checks"
+  table and `troubleshooting.md`'s ZAP entry have the full evidence trail.
+
 - **Larastan raised from level 5 to 9 across `app/`, `database/seeders`,
   and `database/factories`, with 0 errors.** `phpstan.neon`'s own comment
   had recorded this as an unrevisited scaffold default rather than a

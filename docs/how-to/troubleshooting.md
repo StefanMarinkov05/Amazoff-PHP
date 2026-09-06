@@ -2343,7 +2343,22 @@ untestable from within this suite.
 
 ---
 
-## A ZAP full scan against `/orders/track` gets OOM-killed at `DomXssScanRule`, reproducibly
+## A ZAP full scan against `/orders/track` gets OOM-killed at `DomXssScanRule` below a 12 GB cap
+
+**Resolved 2026-09-06.** A fifth attempt with `-m 12g --memory-swap 12g`
+completed cleanly — `docker inspect`: `OOMKilled: false`, exit code `2`
+(ZAP's own "warnings found" code, not a crash), a real, non-empty log, and
+both `-r`/`-x` report files written. All 136 active-scan rules passed with
+0 alerts in every injection class; 5 WARN-NEW findings, all already-triaged
+header/config categories. Total wall-clock: ~1h33m (18:41–20:14), far
+longer than SEC-005's 48-minute `/catalogue` run despite a much smaller
+attack surface — consistent with the extra headroom being genuinely used
+during `DomXssScanRule`'s browser launch, not wasted. `12 GB` is now the
+memory-cap recommendation in `set-up-security-and-quality-tools.md`.
+Full details in `reference/testing/security-testing.md`'s "Other checks"
+table. The symptom, root cause, and history of failed attempts below are
+kept for the next time this rule needs debugging on a smaller machine —
+this specific target is fixed.
 
 **Symptom.** `zap-full-scan.py` against `/orders/track` (two form fields)
 runs cleanly for roughly 9 minutes — spider, then every active-scan rule up
@@ -2351,7 +2366,8 @@ through the SQLi timing variants, all with 0 alerts — then memory climbs
 sharply and the container dies with no `-r`/`-x` report written. Confirmed
 across four attempts on 2026-09-06, including with no Docker memory cap
 (host-wide exhaustion), a `-m 6g --memory-swap 6g` cap, and a
-`-m 10g --memory-swap 10g` cap — all four die at the same point.
+`-m 10g --memory-swap 10g` cap — all four die at the same point. A fifth
+attempt at `-m 12g --memory-swap 12g` did not die — see "Resolved" above.
 
 **Root cause, confirmed by hard evidence, not inferred.** The fourth attempt
 was run detached (`docker run -d`, no `--rm`) specifically so its exit
@@ -2394,33 +2410,18 @@ logs` until the process exits or the buffer flushes. Confirm real progress
 instead with two `docker stats` samples a few seconds apart — climbing NET
 I/O and PID count means it is genuinely still working, not stuck.
 
-**What remains genuinely open:** whether the fix is (a) a memory cap higher
-than 10 GB, (b) an Automation Framework plan or `-c` config file that
-excludes just `DomXssScanRule` (the `-I` flag does *not* do this — it only
-suppresses returning a failure exit code on warnings, confirmed via
-`zap-full-scan.py --help`), or (c) formally accepting DOM XSS coverage on
-this specific scan as a standing, documented gap. None of the three has
-been implemented yet.
-
-**Fix / what to actually try next**, in order of cost:
-
-1. **The baseline scan** (`zap-baseline.py`) as an immediate fallback — it
-   skips the active-scan phase entirely (passive checks only, no attack
-   payloads) and finishes in about a minute. Real trade, not a free
-   substitute: it proves nothing about DOM XSS or any other injection
-   class. State plainly, when reporting baseline-only results, that the
-   injection-class surface remains unexercised.
-2. **Raise the Docker memory cap past 10 GB** and retry — untested; not
-   known to be sufficient, since the failure has held at two different caps
-   so far.
-3. **Exclude `DomXssScanRule` via an Automation Framework plan**, the same
-   mechanism `zap-auth.yaml` already uses for the authenticated scan —
-   mechanism not yet written for this target.
-4. **Accept the gap and document it** in `security-testing.md`'s
-   `/orders/track` entry if neither of the above is worth the cost for this
-   target — this project's two form fields are a small, already
-   manually-reviewed attack surface (see the existing manual XSS/injection
-   coverage in that entry).
+**Fix, confirmed working: raise the Docker memory cap to 12 GB.** The
+progression 6 GB → 10 GB → 12 GB shows this is a real, quantifiable memory
+requirement, not an unfixable incompatibility — `DomXssScanRule`'s browser
+launch needs somewhere between 10 GB and 12 GB of headroom on this
+codebase's `/orders/track` page. If a future target needs more than 12 GB
+and the host can't spare it, the remaining options (untried so far) are an
+Automation Framework plan or `-c` config file excluding just
+`DomXssScanRule` (the `-I` flag does *not* do this — it only suppresses
+returning a failure exit code on warnings, confirmed via
+`zap-full-scan.py --help`), or the baseline scan (`zap-baseline.py`) as a
+fallback that proves nothing about DOM XSS specifically but finishes in
+about a minute.
 
 **Why it recurs.** `DomXssScanRule`'s browser dependency is not obvious
 from the rule name or from `pentest-the-system.md`'s general cost table

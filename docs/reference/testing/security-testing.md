@@ -1385,6 +1385,39 @@ Checked and correct, recorded so a later pass does not re-derive it.
 | Logout | POST-only, so no `<img src>` can trigger it |
 | Dependencies (JS) | `npm audit --omit=dev`: 0 vulnerabilities |
 
+**`/orders/track`, full active ZAP scan, 2026-09-06** (baseline passive
+scan the same day already covered the header/config class — see the
+`/orders/track` entry that used to sit here, now folded into this row
+since both scans are complete). The active scan ran under a `-m 12g
+--memory-swap 12g` Docker cap, took ~1h33m (18:41–20:14), and completed
+cleanly (`docker inspect`: `OOMKilled: false`, exit code 2 — ZAP's own
+"warnings found" code, not a crash). All 136 active-scan rules passed with
+**0 alerts**, including every injection-class rule that matters here:
+generic and DB-specific timing SQLi (MySQL/MsSQL/Oracle/PostgreSQL/
+Hypersonic), reflected/persistent/DOM-based XSS, path traversal, remote
+file inclusion, SSTI, XXE, command injection, NoSQL injection. 5 WARN-NEW
+findings, all already-triaged header/config categories overlapping the
+same-day baseline's 7 (`Cookie No HttpOnly Flag`, `Cross-Domain JavaScript
+Source File Inclusion`, `CSP: script-src unsafe-inline`, `Sub Resource
+Integrity Attribute Missing`, `Cross-Origin-Resource-Policy Header
+Missing`) — dev-server artifacts and informational-only items, nothing
+new. Report: `scratchpad/zap-orders-track-full5.html`/`.xml` — **not
+committed** (nothing in `scratchpad/` has been `git add`ed), but not
+covered by a `.gitignore` rule either; don't assume it's protected from an
+accidental `git add -A`.
+
+This closes the injection-class gap the earlier baseline-only pass left
+open. It also resolves a standing open question from four earlier failed
+attempts (`how-to/troubleshooting.md`'s ZAP entry has the full account):
+those were OOM-killed at `DomXssScanRule`'s headless-browser launch at both
+a 6 GB and a 10 GB Docker memory cap, reproducibly. A 12 GB cap was
+sufficient — the fifth attempt shows no browser-launch failure message at
+all in its log, and finishes markedly slower (1h33m) than SEC-005's 48-min
+`/catalogue` run despite a much smaller attack surface, consistent with
+the extra headroom being needed and used during that rule specifically.
+`how-to/set-up-security-and-quality-tools.md`'s memory-cap guidance is
+updated to 12 GB accordingly.
+
 ## Hardening gaps (not vulnerabilities today)
 
 Neither is exploitable in local dev over HTTP; both matter on first deploy.
@@ -1429,57 +1462,10 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
 - **~~Rate limiting outside login.~~** Assessed 2026-09-04 — see **SEC-010**.
   Confirmed unthrottled and measured; `TrackOrder` (new) does throttle.
 
-- **`/orders/track` got a baseline (passive) scan, 2026-09-06 — a full
-  active scan against it reproducibly gets OOM-killed at `DomXssScanRule`,
-  confirmed by hard evidence, not a fixed property of the URL's size.**
-  Four attempts (no cap, a `-m 6g` Docker cap, and a `-m 10g` cap, the last
-  run detached specifically so its exit state could be inspected) all died
-  at the identical point: every active-scan rule before `DomXssScanRule`
-  completes cleanly with 0 alerts in roughly 9 minutes — PathTraversal,
-  RemoteFileInclude, ShellShock, HeartBleed, SourceCodeDisclosure,
-  reflected/persistent XSS, generic and DB-specific timing SQLi all
-  included — then memory spikes and the container dies as soon as
-  `DomXssScanRule` starts. `docker inspect`'s `OOMKilled` field returned
-  `true` on the fourth attempt, and its log (unreadable until the container
-  exited, due to Python's stdout buffering with no TTY attached) showed the
-  spike follows `"Failed to configure ZAP extension on browser launch"`
-  warnings — `DomXssScanRule` is the one rule that launches a real headless
-  Firefox via geckodriver rather than using ZAP's own HTTP client, and that
-  browser launch is what exceeds both memory caps tried so far, on a host
-  confirmed idle mid-run by `docker stats`. This is unrelated to SEC-005's
-  successful `/catalogue` run (48 minutes, 7.4 GB peak, 2026-09-03), which
-  never reached this rule under the same conditions by coincidence of
-  timing, not because `/catalogue` avoids it. `how-to/troubleshooting.md`'s
-  entry has the full account, including two superseded earlier theories
-  (an authenticated-scan concurrency fix wrongly generalised here, then an
-  unconfirmed "ambient host memory pressure" theory) — both retracted now
-  that the failure reproduces at a fixed point regardless of host load or
-  concurrency flags. **Not yet resolved:** whether a cap above 10 GB, an
-  Automation Framework plan excluding `DomXssScanRule`, or accepting DOM
-  XSS as an undocumented-by-scanner gap on this page is the right fix —
-  none has been implemented.
-
-  The baseline scan that did complete found **7 warnings, all already
-  triaged categories from the SEC-004/SEC-006/SEC-009 passes above** —
-  `Cookie No HttpOnly Flag`, `Cross-Domain JavaScript Source File
-  Inclusion`, `CSP: script-src unsafe-eval`, `Sub Resource Integrity
-  Attribute Missing`, `Cross-Origin-Embedder-Policy Header Missing`,
-  `Non-Storable Content`, `Session Management Response Identified` — same
-  false positives (dev-server artifacts, the CSRF token needing JS
-  readability) and informational-only items already recorded, nothing new.
-  Report: `scratchpad/zap-orders-track-baseline.html` — **not committed**
-  (nothing in `scratchpad/` has been `git add`ed), but it is not actually
-  covered by a `.gitignore` rule either; don't assume it is protected from
-  an accidental `git add -A`.
-
-  **What this does and does not close.** A baseline scan is passive-only —
-  it reads headers and response shape, it never sends an attack payload. It
-  rules out the header/config class of finding on this page specifically
-  and confirms nothing new appeared; it does **not** exercise the
-  injection-class surface (`order_number`/`email` submitted with SQLi/XSS
-  payloads) the full active scan exists to test, and that remains unrun
-  here. `/account/orders` and the seven informational pages still have no
-  scanner pass of either kind.
+- **`/account/orders` and the seven informational pages still have no
+  scanner pass of either kind.** `/orders/track` itself now has both — see
+  "Other checks" below; this remaining gap is the rest of the storefront
+  route surface a scanner has not yet reached.
 
 - **Browser-enforced controls, beyond the CSP finding.** SEC-009 came from
   asking whether the CSP permits what the app loads. The same question has
