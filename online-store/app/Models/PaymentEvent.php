@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use Database\Factories\PaymentEventFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentEvent extends Model
 {
+    /** @use HasFactory<PaymentEventFactory> */
     use HasFactory;
 
     /**
@@ -46,6 +48,7 @@ class PaymentEvent extends Model
         ];
     }
 
+    /** @return BelongsTo<Payment, $this> */
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);

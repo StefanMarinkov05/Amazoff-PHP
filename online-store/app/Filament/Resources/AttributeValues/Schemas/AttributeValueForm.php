@@ -25,7 +25,14 @@ class AttributeValueForm
                     ->required()
                     ->unique(
                         ignoreRecord: true,
-                        modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('attribute_id', $get('attribute_id')),
+                        modifyRuleUsing: function (Unique $rule, Get $get) {
+                            $attributeId = $get('attribute_id');
+
+                            return $rule->where(
+                                'attribute_id',
+                                is_int($attributeId) || is_string($attributeId) ? $attributeId : null,
+                            );
+                        },
                     ),
                 TextInput::make('color_hex'),
                 TextInput::make('sort_order')

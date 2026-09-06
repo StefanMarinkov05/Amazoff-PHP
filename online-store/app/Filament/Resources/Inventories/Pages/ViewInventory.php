@@ -10,12 +10,14 @@ use App\Enums\InventoryMovementType;
 use App\Filament\Concerns\ReportsDomainFailures;
 use App\Filament\Resources\Inventories\InventoryResource;
 use App\Models\Inventory;
+use App\Models\ProductVariation;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Icons\Heroicon;
+use RuntimeException;
 
 /**
  * No `EditAction`: `InventoryPolicy::update()` authorizes recording a
@@ -37,7 +39,7 @@ class ViewInventory extends ViewRecord
             Action::make('adjustStock')
                 ->label('Adjust stock')
                 ->icon(Heroicon::OutlinedArchiveBox)
-                ->modalHeading(fn (Inventory $record): string => "Adjust stock for {$record->productVariation->sku}")
+                ->modalHeading(fn (Inventory $record): string => "Adjust stock for {$this->variationOf($record)->sku}")
                 ->modalDescription(fn (Inventory $record): string => sprintf(
                     'Currently %d on hand, %d reserved, %d available.',
                     $record->current_quantity,
@@ -70,7 +72,7 @@ class ViewInventory extends ViewRecord
                 ->action(function (Inventory $record, array $data): void {
                     $this->reportingDomainFailures(
                         fn () => app(AdjustStock::class)->handle(
-                            $record->productVariation,
+                            $this->variationOf($record),
                             (int) $data['delta'],
                             InventoryMovementType::from($data['movement_type']),
                             $this->actor(),
@@ -89,7 +91,7 @@ class ViewInventory extends ViewRecord
                 ->tooltip(fn (Inventory $record): ?string => $record->available() <= 0
                     ? 'Nothing available to damage — all stock is either already damaged or reserved for an order.'
                     : null)
-                ->modalHeading(fn (Inventory $record): string => "Record damage for {$record->productVariation->sku}")
+                ->modalHeading(fn (Inventory $record): string => "Record damage for {$this->variationOf($record)->sku}")
                 ->modalDescription(fn (Inventory $record): string => sprintf(
                     'Currently %d on hand, %d reserved, %d available. Damaged stock cannot come from what is already reserved for an order.',
                     $record->current_quantity,
@@ -113,7 +115,7 @@ class ViewInventory extends ViewRecord
                 ->action(function (Inventory $record, array $data): void {
                     $this->reportingDomainFailures(
                         fn () => app(RecordDamage::class)->handle(
-                            $record->productVariation,
+                            $this->variationOf($record),
                             (int) $data['quantity'],
                             $this->actor(),
                             $data['reason'] ?? null,
@@ -132,5 +134,24 @@ class ViewInventory extends ViewRecord
         $user = auth()->user();
 
         return $user;
+    }
+
+    /**
+     * `product_variation_id` is a non-nullable, unique foreign key
+     * (`create_inventories_table`) — an `Inventory` row with no variation is
+     * a data-integrity violation, not a state this page should render around.
+     */
+    private function variationOf(Inventory $record): ProductVariation
+    {
+        $variation = $record->productVariation;
+
+        if ($variation === null) {
+            $key = $record->getKey();
+            $key = is_scalar($key) ? $key : 'unknown';
+
+            throw new RuntimeException("Inventory #{$key} has no product variation.");
+        }
+
+        return $variation;
     }
 }

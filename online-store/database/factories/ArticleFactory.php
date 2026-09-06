@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\ArticleStatus;
+use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<Article>
+ */
 class ArticleFactory extends Factory
 {
     /**

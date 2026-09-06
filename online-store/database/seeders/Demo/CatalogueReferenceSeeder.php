@@ -10,6 +10,7 @@ use App\Models\AttributeValue;
 use App\Models\Brand;
 use App\Models\ProductCategory;
 use Illuminate\Database\Seeder;
+use InvalidArgumentException;
 use JsonException;
 use RuntimeException;
 
@@ -121,7 +122,13 @@ class CatalogueReferenceSeeder extends Seeder
             $children = $category['children'] ?? [];
 
             if ($children !== []) {
-                $this->seedCategories($children, (int) $model->getKey());
+                $categoryKey = $model->getKey();
+
+                if (! is_int($categoryKey)) {
+                    throw new InvalidArgumentException('ProductCategory::getKey() returned a non-integer value.');
+                }
+
+                $this->seedCategories($children, $categoryKey);
             }
         }
     }
@@ -156,12 +163,18 @@ class CatalogueReferenceSeeder extends Seeder
         $sortOrder = 0;
 
         foreach ($attributes as $slug => $attribute) {
-            $type = AttributeInputType::tryFrom((string) ($attribute['type'] ?? ''));
+            $rawType = $attribute['type'] ?? '';
+
+            if (! is_scalar($rawType)) {
+                throw new RuntimeException(self::VOCABULARY.": attribute [{$slug}] has a non-scalar input type.");
+            }
+
+            $type = AttributeInputType::tryFrom((string) $rawType);
 
             if ($type === null) {
                 throw new RuntimeException(
                     self::VOCABULARY.": attribute [{$slug}] has an unknown input type [".
-                    (string) ($attribute['type'] ?? '').']. Known: '.
+                    (string) $rawType.']. Known: '.
                     implode(', ', array_column(AttributeInputType::cases(), 'value')).'.'
                 );
             }
@@ -177,7 +190,21 @@ class CatalogueReferenceSeeder extends Seeder
                 ],
             );
 
-            $this->scopeAttributeToCategories($model, $attribute['categories'] ?? [], $slug);
+            $rawCategories = $attribute['categories'] ?? [];
+
+            if (! is_array($rawCategories)) {
+                throw new RuntimeException(self::VOCABULARY.": attribute [{$slug}]'s categories must be a list.");
+            }
+
+            $categorySlugs = array_map(static function (mixed $categorySlug) use ($slug): string {
+                if (! is_scalar($categorySlug)) {
+                    throw new RuntimeException(self::VOCABULARY.": attribute [{$slug}] has a non-scalar category slug.");
+                }
+
+                return (string) $categorySlug;
+            }, array_values($rawCategories));
+
+            $this->scopeAttributeToCategories($model, $categorySlugs, $slug);
 
             $valueOrder = 0;
 

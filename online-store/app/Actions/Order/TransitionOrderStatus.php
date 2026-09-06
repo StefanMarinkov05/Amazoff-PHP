@@ -75,6 +75,7 @@ final class TransitionOrderStatus
             // row is the load-bearing half: evaluating $order->status off
             // the model passed in, hydrated before the lock, protects
             // nothing.
+            /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
             $from = $locked->status;
 
@@ -95,8 +96,14 @@ final class TransitionOrderStatus
             // AuthorizationException even when the move happens to already
             // be done, not a silent success that leaks whether the move
             // would otherwise have been legal.
+            //
+            // fresh() is typed nullable for the general case (the row could
+            // have been deleted since it was loaded), but this order is
+            // locked for the length of this transaction and no path in this
+            // codebase deletes an order — a null here is not a real
+            // possibility, just one the type system can't rule out.
             if ($from === $to) {
-                return $locked->fresh(['orderItems', 'orderStatusHistories']);
+                return $locked->fresh(['orderItems', 'orderStatusHistories']) ?? $locked;
             }
 
             $locked->update(['status' => $to]);
@@ -113,7 +120,8 @@ final class TransitionOrderStatus
 
             OrderStatusChanged::dispatch($locked, $from, $to, $actor);
 
-            return $locked->fresh(['orderItems', 'orderStatusHistories']);
+            // Same non-null reasoning as the no-op branch above.
+            return $locked->fresh(['orderItems', 'orderStatusHistories']) ?? $locked;
         });
     }
 

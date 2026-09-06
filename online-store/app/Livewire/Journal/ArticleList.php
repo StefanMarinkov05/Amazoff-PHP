@@ -58,6 +58,7 @@ class ArticleList extends Component
         return $query->latest('published_at')->paginate(12);
     }
 
+    /** @return Collection<int, ArticleCategory> */
     #[Computed]
     public function categories(): Collection
     {
@@ -70,6 +71,7 @@ class ArticleList extends Component
             ->get();
     }
 
+    /** @return Collection<int, Tag> */
     #[Computed]
     public function tags(): Collection
     {
@@ -82,6 +84,7 @@ class ArticleList extends Component
             ->get();
     }
 
+    /** @param Builder<Article> $query */
     private function applyFilters(Builder $query, ?string $skip = null): void
     {
         if ($skip !== 'categoryId' && $this->safeCategoryId() !== null) {
@@ -89,7 +92,10 @@ class ArticleList extends Component
         }
 
         if ($skip !== 'tag' && $this->tag !== null) {
-            $query->whereHas('tags', fn (Builder $t) => $t->where('slug', $this->tag));
+            $query->whereHas('tags', function (Builder $t): Builder {
+                /** @var Builder<Tag> $t */
+                return $t->where('slug', $this->tag);
+            });
         }
     }
 

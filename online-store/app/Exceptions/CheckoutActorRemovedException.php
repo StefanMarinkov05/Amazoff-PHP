@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use App\Models\User;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -24,9 +25,15 @@ class CheckoutActorRemovedException extends RuntimeException
     public function __construct(
         public readonly User $actor,
     ) {
+        $actorKey = $actor->getKey();
+
+        if (! is_scalar($actorKey)) {
+            throw new InvalidArgumentException('User::getKey() returned a non-scalar value.');
+        }
+
         parent::__construct(sprintf(
-            'The checking-out account (id %d) no longer exists.',
-            $actor->getKey(),
+            'The checking-out account (id %s) no longer exists.',
+            $actorKey,
         ));
     }
 }

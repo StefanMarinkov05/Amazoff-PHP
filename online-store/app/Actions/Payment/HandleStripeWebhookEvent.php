@@ -133,6 +133,7 @@ final class HandleStripeWebhookEvent
      */
     private function apply(StripeEvent $event, object $object, Payment $payment): PaymentEvent
     {
+        /** @var Payment $locked */
         $locked = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
         $from = $locked->status;
 

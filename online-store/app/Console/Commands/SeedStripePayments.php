@@ -10,6 +10,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use InvalidArgumentException;
 use Stripe\Exception\ApiErrorException;
 
 /**
@@ -80,7 +81,13 @@ class SeedStripePayments extends Command
             return self::FAILURE;
         }
 
-        $secret = (string) config('services.stripe.secret');
+        $secretConfig = config('services.stripe.secret');
+
+        if ($secretConfig !== null && ! is_scalar($secretConfig)) {
+            throw new InvalidArgumentException('Config value [services.stripe.secret] must be a scalar value.');
+        }
+
+        $secret = (string) $secretConfig;
 
         if ($secret === '') {
             $this->error('STRIPE_SECRET is not set — nothing to call.');
@@ -113,7 +120,13 @@ class SeedStripePayments extends Command
 
         if ($this->option('dry-run')) {
             foreach ($payments as $payment) {
-                $this->line("  would open an intent for payment #{$payment->getKey()} — {$payment->amount} {$payment->currency}");
+                $paymentKey = $payment->getKey();
+
+                if (! is_scalar($paymentKey)) {
+                    throw new InvalidArgumentException('Payment::getKey() returned a non-scalar value.');
+                }
+
+                $this->line("  would open an intent for payment #{$paymentKey} — {$payment->amount} {$payment->currency}");
             }
 
             $this->info('Dry run — nothing was sent to Stripe.');
@@ -126,10 +139,16 @@ class SeedStripePayments extends Command
         $staleKeys = 0;
 
         foreach ($payments as $payment) {
+            $paymentKey = $payment->getKey();
+
+            if (! is_scalar($paymentKey)) {
+                throw new InvalidArgumentException('Payment::getKey() returned a non-scalar value.');
+            }
+
             try {
                 $result = $createStripeIntent->handle($payment);
 
-                $this->line("  payment #{$payment->getKey()} → {$result->stripe_payment_intent_id}");
+                $this->line("  payment #{$paymentKey} → {$result->stripe_payment_intent_id}");
                 $opened++;
             } catch (ApiErrorException $e) {
                 if ($this->isStaleIdempotencyKey($e)) {
@@ -145,7 +164,7 @@ class SeedStripePayments extends Command
                     // Reported distinctly rather than counted as a failure,
                     // because the run is not broken and the next re-seed
                     // within the window will do the same thing again.
-                    $this->warn("  payment #{$payment->getKey()} skipped — idempotency key already used by a previous seed (expires within 24h).");
+                    $this->warn("  payment #{$paymentKey} skipped — idempotency key already used by a previous seed (expires within 24h).");
                     $staleKeys++;
 
                     continue;
@@ -154,10 +173,10 @@ class SeedStripePayments extends Command
                 // Stripe refused this one. Report and continue: a single
                 // declined or malformed intent should not abandon the rest,
                 // and the summary below is what says how many landed.
-                $this->error("  payment #{$payment->getKey()} failed at Stripe: ".$e->getMessage());
+                $this->error("  payment #{$paymentKey} failed at Stripe: ".$e->getMessage());
                 $failed++;
             } catch (\Throwable $e) {
-                $this->error("  payment #{$payment->getKey()} failed: ".$e->getMessage());
+                $this->error("  payment #{$paymentKey} failed: ".$e->getMessage());
                 $failed++;
             }
         }

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\AddressType;
 use App\Enums\DeliveryType;
+use Database\Factories\OrderAddressFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class OrderAddress extends Model
 {
+    /** @use HasFactory<OrderAddressFactory> */
     use HasFactory;
 
     /**
@@ -55,11 +57,13 @@ class OrderAddress extends Model
         ];
     }
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<Address, $this> */
     public function sourceAddress(): BelongsTo
     {
         return $this->belongsTo(Address::class);

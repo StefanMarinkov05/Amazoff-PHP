@@ -8,6 +8,42 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Larastan raised from level 5 to 9 across `app/`, `database/seeders`,
+  and `database/factories`, with 0 errors.** `phpstan.neon`'s own comment
+  had recorded this as an unrevisited scaffold default rather than a
+  decision, deferred because a level-6 sample found 131 findings, 118 of
+  them one root cause. That estimate held: fixing the model layer first
+  collapsed the bulk of the eventual 564 findings at level 9 before the
+  rest of the codebase was even touched.
+
+  **~90% of the 564 were one root cause cascading downstream.** Two
+  variants of the same gap: Eloquent relation methods
+  (`hasMany()`/`belongsTo()`/...) missing a generic return type
+  (`HasMany<Order, $this>` vs. bare `HasMany`), and — found only once
+  `database/seeders` came into scope — every model factory's
+  `Factory<TModel>` extends clause missing its own generic, which made
+  every `Product::factory()->create([...])` across every seeder read as
+  `Factory<Model>` and reject the very columns being written. Fixing all
+  32 models' relations, then all 31 factories' `@extends`, cleared several
+  hundred downstream "argument type" and "cannot access property" errors
+  that were really just PHPStan losing the element type through an
+  unannotated chain — nothing behavioural, and each fix confirmed by
+  running the model or seeder's own tests before moving on.
+
+  **The remaining ~10% were real mixed-narrowing gaps**, mostly at
+  application boundaries — vendor JSON from the Econt/Speedy couriers,
+  `Model::getKey()`'s dynamic-attribute return type, `config()`, decoded
+  fixture documents — where the fix is an inline `is_scalar`/`is_int`/
+  `is_array` guard that throws on the wrong shape, never a silent `?? 0`
+  or `?? ''` coalesce: a wrong guess there would have been a silent
+  behavioural bug, worse than the type error it replaced. A handful of
+  Filament table/relation-manager closures needed the same generic
+  annotation the relations did (`Builder<Payment>` vs. bare `Builder`).
+  Zero behaviour changes anywhere in the sweep — every fix is a docblock,
+  a generic, or a guard-with-a-throw, verified against the existing test
+  suite (which stayed green throughout) rather than by reading the diff
+  alone.
+
 - **`charge.dispute.closed` is now handled** — a dispute won by the merchant
   moves the payment back to `Paid`, one lost moves it to `Refunded`, closing
   the gap `reference/testing/stripe-testing.md` had recorded as needing a

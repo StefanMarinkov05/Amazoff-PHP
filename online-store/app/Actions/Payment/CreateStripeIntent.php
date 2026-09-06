@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Stripe\StripeClient;
 
 /**
@@ -60,6 +61,7 @@ final class CreateStripeIntent
             // Locked before anything is read off it. The instance the caller
             // holds was hydrated before this lock existed, so its
             // stripe_payment_intent_id may already be stale.
+            /** @var Payment $locked */
             $locked = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
 
             if ($locked->method !== PaymentMethod::Stripe) {
@@ -77,6 +79,17 @@ final class CreateStripeIntent
                 return $locked;
             }
 
+            // Model::getKey() is declared @return mixed — it reads through
+            // the dynamic attribute system, so PHPStan cannot see through to
+            // Payment's own 'id' => 'integer' cast. It genuinely is an int
+            // here; the check is what lets a (string) cast below stand on
+            // its own rather than trusting mixed silently.
+            $paymentKey = $locked->getKey();
+
+            if (! is_scalar($paymentKey)) {
+                throw new InvalidArgumentException('Payment::getKey() returned a non-scalar value.');
+            }
+
             $intent = $this->stripe->paymentIntents->create(
                 [
                     // Integer minor units. Money::toMinorUnits() owns the
@@ -91,7 +104,7 @@ final class CreateStripeIntent
                     // back only as a cross-check against the intent id the
                     // signature already vouched for.
                     'metadata' => [
-                        'payment_id' => (string) $locked->getKey(),
+                        'payment_id' => (string) $paymentKey,
                         'order_id' => (string) $locked->order_id,
                     ],
                 ],
@@ -100,7 +113,7 @@ final class CreateStripeIntent
                     // on the payment rather than the request, so a retry after
                     // a timeout returns the first intent instead of charging
                     // the customer a second time.
-                    'idempotency_key' => 'payment-intent-'.$locked->getKey(),
+                    'idempotency_key' => 'payment-intent-'.(string) $paymentKey,
                 ],
             );
 

@@ -6,8 +6,12 @@ namespace Database\Factories;
 
 use App\Enums\WeightUnit;
 use App\Models\Product;
+use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<ProductVariation>
+ */
 class ProductVariationFactory extends Factory
 {
     /**

@@ -8,8 +8,12 @@ use App\Enums\AddressType;
 use App\Enums\DeliveryType;
 use App\Models\Address;
 use App\Models\Order;
+use App\Models\OrderAddress;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<OrderAddress>
+ */
 class OrderAddressFactory extends Factory
 {
     /**

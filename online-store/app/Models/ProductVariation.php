@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\WeightUnit;
+use Database\Factories\ProductVariationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductVariation extends Model
 {
+    /** @use HasFactory<ProductVariationFactory> */
     use HasFactory, SoftDeletes;
 
     /**
@@ -57,11 +59,13 @@ class ProductVariation extends Model
         ];
     }
 
+    /** @return HasOne<Inventory, $this> */
     public function inventory(): HasOne
     {
         return $this->hasOne(Inventory::class);
     }
 
+    /** @return BelongsToMany<AttributeValue, $this> */
     public function attributeValues(): BelongsToMany
     {
         return $this->belongsToMany(AttributeValue::class);
@@ -78,6 +82,8 @@ class ProductVariation extends Model
      * The `id` tie-break is load-bearing, not decoration: `position` carries
      * no uniqueness constraint, so two rows may share a position and the order
      * would otherwise be whatever InnoDB returned. ADR-0013.
+     *
+     * @return BelongsToMany<ProductImage, $this>
      */
     public function images(): BelongsToMany
     {
@@ -87,6 +93,7 @@ class ProductVariation extends Model
             ->orderBy('product_images.id');
     }
 
+    /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);

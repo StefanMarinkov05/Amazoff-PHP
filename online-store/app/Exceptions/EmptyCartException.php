@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use App\Models\Cart;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -23,6 +24,12 @@ class EmptyCartException extends RuntimeException
 
     public static function atCheckout(Cart $cart): self
     {
-        return new self(sprintf('Cart %d has nothing to check out.', $cart->getKey()), $cart);
+        $cartKey = $cart->getKey();
+
+        if (! is_scalar($cartKey)) {
+            throw new InvalidArgumentException('Cart::getKey() returned a non-scalar value.');
+        }
+
+        return new self(sprintf('Cart %s has nothing to check out.', $cartKey), $cart);
     }
 }

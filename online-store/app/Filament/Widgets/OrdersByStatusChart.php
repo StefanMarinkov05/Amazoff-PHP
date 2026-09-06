@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,6 +41,7 @@ class OrdersByStatusChart extends ChartWidget
 
     protected function getData(): array
     {
+        /** @var Collection<string, int> $counts */
         $counts = DB::table('orders')
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
@@ -51,7 +53,7 @@ class OrdersByStatusChart extends ChartWidget
             'datasets' => [
                 [
                     'label' => 'Orders',
-                    'data' => array_map(fn (OrderStatus $status): int => (int) ($counts[$status->value] ?? 0), $statuses),
+                    'data' => array_map(fn (OrderStatus $status): int => $counts[$status->value] ?? 0, $statuses),
                     'backgroundColor' => array_map(
                         fn (OrderStatus $status): string => self::COLOR_HEX[$status->getColor()] ?? '#6b7280',
                         $statuses,

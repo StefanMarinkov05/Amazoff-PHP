@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Operation;
 use Illuminate\Database\Eloquent\Collection;
+use InvalidArgumentException;
 
 class ProductForm
 {
@@ -70,13 +71,13 @@ class ProductForm
                     ->label('Product details')
                     ->helperText('Facts true of every variation — material, notes, certifications. Not something the customer picks between.')
                     ->options(function (Get $get): array {
-                        /** @var list<int> $axisIds */
-                        $axisIds = array_map(intval(...), (array) ($get('attributes') ?? []));
+                        $axisIds = self::intList($get('attributes'));
 
                         // Minus this product's own axes, and minus every
                         // attribute that is axis-only by nature (Size,
                         // Colour) — the customer chooses between those, so
                         // no product can assert one as a whole.
+                        /** @var list<int> $variationOnly */
                         $variationOnly = Attribute::query()
                             ->where('is_variation_only', true)
                             ->pluck('id')
@@ -234,7 +235,7 @@ class ProductForm
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->options(fn (Get $get): array => self::attributeValueOptions($get('../../attributes') ?? []))
+                            ->options(fn (Get $get): array => self::attributeValueOptions(self::intList($get('../../attributes'))))
                             ->helperText(fn (Get $get): string => (($get('../../attributes') ?? []) === [])
                                 ? 'Pick this product\'s "Variation axes" above first.'
                                 : 'At most one value per axis. Leave an axis unpicked if this variation does not use it.'),
@@ -303,6 +304,24 @@ class ProductForm
     }
 
     /**
+     * @return list<int>
+     */
+    private static function intList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(static function (mixed $id): int {
+            if (! is_scalar($id)) {
+                throw new InvalidArgumentException('Product form attribute id must be a scalar value.');
+            }
+
+            return (int) $id;
+        }, $value));
+    }
+
+    /**
      * `$attributeIds`'s own values, grouped by attribute name for the
      * Select's optgroups — the same shape and reasoning
      * `ProductVariationsRelationManager::attributeValueOptions()` uses,
@@ -328,12 +347,15 @@ class ProductForm
             ->get();
 
         return $attributes
-            ->mapWithKeys(fn (Attribute $attribute): array => [
-                $attribute->name => $attribute->attributeValues
+            ->mapWithKeys(function (Attribute $attribute): array {
+                /** @var array<int, string> $values */
+                $values = $attribute->attributeValues
                     ->sortBy('sort_order')
                     ->pluck('value', 'id')
-                    ->all(),
-            ])
+                    ->all();
+
+                return [$attribute->name => $values];
+            })
             ->all();
     }
 }

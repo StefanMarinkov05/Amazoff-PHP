@@ -15,6 +15,7 @@ use App\Support\CouponDiscountLine;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * The authoritative coupon redemption, run inside `CreateOrder`'s
@@ -92,6 +93,13 @@ final class RedeemCoupon
             /** @var Product $product */
             $product = $item->product;
 
+            if ($item->product_id === null) {
+                $itemKey = $item->getKey();
+                $itemKey = is_scalar($itemKey) ? $itemKey : 'unknown';
+
+                throw new InvalidArgumentException("OrderItem #{$itemKey} has no product_id inside RedeemCoupon's own transaction.");
+            }
+
             return new CouponDiscountLine(
                 productId: $item->product_id,
                 productCategoryId: $product->product_category_id,
@@ -138,9 +146,13 @@ final class RedeemCoupon
      */
     private function hashEmail(string $email): string
     {
-        $pepper = (string) config('coupons.email_pepper');
+        $pepper = config('coupons.email_pepper');
 
-        return hash('sha256', $pepper.mb_strtolower(trim($email)));
+        if (! is_scalar($pepper)) {
+            throw new InvalidArgumentException('Config value [coupons.email_pepper] must be a scalar value.');
+        }
+
+        return hash('sha256', ((string) $pepper).mb_strtolower(trim($email)));
     }
 
     private function recordRedemption(Coupon $coupon, Order $order, string $emailHash, string $discount): CouponRedemption

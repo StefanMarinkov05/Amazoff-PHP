@@ -6,10 +6,13 @@ namespace App\Actions\ProductReview;
 
 use App\Enums\OrderStatus;
 use App\Exceptions\ReviewNotAllowedException;
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductReview;
+use App\Models\ProductVariation;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -107,16 +110,16 @@ final class CreateProductReview
     private function purchasedItem(Product $product, User $reviewer): ?OrderItem
     {
         return OrderItem::query()
-            ->whereHas(
-                'order',
-                fn ($query) => $query
+            ->whereHas('order', function (Builder $query) use ($reviewer): Builder {
+                /** @var Builder<Order> $query */
+                return $query
                     ->where('user_id', $reviewer->getKey())
-                    ->where('status', OrderStatus::Delivered),
-            )
-            ->whereHas(
-                'productVariation',
-                fn ($query) => $query->where('product_id', $product->getKey()),
-            )
+                    ->where('status', OrderStatus::Delivered);
+            })
+            ->whereHas('productVariation', function (Builder $query) use ($product): Builder {
+                /** @var Builder<ProductVariation> $query */
+                return $query->where('product_id', $product->getKey());
+            })
             ->first();
     }
 }

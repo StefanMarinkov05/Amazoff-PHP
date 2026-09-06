@@ -6,6 +6,7 @@ namespace App\Exceptions;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -26,9 +27,15 @@ class IllegalShipmentStatusTransitionException extends RuntimeException
         public readonly ShipmentStatus $from,
         public readonly ShipmentStatus $to,
     ) {
+        $shipmentKey = $shipment->getKey();
+
+        if (! is_scalar($shipmentKey)) {
+            throw new InvalidArgumentException('Shipment::getKey() returned a non-scalar value.');
+        }
+
         parent::__construct(sprintf(
             'Shipment %s cannot move from %s to %s.',
-            $shipment->tracking_number ?? (string) $shipment->getKey(),
+            $shipment->tracking_number ?? (string) $shipmentKey,
             $from->value,
             $to->value,
         ));

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
  * Hand-written, not Blueprint-generated — see the note on App\Models\User.
+ *
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -20,9 +23,6 @@ class UserFactory extends Factory
      */
     protected static ?string $password = null;
 
-    /**
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [

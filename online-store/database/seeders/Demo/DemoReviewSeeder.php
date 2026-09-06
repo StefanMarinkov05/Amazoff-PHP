@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -112,7 +113,10 @@ class DemoReviewSeeder extends Seeder
 
         /** @var Collection<int, OrderItem> $eligibleItems */
         $eligibleItems = OrderItem::query()
-            ->whereHas('order', fn ($q) => $q->where('status', 'delivered')->whereNotNull('user_id'))
+            ->whereHas('order', function (Builder $q): Builder {
+                /** @var Builder<Order> $q */
+                return $q->where('status', 'delivered')->whereNotNull('user_id');
+            })
             ->with(['order:id,user_id,created_at', 'productVariation:id,product_id'])
             ->get()
             ->filter(function (OrderItem $item): bool {
@@ -291,7 +295,13 @@ class DemoReviewSeeder extends Seeder
                 throw new RuntimeException("Review bodies fixture has no entries for rating [{$rating}].");
             }
 
-            $bodies[$rating] = array_values(array_map(strval(...), $set));
+            $bodies[$rating] = array_values(array_map(static function (mixed $body): string {
+                if (! is_scalar($body)) {
+                    throw new RuntimeException('Review bodies fixture contains a non-scalar entry.');
+                }
+
+                return (string) $body;
+            }, $set));
         }
 
         return $this->bodies = $bodies;
@@ -309,7 +319,13 @@ class DemoReviewSeeder extends Seeder
         $this->command?->info('--- Verifying against the live database ---');
         $this->command?->info('Total reviews: '.ProductReview::count());
 
-        foreach (ProductReview::query()->selectRaw('rating, count(*) c')->groupBy('rating')->orderBy('rating')->pluck('c', 'rating') as $rating => $count) {
+        // Query builder rather than Eloquent's own pluck(): 'c' is a
+        // selectRaw() alias, not a model property, and Larastan objects to
+        // pretending otherwise.
+        /** @var Collection<int, int> $countsByRating */
+        $countsByRating = ProductReview::query()->selectRaw('rating, count(*) c')->groupBy('rating')->orderBy('rating')->toBase()->pluck('c', 'rating');
+
+        foreach ($countsByRating as $rating => $count) {
             $this->command?->line("  rating={$rating}: {$count}");
         }
 

@@ -6,6 +6,7 @@ namespace App\Actions\Cart;
 
 use App\Models\Cart;
 use App\Models\Order;
+use InvalidArgumentException;
 
 /**
  * Deletes every cart past its `expires_at`. `cart_items` cascades with it;
@@ -21,10 +22,16 @@ final class ExpireCarts
 {
     public function handle(): int
     {
-        return Cart::query()
+        $deleted = Cart::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
             ->whereNotIn('id', Order::query()->whereNotNull('cart_id')->select('cart_id'))
             ->delete();
+
+        if (! is_int($deleted)) {
+            throw new InvalidArgumentException('Cart delete query did not return an integer.');
+        }
+
+        return $deleted;
     }
 }

@@ -6,7 +6,11 @@ parameters:
         - app
         - database/seeders
 
-    level: 5
+    # Raised to 9 on 2026-09-06 after a full sweep eliminated all 564
+    # findings at that level across app/, database/seeders, and
+    # database/factories. See the CHANGELOG entry under that date for what
+    # the sweep found and the two fix patterns it settled on.
+    level: 9
 
     excludePaths:
         - app/Providers/*

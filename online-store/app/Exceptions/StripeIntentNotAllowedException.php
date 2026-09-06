@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use App\Models\Payment;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -25,8 +26,8 @@ class StripeIntentNotAllowedException extends RuntimeException
     public static function notAStripePayment(Payment $payment): self
     {
         return new self($payment, sprintf(
-            'Payment %d is a %s payment; only Stripe payments get an intent.',
-            $payment->getKey(),
+            'Payment %s is a %s payment; only Stripe payments get an intent.',
+            self::key($payment),
             $payment->method->value,
         ));
     }
@@ -34,9 +35,20 @@ class StripeIntentNotAllowedException extends RuntimeException
     public static function alreadySettled(Payment $payment): self
     {
         return new self($payment, sprintf(
-            'Payment %d is already %s; creating an intent would risk charging twice.',
-            $payment->getKey(),
+            'Payment %s is already %s; creating an intent would risk charging twice.',
+            self::key($payment),
             $payment->status->value,
         ));
+    }
+
+    private static function key(Payment $payment): int|string
+    {
+        $key = $payment->getKey();
+
+        if (! is_int($key) && ! is_string($key)) {
+            throw new InvalidArgumentException('Payment::getKey() returned neither an int nor a string.');
+        }
+
+        return $key;
     }
 }

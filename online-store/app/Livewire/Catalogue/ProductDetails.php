@@ -23,6 +23,7 @@ use App\Support\ResolveProductPrice;
 use App\Support\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -396,15 +397,22 @@ class ProductDetails extends Component
 
             return;
         }
+
+        // updatedQuantity() normalises this to a real int on every change;
+        // guard explicitly anyway at the domain boundary rather than trust
+        // that every path into this method ran through that hook first —
+        // $quantity's declared type is `mixed` (see its own docblock).
+        $quantity = $this->quantity;
+
+        if (! is_scalar($quantity)) {
+            throw new InvalidArgumentException('ProductDetails::$quantity must be a scalar value.');
+        }
+
         try {
             $addToCart->handle(
                 ResolveCurrentCart::forVisitor(),
                 $this->variation,
-                // updatedQuantity() normalises this to a real int on every
-                // change; cast explicitly anyway at the domain boundary
-                // rather than trust that every path into this method ran
-                // through that hook first.
-                (int) $this->quantity
+                (int) $quantity
             );
 
             $this->dispatch('cart-updated');

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\LengthUnit;
 use App\Enums\WeightUnit;
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Product extends Model
 {
+    /** @use HasFactory<ProductFactory> */
     use HasFactory, SoftDeletes;
 
     /**
@@ -82,26 +84,31 @@ class Product extends Model
         ];
     }
 
+    /** @return HasMany<ProductImage, $this> */
     public function productImages(): HasMany
     {
         return $this->hasMany(ProductImage::class);
     }
 
+    /** @return HasMany<ProductVariation, $this> */
     public function productVariations(): HasMany
     {
         return $this->hasMany(ProductVariation::class);
     }
 
+    /** @return HasMany<ProductSpecification, $this> */
     public function productSpecifications(): HasMany
     {
         return $this->hasMany(ProductSpecification::class);
     }
 
+    /** @return HasMany<ProductReview, $this> */
     public function productReviews(): HasMany
     {
         return $this->hasMany(ProductReview::class);
     }
 
+    /** @return HasMany<WishlistItem, $this> */
     public function wishlistItems(): HasMany
     {
         return $this->hasMany(WishlistItem::class);
@@ -116,6 +123,8 @@ class Product extends Model
      * down, whose name is deliberately longer because the two are one letter
      * apart in meaning and a mix-up silently changes which grid a value
      * lands in.
+     *
+     * @return BelongsToMany<Attribute, $this>
      */
     public function attributes(): BelongsToMany
     {
@@ -137,6 +146,8 @@ class Product extends Model
      * Explicit table and keys because the relation name no longer matches
      * Laravel's own convention for `attribute_value_product`; the longer
      * name is worth the three extra arguments.
+     *
+     * @return BelongsToMany<AttributeValue, $this>
      */
     public function descriptiveAttributeValues(): BelongsToMany
     {
@@ -148,16 +159,19 @@ class Product extends Model
         );
     }
 
+    /** @return BelongsToMany<Coupon, $this> */
     public function coupons(): BelongsToMany
     {
         return $this->belongsToMany(Coupon::class);
     }
 
+    /** @return BelongsTo<ProductCategory, $this> */
     public function productCategory(): BelongsTo
     {
         return $this->belongsTo(ProductCategory::class);
     }
 
+    /** @return BelongsTo<Brand, $this> */
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);

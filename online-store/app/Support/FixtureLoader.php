@@ -62,13 +62,15 @@ final class FixtureLoader
      */
     public function loadProduct(array $document): Product
     {
+        $variations = self::mapList($document, 'variations');
+
         $product = $this->createProduct->handle(
             $this->productColumns($document),
-            $this->variationRows($document),
+            $this->variationRows($variations),
             null,
         );
 
-        $imageKeyToId = $this->insertImages($product, $document['images'] ?? []);
+        $imageKeyToId = $this->insertImages($product, self::mapList($document, 'images'));
 
         // Read back once and index by SKU. Looking each variation up as it is
         // needed costs two queries per variation — 1,500 round trips on a
@@ -76,13 +78,83 @@ final class FixtureLoader
         /** @var array<string, ProductVariation> $variationsBySku */
         $variationsBySku = $product->productVariations()->get()->keyBy('sku')->all();
 
-        $this->attachGalleries($variationsBySku, $document['variations'], $imageKeyToId);
-        $this->insertSpecifications($product, $document['specifications'] ?? []);
-        $this->attachAttributes($product, $document['attributes'] ?? []);
-        $this->attachAttributeValues($variationsBySku, $document['variations']);
-        $this->attachDescriptiveValues($product, $document['attribute_values'] ?? []);
+        $this->attachGalleries($variationsBySku, $variations, $imageKeyToId);
+        $this->insertSpecifications($product, self::mapList($document, 'specifications'));
+        $this->attachAttributes($product, self::stringList($document, 'attributes'));
+        $this->attachAttributeValues($variationsBySku, $variations);
+        $this->attachDescriptiveValues($product, self::stringList($document, 'attribute_values'));
 
         return $product;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private static function string(array $document, string $key): string
+    {
+        $value = $document[$key] ?? null;
+
+        if (! is_scalar($value)) {
+            throw new RuntimeException("Fixture field [{$key}] must be a scalar value.");
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private static function intOrDefault(array $document, string $key, int $default): int
+    {
+        $value = $document[$key] ?? $default;
+
+        if (! is_scalar($value)) {
+            throw new RuntimeException("Fixture field [{$key}] must be a scalar value.");
+        }
+
+        return (int) $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     * @return list<array<string, mixed>>
+     */
+    private static function mapList(array $document, string $key): array
+    {
+        $value = $document[$key] ?? [];
+
+        if (! is_array($value)) {
+            throw new RuntimeException("Fixture field [{$key}] must be a list of documents.");
+        }
+
+        return array_map(static function (mixed $item) use ($key): array {
+            if (! is_array($item)) {
+                throw new RuntimeException("Fixture field [{$key}] must contain only documents.");
+            }
+
+            return $item;
+        }, array_values($value));
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     * @return list<string>
+     */
+    private static function stringList(array $document, string $key): array
+    {
+        $value = $document[$key] ?? [];
+
+        if (! is_array($value)) {
+            throw new RuntimeException("Fixture field [{$key}] must be a list.");
+        }
+
+        return array_map(static function (mixed $item) use ($key): string {
+            if (! is_scalar($item)) {
+                throw new RuntimeException("Fixture field [{$key}] must contain only scalar values.");
+            }
+
+            return (string) $item;
+        }, array_values($value));
     }
 
     /**
@@ -156,9 +228,9 @@ final class FixtureLoader
             'images', 'specifications', 'variations',
         ]);
 
-        $columns['product_category_id'] = $this->categoryId($document['category']);
+        $columns['product_category_id'] = $this->categoryId(self::string($document, 'category'));
         $columns['brand_id'] = isset($document['brand'])
-            ? $this->brandId($document['brand'])
+            ? $this->brandId(self::string($document, 'brand'))
             : null;
 
         foreach (['discount_starts_at', 'discount_ends_at'] as $dateColumn) {
@@ -176,14 +248,14 @@ final class FixtureLoader
      * movement. `images` and `attribute_values` are fixture-only keys and are
      * applied afterwards, once there are IDs to attach them to.
      *
-     * @param  array<string, mixed>  $document
+     * @param  list<array<string, mixed>>  $variations
      * @return list<array<string, mixed>>
      */
-    private function variationRows(array $document): array
+    private function variationRows(array $variations): array
     {
         return array_map(
             static fn (array $variation): array => Arr::except($variation, ['images', 'attribute_values']),
-            $document['variations'],
+            $variations,
         );
     }
 
@@ -208,10 +280,17 @@ final class FixtureLoader
                 'path' => $image['path'],
                 'alt_text' => $image['alt_text'] ?? null,
                 'is_main' => (bool) ($image['is_main'] ?? false),
-                'sort_order' => (int) ($image['sort_order'] ?? 0),
+                'sort_order' => (int) self::intOrDefault($image, 'sort_order', 0),
             ]);
 
-            $map[$image['key']] = (int) $row->getKey();
+            $key = self::string($image, 'key');
+            $rowKey = $row->getKey();
+
+            if (! is_int($rowKey)) {
+                throw new RuntimeException('ProductImage::getKey() returned a non-integer value.');
+            }
+
+            $map[$key] = $rowKey;
         }
 
         return $map;
@@ -225,18 +304,29 @@ final class FixtureLoader
     private function attachGalleries(array $variationsBySku, array $variations, array $imageKeyToId): void
     {
         foreach ($variations as $variation) {
-            $keys = $variation['images'] ?? [];
+            $rawKeys = $variation['images'] ?? [];
 
-            if ($keys === []) {
+            if ($rawKeys === []) {
                 continue;
             }
 
+            if (! is_array($rawKeys)) {
+                throw new RuntimeException('Fixture field [images] on a variation must be a list.');
+            }
+
+            $imageIds = array_values(array_map(static function (mixed $key) use ($imageKeyToId): int {
+                if (! is_scalar($key)) {
+                    throw new RuntimeException('Fixture variation image key must be a scalar value.');
+                }
+
+                return $imageKeyToId[(string) $key];
+            }, $rawKeys));
+
+            $sku = self::string($variation, 'sku');
+
             $this->setVariationImages->handle(
-                $variationsBySku[$variation['sku']],
-                array_map(
-                    static fn (string $key): int => $imageKeyToId[$key],
-                    $keys,
-                ),
+                $variationsBySku[$sku],
+                $imageIds,
                 null,
             );
         }
@@ -251,7 +341,7 @@ final class FixtureLoader
             $product->productSpecifications()->create([
                 'name' => $specification['name'],
                 'value' => $specification['value'],
-                'sort_order' => (int) ($specification['sort_order'] ?? 0),
+                'sort_order' => self::intOrDefault($specification, 'sort_order', 0),
             ]);
         }
     }
@@ -274,13 +364,23 @@ final class FixtureLoader
                 continue;
             }
 
+            if (! is_array($pairs)) {
+                throw new RuntimeException('Fixture field [attribute_values] on a variation must be a map.');
+            }
+
             $ids = [];
 
             foreach ($pairs as $attributeSlug => $valueSlug) {
-                $ids[] = $this->attributeValueId($attributeSlug, $valueSlug);
+                if (! is_scalar($valueSlug)) {
+                    throw new RuntimeException("Fixture attribute value for [{$attributeSlug}] must be a scalar value.");
+                }
+
+                $ids[] = $this->attributeValueId((string) $attributeSlug, (string) $valueSlug);
             }
 
-            $variationsBySku[$variation['sku']]
+            $sku = self::string($variation, 'sku');
+
+            $variationsBySku[$sku]
                 ->attributeValues()
                 ->syncWithoutDetaching($ids);
         }
@@ -301,7 +401,11 @@ final class FixtureLoader
 
     private function categoryId(string $slug): int
     {
-        $this->categories ??= ProductCategory::query()->pluck('id', 'slug')->all();
+        if ($this->categories === null) {
+            /** @var array<string, int> $categories */
+            $categories = ProductCategory::query()->pluck('id', 'slug')->all();
+            $this->categories = $categories;
+        }
 
         return $this->categories[$slug]
             ?? throw new RuntimeException("Fixture references unknown category slug [{$slug}].");
@@ -309,7 +413,11 @@ final class FixtureLoader
 
     private function brandId(string $slug): int
     {
-        $this->brands ??= Brand::query()->pluck('id', 'slug')->all();
+        if ($this->brands === null) {
+            /** @var array<string, int> $brands */
+            $brands = Brand::query()->pluck('id', 'slug')->all();
+            $this->brands = $brands;
+        }
 
         return $this->brands[$slug]
             ?? throw new RuntimeException("Fixture references unknown brand slug [{$slug}].");
@@ -317,7 +425,11 @@ final class FixtureLoader
 
     private function attributeId(string $slug): int
     {
-        $this->attributes ??= Attribute::query()->pluck('id', 'slug')->all();
+        if ($this->attributes === null) {
+            /** @var array<string, int> $attributes */
+            $attributes = Attribute::query()->pluck('id', 'slug')->all();
+            $this->attributes = $attributes;
+        }
 
         return $this->attributes[$slug]
             ?? throw new RuntimeException("Fixture references unknown attribute slug [{$slug}].");
@@ -328,13 +440,17 @@ final class FixtureLoader
         // Query builder rather than Eloquent: the join's aliases are not
         // properties of AttributeValue, and pretending otherwise is what
         // Larastan objects to.
-        $this->attributeValues ??= DB::table('attribute_values')
-            ->join('attributes', 'attributes.id', '=', 'attribute_values.attribute_id')
-            ->get(['attribute_values.id', 'attribute_values.slug as value_slug', 'attributes.slug as attribute_slug'])
-            ->mapWithKeys(static fn (object $row): array => [
-                "{$row->attribute_slug}/{$row->value_slug}" => (int) $row->id,
-            ])
-            ->all();
+        if ($this->attributeValues === null) {
+            /** @var array<string, int> $attributeValues */
+            $attributeValues = DB::table('attribute_values')
+                ->join('attributes', 'attributes.id', '=', 'attribute_values.attribute_id')
+                ->get(['attribute_values.id', 'attribute_values.slug as value_slug', 'attributes.slug as attribute_slug'])
+                ->mapWithKeys(static fn (object $row): array => [
+                    "{$row->attribute_slug}/{$row->value_slug}" => (int) $row->id,
+                ])
+                ->all();
+            $this->attributeValues = $attributeValues;
+        }
 
         $key = "{$attributeSlug}/{$valueSlug}";
 
@@ -350,6 +466,9 @@ final class FixtureLoader
      */
     public function knownAttributeSlugs(): array
     {
-        return Attribute::query()->pluck('slug')->all();
+        /** @var list<string> $slugs */
+        $slugs = Attribute::query()->pluck('slug')->all();
+
+        return $slugs;
     }
 }

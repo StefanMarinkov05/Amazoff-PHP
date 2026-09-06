@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use InvalidArgumentException;
+
 /**
  * A resolved price, as a page needs to render it: what to charge, what to
  * strike through, and whether a sale is running.
@@ -46,6 +48,10 @@ final class ProductPrice
 
     private static function percentOff(string $regular, string $current): int
     {
+        if (! is_numeric($regular) || ! is_numeric($current)) {
+            throw new InvalidArgumentException('ProductPrice::percentOff() requires numeric amounts.');
+        }
+
         if (bccomp($regular, '0.00', 2) <= 0) {
             return 0;
         }

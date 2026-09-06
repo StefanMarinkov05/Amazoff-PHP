@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<OrderItem>
+ */
 class OrderItemFactory extends Factory
 {
     /**
@@ -20,7 +24,7 @@ class OrderItemFactory extends Factory
         $unitPrice = fake()->randomFloat(2, 5, 2000);
         $lineTotal = round($unitPrice * $quantity, 2);
         $discountAmount = fake()->boolean(20) ? round($lineTotal * 0.1, 2) : 0.0;
-        $vatRate = fake()->randomElement([20.00, 9.00]);
+        $vatRate = fake()->boolean() ? 20.00 : 9.00;
 
         return [
             'order_id' => Order::factory(),

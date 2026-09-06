@@ -330,7 +330,7 @@ class CheckoutPage extends Component
             return $this->resolvedOffices = collect();
         }
 
-        $this->lastKnownOffices = $offices->map(fn (CourierOffice $office): array => (array) $office)->all();
+        $this->lastKnownOffices = array_values($offices->map(fn (CourierOffice $office): array => (array) $office)->all());
 
         return $this->resolvedOffices = $offices;
     }
@@ -492,7 +492,13 @@ class CheckoutPage extends Component
         }
 
         // Stripe: stay on the page and hand the secret to Stripe Elements.
-        $this->orderId = $order->getKey();
+        $orderKey = $order->getKey();
+
+        if (! is_int($orderKey)) {
+            throw new InvalidArgumentException('Order::getKey() returned a non-integer value.');
+        }
+
+        $this->orderId = $orderKey;
         $this->clientSecret = $clientSecret;
     }
 

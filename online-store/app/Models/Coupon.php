@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CouponScope;
 use App\Enums\CouponType;
+use Database\Factories\CouponFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Coupon extends Model
 {
+    /** @use HasFactory<CouponFactory> */
     use HasFactory;
 
     /**
@@ -60,16 +62,19 @@ class Coupon extends Model
         ];
     }
 
+    /** @return HasMany<CouponRedemption, $this> */
     public function couponRedemptions(): HasMany
     {
         return $this->hasMany(CouponRedemption::class);
     }
 
+    /** @return BelongsToMany<Product, $this> */
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);
     }
 
+    /** @return BelongsToMany<ProductCategory, $this> */
     public function productCategories(): BelongsToMany
     {
         return $this->belongsToMany(ProductCategory::class);

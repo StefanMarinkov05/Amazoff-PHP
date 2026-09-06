@@ -8,6 +8,7 @@ use App\Models\ProductImage;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 
 /**
  * Promotes one image to main and demotes the rest, in one `UPDATE`.
@@ -31,12 +32,19 @@ final class SetMainProductImage
             Gate::forUser($actor)->authorize('update', $image);
         }
 
+        $imageKey = $image->getKey();
+
+        if (! is_int($imageKey)) {
+            throw new InvalidArgumentException('ProductImage::getKey() returned a non-integer value.');
+        }
+
         // `is_main = (id = N)` evaluates per row: true for this image, false
         // for its siblings. The cast to int is what makes the raw fragment
         // injection-safe; nothing else here is interpolated.
         ProductImage::query()
             ->where('product_id', $image->product_id)
-            ->update(['is_main' => DB::raw('`id` = '.(int) $image->getKey())]);
+            // @phpstan-ignore argument.type (validated int above, not a literal-string but injection-safe)
+            ->update(['is_main' => DB::raw('`id` = '.$imageKey)]);
 
         return $image->refresh();
     }

@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,7 @@ class RevenueTrendChart extends ChartWidget
         $from = now()->subDays(89)->startOfDay();
         $to = now()->endOfDay();
 
+        /** @var Collection<string, float|string> $rows */
         $rows = DB::table('payments')
             ->whereNotNull('paid_at')
             ->whereBetween('paid_at', [$from, $to])

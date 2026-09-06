@@ -66,6 +66,7 @@ final class CreateShipment
         }
 
         return DB::transaction(function () use ($order, $carrier): Shipment {
+            /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
 
             $this->assertShippable($locked, $carrier);

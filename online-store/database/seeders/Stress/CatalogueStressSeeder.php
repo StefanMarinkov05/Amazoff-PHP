@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -86,7 +87,13 @@ class CatalogueStressSeeder extends Seeder
             return;
         }
 
-        $count = (int) (config('stress.catalogue_count') ?? self::DEFAULT_COUNT);
+        $configuredCount = config('stress.catalogue_count');
+
+        if ($configuredCount !== null && ! is_scalar($configuredCount)) {
+            throw new InvalidArgumentException('Config value [stress.catalogue_count] must be a scalar value.');
+        }
+
+        $count = (int) ($configuredCount ?? self::DEFAULT_COUNT);
 
         if ($count < 1) {
             $this->command?->warn('CatalogueStressSeeder: count must be at least 1, got '.$count.'. Skipping.');
@@ -94,7 +101,10 @@ class CatalogueStressSeeder extends Seeder
             return;
         }
 
+        /** @var Collection<int, int> $categoryIds */
         $categoryIds = ProductCategory::query()->doesntHave('children')->pluck('id');
+
+        /** @var Collection<int, int> $brandIds */
         $brandIds = Brand::query()->pluck('id');
 
         if ($categoryIds->isEmpty()) {
@@ -106,7 +116,13 @@ class CatalogueStressSeeder extends Seeder
         $this->ensurePlaceholderImage();
 
         $started = microtime(true);
-        $startId = (int) (DB::table('products')->max('id') ?? 0) + 1;
+        $maxId = DB::table('products')->max('id');
+
+        if ($maxId !== null && ! is_scalar($maxId)) {
+            throw new InvalidArgumentException('products.id max() returned a non-scalar value.');
+        }
+
+        $startId = (int) ($maxId ?? 0) + 1;
 
         $this->command?->info("CatalogueStressSeeder: creating {$count} product(s)...");
 

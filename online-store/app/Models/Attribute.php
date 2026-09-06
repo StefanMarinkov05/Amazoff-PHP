@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\AttributeInputType;
+use Database\Factories\AttributeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Attribute extends Model
 {
+    /** @use HasFactory<AttributeFactory> */
     use HasFactory;
 
     /**
@@ -43,11 +45,13 @@ class Attribute extends Model
         ];
     }
 
+    /** @return HasMany<AttributeValue, $this> */
     public function attributeValues(): HasMany
     {
         return $this->hasMany(AttributeValue::class);
     }
 
+    /** @return BelongsToMany<Product, $this> */
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);
@@ -58,6 +62,8 @@ class Attribute extends Model
      * — allowed everywhere — not "allowed nowhere"; see
      * App\Support\ResolveAllowedAttributes, the only place this relation's
      * emptiness is given that meaning.
+     *
+     * @return BelongsToMany<ProductCategory, $this>
      */
     public function productCategories(): BelongsToMany
     {

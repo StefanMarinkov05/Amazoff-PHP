@@ -14,6 +14,7 @@ use App\Models\ProductVariation;
 use App\Support\Courier\DeliveryQuote;
 use App\Support\Courier\ShipmentRequest;
 use Illuminate\Database\Eloquent\Collection;
+use InvalidArgumentException;
 
 /**
  * The delivery price a checkout shows and `CreateOrder` charges — a
@@ -49,17 +50,17 @@ final class CalculateDeliveryPrice
         array $deliveryAddress,
     ): DeliveryQuote {
         $request = new ShipmentRequest(
-            city: (string) $deliveryAddress['city'],
-            postcode: (string) $deliveryAddress['postcode'],
-            country: (string) ($deliveryAddress['country'] ?? 'BG'),
-            street: $deliveryAddress['street'] ?? null,
-            officeCode: $deliveryAddress['courier_office_code'] ?? null,
+            city: (string) self::optionalStringField($deliveryAddress, 'city'),
+            postcode: (string) self::optionalStringField($deliveryAddress, 'postcode'),
+            country: self::optionalStringField($deliveryAddress, 'country') ?? 'BG',
+            street: self::optionalStringField($deliveryAddress, 'street'),
+            officeCode: self::optionalStringField($deliveryAddress, 'courier_office_code'),
             receiverName: trim(sprintf(
                 '%s %s',
-                (string) ($deliveryAddress['first_name'] ?? ''),
-                (string) ($deliveryAddress['last_name'] ?? ''),
+                self::optionalStringField($deliveryAddress, 'first_name') ?? '',
+                self::optionalStringField($deliveryAddress, 'last_name') ?? '',
             )),
-            receiverPhone: (string) ($deliveryAddress['phone'] ?? ''),
+            receiverPhone: self::optionalStringField($deliveryAddress, 'phone') ?? '',
             weightGrams: self::totalWeightGrams($cart),
             codAmount: $paymentMethod === PaymentMethod::CashOnDelivery ? '0.00' : null,
         );
@@ -89,6 +90,21 @@ final class CalculateDeliveryPrice
     }
 
     /**
+     * Reads a `$deliveryAddress` field as a string, tolerating an absent or
+     * null key the same way the original `(string) ($array[$key] ?? null)`
+     * casts did — this is form input, not a place to throw on a shape the
+     * caller may legitimately omit (street vs. courier_office_code).
+     *
+     * @param  array<string, mixed>  $deliveryAddress
+     */
+    private static function optionalStringField(array $deliveryAddress, string $key): ?string
+    {
+        $value = $deliveryAddress[$key] ?? null;
+
+        return $value === null ? null : (string) (is_scalar($value) ? $value : json_encode($value));
+    }
+
+    /**
      * Sums each line's resolved weight × quantity, falling back to
      * `couriers.default_parcel_weight_grams` per line for a variation with
      * no recorded weight — `ResolveVariationMeasurements::weightGrams()`
@@ -96,7 +112,11 @@ final class CalculateDeliveryPrice
      */
     private static function totalWeightGrams(Cart $cart): int
     {
-        $fallback = (int) config('couriers.default_parcel_weight_grams', 500);
+        $fallback = config('couriers.default_parcel_weight_grams', 500);
+
+        if (! is_int($fallback)) {
+            throw new InvalidArgumentException('Config value [couriers.default_parcel_weight_grams] must be an integer.');
+        }
 
         /** @var Collection<int, CartItem> $items */
         $items = $cart->cartItems()->with('productVariation.product')->get();

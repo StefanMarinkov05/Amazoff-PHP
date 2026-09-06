@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\ResolveCategoryFamily;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 
 /**
  * Updates a category, refusing a reparent that would make the tree cyclic.
@@ -51,15 +52,27 @@ final class UpdateProductCategory
         }
 
         return DB::transaction(function () use ($category, $attributes): ProductCategory {
+            /** @var ProductCategory $locked */
             $locked = ProductCategory::query()->lockForUpdate()->findOrFail($category->getKey());
 
             // Only when the form actually sent the key — a caller renaming a
             // category should not have its parent read as "move to root" for
             // want of the field.
             if (array_key_exists('parent_id', $attributes)) {
-                $parentId = $attributes['parent_id'] === null || $attributes['parent_id'] === ''
+                $rawParentId = $attributes['parent_id'];
+
+                // A non-scalar here (an array, an object) is a caller bug —
+                // the form only ever sends a scalar or omits the key
+                // entirely, and silently coercing an unexpected shape to 0
+                // would move the category to root instead of surfacing the
+                // actual defect.
+                if ($rawParentId !== null && $rawParentId !== '' && ! is_scalar($rawParentId)) {
+                    throw new InvalidArgumentException('parent_id must be a scalar or null, '.get_debug_type($rawParentId).' given.');
+                }
+
+                $parentId = $rawParentId === null || $rawParentId === ''
                     ? null
-                    : (int) $attributes['parent_id'];
+                    : (int) $rawParentId;
 
                 if (ResolveCategoryFamily::wouldCreateCycle($locked, $parentId)) {
                     throw new CategoryCycleException(

@@ -47,14 +47,14 @@ class UserSeeder extends Seeder
         foreach (self::ACCOUNTS as $account) {
             // firstOrCreate on email keeps a re-seed from colliding with the
             // unique index; the factory supplies the password and the rest.
-            $user = User::firstOrCreate(
-                ['email' => $account['email']],
-                User::factory()->raw([
-                    'email' => $account['email'],
-                    'first_name' => $account['first_name'],
-                    'last_name' => $account['last_name'],
-                ]),
-            );
+            /** @var array<string, mixed> $attributes */
+            $attributes = User::factory()->raw([
+                'email' => $account['email'],
+                'first_name' => $account['first_name'],
+                'last_name' => $account['last_name'],
+            ]);
+
+            $user = User::firstOrCreate(['email' => $account['email']], $attributes);
 
             if ($account['role'] !== null) {
                 // assignRole is additive but does not duplicate, so this is

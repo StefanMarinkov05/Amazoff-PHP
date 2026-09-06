@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class Order extends Model
 {
+    /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
     /**
@@ -78,31 +80,37 @@ class Order extends Model
         ];
     }
 
+    /** @return HasMany<OrderItem, $this> */
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
+    /** @return HasMany<OrderStatusHistory, $this> */
     public function orderStatusHistories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class);
     }
 
+    /** @return HasMany<OrderAddress, $this> */
     public function orderAddresses(): HasMany
     {
         return $this->hasMany(OrderAddress::class);
     }
 
+    /** @return HasMany<CouponRedemption, $this> */
     public function couponRedemptions(): HasMany
     {
         return $this->hasMany(CouponRedemption::class);
     }
 
+    /** @return HasOne<Shipment, $this> */
     public function shipment(): HasOne
     {
         return $this->hasOne(Shipment::class);
     }
 
+    /** @return HasOne<Payment, $this> */
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
@@ -132,6 +140,8 @@ class Order extends Model
      * `$order->payment_status` keeps working unchanged for the panel and for
      * anything that already read it as an attribute. The annotation on this
      * class marks it `@property-read`: nothing may assign it any more.
+     *
+     * @return Attribute<PaymentStatus, never>
      */
     protected function paymentStatus(): Attribute
     {
@@ -152,11 +162,13 @@ class Order extends Model
         });
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Carrier, $this> */
     public function carrier(): BelongsTo
     {
         return $this->belongsTo(Carrier::class);
@@ -166,6 +178,8 @@ class Order extends Model
      * No database foreign key — `cart_id` is a plain `UNIQUE` column, not a
      * constrained one (see the migration's docblock). The relation still
      * works; Eloquent needs no FK to join on a column.
+     *
+     * @return BelongsTo<Cart, $this>
      */
     public function cart(): BelongsTo
     {

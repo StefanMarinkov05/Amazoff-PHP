@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 /**
  * One line of `CalculateCouponDiscount`'s input, normalized so the same
@@ -55,8 +56,14 @@ final class CouponDiscountLine
                 $lineTotal = (string) Money::of(ResolveVariationPrice::current($variation))
                     ->multiply($item->quantity);
 
+                $productId = $product->getKey();
+
+                if (! is_int($productId)) {
+                    throw new InvalidArgumentException('Product::getKey() returned a non-integer value.');
+                }
+
                 return new self(
-                    productId: $product->getKey(),
+                    productId: $productId,
                     productCategoryId: $product->product_category_id,
                     lineTotal: $lineTotal,
                     vatRate: (string) $product->vat_rate,

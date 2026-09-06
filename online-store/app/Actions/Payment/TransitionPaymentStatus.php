@@ -81,6 +81,7 @@ final class TransitionPaymentStatus
             // Locked before the status is read. Reading `$payment->status`
             // off the instance the caller holds protects nothing — it was
             // hydrated before the lock existed.
+            /** @var Payment $locked */
             $locked = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
             $from = $locked->status;
 

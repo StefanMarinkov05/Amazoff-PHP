@@ -7,9 +7,13 @@ namespace Database\Factories;
 use App\Enums\LengthUnit;
 use App\Enums\WeightUnit;
 use App\Models\Brand;
+use App\Models\Product;
 use App\Models\ProductCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<Product>
+ */
 class ProductFactory extends Factory
 {
     /**

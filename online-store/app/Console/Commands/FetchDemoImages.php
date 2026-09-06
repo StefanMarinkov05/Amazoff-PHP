@@ -266,7 +266,13 @@ final class FetchDemoImages extends Command
 
         fwrite($tmp, $bytes);
         $meta = stream_get_meta_data($tmp);
-        $tmpPath = $meta['uri'];
+        $tmpPath = $meta['uri'] ?? null;
+
+        if (! is_string($tmpPath)) {
+            fclose($tmp);
+
+            throw new RuntimeException('Could not determine the temp file path for the downloaded image.');
+        }
 
         $info = @getimagesize($tmpPath);
         fclose($tmp);

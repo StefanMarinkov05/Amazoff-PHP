@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\InventoryMovementType;
+use Database\Factories\InventoryMovementFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryMovement extends Model
 {
+    /** @use HasFactory<InventoryMovementFactory> */
     use HasFactory;
 
     /**
@@ -41,11 +43,13 @@ class InventoryMovement extends Model
         ];
     }
 
+    /** @return BelongsTo<Inventory, $this> */
     public function inventory(): BelongsTo
     {
         return $this->belongsTo(Inventory::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class);

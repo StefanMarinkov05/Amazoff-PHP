@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ShipmentStatus;
+use Database\Factories\ShipmentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Shipment extends Model
 {
+    /** @use HasFactory<ShipmentFactory> */
     use HasFactory;
 
     /**
@@ -56,16 +58,19 @@ class Shipment extends Model
         ];
     }
 
+    /** @return HasMany<ShipmentTrackingEvent, $this> */
     public function shipmentTrackingEvents(): HasMany
     {
         return $this->hasMany(ShipmentTrackingEvent::class);
     }
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
+    /** @return BelongsTo<Carrier, $this> */
     public function carrier(): BelongsTo
     {
         return $this->belongsTo(Carrier::class);

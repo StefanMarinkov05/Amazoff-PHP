@@ -13,6 +13,7 @@ use App\Support\ResolveAllowedAttributes;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 
 /**
  * Creates a product with the variations and stock rows it cannot exist without.
@@ -94,13 +95,19 @@ final class CreateProduct
             }
 
             foreach ($variations as $variation) {
+                $initialQuantity = $variation['initial_quantity'] ?? 0;
+
+                if (! is_scalar($initialQuantity)) {
+                    throw new InvalidArgumentException('Variation [initial_quantity] must be a scalar value.');
+                }
+
                 // Actor passed on, not dropped: AddProductVariation authorizes
                 // create_product_variation too. Passing null here is the
                 // silent-check-skip ADR-0007 warns about.
                 $this->addVariation->handle(
                     $product,
                     Arr::except($variation, ['initial_quantity']),
-                    (int) ($variation['initial_quantity'] ?? 0),
+                    (int) $initialQuantity,
                     $actor,
                 );
             }

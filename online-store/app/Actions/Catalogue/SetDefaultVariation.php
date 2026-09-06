@@ -8,6 +8,7 @@ use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 
 /**
  * Promotes one variation to default and demotes the rest, in one `UPDATE`.
@@ -37,12 +38,19 @@ final class SetDefaultVariation
             Gate::forUser($actor)->authorize('update', $variation);
         }
 
+        $variationKey = $variation->getKey();
+
+        if (! is_int($variationKey)) {
+            throw new InvalidArgumentException('ProductVariation::getKey() returned a non-integer value.');
+        }
+
         // `is_default = (id = N)` evaluates per row: true for this variation,
         // false for its siblings. The cast to int is what makes the raw
         // fragment injection-safe; nothing else here is interpolated.
         ProductVariation::query()
             ->where('product_id', $variation->product_id)
-            ->update(['is_default' => DB::raw('`id` = '.(int) $variation->getKey())]);
+            // @phpstan-ignore argument.type (validated int above, not a literal-string but injection-safe)
+            ->update(['is_default' => DB::raw('`id` = '.$variationKey)]);
 
         return $variation->refresh();
     }

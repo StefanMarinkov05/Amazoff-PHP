@@ -51,10 +51,10 @@ final class SpeedyGateway implements CourierGateway
             $data = $this->send(new SearchSitesRequest($term), 'cities');
 
             /** @var Collection<int, CourierCity> */
-            return collect($data['sites'] ?? [])->map(static fn (mixed $site): CourierCity => new CourierCity(
-                vendorId: (string) self::field($site, 'id'),
-                name: (string) self::field($site, 'name'),
-                postcode: (string) self::field($site, 'postCode', ''),
+            return collect(self::arrayField($data, 'sites', []))->map(static fn (mixed $site): CourierCity => new CourierCity(
+                vendorId: self::stringField($site, 'id'),
+                name: self::stringField($site, 'name'),
+                postcode: self::stringField($site, 'postCode', ''),
                 country: 'BG',
             ));
         });
@@ -66,17 +66,20 @@ final class SpeedyGateway implements CourierGateway
             $data = $this->send(new SearchOfficesRequest($city), 'offices');
 
             /** @var Collection<int, CourierOffice> */
-            return collect($data['offices'] ?? [])->map(static function (mixed $office) use ($city): CourierOffice {
+            return collect(self::arrayField($data, 'offices', []))->map(static function (mixed $office) use ($city): CourierOffice {
                 $address = self::field($office, 'address', []);
+                $maxParcelDimensions = self::field($office, 'maxParcelDimensions', []);
 
                 return new CourierOffice(
-                    code: (string) self::field($office, 'id'),
-                    name: (string) self::field($office, 'name'),
-                    address: (string) self::field($address, 'fullAddressString', ''),
-                    city: (string) (self::field($address, 'siteName') ?? $city),
-                    postcode: (string) self::field($address, 'postCode', ''),
-                    maxWeightGrams: self::field(self::field($office, 'maxParcelDimensions', []), 'weight') !== null
-                        ? (int) round(((float) self::field(self::field($office, 'maxParcelDimensions', []), 'weight')) * 1000)
+                    code: self::stringField($office, 'id'),
+                    name: self::stringField($office, 'name'),
+                    address: self::stringField($address, 'fullAddressString', ''),
+                    city: self::field($address, 'siteName') !== null
+                        ? self::stringField($address, 'siteName')
+                        : $city,
+                    postcode: self::stringField($address, 'postCode', ''),
+                    maxWeightGrams: self::field($maxParcelDimensions, 'weight') !== null
+                        ? (int) round(self::floatField($maxParcelDimensions, 'weight') * 1000)
                         : null,
                 );
             });
@@ -87,12 +90,13 @@ final class SpeedyGateway implements CourierGateway
     {
         return $this->guarded('quote', function () use ($request): DeliveryQuote {
             $data = $this->send(new CalculatePriceRequest($request), 'quote');
-            $calculation = $data['calculations'][0] ?? $data;
+            $calculations = self::field($data, 'calculations');
+            $calculation = is_array($calculations) ? ($calculations[0] ?? $data) : $data;
             $price = self::field($calculation, 'price', []);
 
             return new DeliveryQuote(
-                amount: number_format((float) self::field($price, 'total', 0), 2, '.', ''),
-                currency: (string) self::field($price, 'currency', 'BGN'),
+                amount: number_format(self::floatField($price, 'total', 0), 2, '.', ''),
+                currency: self::stringField($price, 'currency', 'BGN'),
             );
         });
     }
@@ -101,11 +105,16 @@ final class SpeedyGateway implements CourierGateway
     {
         return $this->guarded('createShipment', function () use ($request): ShipmentResult {
             $data = $this->send(new CreateShipmentRequest($request), 'createShipment');
-            $parcel = $data['parcels'][0] ?? [];
+            $parcels = self::field($data, 'parcels');
+            $parcel = is_array($parcels) ? ($parcels[0] ?? []) : [];
             $parcelId = self::field($parcel, 'id');
             $shipmentId = self::field($data, 'id');
 
-            if ($shipmentId === null) {
+            if ($shipmentId === null || ! is_scalar($shipmentId)) {
+                throw CourierUnavailableException::requestFailed($this->code(), 'createShipment');
+            }
+
+            if ($parcelId !== null && ! is_scalar($parcelId)) {
                 throw CourierUnavailableException::requestFailed($this->code(), 'createShipment');
             }
 
@@ -137,18 +146,24 @@ final class SpeedyGateway implements CourierGateway
     {
         return $this->guarded('track', function () use ($trackingNumber): Collection {
             $data = $this->send(new TrackShipmentRequest($trackingNumber), 'track');
-            $parcel = $data['parcels'][0] ?? [];
-            $operations = self::field($parcel, 'operations', []);
+            $parcels = self::field($data, 'parcels');
+            $parcel = is_array($parcels) ? ($parcels[0] ?? []) : [];
+            $operations = self::arrayField($parcel, 'operations', []);
 
             /** @var Collection<int, CourierTrackingEvent> */
             return collect($operations)->map(function (mixed $operation): CourierTrackingEvent {
-                $raw = (string) self::field($operation, 'type', '');
+                $raw = self::stringField($operation, 'type', '');
+                $description = self::field($operation, 'description');
+
+                if ($description !== null && ! is_string($description)) {
+                    throw CourierUnavailableException::requestFailed($this->code(), 'track');
+                }
 
                 return new CourierTrackingEvent(
                     rawStatus: $raw,
                     status: $this->mapStatus($raw),
-                    occurredAt: new DateTimeImmutable((string) self::field($operation, 'dateTime', 'now')),
-                    description: self::field($operation, 'description'),
+                    occurredAt: new DateTimeImmutable(self::stringField($operation, 'dateTime', 'now')),
+                    description: $description,
                 );
             });
         });
@@ -163,6 +178,54 @@ final class SpeedyGateway implements CourierGateway
     private static function field(mixed $value, string $key, mixed $default = null): mixed
     {
         return is_array($value) ? ($value[$key] ?? $default) : $default;
+    }
+
+    /**
+     * Same as `field()`, but asserts the result is a string (or castable
+     * scalar) before returning. Throws rather than silently coercing an
+     * unexpected type, because a vendor field in the wrong shape is exactly
+     * the case `guarded()` exists to turn into `CourierUnavailableException`
+     * instead of a confusing downstream error.
+     */
+    private static function stringField(mixed $value, string $key, mixed $default = null): string
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_scalar($field)) {
+            throw CourierUnavailableException::requestFailed('speedy', 'parse-response');
+        }
+
+        return (string) $field;
+    }
+
+    /** @see stringField() */
+    private static function floatField(mixed $value, string $key, mixed $default = null): float
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_scalar($field)) {
+            throw CourierUnavailableException::requestFailed('speedy', 'parse-response');
+        }
+
+        return (float) $field;
+    }
+
+    /**
+     * Same as `field()`, but asserts the result is an array before
+     * returning — used where a caller is about to `collect()` the value.
+     *
+     * @param  array<string, mixed>  $default
+     * @return array<array-key, mixed>
+     */
+    private static function arrayField(mixed $value, string $key, array $default = []): array
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_array($field)) {
+            throw CourierUnavailableException::requestFailed('speedy', 'parse-response');
+        }
+
+        return $field;
     }
 
     /**

@@ -38,9 +38,13 @@ class CouponInfolist
                         TextEntry::make('scope')
                             ->badge(),
                         TextEntry::make('value')
-                            ->formatStateUsing(fn (string $state, Coupon $record): string => $record->getAttribute('type') === CouponType::Percentage
-                                ? "{$state}%"
-                                : Number::currency((float) $state, 'eur')),
+                            ->formatStateUsing(function (string $state, Coupon $record): string {
+                                if ($record->getAttribute('type') === CouponType::Percentage) {
+                                    return "{$state}%";
+                                }
+
+                                return Number::currency((float) $state, 'eur') ?: $state;
+                            }),
                         IconEntry::make('is_active')
                             ->boolean(),
                     ]),
