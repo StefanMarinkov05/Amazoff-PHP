@@ -320,6 +320,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- **The Stripe CLI/app account mismatch documented since 2026-09-04 is
+  resolved, and a real checkout was run end to end for the first time.**
+  Root cause turned out to be sharper than "different account": the
+  developer's Stripe login holds two accounts, `acct_1UAbacHSYCrSsH7T` and
+  `acct_1U9BTmEinvfvnBsb` (the one `.env` uses), and **both display as
+  "Amazoff"** — indistinguishable by name in Stripe's own UI.
+  `stripe reauth` on an already-authorized CLI session only re-confirmed
+  whichever one it already had; `stripe login --new-session` (a full fresh
+  device-code flow) reached the other. `stripe listen` now genuinely
+  forwards this project's events rather than silently forwarding a
+  different account's, always returning `Ready!` regardless.
+
+  Verified live: order `ORD-000159`, a real checkout with `4242 4242 4242
+  4242`, four real Stripe events (`payment_intent.created/succeeded`,
+  `charge.succeeded/updated`) all delivered and handled `200`,
+  `payments.status` → `paid`, `payment_events` holding all four real event
+  ids. This also closes the "manual checkout against test keys, ~2 minutes,
+  not yet done" gap `reference/testing/stripe-testing.md` had carried since
+  the project's first Stripe pass — every earlier attempt hit this same
+  account mismatch before it could complete.
+
+  `how-to/troubleshooting.md` has the full diagnostic account, including
+  the identical-display-name trap for the next person who hits this.
+
 - **Recording damage on an inventory row with nothing available crashed
   the admin panel instead of refusing cleanly.** `RecordDamage` guards
   `available()` the same way `ReserveStock` does, but threw a plain

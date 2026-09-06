@@ -2040,29 +2040,45 @@ by accident and it happened to have leftover data"; the volume on
 `acct_1UAbac...` was produced by something else, running against that
 account, believing it to be the project's.
 
-**Whose account each one actually is remains unconfirmed — do not treat a
-guess as settled here.** What is verified: this application's `.env` (and
-therefore every seeder, every Action, and this doc's own worked examples)
-points at `acct_1U9BTmEinvfvnBsb`. What is *not* verified: which of the two
-accounts a given teammate considers "theirs", or which one is the one the
-team originally intended as canonical versus one that came later. A
-plausible read is that `acct_1U9BTmEinvfvnBsb` is a particular teammate's
-own account and `.env` has pointed at it since setup — which would mean the
-"wrong" account in every incident above is actually the one nobody has been
-using, not a stray personal login. Resolve this by asking, not by
-inference: whoever owns each account should say so, and the team should
-then pick one and update `.env` (and the vault) to match — rather than
-continuing to call whichever one `.env` currently has "canonical" by
-default.
+**Resolved, 2026-09-06: not a missing-access problem — the developer has
+both accounts, and Stripe's own UI made that hard to see.** The "Accounts"
+list page (`dashboard.stripe.com` → account switcher → "The list of
+accounts of which you are a member") showed only `acct_1UAbacHSYCrSsH7T`
+for the developer investigating this, which read as "I don't have
+`acct_1U9BTmEinvfvnBsb`." But navigating directly into a Workbench view
+(`dashboard.stripe.com/acct_1U9BTmEinvfvnBsb/test/workbench/...`) loaded
+successfully, showing **the same display name, "Amazoff sandbox," on a
+different account id** — and, conclusively, this session's own test
+activity: an `invalid_request_error` on
+`pi_3UCQm5EinvfvnBsb0ZceOS...`, the exact intent id
+`demo:stripe-payments` opened during this session's Stripe verification.
+That proves `acct_1U9BTm...` is real, reachable by this developer, and is
+the account every seeder/Action/webhook test in this session actually ran
+against.
 
-**Until that conversation happens, treat `acct_1U9BTmEinvfvnBsb` as
-canonical only because it is what `.env` currently contains** — not because
-anyone has confirmed it is the account the team meant to standardize on.
-Anyone setting up the CLI or an MCP connector for this repo should still
-match whatever `.env` has *today*, since that is what every actual write
-this app makes uses — but a `.env` change is on the table pending that
-conversation, and would flip which account is "correct" for this whole
-entry.
+**So there are two distinct Stripe sandboxes, both named "Amazoff," both
+reachable by the same developer login** — the "Accounts" list apparently
+did not surface both (scoping or a caching quirk on Stripe's own UI, not
+investigated further). `.env` is correct and needs no change. The only
+actual bug is the CLI/MCP tooling defaulting to the *other* one of the
+developer's two accounts.
+
+**Practical trap this leaves behind: identical account names.** Checking
+`stripe config --list | grep account_id` (or the app's own
+`accounts->retrieve()->id`) against the *id*, not the display name, is the
+only reliable check from here on — two sandboxes sharing one name is
+confirmed to exist on this project, not a hypothetical.
+
+The teammate identified separately as `acct_1UAzVTK9AR8y1wsZ` is unrelated
+to either of the two above and still not referenced in this app's
+configuration — no action needed there.
+
+**`acct_1U9BTmEinvfvnBsb` is confirmed canonical — it's what `.env`
+contains, and both developers who checked so far can reach it.** Anyone
+setting up the CLI or an MCP connector for this repo should authenticate
+against that id specifically. Checking by name ("Amazoff sandbox") is not
+enough — confirmed above to collide with a second account under the same
+login.
 
 **The signing secrets matching is not evidence the accounts match.** The
 `whsec_…` a `stripe listen` session prints is generated per session, so

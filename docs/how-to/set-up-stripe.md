@@ -24,6 +24,38 @@ A `pk_live_`/`sk_live_` pair in `.env` is a mistake, not a shortcut.
 Implementation standard #17 keeps real keys out of `.env.example` too — the
 committed file has empty values and comments only.
 
+### Joining an existing project instead of starting one
+
+Don't create your own Stripe account for a project that already has one —
+every teammate needs to be on the **same** account, because a Stripe
+account's API keys are shared infrastructure, not per-person credentials.
+Two separate steps, both needed:
+
+1. **Get invited to the account.** Whoever owns it: Stripe dashboard →
+   **Settings → Team and security** → **New member** (or **Invite**) →
+   your email → role **Developer** is enough for local dev. This gives you
+   *dashboard* access — you can now see payments, webhooks, and events on
+   the account — but does **not** by itself hand you API keys or fix your
+   CLI; those are separate.
+2. **Get the actual `.env` values** (`STRIPE_KEY`, `STRIPE_SECRET`,
+   `STRIPE_WEBHOOK_SECRET`) from the team vault, or copy them yourself from
+   **Developers → API keys** on the account once you're invited. They are
+   the *same* values for every teammate — nobody generates their own.
+
+Confirm your `.env` resolves to the right account before doing anything
+else:
+
+```bash
+docker compose exec app php artisan tinker --execute='echo app(Stripe\StripeClient::class)->accounts->retrieve()->id;'
+```
+
+Compare the printed `acct_…` id against what the project actually uses —
+ask a teammate or check `how-to/troubleshooting.md`'s Stripe account
+section. **Do this check by account id, not by the account's display name**
+— a Stripe login can hold two accounts that show the identical name (this
+project's own account and a personal sandbox both display as "Amazoff"),
+and the name alone will not tell them apart.
+
 ## 2. Install the Stripe CLI
 
 The CLI is what gives you a webhook signing secret locally without exposing
@@ -48,6 +80,39 @@ stripe login
 ```
 
 Opens a browser, you approve, credentials are stored in your OS keychain.
+If your Stripe login has access to more than one account or sandbox, the
+approval screen — **"Choose an environment"** — lists all of them with an
+**Enable CLI** button per row. Click it on the row for this project's
+account specifically. Check the **account id**, not the label: this
+project's account and at least one other reachable from the same login
+have both shown up as **"Amazoff"** / **"Amazoff sandbox"**, so the display
+name alone does not tell them apart. Confirm afterward:
+
+```bash
+stripe config --list | grep account_id
+```
+
+**If the CLI is already authorized to the wrong account, `stripe reauth`
+may not be enough to fix it.** `reauth` re-confirms whichever account the
+existing session already has and does not reliably surface a *second*
+account under the same login — this happened for real on this project:
+`reauth` kept presenting only the one account already authorized, and
+switching required a genuinely fresh session:
+
+```bash
+stripe login --new-session
+```
+
+This runs the full device-code flow again (a code to enter at
+`access.stripe.com/stripecli/oauth2/device`) rather than reusing the
+cached session, and is what actually reached the second account. Confirm
+the switch took with the same `stripe config --list` check above, and cross-
+check against the app's own resolved account
+(`app(Stripe\StripeClient::class)->accounts->retrieve()->id`, §1) — they
+must match, or `stripe listen` forwards nothing while still printing
+`Ready!`. `how-to/troubleshooting.md`, "Stripe says a payment succeeded and
+the app still shows it pending", has the full incident this project hit
+from exactly this trap.
 
 ## 3. Get the webhook signing secret
 
