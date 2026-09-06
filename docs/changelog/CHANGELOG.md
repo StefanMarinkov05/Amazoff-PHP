@@ -8,6 +8,27 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`charge.dispute.closed` is now handled** — a dispute won by the merchant
+  moves the payment back to `Paid`, one lost moves it to `Refunded`, closing
+  the gap `reference/testing/stripe-testing.md` had recorded as needing a
+  decision nobody had made. That premise was wrong:
+  `PaymentStatus::allowedTransitions()`'s own docblock already specified
+  both targets — this was a missing wire-up, not a missing decision. An
+  inquiry closed without becoming a formal dispute (`warning_closed`, same
+  event type) is acknowledged without a status change, not misread as a
+  decided outcome. 3 new test cases.
+
+  **Found while wiring it: the paid-amount guard was scoped to the wrong
+  thing.** It checked `$target === PaymentStatus::Paid` alone, and a won
+  dispute also resolves to `Paid` — but a Stripe Dispute object carries no
+  `amount_received` field, only `amount`, so every won dispute read as an
+  amount mismatch and silently stayed `Disputed`. No error anywhere, just a
+  payment that never moved. Fixed by also requiring `$event->type ===
+  'payment_intent.succeeded'` — the one event type the guard's own reasoning
+  was written for. Caught by the regression test for the won-dispute path,
+  proven able to fail by reverting just that condition and watching only
+  that one test go red while the lost/inquiry cases stayed green.
+
 - **`demo:seed` — the whole demo dataset in one command.** `DatabaseSeeder`
   seeds only what every environment needs (permissions, roles, carriers,
   staff accounts), so `migrate:fresh --seed` left an empty catalogue and

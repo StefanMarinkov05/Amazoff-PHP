@@ -849,3 +849,74 @@ it('does not apply the paid-amount guard to a dispute', function (): void {
 
     expect($payment->fresh()->status)->toBe(PaymentStatus::Disputed);
 });
+
+it('returns a disputed payment to Paid when the dispute is won', function (): void {
+    $payment = stripePayment([
+        'stripe_payment_intent_id' => 'pi_disp_won',
+        'status' => PaymentStatus::Disputed,
+        'amount' => '100.00',
+    ]);
+
+    app(HandleStripeWebhookEvent::class)->handle(
+        stripeEvent('charge.dispute.closed', [
+            'id' => 'dp_won',
+            'payment_intent' => 'pi_disp_won',
+            'amount' => 10000,
+            'currency' => 'eur',
+            'status' => 'won',
+        ], 'evt_disp_won'),
+    );
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Paid);
+});
+
+it('moves a disputed payment to Refunded when the dispute is lost', function (): void {
+    // §37 note in PaymentStatus::allowedTransitions(): a dispute lost ends
+    // as Refunded, not back at Disputed's origin, since the funds are taken
+    // back from the merchant either way.
+    $payment = stripePayment([
+        'stripe_payment_intent_id' => 'pi_disp_lost',
+        'status' => PaymentStatus::Disputed,
+        'amount' => '100.00',
+    ]);
+
+    app(HandleStripeWebhookEvent::class)->handle(
+        stripeEvent('charge.dispute.closed', [
+            'id' => 'dp_lost',
+            'payment_intent' => 'pi_disp_lost',
+            'amount' => 10000,
+            'currency' => 'eur',
+            'status' => 'lost',
+        ], 'evt_disp_lost'),
+    );
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Refunded);
+});
+
+it('acknowledges charge.dispute.closed without a decided outcome, without moving the payment', function (): void {
+    // charge.dispute.closed also fires for warning_closed - an inquiry that
+    // never became a formal dispute. Only won/lost are decisions this
+    // application acts on; anything else is recorded and ignored, the same
+    // as any other event type not thought through, per the class docblock.
+    $payment = stripePayment([
+        'stripe_payment_intent_id' => 'pi_disp_inquiry',
+        'status' => PaymentStatus::Disputed,
+        'amount' => '100.00',
+    ]);
+
+    app(HandleStripeWebhookEvent::class)->handle(
+        stripeEvent('charge.dispute.closed', [
+            'id' => 'dp_inquiry',
+            'payment_intent' => 'pi_disp_inquiry',
+            'amount' => 10000,
+            'currency' => 'eur',
+            'status' => 'warning_closed',
+        ], 'evt_disp_inquiry'),
+    );
+
+    $event = PaymentEvent::where('stripe_event_id', 'evt_disp_inquiry')->first();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Disputed)
+        ->and($event)->not->toBeNull()
+        ->and($event->note)->toContain('Acknowledged');
+});

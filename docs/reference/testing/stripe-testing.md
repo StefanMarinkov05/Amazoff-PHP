@@ -123,6 +123,18 @@ signing secrets matching is not sufficient evidence that the two are the
 same account — they matched here, because `whsec_…` is per-CLI-session, not
 per-account.
 
+**Fixed 2026-09-06.** `stripe reauth` on the developer's already-authorized
+CLI session only re-confirmed the same wrong account — both `acct_1UAbac...`
+and `acct_1U9BTm...` display as "Amazoff" under the same Stripe login, and
+the cached session's picker never surfaced the second one. `stripe login
+--new-session` (a full fresh device-code flow, not a reauth of the existing
+session) reached it. `stripe listen --forward-to localhost:8080/stripe/webhook`
+now genuinely forwards this project's events — confirmed by the real
+checkout in the section above, the first one this project has ever run
+without the CLI silently listening on the wrong account.
+`docs/how-to/troubleshooting.md` has the full account, including the
+identical-display-name trap for future reference.
+
 Delivering the event directly — fetching it from the app's own account,
 signing it with the app's own secret, and POSTing to the real endpoint
 through the real middleware — is the workaround, and is what produced the
@@ -181,11 +193,18 @@ names on real objects, and the SDK's own generated stubs (built from
 Stripe's OpenAPI spec) type the request parameters. So a wrong field name
 would likely fail static analysis or the stub types.
 
-**Still open:** parameter *combinations*. `automatic_payment_methods`
-together with a `metadata` block and an `idempotency_key` header is a shape
-no test has ever sent to Stripe. The way to close it is a manual checkout
-against test keys — `how-to/set-up-stripe.md` §4 — which takes about two
-minutes and has not been done.
+**Closed 2026-09-06.** A real checkout through the storefront, `4242 4242
+4242 4242`, `stripe listen` forwarding for the first time against the
+*correct* account (see the account-mismatch account below — every earlier
+attempt at this exact test had `stripe listen` silently forwarding a
+different account's, empty, events). Order `ORD-000159`: `CreateStripeIntent`
+sent `automatic_payment_methods`, `metadata`, and the `idempotency_key`
+header together, Stripe accepted the shape, and four real events arrived
+and were all handled `200` — `payment_intent.created`,
+`payment_intent.succeeded`, `charge.succeeded`, `charge.updated`.
+`payments.status` moved to `paid`, `paid_at` stamped, `payment_events` holds
+all 4 real event ids. This is what closes the gap; the parameter-combination
+question above is no longer open.
 
 ### The MCP could not create objects
 
@@ -200,12 +219,32 @@ the specific reason the gap above is only "partly closed".
 
 ### Gaps with no tests because the feature does not exist
 
-Two of the four gaps this section originally listed have since been built
+Three of the four gaps this section originally listed have since been built
 and are now covered — **signing-secret rotation** (4 cases in
 `StripeWebhookSecurityTest`, verified by reverting to a single secret and
-watching only the mid-roll case fail) and **dispute handling** (5 cases in
+watching only the mid-roll case fail), **dispute handling** (5 cases in
 `StripePaymentTest`, including the expanded-`payment_intent` shape that
-would otherwise have silently dropped real disputes).
+would otherwise have silently dropped real disputes), and **dispute
+closing** (3 cases in `StripePaymentTest` — won, lost, and an inquiry
+closed without becoming a formal dispute, which shares the same event type
+and must not be misread as a decided outcome). The dispute-closing entry
+was removed from the "genuinely untestable" table below because the
+premise that blocked it — "nobody has specified what happens when a dispute
+is won" — was wrong: `PaymentStatus::allowedTransitions()`'s own docblock
+already said `won => Paid`, `lost => Refunded`; the gap was a missing
+wire-up, not a missing decision. Verified against Stripe's own Dispute
+object docs (`status` is `won`/`lost`/`prevented`/four `warning_*`/`under_review`/
+`needs_response` values, not a guess) rather than inferred.
+
+**Found while wiring it: the amount guard was scoped wrong.** It gated on
+`$target === PaymentStatus::Paid` alone, which a won dispute also resolves
+to — but a Dispute object carries no `amount_received` field, only
+`amount`, so every won dispute read as an amount mismatch and silently
+stayed `Disputed`. No error, just a payment that never moved. The regression
+test for the won-dispute path is what surfaced it, not inspection; the fix
+scopes the guard to `payment_intent.succeeded` specifically, the one event
+type that actually carries the field it reads. `explanation/stripe-payments.md`
+has the full account.
 
 What remains genuinely untestable here:
 
@@ -213,7 +252,6 @@ What remains genuinely untestable here:
 |---|---|
 | **IP allowlisting** | Lives in nginx config, not in Laravel. A Pest test cannot assert on infrastructure the app does not own, and it is deliberately disabled locally because `stripe listen` forwards from your own machine. `docker/nginx/stripe-ip-allowlist.conf.example` documents it instead. |
 | **Async webhook processing** | Processing is synchronous. Testing a queue that does not exist is not possible. |
-| **Dispute *closing*** | `charge.dispute.closed` is unhandled, so moving back out of `Disputed` is a manual panel action. Testing it would mean specifying "what happens to an order when a dispute is won", which nobody has. |
 
 The honest framing for what is left: these are recorded in
 `explanation/stripe-payments.md` as gaps precisely because writing a test
