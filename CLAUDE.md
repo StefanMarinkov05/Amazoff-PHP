@@ -135,6 +135,9 @@ in agreement: if a rule here changes, change it there too.
   `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
   (the committed plugin list and the four hookify rules that enforce this
   file's own invariants mechanically), `set-up-stripe.md`,
+  `set-up-security-and-quality-tools.md` (getting OWASP ZAP and Pcov
+  actually running — installation and first-run, distinct from
+  `pentest-the-system.md`'s procedure for using them once they work),
   `start-a-session.md`, `test-for-input-crashes.md`,
   `use-ci.md`, `write-docs-and-comments.md`, and
   **`write-a-storefront-page.md`** — every way UI is written here and what

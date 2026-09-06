@@ -13,6 +13,7 @@ use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 
 class CreateProduct extends CreateRecord
 {
@@ -31,13 +32,37 @@ class CreateProduct extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         // Repeater state is keyed by item UUID; the Action takes a list.
-        $variations = array_values(Arr::pull($data, 'variations', []));
+        $rawVariations = Arr::pull($data, 'variations', []);
+
+        if (! is_array($rawVariations)) {
+            throw new InvalidArgumentException('Product form [variations] must be an array.');
+        }
+
+        $variations = array_values(array_map(function (mixed $variation): array {
+            if (! is_array($variation)) {
+                throw new InvalidArgumentException('Product form variation must be an array.');
+            }
+
+            return $variation;
+        }, $rawVariations));
 
         // Not a column and not CreateProduct's concern — its own Action owns
         // that set, and runs after the product exists because both its rules
         // (category allow-list, no clash with a variation axis) read state
         // the product only has once saved.
-        $descriptiveValueIds = array_map(intval(...), (array) Arr::pull($data, 'descriptive_attribute_value_ids', []));
+        $rawDescriptiveValueIds = Arr::pull($data, 'descriptive_attribute_value_ids', []);
+
+        if (! is_array($rawDescriptiveValueIds)) {
+            throw new InvalidArgumentException('Product form [descriptive_attribute_value_ids] must be an array.');
+        }
+
+        $descriptiveValueIds = array_values(array_map(static function (mixed $id): int {
+            if (! is_scalar($id)) {
+                throw new InvalidArgumentException('Product form descriptive attribute value id must be a scalar value.');
+            }
+
+            return (int) $id;
+        }, $rawDescriptiveValueIds));
 
         $data = $this->convertMeasurements($data);
         $variations = array_map($this->convertMeasurements(...), $variations);

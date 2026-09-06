@@ -6,9 +6,13 @@ namespace Database\Factories;
 
 use App\Enums\InventoryMovementType;
 use App\Models\Inventory;
+use App\Models\InventoryMovement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<InventoryMovement>
+ */
 class InventoryMovementFactory extends Factory
 {
     /**
@@ -21,7 +25,7 @@ class InventoryMovementFactory extends Factory
             'created_by_id' => User::factory(),
             'movement_type' => fake()->randomElement(InventoryMovementType::cases()),
             // Sign carries direction; zero records nothing and is rejected.
-            'quantity' => fake()->randomElement([-1, 1]) * fake()->numberBetween(1, 50),
+            'quantity' => (fake()->boolean() ? 1 : -1) * fake()->numberBetween(1, 50),
             'note' => fake()->regexify('[A-Za-z0-9]{255}'),
         ];
     }

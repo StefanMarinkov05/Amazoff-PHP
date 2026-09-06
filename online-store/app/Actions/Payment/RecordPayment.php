@@ -55,6 +55,7 @@ final class RecordPayment
             // Locked before the existence check, not after: an unlocked read
             // is the check-then-act window two simultaneous checkouts would
             // both pass through.
+            /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
 
             if ($locked->payment()->exists()) {

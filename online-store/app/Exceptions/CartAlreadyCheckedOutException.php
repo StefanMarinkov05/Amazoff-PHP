@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use App\Models\Cart;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -22,9 +23,15 @@ class CartAlreadyCheckedOutException extends RuntimeException
     public function __construct(
         public readonly Cart $cart,
     ) {
+        $cartKey = $cart->getKey();
+
+        if (! is_scalar($cartKey)) {
+            throw new InvalidArgumentException('Cart::getKey() returned a non-scalar value.');
+        }
+
         parent::__construct(sprintf(
-            'Cart %d has already been checked out.',
-            $cart->getKey(),
+            'Cart %s has already been checked out.',
+            $cartKey,
         ));
     }
 }

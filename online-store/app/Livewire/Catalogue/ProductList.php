@@ -10,6 +10,7 @@ use App\Models\Brand;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ProductReview;
 use App\Models\ProductVariation;
 use App\Models\User;
 use App\Support\ProductPrice;
@@ -26,6 +27,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -344,12 +346,11 @@ class ProductList extends Component
      */
     private function safeAttributeValueIds(): array
     {
-        return collect((array) $this->attributeValueIds)
+        return array_values(collect((array) $this->attributeValueIds)
             ->filter(fn (mixed $id): bool => is_numeric($id))
             ->map(fn (mixed $id): int => (int) $id)
             ->unique()
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -378,10 +379,15 @@ class ProductList extends Component
     #[Computed]
     public function categories(): Collection
     {
+        // Query builder rather than Eloquent's own pluck(): 'total' is a
+        // selectRaw() alias, not a Product property, and Larastan objects to
+        // pretending otherwise.
+        /** @var SupportCollection<int, int> $countsByRawCategoryId */
         $countsByRawCategoryId = Product::query()
             ->tap(fn (Builder $q) => $this->applyFilters($q, skip: 'categorySlug'))
             ->selectRaw('product_category_id, count(*) as total')
             ->groupBy('product_category_id')
+            ->toBase()
             ->pluck('total', 'product_category_id');
 
         $withCounts = ProductCategory::query()
@@ -438,9 +444,12 @@ class ProductList extends Component
      */
     private function filterableAttributeValueIds(): array
     {
-        return $this->filterableAttributeValueIdsByAttribute()
+        /** @var list<int> $ids */
+        $ids = array_values($this->filterableAttributeValueIdsByAttribute()
             ->flatten()
-            ->all();
+            ->all());
+
+        return $ids;
     }
 
     /**
@@ -467,10 +476,18 @@ class ProductList extends Component
 
         return AttributeValue::query()
             ->whereIn('id', $selected)
-            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
+            ->whereHas('attribute', function (Builder $attribute): Builder {
+                /** @var Builder<Attribute> $attribute */
+                return $attribute->where('is_filterable', true);
+            })
             ->get(['id', 'attribute_id'])
             ->groupBy('attribute_id')
-            ->map(fn (Collection $group): array => $group->pluck('id')->map(fn (mixed $id): int => (int) $id)->all());
+            ->map(function (Collection $group): array {
+                /** @var array<int> $ids */
+                $ids = $group->pluck('id')->all();
+
+                return $ids;
+            });
     }
 
     /**
@@ -509,7 +526,10 @@ class ProductList extends Component
         /** @var Collection<int, AttributeValue> $allValues */
         $allValues = AttributeValue::query()
             ->whereIn('attribute_id', $allowedAttributeIds)
-            ->whereHas('attribute', fn (Builder $attribute) => $attribute->where('is_filterable', true))
+            ->whereHas('attribute', function (Builder $attribute): Builder {
+                /** @var Builder<Attribute> $attribute */
+                return $attribute->where('is_filterable', true);
+            })
             ->with('attribute')
             ->get();
 
@@ -640,8 +660,9 @@ class ProductList extends Component
 
         if ($this->safeBrandId() !== null) {
             $name = Brand::query()->whereKey($this->safeBrandId())->value('name');
-            if ($name !== null) {
-                $chips[] = ['key' => 'brandId', 'label' => $name];
+
+            if (is_scalar($name)) {
+                $chips[] = ['key' => 'brandId', 'label' => (string) $name];
             }
         }
 
@@ -658,7 +679,13 @@ class ProductList extends Component
         }
 
         if ($this->minRating !== null) {
-            $chips[] = ['key' => 'minRating', 'label' => $this->minRating.'★ & up'];
+            $minRating = $this->minRating;
+
+            if (! is_scalar($minRating)) {
+                throw new InvalidArgumentException('ProductList::$minRating must be a scalar value.');
+            }
+
+            $chips[] = ['key' => 'minRating', 'label' => $minRating.'★ & up'];
         }
 
         // One chip per selected value rather than one for the whole set:
@@ -667,9 +694,15 @@ class ProductList extends Component
         // clearFilter() can tell which to drop — the only chip key that
         // carries a payload, since every other filter is a single value.
         foreach ($this->selectedAttributeValues() as $value) {
+            $valueKey = $value->getKey();
+
+            if (! is_scalar($valueKey)) {
+                throw new InvalidArgumentException('AttributeValue::getKey() returned a non-scalar value.');
+            }
+
             $chips[] = [
-                'key' => 'attributeValue:'.$value->getKey(),
-                'label' => $value->value,
+                'key' => 'attributeValue:'.$valueKey,
+                'label' => (string) $value->value,
             ];
         }
 
@@ -697,10 +730,13 @@ class ProductList extends Component
 
     private function priceRangeLabel(): string
     {
+        $minPrice = is_scalar($this->minPrice) ? $this->minPrice : null;
+        $maxPrice = is_scalar($this->maxPrice) ? $this->maxPrice : null;
+
         return match (true) {
-            $this->minPrice !== null && $this->maxPrice !== null => "€{$this->minPrice} – €{$this->maxPrice}",
-            $this->minPrice !== null => "€{$this->minPrice}+",
-            default => "Up to €{$this->maxPrice}",
+            $minPrice !== null && $maxPrice !== null => "€{$minPrice} – €{$maxPrice}",
+            $minPrice !== null => "€{$minPrice}+",
+            default => "Up to €{$maxPrice}",
         };
     }
 
@@ -776,10 +812,15 @@ class ProductList extends Component
     /** @return LengthAwarePaginator<int, Product> */
     private function productsQuery(): LengthAwarePaginator
     {
+        $approvedOnly = function (Builder $q): Builder {
+            /** @var Builder<ProductReview> $q */
+            return $q->where('approved', true);
+        };
+
         $query = Product::query()
             ->with(['productImages', 'brand', 'productVariations.inventory'])
-            ->withAvg(['productReviews as rating_avg' => fn (Builder $q) => $q->where('approved', true)], 'rating')
-            ->withCount(['productReviews as rating_count' => fn (Builder $q) => $q->where('approved', true)]);
+            ->withAvg(['productReviews as rating_avg' => $approvedOnly], 'rating')
+            ->withCount(['productReviews as rating_count' => $approvedOnly]);
 
         $isDemoSort = $this->sortBy === self::DEMO_SORT_KEY && $this->isDemoModeAvailable();
 
@@ -849,17 +890,16 @@ class ProductList extends Component
             // write, for a `LIKE` that still cannot use an index either way
             // — three explicit `LIKE`s over real columns is what this schema
             // already reads, and is only three lines longer.
+            $matchesSearch = function (Builder $value): Builder {
+                /** @var Builder<AttributeValue> $value */
+                return $value->where('value', 'like', '%'.$this->search.'%');
+            };
+
             $query->where(fn (Builder $q) => $q
                 ->where('name', 'like', '%'.$this->search.'%')
                 ->orWhere('short_description', 'like', '%'.$this->search.'%')
-                ->orWhereHas(
-                    'descriptiveAttributeValues',
-                    fn (Builder $value) => $value->where('value', 'like', '%'.$this->search.'%'),
-                )
-                ->orWhereHas(
-                    'productVariations.attributeValues',
-                    fn (Builder $value) => $value->where('value', 'like', '%'.$this->search.'%'),
-                ));
+                ->orWhereHas('descriptiveAttributeValues', $matchesSearch)
+                ->orWhereHas('productVariations.attributeValues', $matchesSearch));
         }
 
         if ($skip !== 'categorySlug') {
@@ -921,10 +961,15 @@ class ProductList extends Component
         }
 
         if ($this->inStockOnly) {
-            $query->whereHas('productVariations', fn (Builder $variation) => $variation
-                ->where('is_available', true)
-                ->whereHas('inventory', fn (Builder $inventory) => $inventory
-                    ->whereColumn('current_quantity', '>', 'reserved_quantity')));
+            $query->whereHas('productVariations', function (Builder $variation): Builder {
+                /** @var Builder<ProductVariation> $variation */
+                return $variation
+                    ->where('is_available', true)
+                    ->whereHas('inventory', function (Builder $inventory): Builder {
+                        /** @var Builder<Inventory> $inventory */
+                        return $inventory->whereColumn('current_quantity', '>', 'reserved_quantity');
+                    });
+            });
         }
 
         if ($this->onSaleOnly) {
@@ -968,7 +1013,10 @@ class ProductList extends Component
                 // below, orWhere(Closure, operator, value), is real (traced
                 // against Illuminate\Database\Query\Builder::where and
                 // ::createSub directly) but outside what the stubs cover.
-                $q->whereDoesntHave('productReviews', fn (Builder $r) => $r->where('approved', true))
+                $q->whereDoesntHave('productReviews', function (Builder $r): Builder {
+                    /** @var Builder<ProductReview> $r */
+                    return $r->where('approved', true);
+                })
                     ->orWhere(
                         // @phpstan-ignore argument.type
                         fn (QueryBuilder $sub) => $sub->selectRaw('avg(rating)')
@@ -1001,6 +1049,7 @@ class ProductList extends Component
         return array_key_exists($this->sortBy, self::SORTS) ? $this->sortBy : 'created_at';
     }
 
+    /** @return 'asc'|'desc' */
     private function safeSortDir(): string
     {
         return $this->sortDir === 'asc' ? 'asc' : 'desc';

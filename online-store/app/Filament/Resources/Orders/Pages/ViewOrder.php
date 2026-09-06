@@ -65,7 +65,7 @@ class ViewOrder extends ViewRecord
                 ->action(fn (Order $record, array $data) => $this->reportingDomainFailures(
                     fn () => app(CreateShipment::class)->handle(
                         $record,
-                        Carrier::findOrFail($data['carrier_id']),
+                        Carrier::query()->where('id', $data['carrier_id'])->firstOrFail(),
                         auth()->user(),
                     ),
                     'Shipment could not be created',

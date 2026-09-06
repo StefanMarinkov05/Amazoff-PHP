@@ -98,7 +98,7 @@ class ArticlesTable
      * The Action still re-checks: a button being hidden is not a guarantee, a
      * thrown exception is.
      */
-    private static function statusActions()
+    private static function statusActions(): ActionGroup
     {
         return ActionGroup::make(
             array_map(

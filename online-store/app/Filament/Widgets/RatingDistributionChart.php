@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +28,7 @@ class RatingDistributionChart extends ChartWidget
 
     protected function getData(): array
     {
+        /** @var Collection<int, int> $counts */
         $counts = DB::table('product_reviews')
             ->selectRaw('rating, COUNT(*) as total')
             ->groupBy('rating')
@@ -38,7 +40,7 @@ class RatingDistributionChart extends ChartWidget
             'datasets' => [
                 [
                     'label' => 'Reviews',
-                    'data' => array_map(fn (int $r): int => (int) ($counts[$r] ?? 0), $ratings),
+                    'data' => array_map(fn (int $r): int => $counts[$r] ?? 0, $ratings),
                     'backgroundColor' => ['#ef4444', '#f59e0b', '#eab308', '#84cc16', '#10b981'],
                 ],
             ],

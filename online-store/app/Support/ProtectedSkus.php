@@ -93,6 +93,10 @@ final class ProtectedSkus
         $floors = [];
 
         foreach ($raw as $sku => $floor) {
+            if (! is_scalar($floor)) {
+                throw new RuntimeException(self::FILE." has a non-scalar floor value for SKU '{$sku}'.");
+            }
+
             $floors[(string) $sku] = (int) $floor;
         }
 
@@ -173,7 +177,13 @@ final class ProtectedSkus
         }
 
         /** @var list<string> $skus */
-        $skus = array_map(static fn (mixed $sku): string => (string) $sku, array_values($group['skus']));
+        $skus = array_map(static function (mixed $sku) use ($section): string {
+            if (! is_scalar($sku)) {
+                throw new RuntimeException(self::FILE." has a non-scalar SKU in '{$section}.skus'.");
+            }
+
+            return (string) $sku;
+        }, array_values($group['skus']));
 
         return $skus;
     }

@@ -35,15 +35,17 @@ final class ResolveAllowedAttributes
     {
         $ancestorIds = self::selfAndAncestorIds($category);
 
+        /** @var Collection<int, int> $scoped */
         $scoped = Attribute::query()
             ->whereHas('productCategories', fn ($query) => $query->whereIn('product_categories.id', $ancestorIds))
             ->pluck('id');
 
+        /** @var Collection<int, int> $unrestricted */
         $unrestricted = Attribute::query()
             ->whereDoesntHave('productCategories')
             ->pluck('id');
 
-        return $scoped->merge($unrestricted)->unique()->values()->all();
+        return array_values($scoped->merge($unrestricted)->unique()->all());
     }
 
     /**

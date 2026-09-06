@@ -7,6 +7,7 @@ namespace Database\Seeders\Stress;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use Database\Seeders\Demo\DemoOrderSeeder;
+use InvalidArgumentException;
 
 /**
  * Table-size data for query-plan and pagination testing, nothing else. Not
@@ -53,7 +54,13 @@ class StressSeeder extends DemoOrderSeeder
             return;
         }
 
-        $count = (int) (config('stress.order_count') ?? self::DEFAULT_COUNT);
+        $configuredCount = config('stress.order_count');
+
+        if ($configuredCount !== null && ! is_scalar($configuredCount)) {
+            throw new InvalidArgumentException('Config value [stress.order_count] must be a scalar value.');
+        }
+
+        $count = (int) ($configuredCount ?? self::DEFAULT_COUNT);
 
         if ($count < 1) {
             $this->command?->warn('StressSeeder: count must be at least 1, got '.$count.'. Skipping.');

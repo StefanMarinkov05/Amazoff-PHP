@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\ProductImageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,6 +43,7 @@ class ProductImage extends Model
 
     public const MIN_HEIGHT_PX = 400;
 
+    /** @use HasFactory<ProductImageFactory> */
     use HasFactory;
 
     /**
@@ -71,6 +73,7 @@ class ProductImage extends Model
         ];
     }
 
+    /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -82,6 +85,8 @@ class ProductImage extends Model
      * The only reference to a product image outside its own product since
      * `product_variations.image_id` was dropped, and it cascades — so removing
      * an image can no longer fail on a foreign key. ADR-0013.
+     *
+     * @return BelongsToMany<ProductVariation, $this>
      */
     public function productVariations(): BelongsToMany
     {

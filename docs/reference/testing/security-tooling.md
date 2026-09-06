@@ -46,37 +46,21 @@ environment-specific fact every scan command depends on.
 
 ## Configuration, as actually used
 
-### Baseline scan — passive, ~1 minute
+**The invocation commands live in one place, not here** —
+`how-to/set-up-security-and-quality-tools.md` has the actual baseline/full/
+authenticated command lines, install prerequisites, and the memory-cap
+practice this project adopted after a full scan failed to complete more
+than once. This section covers what was *decided* about each scan's
+configuration and why; that one covers how to run it. Keeping the commands
+in a single file means a correction (like the one below) only has to happen
+once.
 
-Spider plus passive rules. Cheap enough to run on every deploy, and it
-catches the entire header/misconfiguration class.
+### Authenticated scan — the load-bearing settings, and why each exists
 
-```bash
-docker run --rm --network online_shop_teamb_default \
-  -v "$(pwd)/scratchpad:/zap/wrk:rw" \
-  ghcr.io/zaproxy/zaproxy:stable \
-  zap-baseline.py -t http://webserver:80/catalogue -r zap-baseline-report.html
-```
-
-### Full active scan — unauthenticated
-
-The baseline's rules **plus** attack payloads fired at every discovered
-parameter. Attacks the target, so: own dev instance only.
-
-```bash
-docker run --rm --network online_shop_teamb_default \
-  -v "$(pwd)/scratchpad:/zap/wrk:rw" \
-  ghcr.io/zaproxy/zaproxy:stable \
-  zap-full-scan.py -t http://webserver:80/catalogue \
-    -r zap-full-report.html -x zap-full-report.xml
-```
-
-### Authenticated scan — an Automation Framework plan
-
-The only configuration that reaches the admin panel. Run with
-`zap.sh -cmd -autorun /zap/wrk/zap-auth.yaml`. The full plan and the traps
-that make it fail *silently* are in `how-to/pentest-the-system.md`; the
-load-bearing parameters are:
+The only configuration that reaches the admin panel, driven by
+`reference/testing/security/zap-auth.yaml`. The full plan and the traps that
+make a wrong version fail *silently* are in `how-to/pentest-the-system.md`;
+the settings worth knowing the reasoning for:
 
 | Setting | Value | Why |
 |---|---|---|
@@ -84,19 +68,25 @@ load-bearing parameters are:
 | `excludePaths` | `…/storage/.*` | Otherwise the scan spends most of its runtime probing 182 product images for `.bak`/`.zip` variants at ~77 req/s |
 | `excludePaths` | `…/logout.*` | A spider that follows the logout link ends its own session; every later request is scanned as a guest |
 | Session | Injected via an `httpsender` script | The login is Livewire (`POST /livewire/update` with a component snapshot), which ZAP's form-based auth cannot reproduce |
-| `threadPerHost` | `2` | `AuthenticateSession` regenerates the session under concurrent load. At default parallelism the injected cookie went stale mid-scan — see the measurement below |
+| `spider.thread` / `scanner.threadPerHost` | `1` (fully serial, both global `-config` flags) | `AuthenticateSession` re-validates session state on every request, so *any* concurrency above 1 can race it — see the measurement below for why the intermediate fix was not enough |
 | Output dir | writable by uid 1000 | ZAP runs as `zap`; a root-owned directory makes the plan exit **3** on `Permission denied` *after* scanning successfully, losing every report |
 
-**The `threadPerHost` change is measured, not guessed.** Admin-route status
-codes from the web server's own logs, same scan configuration otherwise:
+**This took two measured rounds to actually fix, not one.** Admin-route
+status codes from the web server's own logs, same scan otherwise:
 
-| | Default parallelism | `threadPerHost: 2` |
-|---|---|---|
-| `/admin/*` → `200` (authenticated) | 92 | **587** |
-| `/admin/*` → `302` (session lost) | 4,550 | **3** |
+| | Default parallelism | `threadPerHost: 2` | Fully serial (`thread=1` on both) |
+|---|---|---|---|
+| `/admin/*` → `200` (authenticated) | 92 | 587 | **all of them** |
+| `/admin/*` → `302` (session lost) | 4,550 | 3 | **0** |
 
-At default parallelism 98 % of admin requests bounced off the login
-redirect — a run that *looks* authenticated and is not.
+`threadPerHost: 2` (a job-level parameter on `activeScan`) looked like a
+fix — 92 → 587 is a real improvement — but the 3 remaining `302`s were still
+the same race, just narrower, confirmed by re-checking the access log for
+interleaved same-URL status codes rather than trusting the summary count.
+Only forcing both phases fully serial via the *global* `-config` flags
+closed it completely. The lesson worth keeping: a partial improvement on a
+concurrency race is evidence the race is real, not evidence it is fixed —
+recheck the log, not the alert count, before calling a race closed.
 
 ## Coverage — what was actually reached
 

@@ -630,3 +630,28 @@ would have caught it, and now guards against it recurring.
 - Recording damage through the panel reaches `RecordDamage` for real —
   `damaged_quantity` rises and `current_quantity` falls by the same amount,
   with a `DamagedProduct` ledger row.
+
+### `ProductReviewResourceTest`
+
+Had no test at all until 2026-09-06, found during a QA-gap audit rather than
+from a specific bug report — checked for a class reference to
+`ApproveProductReview`/`UnapproveProductReview` anywhere in `tests/` and
+found none, despite both having a live panel row action and a bulk action on
+`ProductReviewsTable`.
+
+- `ProductReviewResource` (`admin/product-reviews`) is reachable by
+  `administrator` only, and returns 403 for `content_editor` and
+  `warehouse_employee` — the matrix §24 states (moderation is an
+  administrator ability; `content_editor` briefly held it and had it removed
+  once §3.3 was read against §24 — `permissions.md` has the account).
+- Approving and unapproving a review through the panel row action reach
+  `ApproveProductReview`/`UnapproveProductReview` for real, not just a modal
+  closing — `approved` flips on the underlying row.
+- The bulk "approve" action was checked specifically against the
+  `DeleteBulkAction`-bypasses-the-single-item-guard bug class confirmed
+  elsewhere in this codebase (`Products`, `ProductCategories`): it composes
+  `ApproveProductReview` once per selected record rather than writing
+  `approved = true` directly, so authorization and the Action's own logic
+  both still apply per record. Confirmed correct, not a bug — worth
+  recording precisely because the same-shaped bug exists on other
+  resources and this one could easily have repeated it.

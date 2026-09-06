@@ -7,6 +7,7 @@ namespace App\Support;
 use App\Models\ProductCategory;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 /**
  * Category → descendant resolution. The tree is genuinely deep — 4 levels
@@ -217,9 +218,15 @@ final class ResolveCategoryFamily
     public static function selectOptions(): array
     {
         return self::allOrderedWithDepth()
-            ->mapWithKeys(fn (ProductCategory $category): array => [
-                $category->id => str_repeat('— ', (int) $category->getAttribute('depth')).$category->name,
-            ])
+            ->mapWithKeys(function (ProductCategory $category): array {
+                $depth = $category->getAttribute('depth');
+
+                if (! is_int($depth)) {
+                    throw new InvalidArgumentException('ProductCategory depth attribute was not an integer.');
+                }
+
+                return [$category->id => str_repeat('— ', $depth).$category->name];
+            })
             ->all();
     }
 
@@ -239,6 +246,12 @@ final class ResolveCategoryFamily
             ->whereNotNull('parent_id')
             ->get(['id', 'parent_id'])
             ->groupBy('parent_id')
-            ->map(fn (Collection $group): array => $group->pluck('id')->map(fn (mixed $id): int => (int) $id)->all());
+            ->map(fn (Collection $group): array => $group->pluck('id')->map(function (mixed $id): int {
+                if (! is_int($id)) {
+                    throw new InvalidArgumentException('ProductCategory id was not an integer.');
+                }
+
+                return $id;
+            })->all());
     }
 }

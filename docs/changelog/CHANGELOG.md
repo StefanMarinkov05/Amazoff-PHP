@@ -8,6 +8,80 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Larastan raised from level 5 to 9 across `app/`, `database/seeders`,
+  and `database/factories`, with 0 errors.** `phpstan.neon`'s own comment
+  had recorded this as an unrevisited scaffold default rather than a
+  decision, deferred because a level-6 sample found 131 findings, 118 of
+  them one root cause. That estimate held: fixing the model layer first
+  collapsed the bulk of the eventual 564 findings at level 9 before the
+  rest of the codebase was even touched.
+
+  **~90% of the 564 were one root cause cascading downstream.** Two
+  variants of the same gap: Eloquent relation methods
+  (`hasMany()`/`belongsTo()`/...) missing a generic return type
+  (`HasMany<Order, $this>` vs. bare `HasMany`), and — found only once
+  `database/seeders` came into scope — every model factory's
+  `Factory<TModel>` extends clause missing its own generic, which made
+  every `Product::factory()->create([...])` across every seeder read as
+  `Factory<Model>` and reject the very columns being written. Fixing all
+  32 models' relations, then all 31 factories' `@extends`, cleared several
+  hundred downstream "argument type" and "cannot access property" errors
+  that were really just PHPStan losing the element type through an
+  unannotated chain — nothing behavioural, and each fix confirmed by
+  running the model or seeder's own tests before moving on.
+
+  **The remaining ~10% were real mixed-narrowing gaps**, mostly at
+  application boundaries — vendor JSON from the Econt/Speedy couriers,
+  `Model::getKey()`'s dynamic-attribute return type, `config()`, decoded
+  fixture documents — where the fix is an inline `is_scalar`/`is_int`/
+  `is_array` guard that throws on the wrong shape, never a silent `?? 0`
+  or `?? ''` coalesce: a wrong guess there would have been a silent
+  behavioural bug, worse than the type error it replaced. A handful of
+  Filament table/relation-manager closures needed the same generic
+  annotation the relations did (`Builder<Payment>` vs. bare `Builder`).
+  Zero behaviour changes anywhere in the sweep — every fix is a docblock,
+  a generic, or a guard-with-a-throw, verified against the existing test
+  suite (which stayed green throughout) rather than by reading the diff
+  alone.
+
+- **`ApproveProductReview`/`UnapproveProductReview` had zero test
+  coverage** — confirmed by checking for a class reference anywhere in
+  `tests/`, not inferred — despite both having a live panel row action and
+  a bulk "approve" action on `ProductReviewsTable`. Found during a QA-gap
+  audit, not a bug report. 12 new tests across the Action layer
+  (`ApproveProductReviewTest`) and the panel (`ProductReviewResourceTest`):
+  authorization (allowed with `approve_product_review`, refused without,
+  no check when no actor is passed), the role-denial matrix
+  (`administrator` only, per §24), and the row/bulk panel actions reaching
+  the real Action rather than a modal that only renders. The bulk action
+  was checked specifically against the `DeleteBulkAction`-bypasses-the-
+  Action bug class confirmed elsewhere on this codebase (`Products`,
+  `ProductCategories`) — this one composes `ApproveProductReview` per
+  record correctly; confirmed, not assumed. `reference/actions.md` and
+  `reference/testing/ui-tests.md` updated; both Actions were previously
+  absent from the coverage table entirely.
+
+- **`charge.dispute.closed` is now handled** — a dispute won by the merchant
+  moves the payment back to `Paid`, one lost moves it to `Refunded`, closing
+  the gap `reference/testing/stripe-testing.md` had recorded as needing a
+  decision nobody had made. That premise was wrong:
+  `PaymentStatus::allowedTransitions()`'s own docblock already specified
+  both targets — this was a missing wire-up, not a missing decision. An
+  inquiry closed without becoming a formal dispute (`warning_closed`, same
+  event type) is acknowledged without a status change, not misread as a
+  decided outcome. 3 new test cases.
+
+  **Found while wiring it: the paid-amount guard was scoped to the wrong
+  thing.** It checked `$target === PaymentStatus::Paid` alone, and a won
+  dispute also resolves to `Paid` — but a Stripe Dispute object carries no
+  `amount_received` field, only `amount`, so every won dispute read as an
+  amount mismatch and silently stayed `Disputed`. No error anywhere, just a
+  payment that never moved. Fixed by also requiring `$event->type ===
+  'payment_intent.succeeded'` — the one event type the guard's own reasoning
+  was written for. Caught by the regression test for the won-dispute path,
+  proven able to fail by reverting just that condition and watching only
+  that one test go red while the lost/inquiry cases stayed green.
+
 - **`demo:seed` — the whole demo dataset in one command.** `DatabaseSeeder`
   seeds only what every environment needs (permissions, roles, carriers,
   staff accounts), so `migrate:fresh --seed` left an empty catalogue and
@@ -298,6 +372,30 @@ when the work happened, not when it was committed — nothing in
   Support-class layer.
 
 ### Fixed
+
+- **The Stripe CLI/app account mismatch documented since 2026-09-04 is
+  resolved, and a real checkout was run end to end for the first time.**
+  Root cause turned out to be sharper than "different account": the
+  developer's Stripe login holds two accounts, `acct_1UAbacHSYCrSsH7T` and
+  `acct_1U9BTmEinvfvnBsb` (the one `.env` uses), and **both display as
+  "Amazoff"** — indistinguishable by name in Stripe's own UI.
+  `stripe reauth` on an already-authorized CLI session only re-confirmed
+  whichever one it already had; `stripe login --new-session` (a full fresh
+  device-code flow) reached the other. `stripe listen` now genuinely
+  forwards this project's events rather than silently forwarding a
+  different account's, always returning `Ready!` regardless.
+
+  Verified live: order `ORD-000159`, a real checkout with `4242 4242 4242
+  4242`, four real Stripe events (`payment_intent.created/succeeded`,
+  `charge.succeeded/updated`) all delivered and handled `200`,
+  `payments.status` → `paid`, `payment_events` holding all four real event
+  ids. This also closes the "manual checkout against test keys, ~2 minutes,
+  not yet done" gap `reference/testing/stripe-testing.md` had carried since
+  the project's first Stripe pass — every earlier attempt hit this same
+  account mismatch before it could complete.
+
+  `how-to/troubleshooting.md` has the full diagnostic account, including
+  the identical-display-name trap for the next person who hits this.
 
 - **Recording damage on an inventory row with nothing available crashed
   the admin panel instead of refusing cleanly.** `RecordDamage` guards

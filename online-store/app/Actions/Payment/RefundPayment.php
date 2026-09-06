@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 use Stripe\StripeClient;
 
 /**
@@ -56,6 +57,7 @@ final class RefundPayment
     public function handle(Payment $payment, ?string $amount, ?User $actor): Payment
     {
         return DB::transaction(function () use ($payment, $amount, $actor): Payment {
+            /** @var Payment $locked */
             $locked = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
 
             if ($actor !== null) {
@@ -97,6 +99,14 @@ final class RefundPayment
                 );
             }
 
+            // getKey() is declared @return mixed — see CreateStripeIntent's
+            // own note on this. Genuinely an int for Payment.
+            $paymentKey = $locked->getKey();
+
+            if (! is_scalar($paymentKey)) {
+                throw new InvalidArgumentException('Payment::getKey() returned a non-scalar value.');
+            }
+
             $this->stripe->refunds->create(
                 [
                     'payment_intent' => $locked->stripe_payment_intent_id,
@@ -107,8 +117,8 @@ final class RefundPayment
                     // of *this* refund is idempotent while a genuine second
                     // refund of the same size still goes through.
                     'idempotency_key' => sprintf(
-                        'refund-%d-%s-%s',
-                        $locked->getKey(),
+                        'refund-%s-%s-%s',
+                        $paymentKey,
                         $alreadyRefunded,
                         $requested,
                     ),

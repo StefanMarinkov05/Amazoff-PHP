@@ -6,8 +6,12 @@ namespace Database\Factories;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
+use App\Models\ShipmentTrackingEvent;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<ShipmentTrackingEvent>
+ */
 class ShipmentTrackingEventFactory extends Factory
 {
     /**

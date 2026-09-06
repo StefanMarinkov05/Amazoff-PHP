@@ -6,8 +6,12 @@ namespace Database\Factories;
 
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
+use App\Models\PaymentEvent;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<PaymentEvent>
+ */
 class PaymentEventFactory extends Factory
 {
     /**

@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Cart;
+use App\Models\CartItem;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<CartItem>
+ */
 class CartItemFactory extends Factory
 {
     /**

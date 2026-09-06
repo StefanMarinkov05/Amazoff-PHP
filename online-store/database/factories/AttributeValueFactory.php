@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Attribute;
+use App\Models\AttributeValue;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<AttributeValue>
+ */
 class AttributeValueFactory extends Factory
 {
     /**

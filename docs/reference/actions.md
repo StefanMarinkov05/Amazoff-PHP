@@ -264,6 +264,8 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
 | `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
+| `ApproveProductReview` | `product_reviews.approved` (`true`) | optional, `approve_product_review` | `AuthorizationException` |
+| `UnapproveProductReview` | `product_reviews.approved` (`false`) | optional, `approve_product_review` — the same ability the other direction, §24; there is no separate `unapprove_product_review` permission | `AuthorizationException` |
 
 `reference/write-rules/order.md` is the outcomes page.
 
@@ -641,6 +643,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
+| `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
 criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have

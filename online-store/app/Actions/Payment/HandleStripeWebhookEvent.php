@@ -78,9 +78,10 @@ final class HandleStripeWebhookEvent
         // from Paid/PartiallyRefunded — the states where money arrived — so
         // an out-of-order delivery against any other state is recorded and
         // refused by the matrix rather than applied. Not terminal: a dispute
-        // won returns to Paid, one lost ends at Refunded, and neither
-        // closing event is handled yet, so the move back out is a manual
-        // panel action for now.
+        // won returns to Paid, one lost ends at Refunded — both closing
+        // events are resolved in statusFor(), the same way charge.refunded
+        // is, since the target depends on the payload (dispute.status), not
+        // the event type alone.
         'charge.dispute.created' => PaymentStatus::Disputed,
     ];
 
@@ -132,6 +133,7 @@ final class HandleStripeWebhookEvent
      */
     private function apply(StripeEvent $event, object $object, Payment $payment): PaymentEvent
     {
+        /** @var Payment $locked */
         $locked = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
         $from = $locked->status;
 
@@ -204,7 +206,9 @@ final class HandleStripeWebhookEvent
         }
 
         /*
-         * Never mark paid for the wrong amount or the wrong currency.
+         * Never mark paid for the wrong amount or the wrong currency —
+         * `payment_intent.succeeded` only, not every event that happens to
+         * resolve to a Paid target.
          *
          * Stripe's guidance, and plain prudence: the event says a charge
          * succeeded, but it does not follow that it succeeded for what this
@@ -220,6 +224,14 @@ final class HandleStripeWebhookEvent
          * against itself and pass regardless of what was truly charged,
          * which defeats the point of checking at all.
          *
+         * Restricted to the one event type that actually carries
+         * `amount_received`: a Dispute object (`charge.dispute.closed`,
+         * `status: won`, also a Paid target) has no such field, so gating on
+         * `$target === Paid` alone made every won dispute fail this guard —
+         * `$received` was always null, always a mismatch, and the payment
+         * silently stayed Disputed. Found by the regression test for that
+         * exact path, not by inspection.
+         *
          * Amount is compared in minor units so the comparison is
          * integer-exact and never a decimal-string mismatch. Currency is
          * compared case-insensitively — Stripe lowercases, this schema does
@@ -228,7 +240,7 @@ final class HandleStripeWebhookEvent
          * refusal here is: throwing makes Stripe retry an event that can
          * never apply.
          */
-        if ($target === PaymentStatus::Paid) {
+        if ($target === PaymentStatus::Paid && $event->type === 'payment_intent.succeeded') {
             $received = $object->amount_received ?? null;
             $expected = Money::of((string) $locked->amount)->toMinorUnits();
             $receivedCurrency = is_string($object->currency ?? null) ? mb_strtolower($object->currency) : null;
@@ -370,7 +382,33 @@ final class HandleStripeWebhookEvent
                 : PaymentStatus::Refunded;
         }
 
+        if ($eventType === 'charge.dispute.closed') {
+            return $this->disputeOutcomeFrom($object);
+        }
+
         return self::STATUS_BY_EVENT_TYPE[$eventType] ?? null;
+    }
+
+    /**
+     * `charge.dispute.closed` fires for more than a decided dispute — a
+     * `warning_closed` inquiry (never became a formal chargeback) uses the
+     * same event type. Only `won`/`lost` are decisions this application
+     * acts on; anything else is acknowledged and recorded without a status
+     * change, same reasoning as the class docblock gives for an unlisted
+     * event type — a status this application has not thought through is not
+     * applied on a guess. `PaymentStatus::Disputed::allowedTransitions()`
+     * is what actually enforces `won => Paid` / `lost => Refunded`; this
+     * only resolves *which* of the two the payload means.
+     */
+    private function disputeOutcomeFrom(object $object): ?PaymentStatus
+    {
+        $status = $object->status ?? null;
+
+        return match ($status) {
+            'won' => PaymentStatus::Paid,
+            'lost' => PaymentStatus::Refunded,
+            default => null,
+        };
     }
 
     /**

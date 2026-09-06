@@ -49,6 +49,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 
 class ProductVariationsRelationManager extends RelationManager
 {
@@ -253,10 +254,16 @@ class ProductVariationsRelationManager extends RelationManager
 
                             $data = $this->convertMeasurements($data, $this->productDimensionUnit());
 
+                            $initialQuantity = $data['initial_quantity'] ?? 0;
+
+                            if (! is_scalar($initialQuantity)) {
+                                throw new InvalidArgumentException('Variation form [initial_quantity] must be a scalar value.');
+                            }
+
                             return app(AddProductVariation::class)->handle(
                                 $product,
                                 Arr::except($data, ['initial_quantity']),
-                                (int) ($data['initial_quantity'] ?? 0),
+                                (int) $initialQuantity,
                                 $this->actor(),
                             );
                         },
@@ -282,7 +289,20 @@ class ProductVariationsRelationManager extends RelationManager
                     ->using(fn (ProductVariation $record, array $data): ProductVariation => $this->reportingDomainFailures(
                         function () use ($record, $data): ProductVariation {
                             /** @var ProductVariation $record */
-                            $attributeValueIds = Arr::pull($data, 'attribute_value_ids', []);
+                            $rawAttributeValueIds = Arr::pull($data, 'attribute_value_ids', []);
+
+                            if (! is_array($rawAttributeValueIds)) {
+                                throw new InvalidArgumentException('Variation form [attribute_value_ids] must be an array.');
+                            }
+
+                            $attributeValueIds = array_values(array_map(static function (mixed $id): int {
+                                if (! is_scalar($id)) {
+                                    throw new InvalidArgumentException('Variation attribute value id must be a scalar value.');
+                                }
+
+                                return (int) $id;
+                            }, $rawAttributeValueIds));
+
                             $data = $this->convertMeasurements($data, $this->productDimensionUnit());
                             $record->update($data);
 
@@ -365,12 +385,16 @@ class ProductVariationsRelationManager extends RelationManager
                     // Repeater the gallery in position order, or "save with no
                     // changes" would silently rewrite position to array order
                     // on the very first open.
-                    ->fillForm(fn (ProductVariation $record): array => [
-                        'images' => $record->images()
-                            ->pluck('product_images.id')
-                            ->map(fn (int $id): array => ['image_id' => $id])
-                            ->all(),
-                    ])
+                    ->fillForm(function (ProductVariation $record): array {
+                        /** @var \Illuminate\Support\Collection<int, int> $imageIds */
+                        $imageIds = $record->images()->pluck('product_images.id');
+
+                        return [
+                            'images' => $imageIds
+                                ->map(fn (int $id): array => ['image_id' => $id])
+                                ->all(),
+                        ];
+                    })
                     ->schema([
                         Repeater::make('images')
                             ->label('Gallery')
@@ -477,12 +501,15 @@ class ProductVariationsRelationManager extends RelationManager
             ->get();
 
         return $attributes
-            ->mapWithKeys(fn (Attribute $attribute): array => [
-                $attribute->name => $attribute->attributeValues
+            ->mapWithKeys(function (Attribute $attribute): array {
+                /** @var array<int, string> $values */
+                $values = $attribute->attributeValues
                     ->sortBy('sort_order')
                     ->pluck('value', 'id')
-                    ->all(),
-            ])
+                    ->all();
+
+                return [$attribute->name => $values];
+            })
             ->all();
     }
 

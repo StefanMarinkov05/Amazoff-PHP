@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\InventoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Inventory extends Model
 {
+    /** @use HasFactory<InventoryFactory> */
     use HasFactory;
 
     /**
@@ -59,11 +61,13 @@ class Inventory extends Model
     }
 
     /** @return HasMany<InventoryMovement, $this> */
+    /** @return HasMany<InventoryMovement, $this> */
     public function inventoryMovements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
     }
 
+    /** @return BelongsTo<ProductVariation, $this> */
     /** @return BelongsTo<ProductVariation, $this> */
     public function productVariation(): BelongsTo
     {

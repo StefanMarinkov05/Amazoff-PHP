@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\CarrierFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Carrier extends Model
 {
+    /** @use HasFactory<CarrierFactory> */
     use HasFactory;
 
     /**
@@ -40,11 +42,13 @@ class Carrier extends Model
         ];
     }
 
+    /** @return HasMany<Shipment, $this> */
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);
     }
 
+    /** @return HasMany<Order, $this> */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);

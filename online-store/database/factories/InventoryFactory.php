@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\Inventory;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<Inventory>
+ */
 class InventoryFactory extends Factory
 {
     /**

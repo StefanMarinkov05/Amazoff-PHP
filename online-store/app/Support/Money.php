@@ -41,6 +41,7 @@ final readonly class Money implements Stringable
     /** Every money column in the schema is `decimal(n,2)`. */
     public const SCALE = 2;
 
+    /** @param numeric-string $amount */
     private function __construct(public string $amount) {}
 
     public static function of(string|int|float $amount): self
@@ -79,7 +80,13 @@ final readonly class Money implements Stringable
     /** Multiply by a plain quantity — a count of items, not an amount. */
     public function multiply(int|string $factor): self
     {
-        return new self(bcmul($this->amount, (string) $factor, self::SCALE));
+        $factor = (string) $factor;
+
+        if (! is_numeric($factor)) {
+            throw new InvalidArgumentException("[{$factor}] is not a numeric factor.");
+        }
+
+        return new self(bcmul($this->amount, $factor, self::SCALE));
     }
 
     /**
@@ -97,6 +104,10 @@ final readonly class Money implements Stringable
      */
     public function percentageOf(string $rate): self
     {
+        if (! is_numeric($rate)) {
+            throw new InvalidArgumentException("[{$rate}] is not a numeric rate.");
+        }
+
         $precise = bcdiv(
             bcmul($this->amount, $rate, self::SCALE * 2),
             bcadd('100', $rate, self::SCALE * 2),

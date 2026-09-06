@@ -6,6 +6,7 @@ namespace App\Actions\Cart;
 
 use App\Models\Cart;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * Sets or clears `carts.expires_at` according to who owns the cart. The
@@ -42,11 +43,19 @@ final class TouchCartExpiry
 {
     public function handle(Cart $cart): Cart
     {
-        $cart->update([
-            'expires_at' => $cart->user_id === null
-                ? Carbon::now()->addHours((int) config('cart.guest_ttl_hours'))
-                : null,
-        ]);
+        $expiresAt = null;
+
+        if ($cart->user_id === null) {
+            $guestTtlHours = config('cart.guest_ttl_hours');
+
+            if (! is_int($guestTtlHours)) {
+                throw new InvalidArgumentException('Config value [cart.guest_ttl_hours] must be an integer.');
+            }
+
+            $expiresAt = Carbon::now()->addHours($guestTtlHours);
+        }
+
+        $cart->update(['expires_at' => $expiresAt]);
 
         return $cart->refresh();
     }

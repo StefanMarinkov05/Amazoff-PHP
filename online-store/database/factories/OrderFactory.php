@@ -6,9 +6,13 @@ namespace Database\Factories;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<Order>
+ */
 class OrderFactory extends Factory
 {
     /**
@@ -16,9 +20,12 @@ class OrderFactory extends Factory
      */
     public function definition(): array
     {
+        /** @var list<float> $shippingOptions */
+        $shippingOptions = [0.0, 4.99, 6.99, 9.99];
+
         $subtotal = fake()->randomFloat(2, 10, 5000);
         $discount = fake()->boolean(25) ? round($subtotal * fake()->randomFloat(2, 0.05, 0.3), 2) : 0.0;
-        $shipping = fake()->randomElement([0.0, 4.99, 6.99, 9.99]);
+        $shipping = $shippingOptions[array_rand($shippingOptions)];
         $vatRate = 20.00;
         $vat = round(($subtotal - $discount) * $vatRate / (100 + $vatRate), 2);
 

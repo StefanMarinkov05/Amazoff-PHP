@@ -28,9 +28,13 @@ class CouponsTable
                 TextColumn::make('code')
                     ->searchable(),
                 TextColumn::make('value')
-                    ->formatStateUsing(fn (string $state, Coupon $record): string => $record->getAttribute('type') === CouponType::Percentage
-                        ? "{$state}%"
-                        : Number::currency((float) $state, 'eur'))
+                    ->formatStateUsing(function (string $state, Coupon $record): string {
+                        if ($record->getAttribute('type') === CouponType::Percentage) {
+                            return "{$state}%";
+                        }
+
+                        return Number::currency((float) $state, 'eur') ?: $state;
+                    })
                     ->sortable(),
                 // One column instead of two date columns: the pair only ever
                 // means anything read together, and "1 Sep – 30 Sep" is

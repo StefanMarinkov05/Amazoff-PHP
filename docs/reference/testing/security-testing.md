@@ -1429,12 +1429,57 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
 - **~~Rate limiting outside login.~~** Assessed 2026-09-04 — see **SEC-010**.
   Confirmed unthrottled and measured; `TrackOrder` (new) does throttle.
 
-- **The 2026-09-04 storefront additions have had no scanner pass.**
-  `/orders/track`, `/account/orders`, and the seven informational pages were
-  probed by hand (ownership scoping, the enumeration oracle, the throttle —
-  all pinned by tests) but never crawled. `/orders/track` is the one that
-  most deserves it: a public, unauthenticated form taking two user-supplied
-  values straight into a query.
+- **`/orders/track` got a baseline (passive) scan, 2026-09-06 — a full
+  active scan against it reproducibly gets OOM-killed at `DomXssScanRule`,
+  confirmed by hard evidence, not a fixed property of the URL's size.**
+  Four attempts (no cap, a `-m 6g` Docker cap, and a `-m 10g` cap, the last
+  run detached specifically so its exit state could be inspected) all died
+  at the identical point: every active-scan rule before `DomXssScanRule`
+  completes cleanly with 0 alerts in roughly 9 minutes — PathTraversal,
+  RemoteFileInclude, ShellShock, HeartBleed, SourceCodeDisclosure,
+  reflected/persistent XSS, generic and DB-specific timing SQLi all
+  included — then memory spikes and the container dies as soon as
+  `DomXssScanRule` starts. `docker inspect`'s `OOMKilled` field returned
+  `true` on the fourth attempt, and its log (unreadable until the container
+  exited, due to Python's stdout buffering with no TTY attached) showed the
+  spike follows `"Failed to configure ZAP extension on browser launch"`
+  warnings — `DomXssScanRule` is the one rule that launches a real headless
+  Firefox via geckodriver rather than using ZAP's own HTTP client, and that
+  browser launch is what exceeds both memory caps tried so far, on a host
+  confirmed idle mid-run by `docker stats`. This is unrelated to SEC-005's
+  successful `/catalogue` run (48 minutes, 7.4 GB peak, 2026-09-03), which
+  never reached this rule under the same conditions by coincidence of
+  timing, not because `/catalogue` avoids it. `how-to/troubleshooting.md`'s
+  entry has the full account, including two superseded earlier theories
+  (an authenticated-scan concurrency fix wrongly generalised here, then an
+  unconfirmed "ambient host memory pressure" theory) — both retracted now
+  that the failure reproduces at a fixed point regardless of host load or
+  concurrency flags. **Not yet resolved:** whether a cap above 10 GB, an
+  Automation Framework plan excluding `DomXssScanRule`, or accepting DOM
+  XSS as an undocumented-by-scanner gap on this page is the right fix —
+  none has been implemented.
+
+  The baseline scan that did complete found **7 warnings, all already
+  triaged categories from the SEC-004/SEC-006/SEC-009 passes above** —
+  `Cookie No HttpOnly Flag`, `Cross-Domain JavaScript Source File
+  Inclusion`, `CSP: script-src unsafe-eval`, `Sub Resource Integrity
+  Attribute Missing`, `Cross-Origin-Embedder-Policy Header Missing`,
+  `Non-Storable Content`, `Session Management Response Identified` — same
+  false positives (dev-server artifacts, the CSRF token needing JS
+  readability) and informational-only items already recorded, nothing new.
+  Report: `scratchpad/zap-orders-track-baseline.html` — **not committed**
+  (nothing in `scratchpad/` has been `git add`ed), but it is not actually
+  covered by a `.gitignore` rule either; don't assume it is protected from
+  an accidental `git add -A`.
+
+  **What this does and does not close.** A baseline scan is passive-only —
+  it reads headers and response shape, it never sends an attack payload. It
+  rules out the header/config class of finding on this page specifically
+  and confirms nothing new appeared; it does **not** exercise the
+  injection-class surface (`order_number`/`email` submitted with SQLi/XSS
+  payloads) the full active scan exists to test, and that remains unrun
+  here. `/account/orders` and the seven informational pages still have no
+  scanner pass of either kind.
 
 - **Browser-enforced controls, beyond the CSP finding.** SEC-009 came from
   asking whether the CSP permits what the app loads. The same question has
@@ -1444,8 +1489,13 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
   string and is therefore worth checking against referrer leakage
   specifically.
 
-- **The Stripe return URL as a surface.** It is now known to work
-  (`stripe-testing.md`), but `/checkout/confirmation/{order}?payment_intent=…
-  &payment_intent_client_secret=…` puts a secret in a URL that lands in
-  browser history and any referrer. Whether that matters here depends on
-  what the client secret can do post-confirmation; not analysed.
+- ~~**The Stripe return URL as a surface.**~~ Closed by SEC-012:
+  `OrderConfirmation::rendering()` redirects away from any URL carrying
+  `payment_intent`, `payment_intent_client_secret`, or `redirect_status`,
+  clearing the history entry rather than only the current response — a
+  header change alone would leave the secret in browser history and any
+  screenshot or shared link. `ConfirmationUrlScrubbingTest` covers it, and a
+  real end-to-end checkout (2026-09-06, `stripe-testing.md`) confirms the
+  flow this protects is genuinely reachable, not hypothetical. This entry
+  had gone stale — re-checked 2026-09-06 while auditing what was actually
+  still open, not found by a new pass.

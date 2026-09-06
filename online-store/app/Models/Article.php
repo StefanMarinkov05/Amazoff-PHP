@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ArticleStatus;
+use Database\Factories\ArticleFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -35,6 +36,7 @@ class Article extends Model
 
     public const IMAGE_MIN_HEIGHT_PX = 400;
 
+    /** @use HasFactory<ArticleFactory> */
     use HasFactory;
 
     /**
@@ -74,6 +76,7 @@ class Article extends Model
         ];
     }
 
+    /** @param Builder<Article> $query */
     #[Scope]
     protected function visible(Builder $query): void
     {
@@ -85,6 +88,8 @@ class Article extends Model
      * `content` is `RichEditor` output and must never reach a page any other
      * way. Returns an `HtmlString`, so a template renders it with `{{ }}` and
      * no view needs `{!! !!}` at all. ADR-0015.
+     *
+     * @return Attribute<HtmlString, never>
      */
     protected function safeContent(): Attribute
     {
@@ -95,21 +100,25 @@ class Article extends Model
         );
     }
 
+    /** @return BelongsToMany<Tag, $this> */
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
     }
 
+    /** @return BelongsToMany<Product, $this> */
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<ArticleCategory, $this> */
     public function articleCategory(): BelongsTo
     {
         return $this->belongsTo(ArticleCategory::class);

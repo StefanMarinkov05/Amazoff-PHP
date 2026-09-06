@@ -37,6 +37,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * Places an order from a cart: recalculates totals server-side, snapshots
@@ -197,7 +198,15 @@ final class CreateOrder
             // Sorted by the locked resource's own primary key, not insertion
             // order, so 2 orders sharing lines never acquire in opposite
             // sequence.
-            $sorted = $lines->sortBy(fn (array $line): int => $line['variation']->getKey());
+            $sorted = $lines->sortBy(function (array $line): int {
+                $key = $line['variation']->getKey();
+
+                if (! is_int($key)) {
+                    throw new InvalidArgumentException('ProductVariation::getKey() returned a non-integer value.');
+                }
+
+                return $key;
+            });
 
             foreach ($sorted as $line) {
                 /** @var ProductVariation $variation */
@@ -205,9 +214,21 @@ final class CreateOrder
                 $this->reserveStock->handle($variation, $line['quantity'], $actor);
             }
 
-            $order->update(['serial_number' => sprintf('ORD-%06d', $order->getKey())]);
+            $orderKey = $order->getKey();
 
-            return $order->fresh(['orderItems', 'orderAddresses']);
+            if (! is_int($orderKey)) {
+                throw new InvalidArgumentException('Order::getKey() returned a non-integer value.');
+            }
+
+            $order->update(['serial_number' => sprintf('ORD-%06d', $orderKey)]);
+
+            $fresh = $order->fresh(['orderItems', 'orderAddresses']);
+
+            if ($fresh === null) {
+                throw new InvalidArgumentException('Order disappeared immediately after being created.');
+            }
+
+            return $fresh;
         });
     }
 
@@ -231,6 +252,12 @@ final class CreateOrder
         $vatRate = (string) $product->vat_rate;
         $vatAmount = (string) Money::of($lineTotal)->percentageOf($vatRate);
 
+        $productKey = $product->getKey();
+
+        if (! is_int($productKey)) {
+            throw new InvalidArgumentException('Product::getKey() returned a non-integer value.');
+        }
+
         return [
             'item' => $item,
             'variation' => $variation,
@@ -240,7 +267,7 @@ final class CreateOrder
             'lineTotal' => $lineTotal,
             'vatRate' => $vatRate,
             'vatAmount' => $vatAmount,
-            'productId' => $product->getKey(),
+            'productId' => $productKey,
             'productCategoryId' => $product->product_category_id,
         ];
     }
@@ -258,13 +285,36 @@ final class CreateOrder
     private function createOrderAddress(Order $order, array $address, AddressType $type, ?User $actor): void
     {
         if (isset($address['source_address_id'])) {
-            $address['source_address_id'] = $actor !== null
-                ? $actor->addresses()->findOrFail($address['source_address_id'])->getKey()
-                : throw (new ModelNotFoundException)->setModel(Address::class, [$address['source_address_id']]);
+            $sourceAddressId = $address['source_address_id'];
+
+            if (! is_int($sourceAddressId) && ! is_string($sourceAddressId)) {
+                throw (new ModelNotFoundException)->setModel(Address::class, []);
+            }
+
+            if ($actor === null) {
+                throw (new ModelNotFoundException)->setModel(Address::class, [$sourceAddressId]);
+            }
+
+            /** @var Address $sourceAddress */
+            $sourceAddress = $actor->addresses()->where('id', $sourceAddressId)->firstOrFail();
+
+            $resolvedKey = $sourceAddress->getKey();
+
+            if (! is_int($resolvedKey)) {
+                throw new InvalidArgumentException('Address::getKey() returned a non-integer value.');
+            }
+
+            $address['source_address_id'] = $resolvedKey;
+        }
+
+        $orderKey = $order->getKey();
+
+        if (! is_int($orderKey) || $orderKey < 0) {
+            throw new InvalidArgumentException('Order::getKey() returned a non-negative-integer value.');
         }
 
         $model = new OrderAddress($address);
-        $model->order_id = $order->getKey();
+        $model->order_id = $orderKey;
         $model->type = $type;
         $model->save();
     }
@@ -276,7 +326,15 @@ final class CreateOrder
     {
         $method = $customer['payment_method'];
 
-        return $method instanceof PaymentMethod ? $method : PaymentMethod::from($method);
+        if ($method instanceof PaymentMethod) {
+            return $method;
+        }
+
+        if (! is_int($method) && ! is_string($method)) {
+            throw new InvalidArgumentException('Customer [payment_method] must be an int, string, or PaymentMethod.');
+        }
+
+        return PaymentMethod::from($method);
     }
 
     /**
@@ -380,6 +438,7 @@ final class CreateOrder
      */
     private function variationName(ProductVariation $variation): string
     {
+        /** @var list<string> $values */
         $values = $variation->attributeValues->pluck('value')->all();
 
         return $values === [] ? $variation->sku : implode(' / ', $values);

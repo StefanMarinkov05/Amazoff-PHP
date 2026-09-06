@@ -120,13 +120,15 @@ final class SetVariationAttributeValues
 
         $values = AttributeValue::query()->whereIn('id', $attributeValueIds)->get();
 
+        /** @var list<int> $foreign */
         $foreign = $values
             ->reject(fn (AttributeValue $value): bool => $productAttributeIds->contains($value->attribute_id))
             ->pluck('id')
+            ->values()
             ->all();
 
         if ($foreign !== []) {
-            throw new AttributeValueNotOnProductException($variation, array_values($foreign));
+            throw new AttributeValueNotOnProductException($variation, $foreign);
         }
 
         return $values;

@@ -65,8 +65,12 @@ final class ValidateFixtures extends Command
             return self::FAILURE;
         }
 
+        /** @var list<string> $categorySlugs */
         $categorySlugs = ProductCategory::query()->pluck('slug')->all();
+
+        /** @var list<string> $brandSlugs */
         $brandSlugs = Brand::query()->pluck('slug')->all();
+
         $attributeValueKeys = $this->attributeValueKeys();
 
         foreach ($files as $file) {
@@ -137,16 +141,22 @@ final class ValidateFixtures extends Command
             }
         }
 
-        $this->assertUniqueSlug($path, (string) $document['slug']);
-        $this->assertUniqueSku($path, (string) $document['sku'], 'product');
+        $this->assertUniqueSlug($path, self::display($document['slug']));
+        $this->assertUniqueSku($path, self::display($document['sku']), 'product');
         $this->assertLengths($path, $document);
 
-        if (! in_array($document['category'], $categorySlugs, true)) {
-            $this->recordFailure($path, "references unknown category slug [{$document['category']}]");
+        $category = self::display($document['category']);
+
+        if (! in_array($category, $categorySlugs, true)) {
+            $this->recordFailure($path, "references unknown category slug [{$category}]");
         }
 
-        if (isset($document['brand']) && ! in_array($document['brand'], $brandSlugs, true)) {
-            $this->recordFailure($path, "references unknown brand slug [{$document['brand']}]");
+        if (isset($document['brand'])) {
+            $brand = self::display($document['brand']);
+
+            if (! in_array($brand, $brandSlugs, true)) {
+                $this->recordFailure($path, "references unknown brand slug [{$brand}]");
+            }
         }
 
         $this->assertPrices($path, $document);
@@ -172,14 +182,21 @@ final class ValidateFixtures extends Command
      */
     private function assertDescriptiveValues(string $path, array $document, array $attributeValueKeys): void
     {
-        /** @var list<string> $axes */
-        $axes = $document['attributes'] ?? [];
+        $rawAxes = $document['attributes'] ?? [];
+        $axes = is_array($rawAxes) ? array_map(self::display(...), $rawAxes) : [];
 
         /** @var list<string> $variationOnly */
         $variationOnly = DB::table('attributes')->where('is_variation_only', true)->pluck('slug')->all();
 
-        foreach ($document['attribute_values'] ?? [] as $key) {
-            [$attributeSlug, $valueSlug] = array_pad(explode('.', (string) $key, 2), 2, '');
+        $attributeValues = $document['attribute_values'] ?? [];
+
+        if (! is_array($attributeValues)) {
+            return;
+        }
+
+        foreach ($attributeValues as $key) {
+            $key = self::display($key);
+            [$attributeSlug, $valueSlug] = array_pad(explode('.', $key, 2), 2, '');
 
             if (! in_array("{$attributeSlug}/{$valueSlug}", $attributeValueKeys, true)) {
                 $this->recordFailure($path, "references unknown attribute value [{$key}] in attribute_values");
@@ -222,28 +239,34 @@ final class ValidateFixtures extends Command
      */
     private function assertLengths(string $path, array $document): void
     {
-        $this->assertMaxLength($path, 'name', (string) $document['name'], 100);
-        $this->assertMaxLength($path, 'slug', (string) $document['slug'], 100);
-        $this->assertMaxLength($path, 'sku', (string) $document['sku'], 64);
+        $this->assertMaxLength($path, 'name', self::display($document['name']), 100);
+        $this->assertMaxLength($path, 'slug', self::display($document['slug']), 100);
+        $this->assertMaxLength($path, 'sku', self::display($document['sku']), 64);
 
         if (isset($document['short_description'])) {
-            $this->assertMaxLength($path, 'short_description', (string) $document['short_description'], 255);
+            $this->assertMaxLength($path, 'short_description', self::display($document['short_description']), 255);
         }
 
         if (isset($document['seo_title'])) {
-            $this->assertMaxLength($path, 'seo_title', (string) $document['seo_title'], 100);
+            $this->assertMaxLength($path, 'seo_title', self::display($document['seo_title']), 100);
         }
 
         if (isset($document['seo_description'])) {
-            $this->assertMaxLength($path, 'seo_description', (string) $document['seo_description'], 255);
+            $this->assertMaxLength($path, 'seo_description', self::display($document['seo_description']), 255);
         }
 
-        foreach ($document['variations'] ?? [] as $index => $variation) {
-            if (isset($variation['sku'])) {
+        $variations = $document['variations'] ?? [];
+
+        if (! is_array($variations)) {
+            return;
+        }
+
+        foreach ($variations as $index => $variation) {
+            if (is_array($variation) && isset($variation['sku'])) {
                 $this->assertMaxLength(
                     "{$path}.variations[{$index}]",
                     'sku',
-                    (string) $variation['sku'],
+                    self::display($variation['sku']),
                     64,
                 );
             }
@@ -271,7 +294,7 @@ final class ValidateFixtures extends Command
      */
     private function assertPrices(string $path, array $document): void
     {
-        $regular = (string) $document['regular_price'];
+        $regular = self::display($document['regular_price']);
 
         if (! is_numeric($regular)) {
             $this->recordFailure($path, "has a non-numeric regular_price [{$regular}]");
@@ -283,7 +306,7 @@ final class ValidateFixtures extends Command
             return;
         }
 
-        $discount = (string) $document['discount_price'];
+        $discount = self::display($document['discount_price']);
 
         if (! is_numeric($discount)) {
             $this->recordFailure($path, "has a non-numeric discount_price [{$discount}]");
@@ -306,18 +329,24 @@ final class ValidateFixtures extends Command
         $keys = [];
         $mainCount = 0;
 
+        if (! is_array($images)) {
+            return $keys;
+        }
+
         foreach ($images as $index => $image) {
-            if (! isset($image['key'], $image['path'])) {
+            if (! is_array($image) || ! isset($image['key'], $image['path'])) {
                 $this->recordFailure($path, "images[{$index}] is missing [key] or [path]");
 
                 continue;
             }
 
-            if (in_array($image['key'], $keys, true)) {
-                $this->recordFailure($path, "images[{$index}] repeats the local key [{$image['key']}]");
+            $key = self::display($image['key']);
+
+            if (in_array($key, $keys, true)) {
+                $this->recordFailure($path, "images[{$index}] repeats the local key [{$key}]");
             }
 
-            $keys[] = $image['key'];
+            $keys[] = $key;
             $mainCount += ($image['is_main'] ?? false) ? 1 : 0;
         }
 
@@ -341,7 +370,7 @@ final class ValidateFixtures extends Command
     ): void {
         $variations = $document['variations'];
 
-        if ($variations === []) {
+        if (! is_array($variations) || $variations === []) {
             $this->recordFailure($path, 'has no variations; CreateProduct requires at least one');
 
             return;
@@ -352,25 +381,35 @@ final class ValidateFixtures extends Command
         foreach ($variations as $index => $variation) {
             $label = "variations[{$index}]";
 
-            if (! isset($variation['sku'])) {
+            if (! is_array($variation) || ! isset($variation['sku'])) {
                 $this->recordFailure($path, "{$label} is missing [sku]");
 
                 continue;
             }
 
-            $this->assertUniqueSku($path, (string) $variation['sku'], $label);
+            $this->assertUniqueSku($path, self::display($variation['sku']), $label);
 
-            foreach ($variation['images'] ?? [] as $key) {
-                if (! in_array($key, $imageKeys, true)) {
-                    $this->recordFailure($path, "{$label} references image key [{$key}], which this document does not define");
+            $variationImages = $variation['images'] ?? [];
+
+            if (is_array($variationImages)) {
+                foreach ($variationImages as $key) {
+                    $key = self::display($key);
+
+                    if (! in_array($key, $imageKeys, true)) {
+                        $this->recordFailure($path, "{$label} references image key [{$key}], which this document does not define");
+                    }
                 }
             }
 
-            foreach ($variation['attribute_values'] ?? [] as $attributeSlug => $valueSlug) {
-                $compound = "{$attributeSlug}/{$valueSlug}";
+            $variationAttributeValues = $variation['attribute_values'] ?? [];
 
-                if (! in_array($compound, $attributeValueKeys, true)) {
-                    $this->recordFailure($path, "{$label} references unknown attribute value [{$compound}]");
+            if (is_array($variationAttributeValues)) {
+                foreach ($variationAttributeValues as $attributeSlug => $valueSlug) {
+                    $compound = self::display($attributeSlug).'/'.self::display($valueSlug);
+
+                    if (! in_array($compound, $attributeValueKeys, true)) {
+                        $this->recordFailure($path, "{$label} references unknown attribute value [{$compound}]");
+                    }
                 }
             }
 
@@ -378,7 +417,7 @@ final class ValidateFixtures extends Command
             // values are indistinguishable to a customer choosing between
             // them, and no database constraint can express it (ADR-0005 lists
             // this among the invariants that stay in application code).
-            $combination = json_encode($variation['attribute_values'] ?? []);
+            $combination = json_encode($variationAttributeValues, JSON_THROW_ON_ERROR);
 
             if ($combination !== '[]' && in_array($combination, $seenCombinations, true)) {
                 $this->recordFailure($path, "{$label} repeats an attribute-value combination already used in this document");
@@ -429,15 +468,25 @@ final class ValidateFixtures extends Command
     {
         // Query builder, not Eloquent: the aliases below are join output,
         // not properties of AttributeValue.
-        return DB::table('attribute_values')
+        return array_values(DB::table('attribute_values')
             ->join('attributes', 'attributes.id', '=', 'attribute_values.attribute_id')
             ->get(['attribute_values.slug as value_slug', 'attributes.slug as attribute_slug'])
             ->map(static fn (object $row): string => "{$row->attribute_slug}/{$row->value_slug}")
-            ->all();
+            ->all());
     }
 
     private function recordFailure(string $path, string $problem): void
     {
         $this->failures[] = "{$path} {$problem}";
+    }
+
+    /**
+     * A fixture value, rendered for a failure message or a lookup — a
+     * malformed fixture (an array where a string is expected) is exactly the
+     * kind of problem this command exists to report, not one to throw on.
+     */
+    private static function display(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : json_encode($value, JSON_THROW_ON_ERROR);
     }
 }

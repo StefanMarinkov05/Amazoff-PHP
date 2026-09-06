@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Models\ArticleCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<ArticleCategory>
+ */
 class ArticleCategoryFactory extends Factory
 {
     /**

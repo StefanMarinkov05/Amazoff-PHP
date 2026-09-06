@@ -2040,29 +2040,45 @@ by accident and it happened to have leftover data"; the volume on
 `acct_1UAbac...` was produced by something else, running against that
 account, believing it to be the project's.
 
-**Whose account each one actually is remains unconfirmed — do not treat a
-guess as settled here.** What is verified: this application's `.env` (and
-therefore every seeder, every Action, and this doc's own worked examples)
-points at `acct_1U9BTmEinvfvnBsb`. What is *not* verified: which of the two
-accounts a given teammate considers "theirs", or which one is the one the
-team originally intended as canonical versus one that came later. A
-plausible read is that `acct_1U9BTmEinvfvnBsb` is a particular teammate's
-own account and `.env` has pointed at it since setup — which would mean the
-"wrong" account in every incident above is actually the one nobody has been
-using, not a stray personal login. Resolve this by asking, not by
-inference: whoever owns each account should say so, and the team should
-then pick one and update `.env` (and the vault) to match — rather than
-continuing to call whichever one `.env` currently has "canonical" by
-default.
+**Resolved, 2026-09-06: not a missing-access problem — the developer has
+both accounts, and Stripe's own UI made that hard to see.** The "Accounts"
+list page (`dashboard.stripe.com` → account switcher → "The list of
+accounts of which you are a member") showed only `acct_1UAbacHSYCrSsH7T`
+for the developer investigating this, which read as "I don't have
+`acct_1U9BTmEinvfvnBsb`." But navigating directly into a Workbench view
+(`dashboard.stripe.com/acct_1U9BTmEinvfvnBsb/test/workbench/...`) loaded
+successfully, showing **the same display name, "Amazoff sandbox," on a
+different account id** — and, conclusively, this session's own test
+activity: an `invalid_request_error` on
+`pi_3UCQm5EinvfvnBsb0ZceOS...`, the exact intent id
+`demo:stripe-payments` opened during this session's Stripe verification.
+That proves `acct_1U9BTm...` is real, reachable by this developer, and is
+the account every seeder/Action/webhook test in this session actually ran
+against.
 
-**Until that conversation happens, treat `acct_1U9BTmEinvfvnBsb` as
-canonical only because it is what `.env` currently contains** — not because
-anyone has confirmed it is the account the team meant to standardize on.
-Anyone setting up the CLI or an MCP connector for this repo should still
-match whatever `.env` has *today*, since that is what every actual write
-this app makes uses — but a `.env` change is on the table pending that
-conversation, and would flip which account is "correct" for this whole
-entry.
+**So there are two distinct Stripe sandboxes, both named "Amazoff," both
+reachable by the same developer login** — the "Accounts" list apparently
+did not surface both (scoping or a caching quirk on Stripe's own UI, not
+investigated further). `.env` is correct and needs no change. The only
+actual bug is the CLI/MCP tooling defaulting to the *other* one of the
+developer's two accounts.
+
+**Practical trap this leaves behind: identical account names.** Checking
+`stripe config --list | grep account_id` (or the app's own
+`accounts->retrieve()->id`) against the *id*, not the display name, is the
+only reliable check from here on — two sandboxes sharing one name is
+confirmed to exist on this project, not a hypothetical.
+
+The teammate identified separately as `acct_1UAzVTK9AR8y1wsZ` is unrelated
+to either of the two above and still not referenced in this app's
+configuration — no action needed there.
+
+**`acct_1U9BTmEinvfvnBsb` is confirmed canonical — it's what `.env`
+contains, and both developers who checked so far can reach it.** Anyone
+setting up the CLI or an MCP connector for this repo should authenticate
+against that id specifically. Checking by name ("Amazoff sandbox") is not
+enough — confirmed above to collide with a second account under the same
+login.
 
 **The signing secrets matching is not evidence the accounts match.** The
 `whsec_…` a `stripe listen` session prints is generated per session, so
@@ -2324,3 +2340,99 @@ as proof that caching works end to end; it proves the *decision* of what to
 cache and what to bypass, never the *serialization* of what gets cached,
 because the `array` store makes that half of the class permanently
 untestable from within this suite.
+
+---
+
+## A ZAP full scan against `/orders/track` gets OOM-killed at `DomXssScanRule`, reproducibly
+
+**Symptom.** `zap-full-scan.py` against `/orders/track` (two form fields)
+runs cleanly for roughly 9 minutes — spider, then every active-scan rule up
+through the SQLi timing variants, all with 0 alerts — then memory climbs
+sharply and the container dies with no `-r`/`-x` report written. Confirmed
+across four attempts on 2026-09-06, including with no Docker memory cap
+(host-wide exhaustion), a `-m 6g --memory-swap 6g` cap, and a
+`-m 10g --memory-swap 10g` cap — all four die at the same point.
+
+**Root cause, confirmed by hard evidence, not inferred.** The fourth attempt
+was run detached (`docker run -d`, no `--rm`) specifically so its exit
+state could be inspected directly rather than guessed from a piped log.
+`docker inspect zap-orders-track-4 --format '{{.State.OOMKilled}}
+{{.State.ExitCode}}'` returned **`true 3`** — a definitive OOM kill, the
+first non-inferred proof across all four attempts. `docker logs` (596
+lines, only readable once the container had exited — see the buffering
+note below) showed the scan died immediately after
+`SqlInjectionPostgreSqlTimingScanRule` completed and `DomXssScanRule`
+started, right after `"Failed to configure ZAP extension on browser
+launch"` WARN messages. Every rule before that point — PathTraversal,
+RemoteFileInclude, ShellShock, HeartBleed, SourceCodeDisclosure (×2), RCE,
+ExternalRedirect, ServerSideInclude, reflected/persistent XSS (×3), generic
+SQLi plus four DB-specific timing SQLi variants — completed cleanly with 0
+alerts. `DomXssScanRule` is the one active-scan rule that needs a real
+headless browser (Firefox via geckodriver) rather than ZAP's own HTTP
+client; that browser launch is what pushes memory past both the 6 GB and
+10 GB caps tried so far, on a host confirmed idle by two `docker stats`
+samples five seconds apart (NET I/O and PID count still climbing, not
+stalled) during a monitored earlier attempt.
+
+**This supersedes an earlier version of this entry.** A prior revision
+generalised the authenticated-scan's `spider.thread=1`/
+`scanner.threadPerHost=1` fix (which exists because default concurrency
+races `AuthenticateSession` middleware — a correctness bug, not a memory
+one) onto this unauthenticated failure; that was wrong and has been
+retracted here. A revision after that left "ambient memory pressure from
+concurrent host work" as the leading unconfirmed theory. That theory is
+also now superseded: the failure reproduces identically at both 6 GB and
+10 GB container caps on a host confirmed idle, at the exact same rule every
+time — that is a `DomXssScanRule`-specific memory cost, not ambient
+pressure. Neither earlier theory should be reapplied to a future ZAP
+failure without first checking whether the log dies at the same point.
+
+**`docker logs` showing 0 lines while the container is still running is not
+a stall.** `zap-full-scan.py` runs under Python with no TTY attached via
+`docker run -d`, so stdout is fully buffered and nothing reaches `docker
+logs` until the process exits or the buffer flushes. Confirm real progress
+instead with two `docker stats` samples a few seconds apart — climbing NET
+I/O and PID count means it is genuinely still working, not stuck.
+
+**What remains genuinely open:** whether the fix is (a) a memory cap higher
+than 10 GB, (b) an Automation Framework plan or `-c` config file that
+excludes just `DomXssScanRule` (the `-I` flag does *not* do this — it only
+suppresses returning a failure exit code on warnings, confirmed via
+`zap-full-scan.py --help`), or (c) formally accepting DOM XSS coverage on
+this specific scan as a standing, documented gap. None of the three has
+been implemented yet.
+
+**Fix / what to actually try next**, in order of cost:
+
+1. **The baseline scan** (`zap-baseline.py`) as an immediate fallback — it
+   skips the active-scan phase entirely (passive checks only, no attack
+   payloads) and finishes in about a minute. Real trade, not a free
+   substitute: it proves nothing about DOM XSS or any other injection
+   class. State plainly, when reporting baseline-only results, that the
+   injection-class surface remains unexercised.
+2. **Raise the Docker memory cap past 10 GB** and retry — untested; not
+   known to be sufficient, since the failure has held at two different caps
+   so far.
+3. **Exclude `DomXssScanRule` via an Automation Framework plan**, the same
+   mechanism `zap-auth.yaml` already uses for the authenticated scan —
+   mechanism not yet written for this target.
+4. **Accept the gap and document it** in `security-testing.md`'s
+   `/orders/track` entry if neither of the above is worth the cost for this
+   target — this project's two form fields are a small, already
+   manually-reviewed attack surface (see the existing manual XSS/injection
+   coverage in that entry).
+
+**Why it recurs.** `DomXssScanRule`'s browser dependency is not obvious
+from the rule name or from `pentest-the-system.md`'s general cost table
+(written before this was isolated) — a future memory-exhaustion failure on
+a *different* target will look identical (climbing memory, no report) and
+invites the same wrong guesses (concurrency flags, ambient pressure) this
+entry itself went through twice. Check the log for `DomXssScanRule` /
+`browser launch` specifically before assuming a new cause.
+
+**Prevention.** Before concluding a ZAP full-scan memory failure is a new,
+unexplained problem, check `docker logs` (or, if buffered and still
+running, run detached and inspect after it exits) for where in the rule
+sequence it actually died — `DomXssScanRule` starting is the known
+reproducible trigger on this project as of 2026-09-06, confirmed by
+`docker inspect`'s `OOMKilled` field, not by inference from symptoms alone.

@@ -7,6 +7,7 @@ namespace App\Livewire\Checkout;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -84,7 +85,13 @@ class OrderConfirmation extends Component
 
         // Checked here so an unauthorised id 404s on arrival rather than
         // rendering an empty page.
-        $this->orderId = $this->authorizedOrder((int) $order)->getKey();
+        $orderKey = $this->authorizedOrder((int) $order)->getKey();
+
+        if (! is_int($orderKey)) {
+            throw new InvalidArgumentException('Order::getKey() returned a non-integer value.');
+        }
+
+        $this->orderId = $orderKey;
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Livewire\Journal;
 use App\Models\Article;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -36,7 +37,14 @@ class ArticleDetails extends Component
             Article::query()->visible()->whereKey($article->getKey())->exists(),
             404
         );
-        $this->articleId = $article->getKey();
+
+        $articleId = $article->getKey();
+
+        if (! is_int($articleId)) {
+            throw new InvalidArgumentException('Article::getKey() returned a non-integer value.');
+        }
+
+        $this->articleId = $articleId;
     }
 
     #[Computed]

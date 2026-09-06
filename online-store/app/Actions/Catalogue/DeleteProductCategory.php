@@ -42,6 +42,7 @@ final class DeleteProductCategory
         }
 
         DB::transaction(function () use ($category): void {
+            /** @var ProductCategory $locked */
             $locked = ProductCategory::query()->lockForUpdate()->findOrFail($category->getKey());
 
             $children = $locked->children()->count();

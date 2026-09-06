@@ -52,10 +52,10 @@ final class EcontGateway implements CourierGateway
             $data = $this->send(new SearchCitiesRequest($term), 'cities');
 
             /** @var Collection<int, CourierCity> */
-            return collect($data['cities'] ?? [])->map(static fn (mixed $city): CourierCity => new CourierCity(
-                vendorId: (string) self::field($city, 'id'),
-                name: (string) self::field($city, 'name'),
-                postcode: (string) self::field($city, 'postCode', ''),
+            return collect(self::arrayField($data, 'cities', []))->map(static fn (mixed $city): CourierCity => new CourierCity(
+                vendorId: self::stringField($city, 'id'),
+                name: self::stringField($city, 'name'),
+                postcode: self::stringField($city, 'postCode', ''),
                 country: 'BG',
             ));
         });
@@ -67,17 +67,21 @@ final class EcontGateway implements CourierGateway
             $data = $this->send(new GetOfficesRequest($city, $postcode), 'offices');
 
             /** @var Collection<int, CourierOffice> */
-            return collect($data['offices'] ?? [])->map(static function (mixed $office) use ($city): CourierOffice {
+            return collect(self::arrayField($data, 'offices', []))->map(static function (mixed $office) use ($city): CourierOffice {
                 $address = self::field($office, 'address', []);
 
                 return new CourierOffice(
-                    code: (string) self::field($office, 'code'),
-                    name: (string) self::field($office, 'name'),
-                    address: (string) (self::field($address, 'fullAddress') ?? self::field($address, 'street', '')),
-                    city: (string) (self::field(self::field($address, 'city', []), 'name') ?? $city),
-                    postcode: (string) self::field(self::field($address, 'city', []), 'postCode', ''),
+                    code: self::stringField($office, 'code'),
+                    name: self::stringField($office, 'name'),
+                    address: self::field($address, 'fullAddress') !== null
+                        ? self::stringField($address, 'fullAddress')
+                        : self::stringField($address, 'street', ''),
+                    city: self::field(self::field($address, 'city', []), 'name') !== null
+                        ? self::stringField(self::field($address, 'city', []), 'name')
+                        : $city,
+                    postcode: self::stringField(self::field($address, 'city', []), 'postCode', ''),
                     maxWeightGrams: self::field($office, 'maxParcelWeight') !== null
-                        ? (int) round(((float) self::field($office, 'maxParcelWeight')) * 1000)
+                        ? (int) round(self::floatField($office, 'maxParcelWeight') * 1000)
                         : null,
                     supportsCod: (bool) self::field($office, 'currency', true),
                 );
@@ -92,8 +96,8 @@ final class EcontGateway implements CourierGateway
             $label = $data['label'] ?? $data;
 
             return new DeliveryQuote(
-                amount: number_format((float) (self::field($label, 'totalPrice', 0)), 2, '.', ''),
-                currency: (string) self::field($label, 'currency', 'BGN'),
+                amount: number_format(self::floatField($label, 'totalPrice', 0), 2, '.', ''),
+                currency: self::stringField($label, 'currency', 'BGN'),
             );
         });
     }
@@ -109,10 +113,14 @@ final class EcontGateway implements CourierGateway
                 throw CourierUnavailableException::requestFailed($this->code(), 'createShipment');
             }
 
+            if (! is_scalar($shipmentNumber)) {
+                throw CourierUnavailableException::requestFailed($this->code(), 'createShipment');
+            }
+
             return new ShipmentResult(
                 shipmentNumber: (string) $shipmentNumber,
                 trackingNumber: (string) $shipmentNumber,
-                labelUrl: self::field($label, 'pdfURL') !== null ? (string) self::field($label, 'pdfURL') : null,
+                labelUrl: self::field($label, 'pdfURL') !== null ? self::stringField($label, 'pdfURL') : null,
                 trackingUrl: sprintf('https://www.econt.com/services/track-shipment/%s', $shipmentNumber),
             );
         });
@@ -122,14 +130,20 @@ final class EcontGateway implements CourierGateway
     {
         return $this->guarded('label', function () use ($shipmentNumber): string {
             $data = $this->send(new GetShipmentStatusesRequest($shipmentNumber), 'label');
-            $status = $data['shipmentStatuses'][0] ?? $data['statuses'][0] ?? null;
+            $status = self::offsetField($data, 'shipmentStatuses', 0) ?? self::offsetField($data, 'statuses', 0);
             $pdfUrl = self::field($status, 'pdfURL');
 
             if (! is_string($pdfUrl) || $pdfUrl === '') {
                 throw CourierUnavailableException::requestFailed($this->code(), 'label');
             }
 
-            $response = Http::timeout((int) config('couriers.timeout', 10))->get($pdfUrl);
+            $timeout = config('couriers.timeout', 10);
+
+            if (! is_int($timeout)) {
+                throw CourierUnavailableException::requestFailed($this->code(), 'label');
+            }
+
+            $response = Http::timeout($timeout)->get($pdfUrl);
 
             if ($response->failed()) {
                 throw CourierUnavailableException::requestFailed($this->code(), 'label');
@@ -143,18 +157,30 @@ final class EcontGateway implements CourierGateway
     {
         return $this->guarded('track', function () use ($trackingNumber): Collection {
             $data = $this->send(new GetShipmentStatusesRequest($trackingNumber), 'track');
-            $status = $data['shipmentStatuses'][0] ?? $data['statuses'][0] ?? [];
+            $status = self::offsetField($data, 'shipmentStatuses', 0) ?? self::offsetField($data, 'statuses', 0) ?? [];
             $events = self::field($status, 'events') ?? self::field($status, 'history', []);
+
+            if (! is_iterable($events)) {
+                throw CourierUnavailableException::requestFailed($this->code(), 'track');
+            }
 
             /** @var Collection<int, CourierTrackingEvent> */
             return collect($events)->map(function (mixed $event): CourierTrackingEvent {
-                $raw = (string) (self::field($event, 'status') ?? self::field($event, 'shortDeliveryStatusEn', ''));
+                $raw = self::field($event, 'status') !== null
+                    ? self::stringField($event, 'status')
+                    : self::stringField($event, 'shortDeliveryStatusEn', '');
+
+                $description = self::field($event, 'description');
+
+                if ($description !== null && ! is_string($description)) {
+                    throw CourierUnavailableException::requestFailed($this->code(), 'track');
+                }
 
                 return new CourierTrackingEvent(
                     rawStatus: $raw,
                     status: $this->mapStatus($raw),
-                    occurredAt: new DateTimeImmutable((string) self::field($event, 'time', 'now')),
-                    description: self::field($event, 'description'),
+                    occurredAt: new DateTimeImmutable(self::stringField($event, 'time', 'now')),
+                    description: $description,
                 );
             });
         });
@@ -172,6 +198,67 @@ final class EcontGateway implements CourierGateway
     private static function field(mixed $value, string $key, mixed $default = null): mixed
     {
         return is_array($value) ? ($value[$key] ?? $default) : $default;
+    }
+
+    /**
+     * Same as `field()`, but asserts the result is a string (or castable
+     * scalar) before returning — the shape guard `field()` deliberately does
+     * not provide. Throws rather than silently coercing an unexpected type,
+     * because a vendor field in the wrong shape is exactly the case
+     * `guarded()` exists to turn into `CourierUnavailableException` instead
+     * of a confusing downstream error.
+     */
+    private static function stringField(mixed $value, string $key, mixed $default = null): string
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_scalar($field)) {
+            throw CourierUnavailableException::requestFailed('econt', 'parse-response');
+        }
+
+        return (string) $field;
+    }
+
+    /** @see stringField() */
+    private static function floatField(mixed $value, string $key, mixed $default = null): float
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_scalar($field)) {
+            throw CourierUnavailableException::requestFailed('econt', 'parse-response');
+        }
+
+        return (float) $field;
+    }
+
+    /**
+     * Same as `field()`, but asserts the result is an array before
+     * returning — used where a caller is about to `collect()` the value.
+     *
+     * @param  array<string, mixed>  $default
+     * @return array<array-key, mixed>
+     */
+    private static function arrayField(mixed $value, string $key, array $default = []): array
+    {
+        $field = self::field($value, $key, $default);
+
+        if (! is_array($field)) {
+            throw CourierUnavailableException::requestFailed('econt', 'parse-response');
+        }
+
+        return $field;
+    }
+
+    /**
+     * Same as `field()`, but reads a numeric offset off the named key's
+     * array value rather than an associative key off it — for
+     * `shipmentStatuses[0]`-shaped vendor responses.
+     */
+    private static function offsetField(mixed $value, string $key, int $offset): mixed
+    {
+        $field = self::field($value, $key);
+
+        return is_array($field) ? ($field[$offset] ?? null) : null;
     }
 
     /**

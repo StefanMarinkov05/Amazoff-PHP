@@ -6,6 +6,7 @@ namespace App\Filament\Concerns;
 
 use App\Enums\LengthUnit;
 use App\Enums\WeightUnit;
+use InvalidArgumentException;
 
 /**
  * Turns the form's unit-relative measurement inputs into the canonical
@@ -129,20 +130,36 @@ trait ConvertsMeasurementInput
             return null;
         }
 
+        if (! is_scalar($value)) {
+            throw new InvalidArgumentException('Measurement input must be a scalar value.');
+        }
+
         return $convert((float) $value);
     }
 
     private function resolveWeightUnit(mixed $value): WeightUnit
     {
-        return $value instanceof WeightUnit
-            ? $value
-            : (WeightUnit::tryFrom((string) $value) ?? WeightUnit::default());
+        if ($value instanceof WeightUnit) {
+            return $value;
+        }
+
+        if ($value !== null && ! is_scalar($value)) {
+            throw new InvalidArgumentException('Weight display unit must be a scalar value.');
+        }
+
+        return WeightUnit::tryFrom((string) $value) ?? WeightUnit::default();
     }
 
     private function resolveLengthUnit(mixed $value): LengthUnit
     {
-        return $value instanceof LengthUnit
-            ? $value
-            : (LengthUnit::tryFrom((string) $value) ?? LengthUnit::default());
+        if ($value instanceof LengthUnit) {
+            return $value;
+        }
+
+        if ($value !== null && ! is_scalar($value)) {
+            throw new InvalidArgumentException('Dimension display unit must be a scalar value.');
+        }
+
+        return LengthUnit::tryFrom((string) $value) ?? LengthUnit::default();
     }
 }

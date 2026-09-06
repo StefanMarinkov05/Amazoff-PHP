@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
 use Symfony\Component\HttpFoundation\Response;
@@ -86,7 +87,13 @@ class VerifyStripeWebhookSignature
         // to 0, and because the config key then exists, config()'s own
         // default never fires. Clamping at the point of use is what makes
         // that unreachable however the value arrived.
-        $tolerance = max(60, (int) config('services.stripe.webhook_tolerance', 300));
+        $configuredTolerance = config('services.stripe.webhook_tolerance', 300);
+
+        if (! is_scalar($configuredTolerance)) {
+            throw new InvalidArgumentException('Config value [services.stripe.webhook_tolerance] must be a scalar value.');
+        }
+
+        $tolerance = max(60, (int) $configuredTolerance);
 
         // Always assigned before it is read: $secrets is non-empty (the
         // early return above guarantees it), so the loop runs at least once,

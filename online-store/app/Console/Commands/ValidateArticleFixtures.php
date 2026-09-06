@@ -52,9 +52,16 @@ final class ValidateArticleFixtures extends Command
             return self::FAILURE;
         }
 
+        /** @var list<string> $authorEmails */
         $authorEmails = User::query()->pluck('email')->all();
+
+        /** @var list<string> $categorySlugs */
         $categorySlugs = ArticleCategory::query()->pluck('slug')->all();
+
+        /** @var list<string> $tagSlugs */
         $tagSlugs = Tag::query()->pluck('slug')->all();
+
+        /** @var list<string> $productSlugs */
         $productSlugs = Product::query()->pluck('slug')->all();
 
         foreach ($files as $file) {
@@ -117,39 +124,58 @@ final class ValidateArticleFixtures extends Command
             }
         }
 
-        $this->assertUniqueSlug($path, (string) $document['slug']);
+        $this->assertUniqueSlug($path, self::display($document['slug']));
 
-        if (! in_array($document['author'], $authorEmails, true)) {
-            $this->recordFailure($path, "references unknown author email [{$document['author']}]");
+        $author = self::display($document['author']);
+
+        if (! in_array($author, $authorEmails, true)) {
+            $this->recordFailure($path, "references unknown author email [{$author}]");
         }
 
-        if (isset($document['category']) && ! in_array($document['category'], $categorySlugs, true)) {
-            $this->recordFailure($path, "references unknown article category slug [{$document['category']}]");
-        }
+        if (isset($document['category'])) {
+            $category = self::display($document['category']);
 
-        foreach ($document['tags'] ?? [] as $tag) {
-            if (! in_array($tag, $tagSlugs, true)) {
-                $this->recordFailure($path, "references unknown tag slug [{$tag}]");
+            if (! in_array($category, $categorySlugs, true)) {
+                $this->recordFailure($path, "references unknown article category slug [{$category}]");
             }
         }
 
-        foreach ($document['related_products'] ?? [] as $product) {
-            if (! in_array($product, $productSlugs, true)) {
-                $this->recordFailure($path, "references unknown product slug [{$product}]");
+        $tags = $document['tags'] ?? [];
+
+        if (is_array($tags)) {
+            foreach ($tags as $rawTag) {
+                $tag = self::display($rawTag);
+
+                if (! in_array($tag, $tagSlugs, true)) {
+                    $this->recordFailure($path, "references unknown tag slug [{$tag}]");
+                }
+            }
+        }
+
+        $relatedProducts = $document['related_products'] ?? [];
+
+        if (is_array($relatedProducts)) {
+            foreach ($relatedProducts as $rawProduct) {
+                $product = self::display($rawProduct);
+
+                if (! in_array($product, $productSlugs, true)) {
+                    $this->recordFailure($path, "references unknown product slug [{$product}]");
+                }
             }
         }
 
         if (isset($document['status'])) {
-            $status = ArticleStatus::tryFrom((string) $document['status']);
+            $rawStatus = self::display($document['status']);
+            $status = ArticleStatus::tryFrom($rawStatus);
 
             if ($status === null) {
                 $valid = implode(', ', array_map(fn (ArticleStatus $s): string => $s->value, ArticleStatus::cases()));
-                $this->recordFailure($path, "has status [{$document['status']}], must be one of: {$valid}");
+                $this->recordFailure($path, "has status [{$rawStatus}], must be one of: {$valid}");
             }
         }
 
         foreach (['title' => 100, 'slug' => 100, 'summary' => 255, 'seo_title' => 100, 'seo_description' => 255] as $field => $max) {
-            if (isset($document[$field]) && mb_strlen((string) $document[$field]) > $max) {
+            if (isset($document[$field]) && mb_strlen(self::display($document[$field])) > $max) {
                 $this->recordFailure($path, "[{$field}] exceeds {$max} characters");
             }
         }
@@ -178,5 +204,15 @@ final class ValidateArticleFixtures extends Command
     private function recordFailure(string $path, string $problem): void
     {
         $this->failures[] = "{$path} {$problem}";
+    }
+
+    /**
+     * A fixture value, rendered for a failure message or a lookup — a
+     * malformed fixture (an array where a string is expected) is exactly the
+     * kind of problem this command exists to report, not one to throw on.
+     */
+    private static function display(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : json_encode($value, JSON_THROW_ON_ERROR);
     }
 }

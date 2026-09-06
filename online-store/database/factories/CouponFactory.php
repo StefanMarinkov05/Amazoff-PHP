@@ -6,8 +6,12 @@ namespace Database\Factories;
 
 use App\Enums\CouponScope;
 use App\Enums\CouponType;
+use App\Models\Coupon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<Coupon>
+ */
 class CouponFactory extends Factory
 {
     /**

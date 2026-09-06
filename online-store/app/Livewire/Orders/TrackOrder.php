@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -101,7 +102,13 @@ class TrackOrder extends Component
 
         RateLimiter::clear($this->throttleKey());
 
-        $this->foundOrderId = $order->getKey();
+        $orderKey = $order->getKey();
+
+        if (! is_int($orderKey)) {
+            throw new InvalidArgumentException('Order::getKey() returned a non-integer value.');
+        }
+
+        $this->foundOrderId = $orderKey;
     }
 
     /**

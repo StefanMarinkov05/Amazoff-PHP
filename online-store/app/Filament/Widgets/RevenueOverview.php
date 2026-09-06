@@ -8,6 +8,7 @@ use DateTimeInterface;
 use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
 
@@ -104,7 +105,7 @@ class RevenueOverview extends StatsOverviewWidget
             return 0.0;
         }
 
-        return round(((int) $row->returned / $sold) * 100, 1);
+        return round(((int) ($row->returned ?? 0) / $sold) * 100, 1);
     }
 
     /**
@@ -112,6 +113,7 @@ class RevenueOverview extends StatsOverviewWidget
      */
     private function dailyRevenueChart(DateTimeInterface $from, DateTimeInterface $to): array
     {
+        /** @var Collection<string, float|string> $rows */
         $rows = DB::table('payments')
             ->whereNotNull('paid_at')
             ->whereBetween('paid_at', [$from, $to])

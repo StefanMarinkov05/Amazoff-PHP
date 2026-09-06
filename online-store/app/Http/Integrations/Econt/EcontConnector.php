@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Integrations\Econt;
 
+use InvalidArgumentException;
 use Saloon\Contracts\Authenticator;
 use Saloon\Http\Auth\BasicAuthenticator;
 use Saloon\Http\Connector;
@@ -31,9 +32,16 @@ class EcontConnector extends Connector
 
     protected function defaultAuth(): Authenticator
     {
+        $username = config('services.econt.username');
+        $password = config('services.econt.password');
+
+        if (! is_scalar($username) || ! is_scalar($password)) {
+            throw new InvalidArgumentException('Config values [services.econt.username] and [services.econt.password] must be scalar.');
+        }
+
         return new BasicAuthenticator(
-            (string) config('services.econt.username'),
-            (string) config('services.econt.password'),
+            (string) $username,
+            (string) $password,
         );
     }
 

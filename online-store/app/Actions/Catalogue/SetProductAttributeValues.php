@@ -92,6 +92,7 @@ final class SetProductAttributeValues
 
         $allowed = ResolveAllowedAttributes::forCategory($category);
 
+        /** @var list<int> $foreign */
         $foreign = $values
             ->reject(fn (AttributeValue $value): bool => in_array($value->attribute_id, $allowed, true))
             ->pluck('attribute_id')
@@ -100,7 +101,7 @@ final class SetProductAttributeValues
             ->all();
 
         if ($foreign !== []) {
-            throw new AttributeNotAllowedForCategoryException($product, array_map(intval(...), $foreign));
+            throw new AttributeNotAllowedForCategoryException($product, $foreign);
         }
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use App\Models\Payment;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -24,8 +25,8 @@ class RefundNotAllowedException extends RuntimeException
     public static function notPaid(Payment $payment): self
     {
         return new self($payment, sprintf(
-            'Payment %d is %s; only a paid or partially refunded payment can be refunded.',
-            $payment->getKey(),
+            'Payment %s is %s; only a paid or partially refunded payment can be refunded.',
+            self::key($payment),
             $payment->status->value,
         ));
     }
@@ -33,9 +34,9 @@ class RefundNotAllowedException extends RuntimeException
     public static function exceedsRemaining(Payment $payment, string $requested, string $remaining): self
     {
         return new self($payment, sprintf(
-            'Cannot refund %s of payment %d: only %s remains unrefunded.',
+            'Cannot refund %s of payment %s: only %s remains unrefunded.',
             $requested,
-            $payment->getKey(),
+            self::key($payment),
             $remaining,
         ));
     }
@@ -43,8 +44,19 @@ class RefundNotAllowedException extends RuntimeException
     public static function hasNoIntent(Payment $payment): self
     {
         return new self($payment, sprintf(
-            'Payment %d has no Stripe PaymentIntent, so there is nothing to refund there.',
-            $payment->getKey(),
+            'Payment %s has no Stripe PaymentIntent, so there is nothing to refund there.',
+            self::key($payment),
         ));
+    }
+
+    private static function key(Payment $payment): int|string
+    {
+        $key = $payment->getKey();
+
+        if (! is_int($key) && ! is_string($key)) {
+            throw new InvalidArgumentException('Payment::getKey() returned neither an int nor a string.');
+        }
+
+        return $key;
     }
 }

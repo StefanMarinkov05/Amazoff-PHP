@@ -186,7 +186,7 @@ the matrix, which is the right answer for an out-of-order delivery.
 returns to `Paid`, one lost ends at `Refunded`, since the funds are taken
 back either way.
 
-Two details worth knowing:
+Three details worth knowing:
 
 - **The amount guard does not apply.** Stripe documents a dispute's amount
   as *"usually the amount of the charge, but it can differ"*, so a partial
@@ -196,9 +196,29 @@ Two details worth knowing:
   `null|PaymentIntent|string`. Reading it as a string only returned null on
   an expanded payload and silently ignored the dispute — `intentIdFrom()`
   now accepts both shapes.
+- **The amount guard is scoped by event type, not by target status —
+  found while wiring the closing event below.** `charge.dispute.closed`
+  with `status: won` also resolves to a `Paid` target, but a Stripe Dispute
+  object carries no `amount_received` field at all — only `amount`, the
+  disputed sum. Gating the guard on `$target === Paid` alone (its original
+  form) meant `$received` was always `null` for a won dispute, always read
+  as a mismatch, and the payment silently stayed `Disputed` regardless of
+  the real outcome. The guard now also checks `$event->type ===
+  'payment_intent.succeeded'`, the one event type that genuinely carries
+  the field it reads. Caught by the regression test for the won-dispute
+  path, not by inspection — the bug produced no error, just a payment that
+  never moved.
 
-The closing events (`charge.dispute.closed`) are **not** handled, so moving
-a payment back out of `Disputed` is currently a manual panel action.
+**Closing events are now handled.** `charge.dispute.closed` resolves to
+`PaymentStatus::Paid` when `status: won` and `PaymentStatus::Refunded` when
+`status: lost`, mirroring `charge.refunded`'s pattern of a payload-dependent
+target resolved in `statusFor()` rather than a flat `STATUS_BY_EVENT_TYPE`
+entry — the event type alone does not say which way the dispute went.
+`charge.dispute.closed` also fires for `warning_closed` (an inquiry that
+never became a formal dispute) and other non-terminal statuses; only `won`
+and `lost` are decisions this application acts on, and anything else is
+acknowledged without a status change, the same treatment an unlisted event
+type gets.
 
 ## Signing-secret rotation
 

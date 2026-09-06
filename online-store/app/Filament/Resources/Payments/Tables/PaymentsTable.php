@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Payments\Tables;
 
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Models\Payment;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -71,9 +72,12 @@ class PaymentsTable
                 // what took money and has not been fully returned?
                 Filter::make('partially_refunded')
                     ->label('Has an unfinished refund')
-                    ->query(fn (Builder $query): Builder => $query
-                        ->where('refunded_amount', '>', 0)
-                        ->whereColumn('refunded_amount', '<', 'amount')),
+                    ->query(function (Builder $query): Builder {
+                        /** @var Builder<Payment> $query */
+                        return $query
+                            ->where('refunded_amount', '>', 0)
+                            ->whereColumn('refunded_amount', '<', 'amount');
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

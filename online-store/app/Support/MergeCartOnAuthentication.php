@@ -78,7 +78,7 @@ final class MergeCartOnAuthentication
         // Re-read: the row was loaded before the session changed, and a
         // concurrent request (a second tab finishing its own merge) may have
         // deleted it since. `MergeGuestCart` would then merge a stale model.
-        $guestCart = Cart::query()->find($guestCart->getKey());
+        $guestCart = Cart::query()->where('id', $guestCart->getKey())->first();
 
         if ($guestCart === null) {
             return;

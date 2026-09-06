@@ -7,6 +7,7 @@ namespace App\Support\Courier;
 use App\Contracts\CourierGateway;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 
 /**
  * Wraps any `CourierGateway` and caches its read-only lookups. Written once
@@ -49,7 +50,7 @@ final readonly class CachedCourierGateway implements CourierGateway
         /** @var list<array{vendorId: string, name: string, postcode: string, country: string}> $rows */
         $rows = Cache::remember(
             $this->key('cities', $term),
-            (int) config('couriers.cache.offices_ttl', 86400),
+            $this->ttl('couriers.cache.offices_ttl', 86400),
             fn (): array => $this->inner->cities($term)->map(static fn (CourierCity $city): array => (array) $city)->all(),
         );
 
@@ -61,7 +62,7 @@ final readonly class CachedCourierGateway implements CourierGateway
         /** @var list<array{code: string, name: string, address: string, city: string, postcode: string, maxWeightGrams: ?int, supportsCod: bool}> $rows */
         $rows = Cache::remember(
             $this->key('offices', $city, $postcode ?? ''),
-            (int) config('couriers.cache.offices_ttl', 86400),
+            $this->ttl('couriers.cache.offices_ttl', 86400),
             fn (): array => $this->inner->offices($city, $postcode)->map(static fn (CourierOffice $office): array => (array) $office)->all(),
         );
 
@@ -82,7 +83,7 @@ final readonly class CachedCourierGateway implements CourierGateway
         /** @var array{amount: string, currency: string, estimatedDays: ?int, isEstimate: bool} $row */
         $row = Cache::remember(
             $key,
-            (int) config('couriers.cache.quote_ttl', 300),
+            $this->ttl('couriers.cache.quote_ttl', 300),
             fn (): array => (array) $this->inner->quote($request),
         );
 
@@ -107,5 +108,16 @@ final readonly class CachedCourierGateway implements CourierGateway
     private function key(string ...$parts): string
     {
         return sprintf('courier:%s:%s', $this->inner->code(), implode(':', $parts));
+    }
+
+    private function ttl(string $configKey, int $default): int
+    {
+        $value = config($configKey, $default);
+
+        if (! is_int($value)) {
+            throw new InvalidArgumentException("Config value [{$configKey}] must be an integer.");
+        }
+
+        return $value;
     }
 }

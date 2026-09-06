@@ -33,10 +33,12 @@ use App\Models\ShipmentTrackingEvent;
 use App\Models\User;
 use App\Support\ProtectedSkus;
 use App\Support\ResolveVariationPrice;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -576,6 +578,10 @@ class DemoOrderSeeder extends Seeder
             default => $this->randomRegisteredCustomer(),
         };
 
+        if (! $isGuest && $customer === null) {
+            throw new InvalidArgumentException('A non-guest order must resolve a customer.');
+        }
+
         $cart = $isGuest
             ? Cart::query()->create(['session_id' => (string) Str::uuid()])
             : Cart::query()->create(['user_id' => $customer->getKey()]);
@@ -1085,7 +1091,11 @@ class DemoOrderSeeder extends Seeder
     {
         $this->command?->info('--- Verifying against the live database ---');
 
-        $statuses = Order::query()->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status');
+        // Query builder rather than Eloquent's own pluck(): 'c' is a
+        // selectRaw() alias, not a model property, and Larastan objects to
+        // pretending otherwise.
+        /** @var Collection<string, int> $statuses */
+        $statuses = Order::query()->selectRaw('status, count(*) c')->groupBy('status')->toBase()->pluck('c', 'status');
         foreach ($statuses as $status => $count) {
             $this->command?->line("  status={$status}: {$count}");
         }
@@ -1093,11 +1103,19 @@ class DemoOrderSeeder extends Seeder
         $this->command?->info('Guest orders: '.Order::query()->whereNull('user_id')->count());
         $this->command?->info('Coupon redemptions: '.CouponRedemption::count());
         $this->command?->info('Payments by status:');
-        foreach (Payment::query()->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status') as $s => $c) {
+
+        /** @var Collection<string, int> $paymentStatuses */
+        $paymentStatuses = Payment::query()->selectRaw('status, count(*) c')->groupBy('status')->toBase()->pluck('c', 'status');
+
+        foreach ($paymentStatuses as $s => $c) {
             $this->command?->line("  {$s}: {$c}");
         }
         $this->command?->info('Shipments by status:');
-        foreach (Shipment::query()->selectRaw('status, count(*) c')->groupBy('status')->pluck('c', 'status') as $s => $c) {
+
+        /** @var Collection<string, int> $shipmentStatuses */
+        $shipmentStatuses = Shipment::query()->selectRaw('status, count(*) c')->groupBy('status')->toBase()->pluck('c', 'status');
+
+        foreach ($shipmentStatuses as $s => $c) {
             $this->command?->line("  {$s}: {$c}");
         }
 
@@ -1121,7 +1139,10 @@ class DemoOrderSeeder extends Seeder
         foreach (self::SHOWCASE_ACCOUNTS as $email => $targets) {
             $expected = count($targets);
             $actual = Order::query()
-                ->whereHas('user', fn ($q) => $q->where('email', $email))
+                ->whereHas('user', function (Builder $q) use ($email): Builder {
+                    /** @var Builder<User> $q */
+                    return $q->where('email', $email);
+                })
                 ->count();
 
             $line = "  {$email}: {$actual} order(s), expected {$expected}";

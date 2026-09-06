@@ -19,6 +19,7 @@ use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use InvalidArgumentException;
 
 class EditProduct extends EditRecord
 {
@@ -99,7 +100,19 @@ class EditProduct extends EditRecord
         // matching note. Pulled before convertMeasurements so it never
         // reaches UpdateProduct as a stray key.
         $hasDescriptiveValues = array_key_exists('descriptive_attribute_value_ids', $data);
-        $descriptiveValueIds = array_map(intval(...), (array) Arr::pull($data, 'descriptive_attribute_value_ids', []));
+        $rawDescriptiveValueIds = Arr::pull($data, 'descriptive_attribute_value_ids', []);
+
+        if (! is_array($rawDescriptiveValueIds)) {
+            throw new InvalidArgumentException('Product form [descriptive_attribute_value_ids] must be an array.');
+        }
+
+        $descriptiveValueIds = array_values(array_map(static function (mixed $id): int {
+            if (! is_scalar($id)) {
+                throw new InvalidArgumentException('Product form descriptive attribute value id must be a scalar value.');
+            }
+
+            return (int) $id;
+        }, $rawDescriptiveValueIds));
 
         $data = $this->convertMeasurements($data);
 

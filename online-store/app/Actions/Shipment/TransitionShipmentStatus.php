@@ -65,6 +65,7 @@ final class TransitionShipmentStatus
         ?string $description = null,
     ): Shipment {
         return DB::transaction(function () use ($shipment, $to, $actor, $rawStatus, $description): Shipment {
+            /** @var Shipment $locked */
             $locked = Shipment::query()->lockForUpdate()->findOrFail($shipment->getKey());
             $from = $locked->status;
 
