@@ -44,6 +44,23 @@ when the work happened, not when it was committed — nothing in
   suite (which stayed green throughout) rather than by reading the diff
   alone.
 
+- **`ApproveProductReview`/`UnapproveProductReview` had zero test
+  coverage** — confirmed by checking for a class reference anywhere in
+  `tests/`, not inferred — despite both having a live panel row action and
+  a bulk "approve" action on `ProductReviewsTable`. Found during a QA-gap
+  audit, not a bug report. 12 new tests across the Action layer
+  (`ApproveProductReviewTest`) and the panel (`ProductReviewResourceTest`):
+  authorization (allowed with `approve_product_review`, refused without,
+  no check when no actor is passed), the role-denial matrix
+  (`administrator` only, per §24), and the row/bulk panel actions reaching
+  the real Action rather than a modal that only renders. The bulk action
+  was checked specifically against the `DeleteBulkAction`-bypasses-the-
+  Action bug class confirmed elsewhere on this codebase (`Products`,
+  `ProductCategories`) — this one composes `ApproveProductReview` per
+  record correctly; confirmed, not assumed. `reference/actions.md` and
+  `reference/testing/ui-tests.md` updated; both Actions were previously
+  absent from the coverage table entirely.
+
 - **`charge.dispute.closed` is now handled** — a dispute won by the merchant
   moves the payment back to `Paid`, one lost moves it to `Refunded`, closing
   the gap `reference/testing/stripe-testing.md` had recorded as needing a
