@@ -9,6 +9,7 @@
             ['Delivery', '/delivery'],
             ['Payment', '/payment-information'],
             ['Track an order', '/orders/track'],
+            ['FAQ', '/faq'],
             ['Contact', '/contact'],
         ],
         'Legal' => [

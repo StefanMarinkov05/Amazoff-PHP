@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Auth;
 
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
@@ -21,6 +22,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class ChangePassword extends Component
 {
+    use ThrottlesSubmissions;
+
     public string $current_password = '';
 
     public string $password = '';
@@ -41,6 +44,12 @@ class ChangePassword extends Component
     public function updatePassword(): void
     {
         $validated = $this->validate();
+
+        // Keyed on the *user*, not the IP: this form takes current_password,
+        // so an unthrottled endpoint is an online guessing oracle against an
+        // already-authenticated session. The account is the thing under
+        // attack, so the account is what the limit protects. SEC-010.
+        $this->throttleSubmission('change-password|'.auth()->id(), 'current_password');
 
         $user = auth()->user();
 

@@ -243,5 +243,5 @@ Recorded rather than silently carried:
 - **Nothing has been run against the real Stripe API end to end.** Response
   shapes were verified against live test-mode objects; the request shapes
   this application sends have never been accepted by Stripe in anger.
-  `reference/stripe-testing.md` is explicit about what that does and does
+  `reference/testing/stripe-testing.md` is explicit about what that does and does
   not leave open.

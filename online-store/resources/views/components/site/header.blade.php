@@ -225,6 +225,11 @@
                             <div class="my-1 border-t border-ink-100"></div>
                         @endif
 
+                        <a href="/account/orders" wire:navigate
+                           class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                            Your orders
+                        </a>
+
                         <a href="/account/password" wire:navigate
                            class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                             Change password
@@ -300,6 +305,11 @@
                             Admin panel
                         </a>
                     @endif
+                    <a href="/account/orders"
+                       class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                              hover:bg-ink-100 hover:text-ink-900">
+                        Your orders
+                    </a>
                     <a href="/account/password"
                        class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
                               hover:bg-ink-100 hover:text-ink-900">

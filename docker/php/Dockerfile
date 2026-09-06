@@ -60,6 +60,7 @@ RUN pecl install pcov \
     && docker-php-ext-enable pcov
 COPY docker/php/conf.d/pcov.ini /usr/local/etc/php/conf.d/pcov.ini
 COPY docker/php/conf.d/cli-memory.ini /usr/local/etc/php/conf.d/cli-memory.ini
+COPY docker/php/conf.d/security.ini /usr/local/etc/php/conf.d/security.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

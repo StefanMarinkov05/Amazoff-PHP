@@ -152,6 +152,63 @@ it('does not crash on a non-numeric or nested attribute value id', function (): 
         ->assertOk();
 });
 
+/*
+ * The case the assertOk() test above could not see. `intval()` of a
+ * *non-empty* array is 1 — not 0 — so a nested array did not fall through
+ * as garbage, it collapsed onto the real, filterable attribute value id 1
+ * and silently applied that filter, chip and all. Confirmed live before the
+ * fix: 164 products narrowed to 37 with a "Black" chip nobody selected.
+ *
+ * Asserting "no crash" was never going to catch that; only asserting the
+ * resulting product set does. Both tests are kept — the crash case and the
+ * silent-wrong-filter case are different failures of the same input.
+ */
+
+it('does not let a nested array collapse onto a real attribute value id', function (): void {
+    [$cotton, , $cottonOnly, $polyesterOnly, $blend] = catalogueWithMaterials();
+
+    // Nested, and deliberately containing the first value's own id: if the
+    // (int) cast wins, intval() yields 1 for any non-empty array, and on a
+    // freshly-seeded test database id 1 is a real row.
+    $ids = Livewire::withQueryParams(['attributeValueIds' => [[$cotton->id, 2]]])
+        ->test(ProductList::class)
+        ->assertOk()
+        ->viewData('products')
+        ->pluck('id')
+        ->all();
+
+    // Unfiltered: every available product, not the subset a fabricated id
+    // would have produced.
+    expect($ids)->toContain($cottonOnly->id, $polyesterOnly->id, $blend->id);
+});
+
+it('applies no attribute filter at all when every id is unusable', function (): void {
+    [, , $cottonOnly, $polyesterOnly, $blend] = catalogueWithMaterials();
+
+    $ids = Livewire::withQueryParams(['attributeValueIds' => ['not-a-number', ['nested'], '']])
+        ->test(ProductList::class)
+        ->assertOk()
+        ->viewData('products')
+        ->pluck('id')
+        ->all();
+
+    expect($ids)->toContain($cottonOnly->id, $polyesterOnly->id, $blend->id);
+});
+
+it('still filters correctly on a legitimate id, proving the guard did not break the feature', function (): void {
+    [$cotton, , $cottonOnly, $polyesterOnly, $blend] = catalogueWithMaterials();
+
+    $ids = Livewire::withQueryParams(['attributeValueIds' => [(string) $cotton->id]])
+        ->test(ProductList::class)
+        ->assertOk()
+        ->viewData('products')
+        ->pluck('id')
+        ->all();
+
+    expect($ids)->toContain($cottonOnly->id, $blend->id)
+        ->and($ids)->not->toContain($polyesterOnly->id);
+});
+
 it('does not crash when the whole parameter is a scalar rather than an array', function (): void {
     // ?attributeValueIds=7 rather than ?attributeValueIds[]=7 — a
     // hand-edited URL, and a shape (array) cast has to survive.

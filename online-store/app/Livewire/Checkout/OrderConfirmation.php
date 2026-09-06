@@ -57,11 +57,80 @@ class OrderConfirmation extends Component
      */
     public int $orderId;
 
-    public function mount(int $order): void
+    /**
+     * `mixed`, not `int` — `{order}` is a plain route segment (not
+     * `Order $order`; see `$orderId`'s own docblock for why), so nothing
+     * validates its shape before this signature does. PHP itself throws
+     * `TypeError: OrderConfirmation::mount(): Argument #1 ($order) must be
+     * of type int, string given` on a non-numeric segment
+     * (`/checkout/confirmation/abc`) — before this method's own body runs,
+     * the same "hydration happens before your code does" shape as the
+     * `#[Url]` incidents in `test-for-input-crashes.md`, on route binding
+     * instead of query-string hydration. Confirmed live: a full debug trace
+     * (file paths, the container's dependency-resolution stack) to an
+     * anonymous visitor under local's `APP_DEBUG=true`; gated to a bare 500
+     * once debug is off, per the pre-deploy checklist in
+     * `how-to/pentest-the-system.md`, but still an unhandled crash for a
+     * customer who mistypes a URL, not the same clean 404 a bad order id
+     * already gets. `is_numeric` here turns "not an order id at all" into
+     * exactly that 404, same as `authorizedOrder()` already gives a
+     * well-formed id nothing matches.
+     */
+    public function mount(mixed $order): void
     {
+        if (! is_numeric($order)) {
+            throw new NotFoundHttpException;
+        }
+
         // Checked here so an unauthorised id 404s on arrival rather than
         // rendering an empty page.
-        $this->orderId = $this->authorizedOrder($order)->getKey();
+        $this->orderId = $this->authorizedOrder((int) $order)->getKey();
+    }
+
+    /**
+     * Drops Stripe's redirect parameters from the address bar (SEC-012).
+     *
+     * Stripe appends `payment_intent`, `payment_intent_client_secret` and
+     * `redirect_status` to whatever `return_url` it was given. The client
+     * secret is not a credential for anything this application owns, but it
+     * *is* enough — with the publishable key, which is public by design — to
+     * retrieve the PaymentIntent from a browser and read its amount,
+     * currency and status. Confirmed by doing exactly that.
+     *
+     * Left alone it persists in three places: the customer's browser
+     * history, the web server's access log (nginx logs the full request
+     * line), and anywhere that log is shipped. The last is the real concern
+     * — log aggregators routinely have wider read access than the database.
+     *
+     * Nothing here reads any of the three: this page resolves the order from
+     * the `{order}` segment and the session claim, and deliberately reports
+     * the *webhook's* payment status rather than `redirect_status`, because
+     * a redirect is trivially forgeable by typing the URL. So they can be
+     * discarded with no loss.
+     *
+     * A redirect rather than a header tweak, because only replacing the URL
+     * clears the browser history entry as well. An nginx log-format change
+     * would fix the log alone and leave the history and any future
+     * screenshot or shared link carrying it.
+     */
+    public function rendering(): void
+    {
+        if ($this->stripeParametersPresent()) {
+            $this->redirectRoute(
+                'checkout.confirmation',
+                ['order' => $this->orderId],
+                navigate: false,
+            );
+        }
+    }
+
+    private function stripeParametersPresent(): bool
+    {
+        return request()->hasAny([
+            'payment_intent',
+            'payment_intent_client_secret',
+            'redirect_status',
+        ]);
     }
 
     #[Computed]

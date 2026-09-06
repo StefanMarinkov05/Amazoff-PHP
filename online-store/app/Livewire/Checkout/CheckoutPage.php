@@ -28,6 +28,7 @@ use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use RuntimeException;
 
@@ -86,7 +87,16 @@ class CheckoutPage extends Component
 
     public string $last_name = '';
 
-    public string $payment_method = PaymentMethod::CashOnDelivery->value;
+    /**
+     * Card by default.
+     *
+     * Cash on delivery is the slower path for the shop — the money arrives
+     * days later, via the courier, and needs a remittance step — so the
+     * default should be the one that settles at checkout. A customer who
+     * wants COD selects it; a customer who does not gets the card fields
+     * without a click.
+     */
+    public string $payment_method = PaymentMethod::Stripe->value;
 
     public string $delivery_type = DeliveryType::Address->value;
 
@@ -121,9 +131,20 @@ class CheckoutPage extends Component
 
     public string $customer_note = '';
 
-    /** Set once the order is placed; drives the payment step. */
+    /**
+     * Set once the order is placed; drives the payment step. Both are
+     * written only by placeOrder() on the server and never legitimately come
+     * from the client, so both are `#[Locked]` — a public property is
+     * re-hydrated from the client on every update, and an unlocked `orderId`
+     * let a crafted request point the page at another customer's order.
+     * `#[Locked]` blocks the tampering; `order()` below still scopes the
+     * lookup, so the id is safe even if it arrives some other way.
+     * See `reference/testing/security-testing.md` SEC-002.
+     */
+    #[Locked]
     public ?int $orderId = null;
 
+    #[Locked]
     public ?string $clientSecret = null;
 
     /**
@@ -511,7 +532,29 @@ class CheckoutPage extends Component
     #[Computed]
     public function order(): ?Order
     {
-        return $this->orderId === null ? null : Order::find($this->orderId);
+        // Scoped, never a bare Order::find(): the visitor may see an order
+        // here only if they own it or just placed it in this session — the
+        // same entitlement OrderConfirmation enforces, and for the same
+        // reason (serial numbers are sequential; a bare lookup enumerates
+        // every customer's order). SEC-002.
+        if ($this->orderId === null) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if ($user instanceof User) {
+            /** @var Order|null $owned */
+            $owned = $user->orders()->find($this->orderId);
+
+            if ($owned !== null) {
+                return $owned;
+            }
+        }
+
+        return session(OrderConfirmation::SESSION_KEY) === $this->orderId
+            ? Order::find($this->orderId)
+            : null;
     }
 
     public function render(): View

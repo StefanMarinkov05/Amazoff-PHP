@@ -7,7 +7,6 @@ namespace App\Support;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariation;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * The one place "which image represents this variation" is decided.
@@ -43,11 +42,13 @@ final class ResolveVariationImage
     {
         $image = self::current($variation);
 
-        if ($image === null) {
-            return asset(self::DEFAULT_PATH);
-        }
-
-        return Storage::disk(ProductImage::DISK)->url($image->path);
+        // No row at all, or a row whose file is not actually on disk — both
+        // fall back the same way. `servableUrl()` is what does the second
+        // check; a row existing was never a guarantee the file behind it
+        // does, confirmed live by a row pointing at a path that was never
+        // written and every caller of this method rendering a broken image
+        // until this file-existence check was added.
+        return $image?->servableUrl() ?? asset(self::DEFAULT_PATH);
     }
 
     public static function current(ProductVariation $variation): ?ProductImage

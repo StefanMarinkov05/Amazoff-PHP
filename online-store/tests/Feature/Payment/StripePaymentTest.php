@@ -632,7 +632,7 @@ it('does not fall back to the requested amount when Stripe omits amount_received
  * These pin field-level assumptions that were checked against live
  * test-mode objects in the project's own Stripe sandbox (acct_1UAbac…,
  * livemode false) rather than only against the SDK's generated stubs. The
- * real objects are recorded in `docs/reference/stripe-testing.md`.
+ * real objects are recorded in `docs/reference/testing/stripe-testing.md`.
  *
  * They are cheap and they guard a specific failure: a Stripe API version
  * bump that renames or restructures one of these fields would otherwise

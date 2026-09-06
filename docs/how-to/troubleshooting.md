@@ -1797,7 +1797,7 @@ for its side effect, check its precondition is registered in the stack that
 actually serves the route — `php artisan tinker` printing
 `app('router')->getMiddlewareGroups()['web']` answers this directly, and is
 what confirmed both halves here. `AuthSessionInvalidationTest` pins the
-group's contents for this reason; `docs/reference/ui-tests.md` records what
+group's contents for this reason; `docs/reference/testing/ui-tests.md` records what
 each of its cases proves.
 
 ## A Feature test passes locally and fails in CI with `ViteManifestNotFoundException`
@@ -1939,6 +1939,340 @@ rule (`->regex(null)`) over an indirect setter, and prove it by running the
 suite enough times (or with different Faker seeds) for a randomised value to
 actually exercise the path — a single green run after the "fix" is not
 evidence, per CLAUDE.md's own testing discipline.
+
+---
+
+## Every storefront page returns 500 with `touch(): Utime failed: Operation not permitted`
+
+**Symptom.** The whole storefront 500s. `/`, `/catalogue`, everything. The
+response body is nearly a megabyte and *looks* like a real page — it carries
+the `<title>Amazoff</title>` and the full compiled CSS — so a quick `curl`
+that greps for "Whoops" or "Stack trace" finds nothing and suggests the page
+rendered. It did not. Only the status line says so.
+
+`storage/logs/laravel.log` has the real message, and it is not a Laravel
+error at all:
+
+```
+local.ERROR: touch(): Utime failed: Operation not permitted
+(View: /var/www/html/resources/views/components/site/header.blade.php)
+```
+
+**Cause.** Blade writes compiled views to `storage/framework/views/` and
+`touch()`es them to track staleness. `touch()` on a file you do not own
+fails even when the directory is world-writable — POSIX allows setting an
+arbitrary mtime only to the file's owner or root.
+
+The bind mount is what creates the mismatch. Files written during an earlier
+run (or by `docker compose exec`, which runs as **root**) end up owned by
+`root`, while PHP-FPM serves requests as **www-data**. `ls -l` is reassuring
+and wrong: the files are `-rwxrwxrwx`, so permissions look fine. Ownership
+is the problem, not the mode.
+
+**Fix.**
+
+```bash
+docker compose exec app php artisan view:clear
+docker compose exec app chown -R www-data:www-data \
+    storage/framework/views storage/logs bootstrap/cache
+```
+
+Compiled views are regenerated on demand, so clearing them is safe.
+
+**Why it recurs.** Any `docker compose exec app php artisan ...` that writes
+into `storage/` does so as root. The next web request, as www-data, then
+cannot touch what root left behind. Running an Artisan command that warms a
+cache is enough to bring it back.
+
+**Prevention.** Prefer `docker compose exec -u www-data app php artisan ...`
+for anything that writes to `storage/` or `bootstrap/cache`, so the files
+land with the ownership the web request expects. If a page 500s right after
+an Artisan command, check ownership before looking for a code change —
+nothing in `app/` caused it.
+
+**The wider trap.** A 500 whose body renders as a plausible page defeats
+grepping for error markers. Check the status code first, then read
+`storage/logs/laravel.log` for the message; the HTML body is the least
+reliable source. This is the same shape as the other entries here: a failure
+that presents as something other than what it is.
+
+## Stripe says a payment succeeded and the app still shows it pending
+
+**Symptom.** A card payment completes at Stripe — `stripe listen` is running
+and said `Ready!`, the PaymentIntent reads `succeeded` with a non-zero
+`amount_received` — but `payments.status` stays `pending`, `paid_at` is null,
+and `payment_events` is empty. No error anywhere: not in `laravel.log`, not
+in the web server's access log (which shows **zero** hits on
+`/stripe/webhook`), not in the forwarder's own output.
+
+The same account mismatch shows up through the **Stripe MCP connector**
+too, not just the CLI: `list_available_accounts_or_orgs` (or whatever the
+client calls it) reports one `stripe_context`, and any write made through it
+— creating an intent, confirming one, fetching an event — silently operates
+on that account instead of the one the app's keys belong to. Confirmed
+2026-09-06: an MCP session connected to `acct_1UAbacHSYCrSsH7T` while
+`STRIPE_SECRET` in `.env` belonged to `acct_1U9BTmEinvfvnBsb` — the same pair
+as the CLI incident below, on a different machine, months apart, which is
+itself evidence for the cause described next.
+
+**Cause.** Whatever tool is being used — CLI or MCP — is authenticated to a
+**different account** than the application's API keys belong to. `stripe
+listen` is forwarding faithfully — just some other account's events; the MCP
+connector is reading/writing faithfully — just against some other account's
+data. Confirmed 2026-09-04 (CLI): the tool sat on `acct_1UAbacHSYCrSsH7T`
+while `STRIPE_SECRET` belonged to `acct_1U9BTmEinvfvnBsb`. Confirmed again
+2026-09-06 (MCP), same two account ids.
+
+**Likely root cause, on a team project: an individual auth, not a shared
+one.** Both the CLI and the MCP connector authenticate *per developer*, not
+per repository — `stripe login` and an MCP OAuth grant both attach to
+whichever Stripe account the person doing it is signed into at the time,
+which has nothing to do with which account issued the keys in the team's
+`.env`.
+
+**`acct_1UAbacHSYCrSsH7T` is not an empty scratch account — it is a second,
+actively-used Stripe sandbox also named "Amazoff".** Checked 2026-09-06: its
+dashboard shows real-looking activity (`€1,994.53` gross volume, a nonzero
+EUR balance) that does **not** come from this app — the app's own database
+at the time held only 2 payments with a real Stripe intent, both opened
+during that session's testing. That rules out "someone logged into it once
+by accident and it happened to have leftover data"; the volume on
+`acct_1UAbac...` was produced by something else, running against that
+account, believing it to be the project's.
+
+**Whose account each one actually is remains unconfirmed — do not treat a
+guess as settled here.** What is verified: this application's `.env` (and
+therefore every seeder, every Action, and this doc's own worked examples)
+points at `acct_1U9BTmEinvfvnBsb`. What is *not* verified: which of the two
+accounts a given teammate considers "theirs", or which one is the one the
+team originally intended as canonical versus one that came later. A
+plausible read is that `acct_1U9BTmEinvfvnBsb` is a particular teammate's
+own account and `.env` has pointed at it since setup — which would mean the
+"wrong" account in every incident above is actually the one nobody has been
+using, not a stray personal login. Resolve this by asking, not by
+inference: whoever owns each account should say so, and the team should
+then pick one and update `.env` (and the vault) to match — rather than
+continuing to call whichever one `.env` currently has "canonical" by
+default.
+
+**Until that conversation happens, treat `acct_1U9BTmEinvfvnBsb` as
+canonical only because it is what `.env` currently contains** — not because
+anyone has confirmed it is the account the team meant to standardize on.
+Anyone setting up the CLI or an MCP connector for this repo should still
+match whatever `.env` has *today*, since that is what every actual write
+this app makes uses — but a `.env` change is on the table pending that
+conversation, and would flip which account is "correct" for this whole
+entry.
+
+**The signing secrets matching is not evidence the accounts match.** The
+`whsec_…` a `stripe listen` session prints is generated per session, so
+copying it into `.env` makes the signature check pass for whatever events do
+arrive — while the events you care about are never sent at all.
+
+**Fix, CLI.** Compare the two directly:
+
+```bash
+stripe config --list | grep account_id
+docker compose exec -T app php artisan tinker --execute='echo app(Stripe\StripeClient::class)->accounts->retrieve()->id;'
+```
+
+If they differ, re-authenticate the CLI against the right account
+(`stripe login`), or point `.env` at the account the CLI already holds.
+
+**Fix, MCP.** List the connector's accounts and compare the same way:
+
+```
+list_available_accounts_or_orgs   → stripe_context, e.g. acct_1UAbac...
+docker compose exec -T app php artisan tinker --execute='echo app(Stripe\StripeClient::class)->accounts->retrieve()->id;'   → acct_1U9BTm...
+```
+
+If they differ, the connector needs re-authorizing against
+`acct_1U9BTmEinvfvnBsb`. The `manage_stripe_accounts` MCP tool returns a
+Stripe-hosted URL for this — open it, sign into the right account (or add it
+alongside the wrong one), and re-run `list_available_accounts_or_orgs` to
+confirm. This is an account-level authorization change on Stripe's side;
+nothing in the repo or `.env` causes or fixes it, and there is no way to
+force a teammate's already-authorized session to switch — each person's CLI
+login and MCP grant only they can re-point, from their own machine.
+
+**To verify the handler itself without touching either tool**, fetch the
+event from the app's *own* account (inside the container, using the app's
+own key — this sidesteps the CLI/MCP mismatch entirely rather than working
+around it), sign it with the app's *own* secret, and POST it to the
+endpoint. This is the real middleware, real bytes, not a simulation:
+
+```php
+// Everything below runs with the app's own StripeClient, so it always
+// targets the right account regardless of what the CLI or MCP hold.
+$stripe = app(Stripe\StripeClient::class);
+
+// 1. Open an intent the normal way, or use one demo:stripe-payments made.
+$intent = app(App\Actions\Payment\CreateStripeIntent::class)->handle($payment);
+
+// 2. Confirm it with a test card. automatic_payment_methods needs a
+//    return_url for a server-side confirm outside the browser flow.
+$intent = $stripe->paymentIntents->confirm($intent->stripe_payment_intent_id, [
+    'payment_method' => 'pm_card_visa',
+    'return_url' => 'https://example.com/return',
+]);
+
+// 3. Fetch the resulting event and sign it exactly as Stripe would.
+$event = $stripe->events->all(['type' => 'payment_intent.succeeded', 'limit' => 1])->data[0];
+$payload = json_encode($event->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$ts = time();
+$sig = hash_hmac('sha256', "{$ts}.{$payload}", config('services.stripe.webhook_secret'));
+// 4. POST $payload to /stripe/webhook with header:
+//    Stripe-Signature: t={$ts},v1={$sig}
+```
+
+Verified end to end 2026-09-06 this way: intent confirmed
+(`amount_received` matching the payment row to the minor unit), webhook
+returned `200 {"received":true}`, and `payments.status` moved to `paid` with
+a `payment_events` row recorded — proving the full path without either tool
+needing to hold the right account.
+
+**Why it recurs.** Every symptom points somewhere else — a webhook-handling
+bug, a signature mismatch, a container networking problem. Neither the CLI's
+output nor the MCP connector's tool list names the account by default, and a
+developer with more than one Stripe account (a personal sandbox and a team
+one) can switch the app's keys without either tool following — worse on a
+team project, where the account a *teammate* authenticated months ago for an
+unrelated reason can be the one still attached when someone else hits this.
+
+**Prevention.** Check the account pair before debugging a missing webhook or
+a failed MCP write, and re-check it whenever `STRIPE_SECRET` changes or a
+new person authenticates a tool for this repo. `stripe listen` printing
+`Ready!`, or an MCP tool call succeeding, proves a connection opened — not
+that it is the right account. State the canonical account
+(`acct_1U9BTmEinvfvnBsb`) explicitly when onboarding a teammate to Stripe
+tooling on this project, rather than letting each person's tool default to
+whatever they last signed into.
+
+---
+
+## Every container is healthy and every request 504s
+
+**Symptom.** `docker compose ps` shows all five services `running`, `db` and
+`mailpit` `(healthy)`, PHP-FPM logging `NOTICE: ready to handle connections`.
+Nothing has crashed and nothing is in a restart loop. Yet:
+
+```
+$ curl -o /dev/null -w '%{http_code}' http://localhost:8080/catalogue
+504
+$ docker compose exec app php artisan db:show
+SQLSTATE[HY000] [2002] Connection timed out
+```
+
+nginx logs the matching half:
+
+```
+upstream timed out (110: Operation timed out) while connecting to upstream,
+  upstream: "fastcgi://172.18.0.5:9000"
+```
+
+**What it is not.** Not a Laravel fault, not a wrong `DB_HOST`, not a
+crashed worker, not a missing `.env`. Service DNS resolves correctly —
+`getent hosts db` returns the right address — so the name resolution layer
+is fine. The application code is never reached at all.
+
+**Cause.** Host firewall. `ufw` ships `DEFAULT_FORWARD_POLICY="DROP"` in
+`/etc/default/ufw`, which sets the iptables `FORWARD` chain policy to DROP.
+Every packet between two containers on Docker's bridge traverses `FORWARD`,
+so all container-to-container traffic is silently dropped — including
+outbound traffic to the internet, which is why `composer audit` also fails
+with a curl timeout.
+
+The diagnostic that isolates it in one step, from inside the app container:
+
+```php
+php -r '$s=@fsockopen("db",3306,$e,$m,3); echo $s?"OPEN":"FAIL($m)";'
+```
+
+Pair it with a probe of `127.0.0.1:9000`. **Loopback works, everything else
+times out** — that asymmetry is the signature, because loopback never
+crosses the bridge and so never hits `FORWARD`.
+
+**Fix.**
+
+```bash
+sudo sed -i 's/^DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
+sudo ufw reload
+sudo systemctl restart docker
+```
+
+This opens nothing to the outside world: ufw's `INPUT` rules are untouched,
+so published ports stay governed exactly as before. It stops ufw dropping
+traffic *between* containers on Docker's own bridge. The narrower
+alternative, if `DROP` must stay global, is a bridge-scoped accept —
+`sudo iptables -I DOCKER-USER -i br-<id> -o br-<id> -j ACCEPT` — which does
+not survive a reboot unless persisted.
+
+**Why it recurs.** Docker installs its own iptables rules at start; a
+`ufw reload`, a ufw package upgrade, or enabling ufw for the first time
+re-applies the DROP policy over them. So a stack that worked yesterday
+fails today with no change to the repository — and `git log` shows nothing,
+because nothing in the project changed.
+
+### The second fault, and why the fix above may not appear to work
+
+On the occasion this entry was written, changing the ufw policy did **not**
+restore the stack, and the reason is worth recording because it wasted an
+hour and produced two confidently wrong diagnoses along the way.
+
+The firewall fix had in fact worked. Proving it took one command — two
+containers on a *freshly created* network, pinging each other:
+
+```bash
+docker network create probe-net
+docker run --rm --network probe-net --name probe-a -d alpine sleep 60
+docker run --rm --network probe-net alpine ping -c2 probe-a   # 0% packet loss
+```
+
+A clean network passed traffic immediately. The project's own network did
+not, because it predated the fix — and it could not be recreated, because
+`docker compose down` failed on every container with:
+
+```
+Error response from daemon: cannot stop container: <id>: permission denied
+```
+
+The host had reached a state where the Docker daemon could not signal
+container processes. `kill -9` as root *did* terminate them (the process
+left the process table), but the daemon's own bookkeeping never caught up,
+and **newly created containers entered the same state within minutes** —
+so killing them one at a time never converged: each round cleared some
+containers and broke others.
+
+Two theories were advanced and both were wrong, which is the useful part
+of this entry. **AppArmor** was blamed because it was enabled — but
+"enabled" is not "implicated," and a Docker restart would normally clear an
+AppArmor-mediated signal failure. **Kernel orphaning** was blamed next,
+because two kernels were installed (`7.0.0-14` and `7.0.0-30`) and the
+stuck containers were the oldest — but containers created minutes earlier,
+on the running kernel, became stuck too, which the theory cannot explain.
+
+**The fix is a reboot**, and it should be reached for early rather than
+last. It resets the kernel, the container runtime, the daemon's state, and
+the firewall rules together. After a reboot the stack came up clean on the
+first `docker compose up -d`, with `DB OPEN` and HTTP 200.
+
+**The rule this suggests.** When `docker compose down` reports
+`permission denied` on containers the daemon itself created, stop issuing
+container-level commands. That error means the daemon has lost authority
+over its own processes, and no `docker` subcommand can repair a daemon in
+that state. The one-command network probe above distinguishes "the firewall
+is still blocking" from "the daemon is broken" in about ten seconds, and it
+is worth running *before* forming any theory about the cause.
+
+**Prevention.** Restart Docker after any ufw change, and reboot if a stop
+or restart is refused with `permission denied`. When every service is
+healthy and every request still times out, probe the network from inside a
+container *before* reading application code: the loopback-works /
+cross-container-fails asymmetry takes one command and rules the entire
+application layer out at once. Same shape as the other entries here — the
+failure presents as an application error and is not one.
+
+---
 
 ## A cached object comes back as `__PHP_Incomplete_Class`, only on the second request
 

@@ -35,6 +35,19 @@ no state, no query, nothing for a component to hold. A page earns a component
 by having something that changes; making one anyway is the pattern applied
 out of habit rather than because the page needs it.
 
+Six more followed that shape: `/delivery`, `/payment-information`, `/faq`,
+`/terms`, `/privacy` and `/cookies`, each a `Route::view()` over a file in
+`resources/views/pages/`. They share `<x-site.prose-page>`, which owns the
+heading, the optional standfirst and "last updated" line, the body
+typography, and the back-link — so the six carry content and nothing else.
+`/about` deliberately does *not* use it: it has its own hero and layout, and
+folding it in would mean parameterising the component for one caller.
+
+The two order pages went the other way, because both hold state. `/orders/track`
+is a `TrackOrder` component (a form, a lookup, a rate limiter, a found-order
+id) and `/account/orders` is `OrderHistory` (a paginated, user-scoped
+query).
+
 The component and its view are paired by name, not by configuration.
 `App\Livewire\Catalogue\ProductList` renders
 `resources/views/livewire/catalogue/product-list.blade.php`. Rename one and

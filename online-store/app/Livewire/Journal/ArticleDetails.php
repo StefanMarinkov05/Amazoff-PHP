@@ -8,6 +8,7 @@ use App\Models\Article;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -16,6 +17,17 @@ use Livewire\Component;
  */
 class ArticleDetails extends Component
 {
+    /**
+     * Locked because a public property is re-hydrated from the client on
+     * every update, and this one selects which article is rendered. Without
+     * it, a crafted Livewire request could set it to a draft's id after
+     * mount() has already run its visibility check. `#[Locked]` is defence
+     * in depth; the load-bearing guard is that `article()` below re-applies
+     * `->visible()` on every read, so the entitlement travels with the id
+     * rather than being checked once. See `reference/testing/security-testing.md`
+     * SEC-001.
+     */
+    #[Locked]
     public int $articleId;
 
     public function mount(Article $article): void
@@ -30,7 +42,11 @@ class ArticleDetails extends Component
     #[Computed]
     public function article(): Article
     {
+        // `->visible()` here, not only in mount(): a bare findOrFail on a
+        // client-controlled id renders drafts and embargoed articles. The
+        // scope makes a non-public id 404 rather than leak — SEC-001.
         return Article::query()
+            ->visible()
             ->with(['author', 'articleCategory', 'tags'])
             ->findOrFail($this->articleId);
     }

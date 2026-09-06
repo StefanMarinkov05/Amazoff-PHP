@@ -98,6 +98,49 @@ it('revokes a permission through the form', function (): void {
         ->and($editor->fresh()->can('delete_article'))->toBeTrue();
 });
 
+it('refuses an actor editing a role they themselves hold (SEC-008)', function (): void {
+    // Not actingAsAdmin(): the guard in EditRole::beforeValidate() is not a
+    // policy check, on purpose — Gate::before grants administrator every
+    // permission unconditionally, which would make a RolePolicy-level guard
+    // dead code for the one role that can reach this page. The reflexive
+    // case is reachable only by an actor who both holds a role and has been
+    // granted update_role on it, which editor@example.com now is.
+    $editor = User::where('email', 'editor@example.com')->firstOrFail();
+    $role = Role::findByName('content_editor');
+
+    // viewAny_role and view_role are also needed to reach the edit page at
+    // all — Filament's own EditRecord::mount() authorizes view before the
+    // page ever renders, separately from the update_role check
+    // EditRole::beforeValidate() adds.
+    Permission::findOrCreate('viewAny_role');
+    Permission::findOrCreate('view_role');
+    Permission::findOrCreate('update_role');
+    $role->givePermissionTo(['viewAny_role', 'view_role', 'update_role']);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    test()->actingAs($editor->fresh());
+
+    $existing = $role->permissions->pluck('id')->all();
+
+    // The escalation this closes: granting itself delete_user, which §3.3
+    // denies content_editor by name. beforeValidate() is the first hook
+    // EditRecord::save() calls, before this form state is ever read, so the
+    // guard must fire regardless of what fillForm() sent.
+    $deleteUser = Permission::findOrCreate('delete_user')->getKey();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->fillForm(['permissions_user' => [$deleteUser]])
+        ->call('save');
+
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    // Halt stops the pipeline before saveRelationships() runs, so the pivot
+    // must be untouched — the permission set is exactly what it was before.
+    expect($role->fresh()->permissions->pluck('id')->sort()->values()->all())
+        ->toBe(collect($existing)->sort()->values()->all())
+        ->and($editor->fresh()->can('delete_user'))->toBeFalse();
+});
+
 it('keeps non-administrators out of the roles resource', function (): void {
     foreach (['editor@example.com', 'warehouse@example.com'] as $email) {
         $user = User::where('email', $email)->firstOrFail();

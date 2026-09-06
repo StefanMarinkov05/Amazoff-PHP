@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Livewire\Auth;
 
+use App\Models\User;
+use App\Support\MergeCartOnAuthentication;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -83,6 +85,13 @@ class Login extends Component
             'is_active' => true,
         ];
 
+        // Read before Auth::attempt and before session()->regenerate(): a
+        // guest cart is keyed on session_id, and regeneration issues a new
+        // one with nothing carrying the old forward. See
+        // MergeCartOnAuthentication's docblock for the basket this silently
+        // lost before it existed.
+        $guestCart = MergeCartOnAuthentication::capture();
+
         if (! Auth::attempt($credentials, $this->remember)) {
             RateLimiter::hit($this->throttleKey());
 
@@ -98,6 +107,11 @@ class Login extends Component
         // Unconditional: the pre-login session id is what a fixation attack
         // plants, so it must not survive the privilege change.
         session()->regenerate();
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        MergeCartOnAuthentication::apply($guestCart, $user);
 
         $this->redirectIntended(default: '/catalogue', navigate: true);
     }

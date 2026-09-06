@@ -20,7 +20,25 @@
             Order <span class="font-medium text-ink-800">{{ $this->order?->serial_number }}</span> is reserved. Enter your card to pay.
         </p>
 
-        <div class="mt-8 max-w-md rounded-control border border-ink-200 bg-white p-5">
+        {{-- x-data/x-init rather than Livewire's @script: this markup appears
+             after a Livewire *update* (placeOrder re-renders into this
+             branch), and a @script body registered at component boot does not
+             run again for a branch that did not exist then. Alpine initialises
+             any node the moment it enters the DOM, which is exactly the hook
+             this needs.
+
+             x-init takes an *expression*, so the work lives in a function
+             defined once in @assets below. Inlining the statements here
+             produced `SyntaxError: Unexpected token 'const'` — Alpine wraps
+             what it is given as `result = <expr>`, and `const` is not one. --}}
+        <div class="mt-8 max-w-md rounded-control border border-ink-200 bg-white p-5"
+             wire:key="stripe-payment-{{ $orderId }}"
+             x-data
+             x-init="window.mountStripePayment({
+                 key: @js($stripeKey),
+                 clientSecret: @js($clientSecret),
+                 returnUrl: @js(route('checkout.confirmation', ['order' => $orderId])),
+             })">
             <div id="stripe-payment-element" wire:ignore></div>
 
             <p id="stripe-error" role="alert" class="mt-3 hidden text-sm text-red-600"></p>
@@ -29,53 +47,69 @@
                     class="mt-5 w-full rounded-control bg-marine-700 px-4 py-2.5 text-sm font-medium text-white
                            hover:bg-marine-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20
                            disabled:cursor-not-allowed disabled:opacity-60">
-                Pay {{ $this->totals['total'] }}
+                {{-- The order's total, not the cart's. By this point CreateOrder
+                     has consumed the cart, so ResolveCurrentCart correctly
+                     hands back a fresh empty one and the cart total is 0.00.
+                     The order is the authoritative figure once it exists. --}}
+                Pay {{ $this->order?->total_amount ?? $this->totals['total'] }}
             </button>
         </div>
 
-        {{-- @assets loads once per page and survives Livewire navigation,
-             unlike a bare <script> inside a re-rendered component. --}}
+        {{-- @assets runs once per page and survives Livewire navigation.
+             Both the Stripe library and our own bootstrap function live here,
+             so the payment step's markup only has to *call* it — see the
+             x-init above for why that split is required rather than tidy. --}}
         @assets
+        {{-- Stripe.js is loaded from Stripe's own domain deliberately: PCI
+             guidance is that card fields must be served by Stripe, not by us.
+             The card number never touches this application, which is why
+             `payments` has no card columns to leak. The CSP names this exact
+             origin in script-src, api.stripe.com in connect-src, and both
+             frame hosts in frame-src — SEC-009, where omitting them blocked
+             checkout entirely. --}}
         <script src="https://js.stripe.com/v3/"></script>
-        @endassets
-
-        @script
         <script>
-            // Stripe.js is loaded from Stripe's own domain deliberately: PCI
-            // guidance is that card fields must be served by Stripe, not by
-            // us. The card number never touches this application, which is
-            // why `payments` has no card columns to leak.
-            const stripe = Stripe(@js($stripeKey));
-            const elements = stripe.elements({ clientSecret: @js($clientSecret) });
-            elements.create('payment').mount('#stripe-payment-element');
+            window.mountStripePayment = function ({ key, clientSecret, returnUrl }) {
+                const mount = document.getElementById('stripe-payment-element');
+                const button = document.getElementById('stripe-submit');
+                const error = document.getElementById('stripe-error');
 
-            const button = document.getElementById('stripe-submit');
-            const error = document.getElementById('stripe-error');
-
-            button.addEventListener('click', async () => {
-                button.disabled = true;
-                error.classList.add('hidden');
-
-                const { error: stripeError } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: @js(route('checkout.confirmation', ['order' => $orderId])),
-                    },
-                });
-
-                // Only card-entry and immediate-decline errors land here.
-                // Anything that succeeds redirects to return_url, and the
-                // *authoritative* status change comes from the webhook, not
-                // from this redirect — a customer closing the tab mid-redirect
-                // must still end up paid.
-                if (stripeError) {
-                    error.textContent = stripeError.message;
-                    error.classList.remove('hidden');
-                    button.disabled = false;
+                if (!mount || !button || mount.dataset.stripeMounted === '1') {
+                    return;
                 }
-            });
+
+                // Guard against a second Alpine init on the same node — a
+                // Livewire re-render of a sibling would otherwise mount a
+                // second Payment Element into the same div.
+                mount.dataset.stripeMounted = '1';
+
+                const stripe = Stripe(key);
+                const elements = stripe.elements({ clientSecret });
+                elements.create('payment').mount(mount);
+
+                button.addEventListener('click', async () => {
+                    button.disabled = true;
+                    error.classList.add('hidden');
+
+                    const { error: stripeError } = await stripe.confirmPayment({
+                        elements,
+                        confirmParams: { return_url: returnUrl },
+                    });
+
+                    // Only card-entry and immediate-decline errors land here.
+                    // Anything that succeeds redirects to return_url, and the
+                    // *authoritative* status change comes from the webhook,
+                    // not from this redirect — a customer closing the tab
+                    // mid-redirect must still end up paid.
+                    if (stripeError) {
+                        error.textContent = stripeError.message;
+                        error.classList.remove('hidden');
+                        button.disabled = false;
+                    }
+                });
+            };
         </script>
-        @endscript
+        @endassets
 
     @else
 

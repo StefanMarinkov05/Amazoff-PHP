@@ -1,0 +1,180 @@
+{
+  "_comment": [
+    "Contact message subject/body pairs for DemoEngagementSeeder to draw from.",
+    "",
+    "Why this file exists: an inbox screen full of fake()->text() Latin filler",
+    "proves nothing about how real customer mail reads or how staff triage it,",
+    "so these are hand-written. They were previously a ~30-line PHP const in",
+    "the seeder, which is content rather than logic and belongs out of the way",
+    "of the sampling/handling code the same way review-bodies.json does for",
+    "DemoReviewSeeder.",
+    "",
+    "Not a fixture in the DemoSeeder sense - no document shape, no validator,",
+    "no loader beyond DemoEngagementSeeder reading this file directly.",
+    "",
+    "One entry mentions a specific order serial (ORD-000042) as flavour text;",
+    "it is never resolved against a real order and does not need to be."
+  ],
+  "messages": [
+    {
+      "subject": "Delivery to Plovdiv taking longer than expected",
+      "message": "I placed an order six days ago and it still shows as preparing. The confirmation email said 2-4 business days for delivery. Can someone check what's going on with ORD-000042? I need the item before the weekend if at all possible."
+    },
+    {
+      "subject": "Can I change my delivery address after ordering?",
+      "message": "I just realised I entered my old address by mistake on my last order. Is there any way to update it before it ships, or do I need to cancel and reorder? Happy to do whatever is easiest on your end."
+    },
+    {
+      "subject": "Wholesale pricing for power tools",
+      "message": "We run a small contracting business in Varna and are looking to buy drills and grinders in bulk on a recurring basis - probably 15-20 units a month across a few SKUs. Do you offer trade or wholesale pricing, and if so who do I talk to about setting up an account?"
+    },
+    {
+      "subject": "Return request - wrong size received",
+      "message": "I ordered a medium t-shirt and received a small instead. The packing slip does say medium so I think it was a picking error on your end. Could you send a return label and either a replacement or a refund? Order number is on the invoice attached to the package."
+    },
+    {
+      "subject": "Item arrived damaged",
+      "message": "The ceramic kitchen set I ordered arrived with one bowl cracked straight through. Everything else looks fine. I have photos if you need them for the claim. Would rather get a replacement bowl than return the whole set if that is possible."
+    },
+    {
+      "subject": "Question about the cordless drill battery",
+      "message": "Does the 18V cordless drill listed on your site come with one battery or two? The product photos show two batteries in the case but the description only mentions \"battery\" singular. Want to make sure before I order."
+    },
+    {
+      "subject": "Coupon code not applying at checkout",
+      "message": "I have a discount code from your newsletter but it keeps saying it's not valid when I try to use it at checkout. I copied it directly from the email so I don't think it's a typo. Can you take a look?"
+    },
+    {
+      "subject": "Invoice needed for my order",
+      "message": "My company needs a proper VAT invoice for accounting purposes, not just the order confirmation email. Could you send one through, or let me know how to generate it from my account?"
+    },
+    {
+      "subject": "Product page shows out of stock but I want to order",
+      "message": "The angle grinder I've been eyeing shows as out of stock. Any idea when it'll be back, or is there a similar model you'd recommend in the meantime? Don't want to wait too long if there's a comparable option."
+    },
+    {
+      "subject": "Complaint about courier handling",
+      "message": "The courier left my package outside the building entrance instead of at my door as instructed, and it wasn't marked as attempted delivery in the tracking. Luckily a neighbour brought it in, but this isn't the first time. Please pass this along to whoever manages the courier relationship."
+    },
+    {
+      "subject": "Interested in becoming a supplier",
+      "message": "We manufacture kitchenware locally and would like to explore listing our products on Amazoff. Who handles vendor onboarding? Happy to send a catalogue and pricing sheet."
+    },
+    {
+      "subject": "Cannot log into my account",
+      "message": "I've tried resetting my password twice and the reset email never arrives, not even in spam. My email is registered on the account already. Could someone manually reset it or check if there's an issue with my account?"
+    },
+    {
+      "subject": "Refund still not received after two weeks",
+      "message": "I returned an item and got confirmation it was received back at your warehouse on the 3rd, but the refund still has not shown up on my card statement. My bank says they see nothing pending from your side. Could you check the status?"
+    },
+    {
+      "subject": "Gift wrapping option",
+      "message": "Is there a way to request gift wrapping at checkout, or is that not something you offer? Ordering a birthday present and would love for it to arrive ready to give."
+    },
+    {
+      "subject": "Product dimensions seem wrong",
+      "message": "The listing for the garden storage box gives dimensions that don't match what arrived - the box I received is noticeably smaller than what's stated. Could you double check the listing? Might be affecting other customers too."
+    },
+    {
+      "subject": "Thank you for the quick resolution",
+      "message": "Just wanted to say thanks - I emailed last week about a missing item in my order and your team sorted it out within a day, no back and forth needed. Really appreciated, will definitely order again."
+    },
+    {
+      "subject": "Bulk order for office supplies",
+      "message": "Looking to order desk organisers and storage bins for a new office setup, roughly 40 units total across a few different products. Is there a way to get a combined shipping quote before I place separate orders?"
+    },
+    {
+      "subject": "Newsletter unsubscribe not working",
+      "message": "I've clicked unsubscribe on your newsletter emails three times now and I'm still receiving them. Could you remove me manually? My email should already be in your system."
+    },
+    {
+      "subject": "Sizing chart request for workwear",
+      "message": "I don't see a sizing chart on the workwear trousers listing, only S/M/L/XL labels with no measurements. Could you add one, or tell me the waist measurements for a large in the meantime?"
+    },
+    {
+      "subject": "Order split into two shipments unexpectedly",
+      "message": "My order confirmation said one shipment but I just got two separate tracking numbers. Is this normal, or did something go wrong with my order? Would like to know if I should expect two deliveries or if this is a mistake."
+    },
+    {
+      "subject": "Warranty question on power tools",
+      "message": "Does the cordless drill come with a manufacturer warranty, and if so how long is it and where would I register it? Could not find this information on the product page."
+    },
+    {
+      "subject": "Price dropped after I ordered",
+      "message": "I ordered a kitchen appliance three days ago and noticed the price is now about 15% lower. Is there any kind of price match policy for orders placed shortly before a discount starts?"
+    },
+    {
+      "subject": "Missing item from multi-item order",
+      "message": "My order had four items listed but only three arrived in the box. The packing slip inside also only lists three, so it looks like something was left off at the warehouse rather than lost in transit. Could you send the missing item?"
+    },
+    {
+      "subject": "Question about cash on delivery availability",
+      "message": "Is cash on delivery available for orders being shipped to smaller towns outside Sofia and Plovdiv, or is it limited to major cities? Could not find a clear list of eligible areas."
+    },
+    {
+      "subject": "Feedback on the new site design",
+      "message": "Just browsing and wanted to say the new category filters make it much easier to find things compared to before. One small suggestion: it would help to see stock availability directly in the search results instead of only on the product page."
+    },
+    {
+      "subject": "Two accounts, same email address",
+      "message": "I think I accidentally created a second account with the same email as my original one. Now I can't tell which order history is which. Could someone merge them or tell me which one is active?"
+    },
+    {
+      "subject": "Product photo does not match what I received",
+      "message": "The listing photo for the storage bin shows a lid with a handle, but the one that arrived has a flat lid with no handle. Otherwise the item seems fine, just not what was pictured."
+    },
+    {
+      "subject": "Delivery attempted while I was home",
+      "message": "The tracking says a delivery attempt was made and nobody answered, but I was home all day and never heard the door or saw a card left. Could you check with the courier what actually happened?"
+    },
+    {
+      "subject": "Asking about restock date for a specific SKU",
+      "message": "The kitchen knife set I want (I think it's KIT-0011) shows as coming soon. Do you have an estimated restock date, or should I just check back periodically?"
+    },
+    {
+      "subject": "Charged twice for the same order",
+      "message": "I can see two identical charges on my card statement from your site on the same day, but only one order confirmation email. Can you check if I was actually charged twice or if one is pending and will drop off?"
+    },
+    {
+      "subject": "Requesting a VAT-exempt invoice",
+      "message": "We are a registered business in another EU country and should qualify for reverse-charge VAT on this order. How do I get that applied, and can the invoice be reissued accordingly?"
+    },
+    {
+      "subject": "Product review not showing up after approval email",
+      "message": "I got an email saying my review was approved but I still don't see it on the product page. Is there a delay, or did something go wrong on your end?"
+    },
+    {
+      "subject": "Difference between the two courier options",
+      "message": "I don't see a clear explanation of what's different between the two delivery options at checkout besides price. Is one faster, or do they cover different areas? Would help to know before choosing."
+    },
+    {
+      "subject": "Can I combine two separate orders into one delivery",
+      "message": "I placed two orders about an hour apart before realising I should have just added to the first one. Is there any way to combine them into a single shipment so I'm not paying for delivery twice?"
+    },
+    {
+      "subject": "Suggestion: show estimated delivery date at checkout",
+      "message": "It would be really useful to see an estimated delivery date before placing the order rather than just after. Right now I only find out the window once the confirmation email arrives."
+    },
+    {
+      "subject": "Item works but instructions are in the wrong language",
+      "message": "The instructions that came with the garden tool are only in a language I don't read. The product itself seems to work fine so I'm not asking for a return, just flagging it in case others hit the same thing."
+    },
+    {
+      "subject": "Confirming an order was actually placed",
+      "message": "I got as far as the payment step and my browser crashed right after clicking pay. I never got a confirmation email and I'm not sure if the order went through or if I was charged. Could someone check?"
+    },
+    {
+      "subject": "Asking about your data retention policy",
+      "message": "I read the privacy page but wanted to double check - if I ask for my account to be deleted, does that also remove my past order history, or is that kept separately for accounting reasons?"
+    },
+    {
+      "subject": "Login keeps signing me out on mobile",
+      "message": "On my phone I get logged out every time I close the browser, even though I didn't tick anything about staying logged in being off. Is this expected behaviour or a bug?"
+    },
+    {
+      "subject": "Compliment for the packaging redesign",
+      "message": "Noticed the boxes are a lot more compact than they used to be and there's less plastic filler inside. Small thing but it's appreciated - just wanted to say so."
+    }
+  ]
+}

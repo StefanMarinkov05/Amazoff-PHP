@@ -103,6 +103,7 @@ jobs:
           - name: "4"
             paths: >-
               tests/Feature/Actions/Contact
+              tests/Feature/Actions/Content
               tests/Feature/Actions/Coupon
               tests/Feature/Actions/Inventory
               tests/Feature/Actions/Order

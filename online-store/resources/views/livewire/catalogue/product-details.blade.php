@@ -40,7 +40,7 @@
                              change, which reads as "the click did nothing". --}}
                         <img
                             wire:key="main-image-{{ $main->id }}"
-                            src="{{ Storage::url($main->path) }}"
+                            src="{{ $main->servableUrl() }}"
                             alt="{{ $main->alt_text ?? $this->product->name }}"
                             class="h-full w-full object-cover transition-transform duration-500
                                    ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.04]"
@@ -119,7 +119,7 @@
                                             ? 'border-marine-600'
                                             : 'border-ink-200 opacity-70 hover:opacity-100 hover:border-ink-300' }}"
                             >
-                                <img src="{{ Storage::url($image->path) }}"
+                                <img src="{{ $image->servableUrl() }}"
                                      alt="{{ $image->alt_text ?? $this->product->name }}"
                                      loading="lazy" class="h-full w-full object-cover">
                             </button>

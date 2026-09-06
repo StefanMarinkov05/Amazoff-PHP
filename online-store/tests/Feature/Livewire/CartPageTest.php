@@ -8,6 +8,8 @@ use App\Livewire\Cart\CartPage;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
+use App\Models\Inventory;
+use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Support\Facades\Session;
@@ -310,4 +312,38 @@ it('falls back to no discount once the applied coupon becomes inapplicable', fun
 
     expect($discount['discount'])->toBe('0.00')
         ->and($discount['vat'])->toBe($refreshed->instance()->totals()['vat']);
+});
+
+// ── Initial render ──────────────────────────────────────────────
+
+function cartWithVariation(int $quantity = 1, ?int $available = 100, int $minOrderQuantity = 1): array
+{
+    /** @var Product $product */
+    $product = Product::factory()->create([
+        'is_available' => true,
+        'min_order_quantity' => $minOrderQuantity,
+    ]);
+
+    /** @var ProductVariation $variation */
+    $variation = ProductVariation::factory()->for($product)->create(['is_available' => true]);
+
+    if ($available !== null) {
+        Inventory::factory()->for($variation, 'productVariation')->create([
+            'current_quantity' => $available,
+            'reserved_quantity' => 0,
+        ]);
+    }
+
+    $cart = visitorCart();
+    $item = cartLine($cart, $variation, $quantity);
+
+    return [$cart, $item, $variation];
+}
+
+it('renders the visitor\'s own cart items and server-computed totals', function (): void {
+    [, $item] = cartWithVariation(quantity: 2);
+
+    Livewire::test(CartPage::class)
+        ->assertSee($item->productVariation->product->name)
+        ->assertSet('quantities', [$item->getKey() => 2]);
 });

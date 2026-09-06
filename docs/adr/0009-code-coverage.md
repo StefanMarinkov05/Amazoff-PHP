@@ -60,7 +60,7 @@ No `--min` threshold, in CI or anywhere else. Originally `pest --coverage`
 ran in CI and produced a Clover XML artifact; ADR-0010 removed coverage
 collection from CI entirely once `test` became a 2-shard matrix, rather
 than merge two partial reports for a number nobody was gating on.
-`how-to/run-the-tests.md` and `reference/coverage.md` have the commands to
+`how-to/run-the-tests.md` and `reference/testing/coverage.md` have the commands to
 generate it locally, on demand.
 
 ## Consequences
@@ -72,7 +72,7 @@ generate it locally, on demand.
   check (every existing test passes a null actor), and `ReleaseStock`'s
   `quantity < 1` guard, which `ReserveStock`'s equivalent guard already had
   and this one didn't. None were near any concurrency boundary — plain gaps
-  no scenario doc had named yet. `reference/coverage.md` has the full
+  no scenario doc had named yet. `reference/testing/coverage.md` has the full
   per-class breakdown.
 + Negligible slowdown — PCOV's whole design goal.
 + No new gate that rewards a shallow test hitting a line without asserting

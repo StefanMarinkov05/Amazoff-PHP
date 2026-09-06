@@ -495,7 +495,7 @@
                                                  bg-gradient-to-r from-transparent via-white/45 to-transparent
                                                  opacity-0 group-hover:opacity-100 group-hover:animate-shine"></span>
                                     @if ($image)
-                                        <img src="{{ Storage::url($image->path) }}"
+                                        <img src="{{ $image->servableUrl() }}"
                                              alt="{{ $image->alt_text ?? $product->name }}" loading="lazy"
                                              class="h-full w-full object-cover transition-transform duration-500
                                                     ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.06]">

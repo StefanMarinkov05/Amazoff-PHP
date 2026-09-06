@@ -58,14 +58,51 @@ in agreement: if a rule here changes, change it there too.
   `coupon.md`, `order.md`, `auth.md`, `concurrency.md`) is the
   expected-behaviour page per aggregate — refusals, races, what a change
   does to state that already exists; `console-commands.md` lists every
-  custom Artisan command and what invokes it; `ui-tests.md` lists every
-  storefront and admin-panel UI test and what it proves, grouped by
-  component/resource — check it before changing a Livewire component or
-  Filament resource, so the tests that pin its current behaviour are known
-  up front rather than discovered by a broken run; `stripe-testing.md` is
-  the payment suite's own version of that, and is the honest record of what
-  is *not* covered and why — read it before trusting the payment path;
-  `permissions.md`, `coverage.md`, and `tech-stack.md` are the rest.
+  custom Artisan command and what invokes it; `permissions.md` and
+  `tech-stack.md` are the rest.
+
+  **[`docs/reference/testing/`](docs/reference/testing/)** groups every
+  "what did testing prove" document apart from the system-fact files
+  above, since they change at a different rate and for different reasons.
+  `ui-tests.md` lists every storefront and admin-panel UI test and what it
+  proves, grouped by component/resource — check it before changing a
+  Livewire component or Filament resource, so the tests that pin its
+  current behaviour are known up front rather than discovered by a broken
+  run; `stripe-testing.md` is the payment suite's own version of that, and
+  is the honest record of what is *not* covered and why — read it before
+  trusting the payment path; `browser-testing.md` is the third in that
+  family, covering what only a real browser can prove (§37 #19,
+  responsive) and carrying the same honest list of gaps — one browser, no
+  real devices, no text zoom; `security-testing.md` is the fourth,
+  recording what a security pass probed, what held, and what it could not
+  reach — read it before trusting any claim that an authorization path is
+  safe; `security-tooling.md` is its inventory half — which scanners are
+  configured how, the exact surface they reached, and the measured numbers
+  behind every coverage claim; `security/` holds that tooling's actual
+  inputs and outputs — `zap-auth.yaml` (the reusable authenticated-scan
+  plan) and `reports/` (the dated, never-edited-after-the-fact output of
+  each run); `tested-inputs.md` and `coverage.md` round out the numbers.
+
+  `ui-testing/` is the fifth, the interactive click-through, one file per
+  pass rather than one growing file — `phase-1-storefront-clickthrough.md`
+  (every storefront page driven live, every defined behaviour — a
+  honeypot, a validation error, a 404 — screenshotted next to the claim it
+  proves, and the missing-pages inventory checked by `curl`, not inferred
+  from routes), `phase-2-admin-created-data.md` (the same discipline
+  from the admin side — real broken catalogue data created through the
+  actual Actions, and what the customer's browser does with it), and
+  `phase-3-error-leak-sweep.md` (what an *unhandled* failure actually
+  shows an anonymous visitor — verbose traces, leaked paths, the
+  `value=""` attribute-breakout case checked against rendered output, not
+  assumed safe from source), and
+  `phase-4-admin-panel-clickthrough.md` (inside the panel — the role-denial
+  matrix at all 19 resources, whether a status menu is enforced or merely
+  hidden, and the six bare `DeleteAction`s that turn a foreseeable click
+  into an uncaught `QueryException`; every write run through the Action a
+  modal-driving click cannot reach, and every table carrying a control row
+  so a probe that never reaches the code under test cannot read as a
+  pass); its screenshots live in
+  `docs/assets/ui-testing/`, not loose in `assets/`.
 
   `schema/` is everything about the shape of the data: `schema.md` (the
   tables), `erd-diagram.pdf` (the visual form), `fixture-format.md` and
@@ -85,7 +122,16 @@ in agreement: if a rule here changes, change it there too.
   it, add an entry: symptom, cause, fix, why it recurs, prevention — not
   just what fixed it this time.
 - **[`docs/how-to/`](docs/how-to/)**, the rest — `add-an-action.md`,
-  `choose-a-model.md`, `edit-a-role.md`, `regenerate-with-blueprint.md`,
+  `choose-a-model.md`, `deploy-and-host.md` (small today, on purpose — the
+  checklist of settings that are correct in dev only by accident of dev's
+  own environment, starting with `SESSION_SECURE_COOKIE`, and meant to grow
+  one rule at a time as each area gets a real deploy target), `edit-a-role.md`,
+  `regenerate-with-blueprint.md`,
+  `emulate-a-device.md` (isolated browser sessions and device profiles —
+  why resizing a desktop window is not the same as testing a phone),
+  `pentest-the-system.md` (the full security-pass procedure — which layer
+  finds which bug class, the model/effort split it needs, and why
+  downgrading the model for the reasoning half produces a false all-clear),
   `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
   (the committed plugin list and the four hookify rules that enforce this
   file's own invariants mechanically), `set-up-stripe.md`,

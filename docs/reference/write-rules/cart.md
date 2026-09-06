@@ -71,6 +71,41 @@ this Action. Measured in `MergeGuestCartTest`: "merges a quantity that
 exceeds available stock", "merges a quantity below the product minimum",
 "merges lines whose variation has since been soft-deleted".
 
+## When a merge happens, and the ordering it depends on
+
+`MergeGuestCart` is called from exactly two places — `Login::login()` and
+`Register::register()` — through `App\Support\MergeCartOnAuthentication`,
+which exists to make one ordering explicit at both call sites.
+
+**The guest cart must be read before `session()->regenerate()`.** A guest
+cart is keyed on `session_id`; both call sites regenerate the session
+immediately after authenticating, and must (the pre-login id is what a
+fixation attack plants). Regeneration issues a new id with nothing carrying
+the old one forward, so a lookup afterwards matches no cart, finds nothing,
+and reports success — the customer silently loses their basket.
+
+That is not hypothetical: it is what the storefront did until 2026-09-04,
+when the Action had been built, tested (including two concurrency tests) and
+never called. Confirmed live before the fix — an item added as a guest, a
+sign-in, an empty basket, and an orphaned `carts` row.
+
+`MergeCartOnAuthentication` therefore splits into `capture()` (before) and
+`apply()` (after). `CartMergeOnAuthenticationTest` pins the ordering: moving
+the capture after `session()->regenerate()` turns **4 of its 8 cases** red —
+the four that involve a guest basket — while the four that do not correctly
+stay green.
+
+Two further properties it holds:
+
+- **A failed merge never fails the login.** Someone who has proved their
+  identity is signed in even if the basket cannot be folded in; the
+  alternative is an account locked out by a cart bug. `apply()` re-reads the
+  captured row and returns quietly if it has since been deleted — the
+  reachable case being a second tab finishing its own merge first.
+- **The surviving cart's guest expiry is cleared**, inside the merge
+  transaction. It now belongs to a user, and `ExpireCarts` would otherwise
+  delete a registered customer's basket a day later.
+
 ## Two actors at once
 
 Every race found in this namespace has the same shape, and it is the

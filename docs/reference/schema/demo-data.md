@@ -3,9 +3,9 @@
 A lookup table for a live demo or a presentation: every notable state in the
 seeded catalogue, with the exact SKU to pull up. Everything below was
 verified against a real seeded database — not the JSON fixture shape, the
-actual rows — on 2026-08-24 for the catalogue and on 2026-08-24 for the
-transactional pass (orders, payments, shipments, reviews, articles) added
-in the same session. Re-seeding on the current fixture set should reproduce
+actual rows — on 2026-08-24 for the catalogue, and re-verified on 2026-09-05
+for the transactional pass (orders, payments, shipments, reviews) after the
+showcase-account and adaptive-review changes. Re-seeding on the current fixture set should reproduce
 all of it; if a number here stops matching, the fixture set moved and this
 page is what's stale.
 
@@ -18,19 +18,12 @@ Run order matters past `DemoSeeder` — `DemoOrderSeeder` redeems coupons
 (`DemoSeeder`) but nothing else on this list.
 
 ```bash
-docker compose exec app php artisan migrate:fresh --seed
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCustomerSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoAddressSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoEngagementSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCartSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoCouponSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoWishlistSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoOrderSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoReviewSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\ContentReferenceSeeder"
-docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoArticleSeeder"
+docker compose exec app php artisan demo:seed --fresh
 ```
+
+`Demo\DemoDatabaseSeeder` is what that calls, and it is where the run-order
+constraints live. The explicit thirteen-command form is in
+`docs/how-to/seed-the-database.md` if a single step needs running alone.
 
 Every `Demo*` and reference seeder now lives under
 `database/seeders/Demo/`, `System/` (permissions, roles, carriers, staff
@@ -65,41 +58,83 @@ Default 2000 orders; override with `STRESS_SEED_COUNT`
 | customers (`DemoCustomerSeeder`) | 100 |
 | `addresses` (`DemoAddressSeeder`) | 78, across 60 of 100 customers |
 | `newsletter_subscribers` | 80 (66 subscribed, 14 unsubscribed) |
-| `contact_messages` | 25 (16 handled, 9 open) |
-| `carts` | 44 pre-checkout demo carts (8 guest) + 140 checked-out by `DemoOrderSeeder` |
+| `contact_messages` | 32 (20 handled, 12 open), drawn from a 40-entry pool in `fixtures/reference/contact-messages.json` |
+| `carts` | 44 pre-checkout demo carts (8 guest) + 158 checked-out by `DemoOrderSeeder` |
 | `cart_items` | 116 on the pre-checkout carts |
 | `wishlist_items` | 62 |
 | `coupons` | 6 |
-| `orders` | 140, distribution below |
-| `order_items` | 344 |
-| `order_addresses` | 280 |
-| `order_status_histories` | 612 |
-| `payments` | 110 |
-| `shipments` | 81 |
-| `shipment_tracking_events` | 194 |
-| `coupon_redemptions` | 19 |
-| `product_reviews` | 90 (62 approved, 28 pending) |
+| `orders` | 158, distribution below — 140 distributed + 18 pinned to the two named accounts |
+| `order_items` | 405 |
+| `order_addresses` | 316 |
+| `order_status_histories` | 674 |
+| `payments` | 118 |
+| `shipments` | 89 |
+| `shipment_tracking_events` | 218 |
+| `coupon_redemptions` | 23 |
+| `product_reviews` | ~126 (88 approved, 38 pending) — adaptive, see below |
 | `articles` | 24 (16 published, 4 draft, 3 scheduled, 1 archived) |
 
 ## Order and payment states
 
-The 140 orders `DemoOrderSeeder` produces, by status — exact, not
-approximate, and asserted by the seeder's own verification pass against
-the live database after it runs:
+The 158 orders `DemoOrderSeeder` produces, by status — verified against the
+live database by the seeder's own reporting pass after it runs. The 140
+distributed orders are exact; the 18 pinned to the named accounts sit on top,
+so the totals below are the sum:
 
 | `OrderStatus` | Count |
 |---|---:|
-| `Delivered` | 62 |
-| `Shipped` | 12 |
-| `Cancelled` | 12 |
-| `Confirmed` | 10 |
-| `AwaitingPayment` | 9 |
-| `Preparing` | 8 |
-| `New` | 7 |
-| `ReadyForShipment` | 6 |
-| `Paid` | 6 |
-| `Returned` | 5 |
-| `Refunded` | 3 |
+| `Delivered` | 66 |
+| `Shipped` | 15 |
+| `Cancelled` | 14 |
+| `Confirmed` | 12 |
+| `AwaitingPayment` | 10 |
+| `Preparing` | 9 |
+| `New` | 8 |
+| `ReadyForShipment` | 7 |
+| `Paid` | 7 |
+| `Returned` | 6 |
+| `Refunded` | 4 |
+
+### One account holds every state
+
+**`customer@example.com` (password `password`) owns all eleven
+`OrderStatus` cases by itself** — the point being that a demo can walk the
+entire order lifecycle on one login instead of hunting for an account that
+happens to own the state it wants to show. Its 14 pinned orders land on
+consecutive serials at the end of the range, so they are easy to find:
+
+| Serial | Status | Method | Notes |
+|---|---|---|---|
+| `ORD-000141` | `New` | Stripe | no payment row yet |
+| `ORD-000142` | `AwaitingPayment` | Stripe | payment `pending` — the intent-open state |
+| `ORD-000143` | `Paid` | Stripe | carries `WELCOME10` |
+| `ORD-000144` | `Confirmed` | COD | COD skips `AwaitingPayment`/`Paid` entirely |
+| `ORD-000145` | `Preparing` | Stripe | |
+| `ORD-000146` | `ReadyForShipment` | COD | |
+| `ORD-000147` | `Shipped` | Stripe | shipment with tracking events |
+| `ORD-000148` | `Shipped` | COD | |
+| `ORD-000149` | `Delivered` | Stripe | carries `FLAT15` |
+| `ORD-000150` | `Delivered` | COD | paid on remittance, after delivery |
+| `ORD-000151` | `Delivered` | Stripe | payment `partially_refunded` |
+| `ORD-000152` | `Cancelled` | COD | |
+| `ORD-000153` | `Returned` | Stripe | carries `TOOLDEAL` |
+| `ORD-000154` | `Refunded` | COD | payment `refunded` |
+
+Serials are stable *within* a run but not across one — re-seeding renumbers
+from the start of the pinned block. The shape is the durable claim, not the
+number; query `User::where('email', 'customer@example.com')->first()->orders`
+if the exact serials matter.
+
+`admin@example.com` keeps 4 orders of its own. Not for the panel, which reads
+every order regardless of owner, but so `/account/orders` shows something
+while signed in as staff.
+
+**No coupon code repeats within one account.** `CouponFactory` randomizes
+`usage_limit_per_customer` per seed run, and a repeated code was refused by
+`RedeemCoupon` on a run where `FLAT15` came up as 1 — which, because the
+coupon is applied before checkout, killed the whole order and silently cost a
+pinned status. Distinct codes remove the dependency on a randomized limit
+rather than pinning it.
 
 Every `PaymentStatus` and `ShipmentStatus` case appears at least once,
 including the two least likely to occur by chance: `Failed` (a payment
@@ -108,18 +143,18 @@ assume impossible) and `PartiallyRefunded` (2 single partial refunds, 2
 stacked pairs that together still fit under the payment total — the only
 accumulating transition in the enum).
 
-**Guest orders**: 25 of 140, `user_id` null throughout — this is what
+**Guest orders**: 23 of 158, `user_id` null throughout — this is what
 makes the public order-tracking page (order number **and** email, per
 CLAUDE.md) demonstrable at all, since sequential numbers alone would
 enumerate every customer's address.
 
-**Cash on delivery**: 56 of 140. COD orders skip `AwaitingPayment`/`Paid`
+**Cash on delivery**: 64 of 158. COD orders skip `AwaitingPayment`/`Paid`
 entirely (`New => Confirmed` directly, the edge that case exists in
 `OrderStatus` for) and open their payment only after `Delivered`, marked
 paid on remittance — never before, since nothing was actually collected
 until the courier did.
 
-**Coupons redeemed**: 19 orders. `ONEUSEONLY` (the `total_usage_limit: 1`
+**Coupons redeemed**: 23 orders. `ONEUSEONLY` (the `total_usage_limit: 1`
 coupon `DemoCouponSeeder` left deliberately unredeemed) now has its one
 redemption — a further checkout against it demonstrates
 `CouponNotApplicableException` live. `WELCOME10` (8), `FLAT15` (6), and
@@ -301,20 +336,33 @@ fuller account of why.
 
 ## Reviews
 
-90 reviews, drawn only from `DemoOrderSeeder`'s 62 delivered orders — every
+~126 reviews, drawn only from `DemoOrderSeeder`'s delivered orders — every
 review's product is a real line item on a real order belonging to the
 reviewing customer, enforced by `CreateProductReview` itself, not merely
 by how the fixture was written.
 
-| Rating | Count |
-|---|---:|
-| 5 | 34 |
-| 4 | 27 |
-| 3 | 15 |
-| 2 | 9 |
-| 1 | 5 |
+**The count is adaptive, not fixed**, which is why this section says "~".
+`CreateProductReview` enforces one review per reviewer per product, so the
+ceiling is the number of unique (reviewer, product) pairs across delivered
+orders — and that moves substantially between runs (137, 123, 107 and 149 on
+four consecutive seeds) because which orders reach `Delivered` is shuffled.
+The seeder takes 85% of whatever is available, capped at `TOTAL_REVIEWS`, and
+scales the rating weights to match. The 15% left unreviewed is deliberate: a
+demo where every delivered line item already has a review has nothing to
+point at for the "write a review" path.
 
-62 approved (via `ApproveProductReview`), 28 left pending — a populated
+Rating counts therefore vary with the total; the *shape* is fixed, weighted
+heavily to 4 and 5 with a real tail, because a uniform spread would put every
+product's average near 3 and make sort-by-rating meaningless. On the run this
+page was verified against: 5★ 44, 4★ 35, 3★ 19, 2★ 11, 1★ 6.
+
+Review body text lives in `database/fixtures/reference/review-bodies.json`
+(45 bodies across the five ratings), not in the seeder. Every body at 4 and
+below names something specific that went wrong — a late delivery, fiddly
+assembly, a colour that did not match the photo — because a moderation queue
+full of vague praise proves nothing about the moderation screen.
+
+88 approved (via `ApproveProductReview`), 38 left pending — a populated
 moderation queue, not an empty one, and the approved set deliberately
 includes low ratings rather than only the flattering ones: `ELC-0002` (a
 5-star example), `CLM-0019` (an approved 1-star). `KIT-0009` has a
@@ -364,20 +412,35 @@ Cart::whereNull('user_id')->first()->expires_at;      // a real future Carbon in
 62 wishlist items across ~20% of customers — `UNIQUE(user_id, product_id)`
 is the only invariant, enforced by the database directly.
 
-## What is deliberately *not* in this dataset
+## What is deliberately *not* in the JSON fixture set
 
-- **No orders, payments, shipments, or reviews.** ADR-0003: transactional
-  data is produced by running the real Actions in sequence
-  (`CreateOrder` → `RecordPayment` → `TransitionPaymentStatus` →
+Scoped to what is **authored as JSON**, not to what ends up in the seeded
+database — orders, payments, shipments and reviews are all present after a
+full seed, they are simply not written by hand.
+
+- **No orders, payments, shipments, or reviews as fixture documents.**
+  ADR-0003: transactional data is produced by running the real Actions in
+  sequence (`CreateOrder` → `RecordPayment` → `TransitionPaymentStatus` →
   `TransitionOrderStatus` → `CreateShipment` → `TransitionShipmentStatus`),
-  never authored as JSON. `misc/sonnet-phase1-data-brief.md` has the
-  verified walk-through and the `CompleteSale`/reserved-stock trap in it.
-- **No image files.** Every `path` in the fixtures points at
-  `demo/*.jpg`, resolved through `Storage::disk('public')` to
-  `storage/app/public/demo/…` — deliberately absent per
-  `fixture-format.md` rule 11 ("the file does not have to exist"). A
-  product page will show its placeholder fallback
-  (`ResolveVariationImage::urlOrDefault()`), not a broken image icon.
+  never authored as JSON. `DemoOrderSeeder` and `DemoReviewSeeder` are what
+  produce them, and the counts above are the result.
+
+  The one thing those seeders write directly rather than through an Action
+  is **timestamps** — no Action takes a date, so every order, payment,
+  shipment and review is back-dated afterward with `saveQuietly()`. That is
+  correct: the thing being changed is a clock, not domain state.
+- **No Stripe objects.** Every `stripe_payment_intent_id` is null after a
+  seed. Seeding is offline and deterministic (ADR-0003), so the payment rows
+  are real domain state with no external counterpart. `demo:stripe-payments`
+  is the opt-in command that opens real test intents against them; see
+  `how-to/seed-the-database.md`, "Real Stripe intents".
+- **No image files *in the fixtures*.** Every `path` points at `demo/*.jpg`
+  and the fixture format explicitly does not require the file to exist
+  (`fixture-format.md` rule 11). The files themselves were added later by
+  `demo:fetch-images` and **are committed** — see "Product images — done"
+  above. A row whose file is missing falls back to
+  `ResolveVariationImage::urlOrDefault()` rather than showing a broken
+  image icon.
 - **No products at exactly the discount-boundary edge** (`discount_price`
   equal to `regular_price`) — that case is refused at validation time
   (`fixtures:validate` requires strictly less), so it cannot exist in

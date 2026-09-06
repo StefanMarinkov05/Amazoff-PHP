@@ -24,7 +24,7 @@ follows is the short version.
 - `docs/reference/write-rules/` — expected behaviour per aggregate:
   refusals, races, what a change does to existing state.
 - `docs/reference/console-commands.md` — every custom Artisan command.
-- `docs/reference/ui-tests.md` — every storefront and admin-panel UI test
+- `docs/reference/testing/ui-tests.md` — every storefront and admin-panel UI test
   and what it proves, grouped by component/resource. Check before changing
   a Livewire component or Filament resource.
 - `docs/how-to/troubleshooting.md` — **read before proposing a fix for any

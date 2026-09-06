@@ -111,7 +111,7 @@ on every PR.
 No job in this workflow collects coverage. It was dropped from CI
 entirely rather than merged across shards or kept on one shard only — see
 ADR-0009 and ADR-0010 for why. Generate it locally with `pest --coverage`
-(`docs/reference/coverage.md` has the commands) when the numbers are
+(`docs/reference/testing/coverage.md` has the commands) when the numbers are
 actually needed.
 
 ## Why Pest runs against the MySQL service

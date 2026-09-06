@@ -11,6 +11,15 @@
         "artisan",
         "boost:mcp"
       ]
+    },
+    "playwright-chromium": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium"
+      ]
     }
   }
 }

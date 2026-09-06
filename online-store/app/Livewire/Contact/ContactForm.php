@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Contact;
 
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Models\ContactMessage;
 use App\Models\User;
 use Illuminate\View\View;
@@ -19,6 +20,8 @@ use Livewire\Component;
  */
 class ContactForm extends Component
 {
+    use ThrottlesSubmissions;
+
     public string $name = '';
 
     public string $email = '';
@@ -60,11 +63,18 @@ class ContactForm extends Component
     public function submit(): void
     {
         $validated = $this->validate();
+
+        // After the honeypot, not before: a bot that fills `website` is
+        // turned away without consuming a real visitor's allowance, and the
+        // limit is spent only on submissions that would otherwise write a
+        // row. Keyed on IP — there is no account behind this form. SEC-010.
         if ($this->website !== '') {
             $this->sent = true;
 
             return;
         }
+
+        $this->throttleSubmission('contact|'.$this->requestIp(), 'message');
 
         ContactMessage::create([
             'name' => $validated['name'],

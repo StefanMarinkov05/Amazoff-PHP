@@ -1,7 +1,7 @@
 # How to test a form or filter for input crashes
 
 What to actually try against a Livewire component's public properties before
-calling it safe, and why each case matters. `docs/reference/tested-inputs.md`
+calling it safe, and why each case matters. `docs/reference/testing/tested-inputs.md`
 is the running log of what has been checked where — read that first to see
 if the thing you're about to test is already covered; add to it once you've
 checked something new.
@@ -102,6 +102,64 @@ against each individually. Fixed the same way: widened to `mixed`,
 normalised explicitly (in `mount()`, since that is where this property's own
 "fall back to a valid default" logic already lived).
 
+**A third instance, a different session (2026-09-03), a different
+component**: `ProductList::$brandId` (`?int`, `#[Url]`) — the property
+sitting one field below `$categorySlug` in the same class, on the same
+component that had already been reviewed for this exact class of bug.
+`?brandId=99999999999999999999999999999999` produced the identical
+`TypeError: Cannot assign float to property ... of type ?int`, confirmed
+live before the fix. This is the strongest confirmation yet of the doc's own
+thesis: `ProductList` was not an unreviewed component, `$categorySlug` had
+been checked and correctly found clean (it is a `string`, structurally
+immune), and that clean result on one property said nothing about `$brandId`
+two lines below it. Fixed the same way — widened to `mixed`, normalised via
+a `safeBrandId()` method (this component has no `mount()`, so normalisation
+lives at the two read sites instead) — and proven by
+`tests/Feature/Livewire/ProductListBrandFilterTest.php`, verified red
+without the fix by reverting the type and watching the same `TypeError`
+reproduce at the same `data_set()` line.
+
+**If a fourth instance turns up, treat it as the signal to stop fixing these
+one at a time and instead grep every `#[Url]`/`wire:model` property in the
+codebase for a strict numeric type in one pass** — three separate discoveries
+of the same root cause is a pattern a systematic sweep would have caught in
+one sitting, at the cost of one property being reviewed slightly before its
+own bug was found "by accident."
+
+## The second class: not a crash, a silently wrong answer
+
+`ProductList::$attributeValueIds` (2026-09-03) found a different failure
+mode, and it is worth its own heading because **the playbook above would
+not have caught it and neither did the test that already existed for this
+exact input.**
+
+The property was already `mixed`, so nothing crashed. The bug was that
+`intval()` of a *non-empty array* is `1`, not `0` — so a nested array
+(`?attributeValueIds[0][0]=1&attributeValueIds[0][1]=2`) did not degrade
+into a harmless non-matching id, it collapsed onto the real, filterable id
+`1` and applied that filter, chip and all. 164 products became 37 under a
+"Black" filter the visitor never selected.
+
+A test for this input already existed — `'does not crash on a non-numeric
+or nested attribute value id'` — and it passed throughout, because it
+asserted `assertOk()` and nothing more. The input was right, the assertion
+was too weak: **a wrong answer returns 200.**
+
+Two rules follow:
+
+- **For any value that reaches a query, assert the resulting set, not the
+  status code.** `assertOk()` proves the request survived; only
+  `viewData('products')` (or an equivalent) proves it survived *correctly*.
+  Every "does not crash on X" test is worth a sibling "and X changes
+  nothing" test.
+- **Casting is a per-reader decision, so put it in one place.** Four
+  readers of this property each cast for themselves and diverged: only
+  `updatedAttributeValueIds()` filtered on `is_numeric` first. That gap is
+  reachable precisely because `updated*` hooks never fire on a first page
+  load from `#[Url]` hydration — the same timing that makes the crash class
+  above possible. One shared `safeX()` method, called by every reader, is
+  the shape that closes both.
+
 ## What already came back clean
 
 Storefront auth (`Login`, `Register`, `ChangePassword`) and contact
@@ -111,4 +169,4 @@ every property is covered by a `rules()`/`validate()` call whose `max:`
 length matches its column exactly (verified against the migrations, not
 assumed). XSS- and SQLi-shaped input against all five returns a validation
 error, never a reflection or a query change. Full detail in
-`docs/reference/tested-inputs.md`.
+`docs/reference/testing/tested-inputs.md`.

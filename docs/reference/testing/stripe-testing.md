@@ -74,6 +74,97 @@ Three tests at the end of `StripePaymentTest` pin these shapes so an API
 version bump that renames a field fails a test rather than silently
 changing what the webhook reads.
 
+## Verified against the real Stripe API, with a real 3-D Secure challenge
+
+**Date of record:** 2026-09-04. The first end-to-end run against live test
+credentials, replacing the "every test fakes `StripeClient`" gap this page
+recorded until now. Sandbox account `acct_1U9BTmEinvfvnBsb`, `livemode:
+false`.
+
+| Step | Result |
+|---|---|
+| `placeOrder` → `CreateOrder` → `RecordPayment` → `CreateStripeIntent` | Order `ORD-000003`, intent `pi_3UC6dYEinvfvnBsb1QnqeUSP` |
+| Intent as Stripe holds it | `requires_payment_method`, `amount: 1990`, `currency: eur` — matching the order's €19.90 |
+| Confirm with `tok_threeDSecure2Required` | `requires_action`, `next_action.type = redirect_to_url` |
+| The challenge itself | Stripe's hosted 3DS2 page, driven in a real browser, **Complete** clicked |
+| Intent after the challenge | `succeeded`, `amount_received: 1990` |
+| `payment_intent.succeeded` delivered to `POST /stripe/webhook` | **200**, `{"received":true}` |
+| `payments` row | `pending` → **`paid`**, `paid_at` set, amount `19.90 EUR` |
+| `payment_events` row | 1, keyed on the real `evt_3UC6dYEinvfvnBsb1DjXUIds` |
+
+**The same event redelivered:** 200, and `payment_events` stays at **1** —
+the UNIQUE index plus caught violation doing exactly what
+`StripeWebhookConcurrencyTest` proves in isolation, here against a real
+event id. **The same payload unsigned:** **400**. Both checked in the same
+pass, so the idempotency result is not confused with a signature refusal.
+
+The order was cancelled afterwards rather than deleted (§19 keeps order
+history), which released the reservation — stock returned to its baseline
+60/4.
+
+### The trap this pass found: the CLI and the app on different accounts
+
+`stripe listen` forwarded nothing for the whole run, and the failure was
+silent in the worst way — the forwarder said `Ready!`, the app returned no
+errors, and the payment simply stayed `pending` while Stripe said
+`succeeded`.
+
+The cause: the Stripe CLI was authenticated to **`acct_1UAbacHSYCrSsH7T`**
+while the application's keys belong to **`acct_1U9BTmEinvfvnBsb`**. The CLI
+was faithfully forwarding a different account's events. `stripe events list`
+showed only that other account's history, which is what made it visible —
+the app's own `$client->events->all()` had the real event all along.
+
+Worth knowing because every symptom points elsewhere: it looks like a
+webhook-handling bug, a signature problem, or a firewall issue, and it is
+none of those. **Check `stripe config --list`'s `account_id` against
+`$client->accounts->retrieve()->id` before debugging anything else.** The
+signing secrets matching is not sufficient evidence that the two are the
+same account — they matched here, because `whsec_…` is per-CLI-session, not
+per-account.
+
+Delivering the event directly — fetching it from the app's own account,
+signing it with the app's own secret, and POSTing to the real endpoint
+through the real middleware — is the workaround, and is what produced the
+table above.
+
+### Also confirmed by this run
+
+- **`payments` has no `paid_amount` column.** The webhook records the paid
+  figure by moving `status` and stamping `paid_at`; the amount lives in
+  `amount`, set at intent creation from the order. Worth stating because a
+  reasonable reader assumes otherwise.
+- **API version skew is real but benign here.** The CLI reported
+  `2026-08-26.dahlia`; the SDK pins `2026-07-29.dahlia`. The payload fields
+  the webhook reads (`amount_received`, `currency`, `id`) were unchanged
+  between the two.
+
+## Refund verified against the real Stripe API
+
+**Date of record:** 2026-09-05, same sandbox account as the 3DS run. A real
+partial refund, issued and reconciled end to end:
+
+| Step | Result |
+|---|---|
+| Payment before | `paid`, `refunded_amount: 0.00`, amount `80.73` |
+| `$client->refunds->create()`, 2000 minor units | Stripe: `re_3UCKPKEinvfvnBsb0Fnx2ico`, `status: succeeded` |
+| Real `charge.refunded` event delivered to `POST /stripe/webhook` | 200, `{"received":true}` |
+| Payment after | **`partially_refunded`**, `refunded_amount: 20.00` |
+
+This was the one part of the payment lifecycle the 2026-09-04 pass had not
+exercised against the real API — `CreateStripeIntent` and the success webhook
+were verified there; `RefundPayment` and the refund webhook path were not.
+Together they now cover intent creation, 3DS confirmation, the success
+webhook, and a partial refund, all against real Stripe objects rather than
+the faked `StripeClient` the automated suite uses.
+
+Delivered directly rather than through `stripe listen`, for the same reason
+as the 3DS run: the CLI is authenticated to a different Stripe account than
+the app's keys (`troubleshooting.md`, "Stripe says a payment succeeded and
+the app still shows it pending"). Confirmed unchanged on 2026-09-05 — the
+CLI still reports `acct_1UAbacHSYCrSsH7T` against the app's
+`acct_1U9BTmEinvfvnBsb`.
+
 ## What is not tested, and why
 
 This section is the point of the page. Each item is a real limit, not an
