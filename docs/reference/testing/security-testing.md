@@ -1418,6 +1418,30 @@ the extra headroom being needed and used during that rule specifically.
 `how-to/set-up-security-and-quality-tools.md`'s memory-cap guidance is
 updated to 12 GB accordingly.
 
+**The seven informational pages, baseline (passive) scan, 2026-09-06** —
+`about`, `cookies`, `delivery`, `faq`, `payment-information`, `privacy`,
+`terms` (every file in `resources/views/pages/`). Full active scans were
+deliberately not run here: these are static prose pages with no form
+fields or user input, so there is nothing for the injection-class rules a
+full scan exists to test to act on — a passive pass is not a shortcut here,
+it is the appropriately-scoped tool. Each page scanned independently
+(`zap-baseline.py` against that one URL, not a spider crawl from one
+seed), all seven returning **the identical result**: 0 FAIL, 60 PASS, 7
+WARN-NEW, all already-triaged site-wide categories from the SEC-004/006/009
+passes and the `/orders/track` baseline above — `Cookie No HttpOnly Flag`,
+`Cross-Domain JavaScript Source File Inclusion`, `Non-Storable Content`,
+`CSP: script-src unsafe-eval`, `Session Management Response Identified`,
+`Sub Resource Integrity Attribute Missing`, `Cross-Origin-Embedder-Policy
+Header Missing`. No page-specific finding on any of the seven. Reports:
+`scratchpad/zap-baseline-<page>.html`/`.xml` for each — **not committed**,
+not covered by `.gitignore` either.
+
+`/account/orders` is not included here — it requires authentication and
+redirects anonymously, so a real pass needs the existing `zap-auth.yaml`
+authenticated-scan setup (`how-to/pentest-the-system.md`'s "The
+authenticated scan" section), not a bare unauthenticated `docker run`. That
+remains open.
+
 ## Hardening gaps (not vulnerabilities today)
 
 Neither is exploitable in local dev over HTTP; both matter on first deploy.
@@ -1462,10 +1486,12 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
 - **~~Rate limiting outside login.~~** Assessed 2026-09-04 — see **SEC-010**.
   Confirmed unthrottled and measured; `TrackOrder` (new) does throttle.
 
-- **`/account/orders` and the seven informational pages still have no
-  scanner pass of either kind.** `/orders/track` itself now has both — see
-  "Other checks" below; this remaining gap is the rest of the storefront
-  route surface a scanner has not yet reached.
+- **`/account/orders` still has no scanner pass of either kind** — it
+  requires authentication (redirects anonymously), so a real pass needs the
+  `zap-auth.yaml` authenticated-scan setup, not a bare `docker run`. The
+  seven informational pages (`about`, `cookies`, `delivery`, `faq`,
+  `payment-information`, `privacy`, `terms`) got a baseline pass — see
+  "Other checks" below — closing that half of this gap.
 
 - **Browser-enforced controls, beyond the CSP finding.** SEC-009 came from
   asking whether the CSP permits what the app loads. The same question has

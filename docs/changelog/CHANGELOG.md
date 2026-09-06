@@ -8,6 +8,18 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **The seven informational pages (`about`, `cookies`, `delivery`, `faq`,
+  `payment-information`, `privacy`, `terms`) got a baseline ZAP scan,
+  closing that half of a standing gap.** All seven are static prose with no
+  form fields, so a full active scan (which exists to test injection
+  payloads against input) would have had nothing to act on; a passive
+  baseline pass is the correctly-scoped tool here, not a shortcut. All
+  seven returned the identical result: 0 FAIL, 7 WARN (already-triaged
+  site-wide header/config categories), 60 PASS — no page-specific finding.
+  `/account/orders` remains unscanned; it requires authentication and needs
+  the existing `zap-auth.yaml` authenticated-scan setup, not a bare
+  unauthenticated run.
+
 - **`/orders/track` full active ZAP scan now completes, and passed with 0
   injection-class alerts.** Closes the gap the previous baseline-only pass
   left open. Four earlier attempts were OOM-killed at `DomXssScanRule`'s
