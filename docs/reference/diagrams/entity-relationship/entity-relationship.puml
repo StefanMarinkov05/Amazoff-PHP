@@ -49,19 +49,46 @@
 
 hide circle
 
-legend top left
-  |= Marker |= Meaning |
-  | ""*"" before a column | Primary key |
-  | ""<<PK>>"" | Primary key (composite pivots carry more than one) |
-  | ""<<FK>>"" | Foreign key, verified against KEY_COLUMN_USAGE, not MySQL's MUL alone |
-  | ""<<unique>>"" | UNIQUE constraint |
-  | ""<<nullable>>"" | Column allows NULL |
-  |= Connector |= Meaning |
-  | ""&#124;&#124;--o{"" | One (required) to many (optional) — standard 1:N, FK not nullable |
-  | ""&#124;o--o{"" | One (optional) to many (optional) — 1:N, FK nullable |
-  | ""&#124;&#124;--o&#124;"" | One to zero-or-one — 1:1, FK unique and nullable |
-  | ""}o--o{"" | Many to many, drawn as two 1:N legs into the pivot table between them |
-endlegend
+' A text legend can't draw PlantUML's own crow's-foot graphics (the
+' circles/forks/bars only render on a real relationship between two real
+' entities) — so the legend is a small worked example, using the same
+' rendering the diagram below uses, not a description of it.
+'
+' Placement is left to PlantUML's default layout engine, not pinned —
+' `legend top left` doesn't apply to a package, and hidden links tried to
+' force top placement (LegendMarkers/LC1 -[hidden]down- users) without
+' actually achieving it. The legend currently lands wherever the layout
+' packs it (typically a corner), not guaranteed top-left; it stays clearly
+' identifiable by its own border and "Legend —" label regardless of where
+' it lands. Revisit if a later PlantUML version's layout engine handles
+' package placement hints differently.
+package "Legend — markers" {
+  entity "example" as LegendMarkers {
+    * id : bigint <<PK>>
+    --
+    other_id : bigint <<FK>>
+    code : string <<unique>>
+    note : text <<nullable>>
+  }
+}
+
+package "Legend — cardinality" {
+  entity "One\n(required)" as LC1
+  entity "Many\n(optional)" as LC2
+  LC1 ||--o{ LC2 : 1 required to N optional,\nFK not nullable
+
+  entity "One\n(optional)" as LC3
+  entity "Many\n(optional) " as LC4
+  LC3 |o--o{ LC4 : 1 optional to N optional,\nFK nullable
+
+  entity "One " as LC5
+  entity "Zero-or-one" as LC6
+  LC5 ||--o| LC6 : 1:1,\nFK unique and nullable
+
+  entity "Many " as LC7
+  entity "Many  " as LC8
+  LC7 }o--o{ LC8 : N:M, two 1:N legs\ninto the pivot table
+}
 
 ' ---------- Identity ----------
 entity "users" as users {
