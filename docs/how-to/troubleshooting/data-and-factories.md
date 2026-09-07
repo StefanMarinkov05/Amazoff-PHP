@@ -42,7 +42,7 @@ merges later. On any truncation failure, grep the whole factory directory for
 the same generator before calling it fixed:
 
 ```bash
-grep -rn "fake()->slug()" online-store/database/factories/
+grep -rn "fake()->slug()" src/database/factories/
 ```
 
 That test only works because the suite runs on MySQL. It previously ran on

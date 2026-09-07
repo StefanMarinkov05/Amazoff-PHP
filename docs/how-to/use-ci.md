@@ -116,7 +116,7 @@ actually needed.
 
 ## Why Pest runs against the MySQL service
 
-`online-store/phpunit.xml` sets `DB_CONNECTION=mysql` and
+`src/phpunit.xml` sets `DB_CONNECTION=mysql` and
 `DB_DATABASE=online_shop_test`. Host, port, and credentials come from the
 environment, so the same file works in CI and in Docker locally, and only the
 database name is overridden — a test run cannot touch development data.

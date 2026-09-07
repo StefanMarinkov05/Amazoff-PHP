@@ -3,7 +3,7 @@
 /*
  * Sources are declared explicitly because automatic detection does not work
  * here: Tailwind anchors its scan at the git root, `.git` lives one level
- * above `online-store/`, and the container mounts only `online-store/`. With
+ * above `src/`, and the container mounts only `src/`. With
  * no git root visible the scan collapses to almost nothing.
  *
  * The symptom is nasty because it is partial rather than total — a class

@@ -4,7 +4,7 @@
 ' backend enums (those are separate state machines — see ADR-0004 and
 ' reference/write-rules/order.md). This is the site's own use-case-level
 ' state machine: which routes belong to which mode, and how a visitor moves
-' between modes. Verified against online-store/routes/web.php and
+' between modes. Verified against src/routes/web.php and
 ' AdminPanelProvider on 2026-09-07 (full-site-testing @ 3639994) — re-check
 ' against those two files before trusting this diagram much later, since
 ' routing is exactly the kind of thing that drifts.

@@ -31,7 +31,7 @@ toggles — that would otherwise round-trip to the server on every input.
 
 ### Blueprint, scaffolding
 
-Generates migrations, models, and factories from `online-store/draft.yaml`.
+Generates migrations, models, and factories from `src/draft.yaml`.
 §27 lists around 25 entities; the boilerplate part of each is repetitive to
 hand-write.
 
@@ -41,7 +41,7 @@ Not a round-trip tool. Blueprint never overwrites an existing file, so
 re-running it after editing `draft.yaml` layers new columns onto stale ones
 instead of replacing them. `app/Models/User.php` and `UserFactory` are
 hand-written and excluded from generation. Two of Blueprint's stubs are
-overridden in `online-store/stubs/blueprint/` so generated models satisfy
+overridden in `src/stubs/blueprint/` so generated models satisfy
 Larastan. See `docs/how-to/regenerate-with-blueprint.md`.
 
 ### Saloon, courier clients

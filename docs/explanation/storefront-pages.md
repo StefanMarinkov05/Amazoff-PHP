@@ -25,7 +25,7 @@ verified against `routes/web.php` and `canAccessPanel()`.
 ## The files
 
 ```
-online-store/
+src/
 ├── routes/web.php                                    a route per page
 ├── app/Livewire/Catalogue/ProductList.php            state + queries
 └── resources/
@@ -142,7 +142,7 @@ hex in a template is the thing that makes a design drift.
 
 The `@source` lines are load-bearing and non-obvious: Tailwind's automatic
 source detection anchors at the git root, `.git` sits one level above
-`online-store/`, and the container mounts only `online-store/`, so detection
+`src/`, and the container mounts only `src/`, so detection
 finds nothing and only the explicit globs apply. If a utility class appears
 not to work, read the entry in
 `how-to/troubleshooting/assets-vite-frontend.md` before editing the

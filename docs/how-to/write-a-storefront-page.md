@@ -222,7 +222,7 @@ rather than writing a `width` per frame.
 ### The trap that has cost the most time
 
 **Tailwind 4 anchors source detection at the git root**, `.git` is one level
-above `online-store/`, and the container mounts only `online-store/`. So
+above `src/`, and the container mounts only `src/`. So
 detection finds nothing and only the explicit `@source` globs in
 `resources/css/app.css` apply.
 

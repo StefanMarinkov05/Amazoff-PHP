@@ -117,7 +117,7 @@ panel, never seeded, and these rows are catalogue content rather than the
 reference data the application cannot boot without.
 
 Its vocabulary lives in
-**`online-store/database/fixtures/reference/catalogue.json`**, not in the
+**`src/database/fixtures/reference/catalogue.json`**, not in the
 seeder. That file is the single source of truth for every slug a product
 fixture may reference, and the seeder is only the loader for it. Categories
 nest to **arbitrary depth** — the seeder recurses, so

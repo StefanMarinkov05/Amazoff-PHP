@@ -22,7 +22,7 @@ directory, not the system temp dir, so the message names `/tmp` while the
 directory actually refused is `storage/framework/views`. `docker compose
 exec` runs as **root**, which can write anywhere and makes the permissions
 look correct; PHP-FPM's request workers drop to **`www-data` (uid 33)**,
-per the pool config the image ships. The bind-mounted `online-store/` keeps
+per the pool config the image ships. The bind-mounted `src/` keeps
 its host ownership — uid 1000, mode `drwxrwxr-x` — so `www-data` is neither
 the owner nor in the owning group, and has no write bit.
 

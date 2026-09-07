@@ -17,8 +17,8 @@ The tell: two classes in the *same* attribute behave differently.
 `grid-cols-2` renders and `lg:grid-cols-3` beside it does not.
 
 **Cause.** Tailwind 4 anchors automatic source detection at the **git root**.
-This repository keeps `.git` one level above `online-store/`, and
-`docker-compose.yml` mounts only `./online-store` into the container — so
+This repository keeps `.git` one level above `src/`, and
+`docker-compose.yml` mounts only `./src` into the container — so
 from inside, there is no git root to find and automatic detection collapses
 to whatever `@source` lines exist.
 
@@ -79,7 +79,7 @@ to a browser. Every asset request failed, and because the failures are
 network-level the page renders as bare HTML with nothing in the PHP log.
 
 **Fix.** Tell the plugin what the *browser* should use, separately from what
-the server binds to — `online-store/vite.config.js`:
+the server binds to — `src/vite.config.js`:
 
 ```js
 server: {
@@ -98,7 +98,7 @@ clone, or anyone who deletes `public/hot`, gets it again.
 port answers:
 
 ```bash
-cat online-store/public/hot          # must read http://localhost:5173
+cat src/public/hot          # must read http://localhost:5173
 curl -s http://localhost:8080/catalogue | grep -o 'src="http://[^"]*5173[^"]*"'
 ```
 

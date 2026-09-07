@@ -6,7 +6,7 @@ action: warn
 conditions:
   - field: file_path
     operator: regex_match
-    pattern: online-store/tests/(Unit|Feature|Concurrency)/.*Test\.php$
+    pattern: src/tests/(Unit|Feature|Concurrency)/.*Test\.php$
 ---
 
 ⚠️ **New or edited test file — check the CI shard list**

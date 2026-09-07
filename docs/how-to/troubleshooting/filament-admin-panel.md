@@ -120,7 +120,7 @@ administrator anything, so "nobody may do this" has to be structural. After
 removing a capability, grep rather than trusting the diff:
 
 ```bash
-grep -rn "CreateAction\|DeleteAction" online-store/app/Filament/Resources/<Resource>/
+grep -rn "CreateAction\|DeleteAction" src/app/Filament/Resources/<Resource>/
 ```
 
 ---

@@ -7,6 +7,10 @@ it (that's [`explanation/`](../explanation/)) or the bare facts
 
 ## Setup and session start
 
+- **[onboard-a-developer.md](onboard-a-developer.md)** — the reading and
+  setup path for a new human developer joining the project: day-1 setup,
+  the four documents to read before writing code, and a first task shaped
+  small enough to finish.
 - **[start-a-session.md](start-a-session.md)** — the reading order and
   priming prompt this project uses at the start of an agent session. Read
   this one first if you're new to working on this repo with an agent.
@@ -64,3 +68,9 @@ it (that's [`explanation/`](../explanation/)) or the bare facts
 - **[deploy-and-host.md](deploy-and-host.md)** — the checklist of settings
   that are correct in dev only by accident of dev's own environment,
   starting with `SESSION_SECURE_COOKIE`.
+
+## Presenting
+
+- **[run-a-customer-demo.md](run-a-customer-demo.md)** — a click-through
+  script for a live audience: exact accounts, exact SKUs (including the
+  13-item curated tour), and a fallback plan if something breaks live.

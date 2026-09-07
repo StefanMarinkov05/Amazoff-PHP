@@ -1,6 +1,6 @@
 # Tech stack
 
-Everything currently in `online-store/composer.json` and the dev
+Everything currently in `src/composer.json` and the dev
 environment. No rationale here — that's in
 `docs/explanation/tech-stack-overview.md` and
 `docs/adr/0001-tech-stack-selection.md`.

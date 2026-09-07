@@ -52,7 +52,7 @@ have been imported is an import problem, not a missing class. Confirm with a
 full-directory grep rather than checking the file the error points at:
 
 ```bash
-grep -rn "^use " online-store/app/Enums/
+grep -rn "^use " src/app/Enums/
 ```
 
 ---
@@ -78,7 +78,7 @@ lines look right, so the damage is found later by the autoloader.
 unavoidable, verify immediately:
 
 ```bash
-grep -rh "^use " online-store/app/Enums/ | sort -u
+grep -rh "^use " src/app/Enums/ | sort -u
 ```
 
 ---

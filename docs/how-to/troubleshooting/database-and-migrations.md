@@ -175,7 +175,7 @@ bad data when used by hand, but a test writing the same value passes.
 `ALTER TABLE ADD CONSTRAINT` at all — so the migration adding the 45 `CHECK`
 constraints skipped itself there and none of them existed during a test run.
 
-**Fix.** `phpunit.xml` points at MySQL and the `online_shop_test` database.
+**Fix.** `phpunit.xml` points at MySQL and the `amazoff_test` database.
 Host, port, and credentials come from the environment; only the database name is
 overridden, so a test run cannot touch development data.
 
@@ -198,9 +198,9 @@ looks broken — `migrate:fresh --seed` runs, the app loads, data persists.
 `./vendor/bin/pest` fails with `Access denied for user 'root'@'...' (using
 password: NO)`.
 
-**Cause.** `online-store/.env` is the generic Laravel skeleton (`APP_NAME=Laravel`,
+**Cause.** `src/.env` is the generic Laravel skeleton (`APP_NAME=Laravel`,
 `DB_CONNECTION=sqlite`, no Stripe/Econt/Speedy keys) rather than this project's
-own `online-store/.env.example` (`DB_CONNECTION=mysql`, `DB_HOST=db`,
+own `src/.env.example` (`DB_CONNECTION=mysql`, `DB_HOST=db`,
 credentials matching `docker-compose.yml`'s `db` service). This happens when
 `.env` was created by an earlier `artisan key:generate` or framework
 bootstrap before the setup step that copies the project's `.env.example`, or
@@ -211,7 +211,7 @@ tests regardless of `.env`, so Pest tries MySQL anyway — with no
 **Fix.**
 
 ```bash
-cp online-store/.env.example online-store/.env
+cp src/.env.example src/.env
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate:fresh --seed
 docker compose exec app php artisan filament:assets
@@ -234,24 +234,24 @@ Should print `mysql`.
 
 ---
 
-## `pest` fails locally with "Access denied ... to database 'online_shop_test'"
+## `pest` fails locally with "Access denied ... to database 'amazoff_test'"
 
 **Symptom.** `./vendor/bin/pest` fails on every test with `SQLSTATE[HY000]
-[1044] Access denied for user 'sail'@'%' to database 'online_shop_test'`,
-even though the app itself connects to MySQL fine and `online_shop` has data
+[1044] Access denied for user 'sail'@'%' to database 'amazoff_test'`,
+even though the app itself connects to MySQL fine and `amazoff` has data
 in it.
 
 **Cause.** `docker-compose.yml`'s `db` service only provisions
-`MYSQL_DATABASE: online_shop` — the single database the app uses.
+`MYSQL_DATABASE: amazoff` — the single database the app uses.
 `phpunit.xml` points Pest at a second, separate database,
-`online_shop_test`, so development data is never at risk from a test run.
+`amazoff_test`, so development data is never at risk from a test run.
 Nothing created that second database locally. CI doesn't hit this because
 its MySQL service container is configured with `MYSQL_DATABASE:
-online_shop_test` directly (`.github/workflows/ci.yml`) and runs as `root`,
+amazoff_test` directly (`.github/workflows/ci.yml`) and runs as `root`,
 which has access to everything by default.
 
 **Fix.** `docker/mysql/init/01-test-database.sh`, mounted into the `db`
-service at `/docker-entrypoint-initdb.d/`, creates `online_shop_test` and
+service at `/docker-entrypoint-initdb.d/`, creates `amazoff_test` and
 grants the app user (`sail`) access to it. It runs automatically the first
 time the container initializes an empty `db_data` volume — a fresh clone, or
 `docker compose down -v` followed by `up`. It does not run retroactively
@@ -260,8 +260,8 @@ volume:
 
 ```bash
 docker compose exec db mysql -uroot -p"$DB_PASSWORD" -e "
-    CREATE DATABASE IF NOT EXISTS online_shop_test;
-    GRANT ALL PRIVILEGES ON online_shop_test.* TO 'sail'@'%';
+    CREATE DATABASE IF NOT EXISTS amazoff_test;
+    GRANT ALL PRIVILEGES ON amazoff_test.* TO 'sail'@'%';
     FLUSH PRIVILEGES;
 "
 ```

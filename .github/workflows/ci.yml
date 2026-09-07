@@ -9,7 +9,7 @@ on:
 
 defaults:
   run:
-    working-directory: online-store
+    working-directory: src
 
 jobs:
   lint:
@@ -28,8 +28,8 @@ jobs:
       - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: online-store/vendor
-          key: composer-${{ hashFiles('online-store/composer.lock') }}
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -115,7 +115,7 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_DATABASE: online_shop_test
+          MYSQL_DATABASE: amazoff_test
           MYSQL_ROOT_PASSWORD: password
         ports:
           - 3306:3306
@@ -138,8 +138,8 @@ jobs:
       - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: online-store/vendor
-          key: composer-${{ hashFiles('online-store/composer.lock') }}
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -154,7 +154,7 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: online_shop_test
+          DB_DATABASE: amazoff_test
           DB_USERNAME: root
           DB_PASSWORD: password
         run: php artisan migrate --force
@@ -206,7 +206,7 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_DATABASE: online_shop_test
+          MYSQL_DATABASE: amazoff_test
           MYSQL_ROOT_PASSWORD: password
         ports:
           - 3306:3306
@@ -229,8 +229,8 @@ jobs:
       - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: online-store/vendor
-          key: composer-${{ hashFiles('online-store/composer.lock') }}
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -245,7 +245,7 @@ jobs:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
-          DB_DATABASE: online_shop_test
+          DB_DATABASE: amazoff_test
           DB_USERNAME: root
           DB_PASSWORD: password
         run: php artisan migrate --force

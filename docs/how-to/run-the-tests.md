@@ -169,9 +169,9 @@ writing one, break the thing it covers and confirm it goes red:
 
 ```bash
 # delete a policy, run the suite, expect a failure, restore it
-mv online-store/app/Policies/CarrierPolicy.php /tmp/
+mv src/app/Policies/CarrierPolicy.php /tmp/
 docker compose exec app ./vendor/bin/pest --filter="resolves a policy"
-mv /tmp/CarrierPolicy.php online-store/app/Policies/
+mv /tmp/CarrierPolicy.php src/app/Policies/
 ```
 
 This matters most for authorization tests. An assertion that a role *can* do

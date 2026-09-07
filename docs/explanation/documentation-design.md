@@ -128,6 +128,11 @@ a tutorial is written for.
 
 **Revisit this if**: a second human developer joins the team. That's the
 condition that would introduce a reader tutorials are actually for.
+`how-to/onboard-a-developer.md` covers the orientation half of that need
+ahead of the trigger — it's a how-to (a specific job: get one named person
+running), not a tutorial, so writing it now doesn't undercut the reasoning
+above; it's the piece of onboarding that was never gated on a guided
+learning exercise existing.
 
 ## Status markers
 

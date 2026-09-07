@@ -1,6 +1,6 @@
 # How to regenerate models and factories with Blueprint
 
-`online-store/draft.yaml` is the schema definition. `blueprint:build` turns
+`src/draft.yaml` is the schema definition. `blueprint:build` turns
 it into migrations, models, and factories.
 
 Blueprint never overwrites an existing file. Running it twice after editing
@@ -14,7 +14,7 @@ Migrations are append-only once merged, so they are excluded from the run:
 
 ```bash
 # from the repo root
-cd online-store
+cd src
 cp app/Models/User.php /tmp/User.php
 cp database/factories/UserFactory.php /tmp/UserFactory.php
 rm -f app/Models/*.php database/factories/*Factory.php
@@ -22,8 +22,8 @@ cd ..
 
 docker compose exec app php artisan blueprint:build --only=models,factories
 
-cp /tmp/User.php online-store/app/Models/User.php
-cp /tmp/UserFactory.php online-store/database/factories/UserFactory.php
+cp /tmp/User.php src/app/Models/User.php
+cp /tmp/UserFactory.php src/database/factories/UserFactory.php
 docker compose exec app ./vendor/bin/pint
 ```
 
@@ -57,7 +57,7 @@ Both carry a comment at the top saying so.
 
 ## Custom stubs
 
-`online-store/stubs/blueprint/` overrides two of Blueprint's templates.
+`src/stubs/blueprint/` overrides two of Blueprint's templates.
 Blueprint checks that directory first and falls back to its own for anything
 not found there, so only the changed files live there.
 

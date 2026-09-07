@@ -190,14 +190,15 @@ typing the URL by hand was otherwise the only way back to the storefront.
 
 ## Database
 
-`.env`'s `DB_DATABASE` selects which database the app serves. Three exist
-locally:
+`.env`'s `DB_DATABASE` selects which database the app serves.
+`docker-compose.yml`'s default is `amazoff`; `phpunit.xml` forces
+`amazoff_test` for the test run regardless of `.env`.
 
 | Database | Contents |
 |---|---|
-| `amazoff_demo` | Full demo dataset — 169 products, 105 users, 159 orders, 110 reviews, 24 articles, 181 images (counted live, 2026-09-07) |
-| `online_shop` | Schema only, no catalogue |
-| `online_shop_test` | What `phpunit.xml` forces; migrated, not seeded |
+| `amazoff_demo` | Full demo dataset on this machine right now — 169 products, 105 users, 159 orders, 110 reviews, 24 articles, 181 images (counted live, 2026-09-07). Pre-dates the `amazoff` default renamed to below; still what `.env` points at until re-pointed and re-seeded. |
+| `amazoff` | The fresh-clone default (`docker-compose.yml`/`.env.example`) — schema only until migrated and seeded. |
+| `amazoff_test` | What `phpunit.xml` forces; migrated, not seeded. |
 
 `docs/reference/schema/demo-data.md` has the exact seeder run order and the
 SKU-level inventory of what the demo contains — treat its counts as the

@@ -19,7 +19,7 @@ Read these before doing anything, in order:
    security rules — read that one too before touching any code. These
    override defaults and are not up for negotiation. If something I ask for
    contradicts an accepted ADR, say so rather than quietly diverging.
-2. README.md — the app lives in online-store/, not at the repo root, and
+2. README.md — the app lives in src/, not at the repo root, and
    everything runs through Docker.
 3. docs/README.md — how docs/ is organised and what belongs in each folder.
 4. docs/reference/specification.md — §37 is the contract being graded. The
@@ -72,7 +72,7 @@ entry that says what was fixed without why it recurs is half an entry.
 
 `CLAUDE.md` first because it is the only file whose rules override the model's
 defaults, and because the two facts most likely to waste a session are in it
-and in `README.md`: the application is in `online-store/`, and nothing runs
+and in `README.md`: the application is in `src/`, and nothing runs
 outside Docker. A session that misses those spends its first several tool calls
 looking for `artisan` at the repository root and running `php` on the host.
 
@@ -141,7 +141,7 @@ read it explicitly, but its content still shouldn't be pasted into the
 prompt itself. Repeating rules in the prompt wastes context and creates a
 third copy to keep in step, on top of the two `coding-conventions.md`
 already unifies (`CLAUDE.md`'s old inline copy and
-`online-store/.ai/guidelines/project-conventions.md`'s).
+`src/.ai/guidelines/project-conventions.md`'s).
 
 **A task description.** This prompt establishes how to work; the task is a
 separate message. Mixing them means re-pasting the whole thing for each new

@@ -20,7 +20,7 @@ when the work happened, not when it was committed — nothing in
   existing SEC-numbered structure. `docs/reference/testing/security/`
   renamed to `scanner-tooling/` to match. `CLAUDE.md`'s "Architecture —
   non-negotiable" section, duplicated in
-  `online-store/.ai/guidelines/project-conventions.md` and drifting
+  `src/.ai/guidelines/project-conventions.md` and drifting
   independently, is now `docs/reference/coding-conventions.md` as the
   single source; both pointer files reference it instead of restating it.
   Every doc subdirectory that had grown enough entries got a short
@@ -2491,7 +2491,7 @@ when the work happened, not when it was committed — nothing in
   `CreateOrder` is blind to which applies. That is a deliberate decoupling,
   not a gap, and the correction says so.
 
-  `online-store/.ai/guidelines/project-conventions.md` needed no change —
+  `src/.ai/guidelines/project-conventions.md` needed no change —
   the condensed form had always stated the rule correctly. The other four
   pages referencing the Action (`actions.md`, `inventory.md`,
   `concurrency-and-locking.md`, `security-model.md`) were already accurate.
@@ -2911,8 +2911,8 @@ when the work happened, not when it was committed — nothing in
 - `docs/adr/0012-laravel-boost.md` and `laravel/boost` (dev-only) — MCP
   server (schema/query/log tools plus semantic search over
   Laravel/Filament/Pest docs), guidelines, and skills for AI-assisted
-  development. `online-store/.ai/guidelines/project-conventions.md` is the
-  hand-written, committed source; `online-store/CLAUDE.md`, `boost.json`,
+  development. `src/.ai/guidelines/project-conventions.md` is the
+  hand-written, committed source; `src/CLAUDE.md`, `boost.json`,
   and `.claude/skills/` are generated and gitignored, rebuilt by
   `php artisan boost:install`. `.mcp.json` points the MCP entry through
   `docker compose exec app`, since this project's `vendor/` only exists
@@ -2996,7 +2996,7 @@ when the work happened, not when it was committed — nothing in
   `.github/PULL_REQUEST_TEMPLATE.md` at repo root.
 - Schema generated from `draft.yaml`: 39 migrations, 32 models, 32
   factories. `migrate:fresh` applies cleanly; every factory persists a row.
-- `online-store/stubs/blueprint/` — overrides `model.fillable.stub` and
+- `src/stubs/blueprint/` — overrides `model.fillable.stub` and
   `model.hidden.stub` to emit `@var list<string>`, which Larastan requires.
 - `App\Enums` — 12 backed enums covering all 19 `enum` columns in the schema:
   `OrderStatus`, `PaymentStatus`, `PaymentMethod`, `ShipmentStatus`,
@@ -3402,8 +3402,8 @@ when the work happened, not when it was committed — nothing in
 
   Tailwind was scanning the **compiled Blade cache**, not Blade source.
   Tailwind 4 anchors automatic source detection at the git root, `.git` sits
-  one level above `online-store/`, and the container mounts only
-  `online-store/` — so detection collapsed to the two `@source` lines the
+  one level above `src/`, and the container mounts only
+  `src/` — so detection collapsed to the two `@source` lines the
   starter kit shipped, one of which is `storage/framework/views`. A class
   therefore existed in the stylesheet only if some page carrying it had
   already been rendered and the cache had not been cleared since, which made

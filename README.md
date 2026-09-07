@@ -4,7 +4,7 @@ Laravel e-commerce platform with a blog/news module, Stripe and cash-on-delivery
 payments, and Econt/Speedy courier integrations. Internship project, Lumen101
 2026.
 
-The application lives in [`online-store/`](online-store/) — not at repo
+The application lives in [`src/`](src/) — not at repo
 root. Docker config is at the repo root ([`docker-compose.yml`](docker-compose.yml),
 [`docker/`](docker/)); architecture rules and scope decisions are in
 [`CLAUDE.md`](CLAUDE.md); contributing/commit/branch conventions are in
@@ -28,7 +28,7 @@ MySQL all run inside containers.
 git clone https://github.com/Lumen101-Internship-2026/Online_Shop_TeamB.git
 cd Online_Shop_TeamB
 
-cp online-store/.env.example online-store/.env
+cp src/.env.example src/.env
 # fill in Stripe/Econt/Speedy test credentials from the team vault
 
 docker compose up -d --build
@@ -116,7 +116,7 @@ database volume.
 stripe listen --forward-to localhost:8080/stripe/webhook
 ```
 
-Copy the printed webhook signing secret into `online-store/.env` as
+Copy the printed webhook signing secret into `src/.env` as
 `STRIPE_WEBHOOK_SECRET` — this value is per-machine, never shared or
 committed. Full setup, including the two-Stripe-account trap that has
 bitten this project before, is in
@@ -124,7 +124,7 @@ bitten this project before, is in
 
 ## Finding your way around
 
-- **Application code** — [`online-store/app/`](online-store/app/), one
+- **Application code** — [`src/app/`](src/app/), one
   Action per business write (`app/Actions/{Area}/{Verb}{Noun}.php`),
   Livewire components for the storefront, Filament resources for
   `/admin`. `CLAUDE.md` and
