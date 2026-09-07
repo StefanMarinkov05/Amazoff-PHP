@@ -4,10 +4,9 @@ This is where all the project docs live. We're following
 [Diátaxis](https://diataxis.fr/) for the structure, plus two extra folders
 for decisions and release history.
 
-## [Tutorials](tutorials/)
-
-For someone brand new to the codebase. Walk them through it step by step,
-top to bottom — this isn't a reference, it's a guided first lap.
+There is no `tutorials/` — Diátaxis's tutorial quadrant is intentionally
+empty here. `explanation/documentation-design.md` records why and what
+plays that role instead.
 
 ## [How-to](how-to/)
 
@@ -24,6 +23,8 @@ just what's true right now.
 How things fit together as they are today. Pulls several decisions into one
 picture, points at ADRs by number instead of repeating their reasoning, and
 gets updated whenever the system changes.
+`explanation/system-overview.md` is the single orientation page — the whole
+system as one state machine, with links out to every diagram.
 
 ## [ADR](adr/)
 

@@ -3,18 +3,9 @@
 Where a piece of knowledge goes, and what shape it takes when it gets there.
 
 `explanation/documentation-design.md` covers how `docs/` itself is organized —
-Diátaxis, the ADR/explanation split, and the writing style. This page covers
-the code side and the boundary between the two.
-
-## Two readers
-
-Everything here is read by people and by Claude, and the two fail differently.
-
-A person who cannot find a document asks someone. An agent that cannot find a
-document proceeds without it — confidently, and with a plausible answer built
-on a wrong premise. That asymmetry drives most of the rules below: knowledge
-that is merely *available* is not enough, it has to be reachable from the place
-where it is needed.
+Diátaxis, the ADR/explanation split, the writing style, and the person/agent
+reader split that drives most of the rules below. This page covers the code
+side and the boundary between the two.
 
 ## Where rationale lives: code or docs
 
