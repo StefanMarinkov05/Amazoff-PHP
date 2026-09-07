@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Schema;
  * other. The fix is CLAUDE.md's idempotency rule — catch the violation, retry
  * as an update — rather than a lock on a row that may not exist yet.
  *
- * Two processes and a barrier, for the reason troubleshooting.md gives under
+ * Two processes and a barrier, for the reason
+ * how-to/troubleshooting/concurrency-and-testing-races.md gives under
  * "A concurrency test cannot be written in one process": single-process fault
  * injection proves a boundary, never a lock.
  */

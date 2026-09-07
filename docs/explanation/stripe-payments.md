@@ -12,6 +12,13 @@ to set any of this up locally, `how-to/set-up-stripe.md`.
 
 ## The shape of it
 
+Rendered as a proper sequence diagram:
+[view source](../reference/diagrams/stripe-payment-sequence/stripe-payment-sequence.puml) ·
+[view PDF](../reference/diagrams/stripe-payment-sequence/stripe-payment-sequence.pdf) —
+includes the cash-on-delivery alt path this ASCII version doesn't show, and
+is the maintained version if the two ever disagree. Kept here too for a
+plain-text read:
+
 ```
   Cart page                 CheckoutPage                 Stripe          Webhook
       │                          │                          │               │

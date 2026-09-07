@@ -1,7 +1,10 @@
-# Security scan artifacts
+# Scanner tooling — ZAP inputs and dated outputs
 
-Reusable inputs and dated outputs, kept apart because they change at
-different rates and for different reasons.
+Reusable inputs and dated outputs for this project's security scanner (OWASP
+ZAP), kept apart because they change at different rates and for different
+reasons. This folder is the tooling's own artifacts — the plan a scan runs
+from and the raw report each run produced — not the findings; those are
+triaged and written up separately, see below.
 
 - **`zap-auth.yaml`** — the authenticated OWASP ZAP Automation Framework
   plan. This is a *template*, not a record: it has no real session cookie
@@ -24,7 +27,7 @@ this" and a reader asking "what did the last run find" want different files.
 A ZAP report is raw material, not a finding. Every alert in `reports/` has
 been triaged — real, false positive with a stated reason, or already known
 — and the ones worth keeping are written up in
-`docs/reference/testing/security-testing.md` in the project's own numbered
+`docs/reference/testing/security-testing/` in the project's own numbered
 (`SEC-NNN`) finding format. Read that file for "what is actually wrong and
 what was done about it"; read a report here only to see the raw scan output
 a given entry's reasoning was built from.

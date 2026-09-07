@@ -96,9 +96,10 @@ it('does not persist initial_quantity as a variation column', function (): void 
         variationAttributes(['initial_quantity' => 5]),
     ], null);
 
-    // Eloquent discards a non-fillable key silently (troubleshooting.md, "A
-    // seeded column silently does nothing"), so the only evidence that it was
-    // stripped deliberately is that the quantity landed on the stock row.
+    // Eloquent discards a non-fillable key silently
+    // (how-to/troubleshooting/data-and-factories.md, "A seeded column
+    // silently does nothing"), so the only evidence that it was stripped
+    // deliberately is that the quantity landed on the stock row.
     $variation = $product->productVariations()->sole();
 
     expect($variation->getAttributes())->not->toHaveKey('initial_quantity')

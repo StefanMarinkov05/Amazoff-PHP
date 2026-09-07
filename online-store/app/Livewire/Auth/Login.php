@@ -37,8 +37,9 @@ use Livewire\Component;
  * later. This is why login itself needs no lock and no test beyond the
  * ordinary success/failure cases — unlike a stale *session*, which is what
  * `EnsureAccountIsActive` and `AuthenticateSession` exist to catch (see
- * `troubleshooting.md`, "`Auth::logoutOtherDevices()` is called, and other
- * sessions stay signed in").
+ * `how-to/troubleshooting/auth-and-sessions.md`,
+ * "`Auth::logoutOtherDevices()` is called, and other sessions stay signed
+ * in").
  *
  * A soft-deleted user cannot log in either, though nothing here states it:
  * `User` uses `SoftDeletes`, whose global scope excludes trashed rows from

@@ -139,7 +139,7 @@ class CheckoutPage extends Component
      * let a crafted request point the page at another customer's order.
      * `#[Locked]` blocks the tampering; `order()` below still scopes the
      * lookup, so the id is safe even if it arrives some other way.
-     * See `reference/testing/security-testing.md` SEC-002.
+     * See `reference/testing/security-testing/sec-001-to-004.md` SEC-002.
      */
     #[Locked]
     public ?int $orderId = null;
@@ -175,8 +175,8 @@ class CheckoutPage extends Component
      * carrier/city/postcode, kept as plain arrays — Livewire's property
      * hydration has no synthesizer for a bare readonly DTO like
      * `CourierOffice`, the same reason `CachedCourierGateway` caches arrays
-     * rather than objects (`docs/how-to/troubleshooting.md`, "A cached
-     * object comes back as `__PHP_Incomplete_Class`").
+     * rather than objects (`docs/how-to/troubleshooting/infra-and-environment.md`,
+     * "A cached object comes back as `__PHP_Incomplete_Class`").
      *
      * Once a real fetch has succeeded, a *later* render's fetch failing —
      * Econt's demo host is a shared public environment, and every field on

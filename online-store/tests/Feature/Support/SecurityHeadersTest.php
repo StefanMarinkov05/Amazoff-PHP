@@ -6,7 +6,7 @@ use App\Http\Middleware\SetSecurityHeaders;
 use Illuminate\Foundation\Http\Kernel;
 
 /*
- * SEC-004 (reference/testing/security-testing.md): an OWASP ZAP baseline scan found
+ * SEC-004 (reference/testing/security-testing/sec-001-to-004.md): an OWASP ZAP baseline scan found
  * no security headers on any response. SetSecurityHeaders closes it, applied
  * globally rather than to the `web` group specifically — AdminPanelProvider
  * builds its own middleware stack and does not inherit `web`, so a

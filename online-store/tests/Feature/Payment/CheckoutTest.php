@@ -32,9 +32,9 @@ use Stripe\StripeClient;
 
 beforeEach(function (): void {
     // Route-level tests render the full layout, which calls @vite. CI has
-    // neither a dev server nor a built manifest — see troubleshooting.md,
-    // "A Feature test passes locally and fails in CI with
-    // ViteManifestNotFoundException".
+    // neither a dev server nor a built manifest — see
+    // how-to/troubleshooting/auth-and-sessions.md, "A Feature test passes
+    // locally and fails in CI with ViteManifestNotFoundException".
     $buildPath = public_path('build');
 
     if (! File::exists($buildPath.'/manifest.json')) {
@@ -262,7 +262,8 @@ it('has no price property a client could set, and refuses one that is invented',
  * The payment step renders the placed order's serial number. It once did so
  * from a bare, unscoped Order::find() on `orderId` — a client-writable
  * public property — so a visitor could point it at another customer's order
- * and read that serial (reference/testing/security-testing.md, SEC-002). Two
+ * and read that serial
+ * (reference/testing/security-testing/sec-001-to-004.md, SEC-002). Two
  * mechanisms fix it, each with a test that goes red if removed:
  *   1. `order()` scopes to owner-or-session-claim, never a bare find().
  *   2. #[Locked] on `orderId` and `clientSecret` refuses the client write.

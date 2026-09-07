@@ -10,7 +10,7 @@ use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyExceptio
 use Livewire\Livewire;
 
 /*
- * SEC-001 (reference/testing/security-testing.md): an unauthenticated visitor could
+ * SEC-001 (reference/testing/security-testing/sec-001-to-004.md): an unauthenticated visitor could
  * read a draft or an embargoed article by tampering with `articleId` — a
  * client-writable public property — after mount()'s visibility check had
  * already passed against a published article. Two mechanisms fix it, and

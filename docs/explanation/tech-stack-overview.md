@@ -63,8 +63,9 @@ the fix; `changelog/CHANGELOG.md` has the finding in full.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
-`name` attribute this schema doesn't have — see `troubleshooting.md` for
-the crash this produced before it was added.
+`name` attribute this schema doesn't have — see
+`how-to/troubleshooting/filament-admin-panel.md` for the crash this
+produced before it was added.
 
 Roles come from `spatie/laravel-permission`. `User` uses the `HasRoles`
 trait; `canAccessPanel()` checks `hasAnyRole(User::STAFF_ROLES)`. Verified

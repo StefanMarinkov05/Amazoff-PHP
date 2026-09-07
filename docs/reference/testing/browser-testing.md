@@ -82,7 +82,7 @@ Also confirmed at 375 px:
   and 14 navigation links become visible
 - checkout's 15 form inputs all fit, none clipped
 
-![The catalogue at 375 px](../assets/responsive-375-catalogue.png)
+![The catalogue at 375 px](../../assets/responsive-375-catalogue.png)
 
 ### Two findings, neither a failure
 
@@ -152,7 +152,7 @@ scroller, which is the correct pattern (the table scrolls within its
 container, the page does not). Filament ships this behaviour; this confirms
 it holds here rather than assuming it.
 
-![The admin orders table at 375 px](../assets/admin-orders-375.png)
+![The admin orders table at 375 px](../../assets/admin-orders-375.png)
 
 Still not swept: the other admin resources, and the panel at tablet/desktop
 widths — only the data-heaviest table was checked, on the assumption that if
@@ -171,9 +171,10 @@ gaps.
 - **Portrait only.** No landscape orientation at any width.
 - **No text zoom.** Browser zoom to 200 % is a WCAG requirement and was not
   tested.
-- **Four pages.** The article frontend, order tracking, and the account
-  pages were not visited — the first two do not exist yet (`misc/todo.md`,
-  P6).
+- **Four pages.** The article frontend (`App\Livewire\Journal`), order
+  tracking (`App\Livewire\Orders\TrackOrder`), and the account pages
+  (`App\Livewire\Account`) all exist but were not part of this pass — this
+  gap is about pass coverage, not missing features.
 - **The admin panel was not swept.** Filament ships its own responsive
   behaviour; §37 #19 is about the storefront.
 - **Layout only.** Colour contrast, focus order, and screen-reader output

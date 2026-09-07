@@ -17,10 +17,10 @@ use Illuminate\Support\Facades\Schema;
  * `UNIQUE(cart_id, product_variation_id)`, same catch-and-retry shape.
  *
  * Same harness as the two siblings: two processes, a barrier, outside
- * RefreshDatabase. See troubleshooting.md, "A concurrency test cannot be
- * written in one process". A second, file-flag rendezvous sits on top of the
- * wall-clock barrier, so process-boot jitter is not the thing deciding who
- * wins.
+ * RefreshDatabase. See how-to/troubleshooting/concurrency-and-testing-races.md,
+ * "A concurrency test cannot be written in one process". A second, file-flag
+ * rendezvous sits on top of the wall-clock barrier, so process-boot jitter is
+ * not the thing deciding who wins.
  *
  * What this file actually proves, measured rather than assumed: the
  * collision is real (caught once with query-level timing instrumentation —

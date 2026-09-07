@@ -57,7 +57,8 @@ it('leaves exactly one main image when two are promoted at once', function (): v
 
     // Both are legitimate operations, so both should report success. Neither
     // succeeding means the workers failed to boot rather than that locking
-    // works — see troubleshooting.md on this suite's load sensitivity.
+    // works — see how-to/troubleshooting/concurrency-and-testing-races.md on
+    // this suite's load sensitivity.
     expect($outputs->filter(fn (string $o) => $o === 'OK'))->toHaveCount(2, $report);
 
     $mains = ProductImage::where('product_id', $product->getKey())

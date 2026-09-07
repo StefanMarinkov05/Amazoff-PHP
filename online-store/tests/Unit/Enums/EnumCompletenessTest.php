@@ -21,7 +21,8 @@ use Filament\Support\Contracts\HasLabel;
  *
  * Paths resolve from __DIR__ because dataset closures are evaluated during
  * test collection, before the application is booted, and framework helpers
- * like app_path() do not exist yet. See troubleshooting.md.
+ * like app_path() do not exist yet. See
+ * how-to/troubleshooting/database-and-migrations.md.
  */
 
 /** @return list<array{0: string}> */

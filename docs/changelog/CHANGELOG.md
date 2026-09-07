@@ -8,6 +8,37 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Docs restructuring: split `troubleshooting.md` and `security-testing.md`
+  by area, extracted `coding-conventions.md`, added diagrams.**
+  `troubleshooting.md` (2400+ lines, 48 flat entries) is now a short index
+  pointing at `docs/how-to/troubleshooting/`, one file per area
+  (concurrency/testing races, Filament/admin panel, assets/Vite,
+  database/migrations, data/factories, auth/sessions, infra/environment,
+  payments/security tooling, IDE/static analysis) — every entry moved
+  verbatim, same symptom/cause/fix/why-it-recurs/prevention structure.
+  `security-testing.md` (1500+ lines) split the same way, respecting its
+  existing SEC-numbered structure. `docs/reference/testing/security/`
+  renamed to `scanner-tooling/` to match. `CLAUDE.md`'s "Architecture —
+  non-negotiable" section, duplicated in
+  `online-store/.ai/guidelines/project-conventions.md` and drifting
+  independently, is now `docs/reference/coding-conventions.md` as the
+  single source; both pointer files reference it instead of restating it.
+  Every doc subdirectory that had grown enough entries got a short
+  `README.md` index. `docs/reference/diagrams/` adds PlantUML state,
+  sequence, and layer diagrams (order/payment status transitions, the
+  Stripe payment sequence, the stock reservation race, courier layering,
+  security defense layers, storefront user states, product variability,
+  deployment, a whole-project composite view), cross-linked from the docs
+  each one illustrates. `README.md` and `CONTRIBUTING.md` refreshed for
+  reader orientation — default accounts table, corrected demo-data command
+  names, a route to the new diagrams. `docs/reference/local-access.md`
+  refreshed against a live `route:list` (90 routes, up from an
+  undercounted prior version that predated cart/checkout/tracking/journal/
+  several admin resources). Every internal doc, docblock, and comment
+  reference to a moved file's old path updated across the repo; no content
+  removed except stale claims confirmed resolved against the current
+  codebase, not assumed.
+
 - **The seven informational pages (`about`, `cookies`, `delivery`, `faq`,
   `payment-information`, `privacy`, `terms`) got a baseline ZAP scan,
   closing that half of a standing gap.** All seven are static prose with no
@@ -26,8 +57,8 @@ when the work happened, not when it was committed — nothing in
   headless-browser launch, confirmed via `docker inspect`'s `OOMKilled`
   field at both a 6 GB and a 10 GB Docker memory cap; a fifth attempt at
   12 GB completed cleanly (~1h33m). `set-up-security-and-quality-tools.md`'s
-  recommended cap is now 12 GB; `security-testing.md`'s "Other checks"
-  table and `troubleshooting.md`'s ZAP entry have the full evidence trail.
+  recommended cap is now 12 GB; `security-testing/what-held.md`'s "Other
+  checks" table and `troubleshooting/payments-and-security-tooling.md`'s ZAP entry have the full evidence trail.
 
 - **Larastan raised from level 5 to 9 across `app/`, `database/seeders`,
   and `database/factories`, with 0 errors.** `phpstan.neon`'s own comment
@@ -325,7 +356,7 @@ when the work happened, not when it was committed — nothing in
 
   §37 #18 is now verified across **all 19 admin resources × 4 accounts**
   (the earlier sweep covered 13 routes), extending the role matrix in
-  `reference/testing/security-testing.md`. Each role reaches exactly what the
+  `reference/testing/security-testing/what-held.md`. Each role reaches exactly what the
   permission catalogue grants and nothing else. The two 200s that were added
   are the point of the extension: `content_editor` holds `viewAny_tag` and
   `viewAny_article_category`, so a 403 there would have been a *missing
@@ -415,7 +446,7 @@ when the work happened, not when it was committed — nothing in
   the project's first Stripe pass — every earlier attempt hit this same
   account mismatch before it could complete.
 
-  `how-to/troubleshooting.md` has the full diagnostic account, including
+  `how-to/troubleshooting/payments-and-security-tooling.md` has the full diagnostic account, including
   the identical-display-name trap for the next person who hits this.
 
 - **Recording damage on an inventory row with nothing available crashed
@@ -457,7 +488,7 @@ when the work happened, not when it was committed — nothing in
   change nothing guaranteed the two independent calls observed the same
   outcome. `CheckoutPage::$lastKnownOffices` keeps the last successfully
   fetched list as plain arrays (same reasoning as `CachedCourierGateway`'s
-  own array caching, `docs/how-to/troubleshooting.md`): a later render
+  own array caching, `docs/how-to/troubleshooting/infra-and-environment.md`): a later render
   whose live call fails transiently — Econt's demo host is a shared public
   environment — now falls back to it instead of blanking a list the
   customer is already looking at; `updated()` still clears it the moment
@@ -621,7 +652,8 @@ when the work happened, not when it was committed — nothing in
   What it does enforce is `frame-ancestors 'none'`, `object-src 'none'`,
   `base-uri 'self'` and `form-action 'self'` — the four that hold regardless
   of a permissive `script-src`, and the four the test pins. See
-  `reference/testing/security-testing.md` SEC-004 and SEC-006.
+  `reference/testing/security-testing/sec-001-to-004.md` SEC-004 and
+  `reference/testing/security-testing/sec-005-to-007.md` SEC-006.
 
   Dev-only, and recorded as such: `server_tokens off` and `expose_php = Off`
   suppress the `Server` and `X-Powered-By` version banners in the Docker
@@ -644,8 +676,9 @@ when the work happened, not when it was committed — nothing in
   highest-coverage authenticated pass to date (vs. 376 previously), with the
   race confirmed closed by re-checking the full access log for interleaved
   same-URL status codes rather than trusting the summary table. See
-  `reference/testing/security-testing.md`'s "third run" note under SEC-007, and
-  `reference/testing/security/zap-auth.yaml` for the corrected launch command and
+  `reference/testing/security-testing/sec-005-to-007.md`'s "third run" note
+  under SEC-007, and
+  `reference/testing/scanner-tooling/zap-auth.yaml` for the corrected launch command and
   the general trap write-up in
   `~/.claude/skills/website-testing/references/security-tooling.md`.
 
@@ -697,8 +730,8 @@ when the work happened, not when it was committed — nothing in
   neither half can observe the other. The header test pins the four
   directives SEC-006 chose and never asserts that a script is loadable. The
   fix is four named origins, not a wildcard; recorded in
-  `reference/testing/security-testing.md` rather than applied, because changing a
-  security header deserves a deliberate review.
+  `reference/testing/security-testing/sec-008-to-010.md` rather than applied,
+  because changing a security header deserves a deliberate review.
 
 - **SEC-010: four public forms have no rate limit.** `ContactForm`,
   `NewsletterSignup`, `Register` and `ChangePassword`. Measured: 12 of 12
@@ -767,7 +800,7 @@ when the work happened, not when it was committed — nothing in
   it dead code. `RoleResource` never got the equivalent guard. Fix proposed
   and not applied: it changes what an administrator may do to their own role,
   which is a decision about who can lock themselves out, not only a security
-  patch. Full write-up in `reference/testing/security-testing.md`.
+  patch. Full write-up in `reference/testing/security-testing/sec-008-to-010.md`.
 
 - From the same review: **signing-secret rotation** and **dispute
   handling** are now closed — see the follow-up entry above. **IP
@@ -1062,7 +1095,7 @@ when the work happened, not when it was committed — nothing in
   not in the storefront's `web` group. So a password change, the standard
   response to "someone else may be signed in as me", left every other
   browser signed in for customers while working correctly for staff.
-  Registered on the `web` group. `troubleshooting.md` has the full symptom,
+  Registered on the `web` group. `troubleshooting/auth-and-sessions.md` has the full symptom,
   including why a grep for the class finds a hit that does not apply.
 
 - **A customer deactivated or soft-deleted mid-session is now signed out on
@@ -1102,7 +1135,7 @@ when the work happened, not when it was committed — nothing in
   the always-running local `vite` container hides the manifest path that
   CI, with neither a dev server nor a build step, actually hits. Fixed by
   faking a minimal manifest in `beforeEach`, cleaned up afterwards.
-  `troubleshooting.md` has the full mechanism.
+  `troubleshooting/auth-and-sessions.md` has the full mechanism.
 
 - The login page renders `session('status')`, which nothing did before —
   `EnsureAccountIsActive`'s explanation of why the session ended would
@@ -1634,7 +1667,7 @@ when the work happened, not when it was committed — nothing in
   reading the form definition — which looks correct, which is why Pint,
   Larastan, and the whole existing suite stayed green for the life of the
   bug. Two regression tests now assert the round trip in both directions,
-  and `troubleshooting.md` carries the entry.
+  and `troubleshooting/filament-admin-panel.md` carries the entry.
 
 - **A negative `discount_price` on a product or a variation reached the
   database uncaught, surfacing as an unhandled `QueryException`
@@ -2131,7 +2164,7 @@ when the work happened, not when it was committed — nothing in
   passed, and Laravel could not log the failure because logging needs the
   same directory it had just been denied. Fixed with `chgrp -R www-data`
   plus `chmod -R g+w` and setgid on the directories so new files inherit
-  the group. Documented in `troubleshooting.md`, including the rule that
+  the group. Documented in `troubleshooting/infra-and-environment.md`, including the rule that
   a suspected permission error in this container must be probed as
   `www-data`, never from the default root shell — the root shell cannot
   reproduce it by construction.
@@ -2704,10 +2737,10 @@ when the work happened, not when it was committed — nothing in
   did not, with `Call to an undefined static method
   Illuminate\Validation\Rules\Dimensions::make()` on both call sites.
   Fixed to `(new Dimensions())->minWidth(...)->minHeight(...)` and
-  reconfirmed clean. Recorded in `troubleshooting.md`'s new entry as the
+  reconfirmed clean. Recorded in `troubleshooting/ide-and-static-analysis.md`'s new entry as the
   general case: verify a fluent builder's actual API against the installed
   version before assuming a common Laravel idiom applies unchanged.
-- `docs/how-to/troubleshooting.md` — two Windows/Docker-specific traps hit
+- `docs/how-to/troubleshooting/infra-and-environment.md` — two Windows/Docker-specific traps hit
   this session, in one entry: stopping a background test run through the
   harness kills the shell wrapper but not a child `pest` process it
   spawned, which then keeps racing every later command against the same
@@ -3365,7 +3398,7 @@ when the work happened, not when it was committed — nothing in
 
 - Three asset-pipeline failures, all silent, all found only by looking at
   the rendered page. Each has a full entry in
-  `docs/how-to/troubleshooting.md`; the short version:
+  `docs/how-to/troubleshooting/assets-vite-frontend.md`; the short version:
 
   Tailwind was scanning the **compiled Blade cache**, not Blade source.
   Tailwind 4 anchors automatic source detection at the git root, `.git` sits
@@ -3443,7 +3476,7 @@ when the work happened, not when it was committed — nothing in
 - `AttributeValueForm.php` imported `Filament\Forms\Get`, which does not
   exist in Filament v4 — `Get`/`Set` moved to
   `Filament\Schemas\Components\Utilities\Get`. Pint and the IDE (which
-  cannot resolve any vendor class from the host — see `troubleshooting.md`)
+  cannot resolve any vendor class from the host — see `troubleshooting/ide-and-static-analysis.md`)
   both missed it; Larastan caught it as `class.notFound`. Would otherwise
   have failed at runtime the first time the closure using it ran.
 - `FilamentManager::getUserName()` threw a `TypeError` on every panel page
@@ -3453,7 +3486,7 @@ when the work happened, not when it was committed — nothing in
   `HasName::getFilamentName()` on `User`.
 - `DatabaseSeeder` passed `'name' => 'Test User'` to a `users` table with no
   `name` column — silently discarded by Eloquent rather than erroring (see
-  the seeded-column entry in `troubleshooting.md`). Replaced with a seeder
+  the seeded-column entry in `troubleshooting/data-and-factories.md`). Replaced with a seeder
   that sets `first_name`/`last_name`, matching the actual schema.
 - Every reactive field in `CouponForm` compared `$get('field')` against an
   enum's `->value`. Filament casts an enum-backed `Select`'s state to a
@@ -3461,7 +3494,7 @@ when the work happened, not when it was committed — nothing in
   matched: the percentage cap never applied and 105 reached the database as
   a `CHECK` violation, and `max_discount_amount` and both scope pickers were
   permanently invisible. `Get::enum()` reads either representation. See
-  `troubleshooting.md` — Pint and Larastan pass on both versions.
+  `troubleshooting/filament-admin-panel.md` — Pint and Larastan pass on both versions.
 - `decimal:2` on every money field in `ProductForm` and the variations
   relation manager. With one parameter Laravel's rule means *exactly* that
   many decimal places, so a round `20` was rejected. Now `decimal:0,2`.
@@ -3480,7 +3513,7 @@ when the work happened, not when it was committed — nothing in
   is the only thing that actually holds.
 - Product forms and the three relation managers had no `maxLength` on any
   string field. The database rejects the overflow with the truncation error
-  described at the top of `troubleshooting.md`; nothing client-side stopped
+  described at the top of `troubleshooting/data-and-factories.md`; nothing client-side stopped
   it.
 - `public/css/filament` and `public/fonts/filament` existed as empty
   directories — the compiled assets were never published, so every asset
@@ -3490,7 +3523,7 @@ when the work happened, not when it was committed — nothing in
   columns, so Larastan inferred `status`/`payment_status`/`payment_method` as
   raw DB-enum string unions instead of `OrderStatus`/`PaymentStatus`/
   `PaymentMethod` the moment `TransitionOrderStatus` read one back and called
-  an enum method on it — `troubleshooting.md`'s "Larastan reports an enum
+  an enum method on it — `troubleshooting/ide-and-static-analysis.md`'s "Larastan reports an enum
   comparison as always false" entry had already named `Order` as "the next
   likely case" once this Action existed. Added the three annotations,
   matching `Coupon`'s existing precedent.

@@ -27,7 +27,8 @@ use Spatie\Permission\PermissionRegistrar;
  *
  * ShipmentFactory randomises `status`, `shipped_at`, and `delivered_at`, so
  * every test below pins what it asserts against — the trap
- * troubleshooting.md documents for the product factories applies here too.
+ * how-to/troubleshooting/data-and-factories.md documents for the product
+ * factories applies here too.
  */
 
 beforeEach(function (): void {

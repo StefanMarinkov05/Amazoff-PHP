@@ -61,9 +61,9 @@ use Stripe\Exception\ApiErrorException;
  * **The webhook forwarding trap** applies to anything driving these
  * afterward: if the Stripe CLI is authenticated to a different account than
  * `STRIPE_SECRET` belongs to, `stripe listen` prints `Ready!` and forwards
- * nothing. `docs/how-to/troubleshooting.md`, "Stripe says a payment
- * succeeded and the app still shows it pending", has the account-pair check
- * and the direct-delivery workaround.
+ * nothing. `docs/how-to/troubleshooting/payments-and-security-tooling.md`,
+ * "Stripe says a payment succeeded and the app still shows it pending", has
+ * the account-pair check and the direct-delivery workaround.
  */
 class SeedStripePayments extends Command
 {
@@ -196,7 +196,7 @@ class SeedStripePayments extends Command
             $this->line('These intents are created, not confirmed. To drive one end to end:');
             $this->line('  1. Confirm it with a test card (4242… succeeds, 4000 0025 0000 3155 needs 3DS).');
             $this->line('  2. Deliver the resulting event to <comment>/stripe/webhook</comment>.');
-            $this->line('Check the CLI/app account pair first — see troubleshooting.md, "Stripe says a payment succeeded".');
+            $this->line('Check the CLI/app account pair first — see how-to/troubleshooting/payments-and-security-tooling.md, "Stripe says a payment succeeded".');
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;

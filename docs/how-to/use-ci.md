@@ -129,7 +129,7 @@ run. A factory writing past a `varchar(60)` passed every time.
 
 The cost that normally argues for SQLite — a slow `migrate:fresh` — turned out
 to be the database container's durability settings rather than MySQL itself.
-See the entry in `troubleshooting.md`.
+See the entry in `how-to/troubleshooting/database-and-migrations.md`.
 
 ## Reproducing a CI failure locally
 

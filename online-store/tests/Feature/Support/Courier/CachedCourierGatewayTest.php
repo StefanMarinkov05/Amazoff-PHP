@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Cache;
  * (phpunit.xml, for the whole suite) never serializes at all, so every test
  * above this comment would pass even if caching DTOs directly crashed on a
  * real cache hit in production — which it did. See
- * docs/how-to/troubleshooting.md, "A cached object comes back as
- * __PHP_Incomplete_Class".
+ * docs/how-to/troubleshooting/infra-and-environment.md, "A cached object
+ * comes back as __PHP_Incomplete_Class".
  */
 
 /** A CourierGateway that counts how many times each method actually ran. */

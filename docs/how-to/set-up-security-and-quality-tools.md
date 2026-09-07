@@ -32,9 +32,10 @@ Read, in this order:
 2. **`reference/testing/security-tooling.md`**, "Configuration, as actually
    used" — *why* each setting is what it is, and the measured evidence
    behind the authenticated scan's concurrency fix specifically.
-3. **`how-to/troubleshooting.md`**, "A ZAP full scan runs the machine out of
-   memory" — what to do when a full scan does not complete, and — just as
-   important — what *not* to conclude from that. An earlier version of that
+3. **`how-to/troubleshooting/payments-and-security-tooling.md`**, "A ZAP full
+   scan runs the machine out of memory" — what to do when a full scan does
+   not complete, and — just as important — what *not* to conclude from
+   that. An earlier version of that
    entry wrongly generalised a fix that was specific to the *authenticated*
    scan onto an unauthenticated one; the corrected entry has the accurate
    account.
@@ -92,22 +93,24 @@ other active-scan rule; against `/orders/track` this OOM-killed the scan
 at both 6 GB and 10 GB caps, confirmed via `docker inspect`'s `OOMKilled`
 field, and only completed at 12 GB (`docker inspect`: `OOMKilled: false`,
 report files written, ~1h33m wall-clock — see
-`reference/testing/security-testing.md`'s "Other checks" table and
-`troubleshooting.md`'s ZAP entry for the full evidence trail). Adjust down
-only on a machine known to have less headroom, and expect the scan to fail
-to complete if you do — a smaller cap is a real, reproducible failure mode
-here, not overcaution. Budget real wall-clock time too, and expect it to
-run noticeably longer than a scan that never engages `DomXssScanRule`'s
-browser dependency: `pentest-the-system.md`'s cost table and
-`troubleshooting.md`'s memory entry (both linked above) explain why
-`-m <minutes>` alone is not a full-run time cap.
+`reference/testing/security-testing/what-held.md`'s "Other checks" table and
+`how-to/troubleshooting/payments-and-security-tooling.md`'s ZAP entry for
+the full evidence trail). Adjust down only on a machine known to have less
+headroom, and expect the scan to fail to complete if you do — a smaller cap
+is a real, reproducible failure mode here, not overcaution. Budget real
+wall-clock time too, and expect it to run noticeably longer than a scan
+that never engages `DomXssScanRule`'s browser dependency:
+`pentest-the-system.md`'s cost table and
+`how-to/troubleshooting/payments-and-security-tooling.md`'s memory entry
+(both linked above) explain why `-m <minutes>` alone is not a full-run time
+cap.
 
 ### An authenticated scan
 
 Needs a real session cookie and an Automation Framework plan, not a bare
 CLI flag — `pentest-the-system.md`'s "The authenticated scan" subsection is
 the actual procedure and the one owner of the invocation, and
-`reference/testing/security/zap-auth.yaml` is the checked-in, reusable
+`reference/testing/scanner-tooling/zap-auth.yaml` is the checked-in, reusable
 plan. Do not write a new authenticated-scan config from scratch; that file
 already encodes four rounds of trial-and-error (session injection, the
 port-normalisation bug, the concurrency race) that would otherwise repeat.

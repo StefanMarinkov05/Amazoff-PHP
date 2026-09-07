@@ -11,8 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Adds the response headers `docker/nginx/*.conf` does not, and that Forge's
  * production nginx cannot be assumed to add either — see
- * `reference/testing/security-testing.md`, SEC-004, an OWASP ZAP baseline scan that
- * found none of these present.
+ * `reference/testing/security-testing/sec-001-to-004.md`, SEC-004, an OWASP
+ * ZAP baseline scan that found none of these present.
  *
  * Global (`bootstrap/app.php`'s `$middleware->append()`), not scoped to the
  * `web` group: the Filament panel builds its own middleware stack in

@@ -27,7 +27,8 @@ docker compose exec app ./vendor/bin/pint
 Run the formatter before pushing to any branch, not only before opening a pull
 request. CI only runs on pull requests targeting `main`, so a chain of feature
 branches merging into each other is unchecked until the final hop — see the
-"A failing Pint check reaches `main` anyway" entry in `troubleshooting.md`.
+"A failing Pint check reaches `main` anyway" entry in
+`how-to/troubleshooting/ide-and-static-analysis.md`.
 
 ## A single file or a single test
 
@@ -122,7 +123,7 @@ Re-measure if the machine or the schema's migration cost changes materially
 universal constant.
 
 A fresh Docker volume needs one extra grant before any of this works — see
-`troubleshooting.md`.
+`how-to/troubleshooting/concurrency-and-testing-races.md`.
 
 ## Which database the tests use
 
@@ -138,7 +139,7 @@ would be absent for the entire suite while it stayed green. ADR-0005 and
 
 If `pest` fails with `Access denied ... to database 'online_shop_test'`, the
 database was never created locally. The fix and why it only affects older
-Docker volumes are in `troubleshooting.md`.
+Docker volumes are in `how-to/troubleshooting/database-and-migrations.md`.
 
 ## Seeding inside a test
 
@@ -222,4 +223,4 @@ concurrency test PCOV can't see and which are genuinely untested.
 |---|---|
 | `tests/Feature/FactoryTest.php` | Every factory persists a row — catches a factory writing a value its column cannot hold |
 | `tests/Feature/RolePermissionTest.php` | The §37 criterion 18 access matrix, policy existence, and seeder idempotency |
-| `tests/Unit/ExampleTest.php` | Framework placeholder, not yet replaced |
+| `tests/Feature/ExampleTest.php` | `/` redirects to `/catalogue` — there is no standalone home page yet (spec §4, still Not met) |

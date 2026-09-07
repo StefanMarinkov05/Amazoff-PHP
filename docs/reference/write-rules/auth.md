@@ -35,9 +35,10 @@ not that the row was overlooked.
 
 Same rule `concurrency.md` states for contested state: verified means the
 test has been observed failing with the mechanism removed and passing with
-it restored. `troubleshooting.md`'s "`Auth::logoutOtherDevices()` is
-called, and other sessions stay signed in" entry is what this discipline
-caught — a docblock asserting a guarantee that was, at the time, false.
+it restored. `how-to/troubleshooting/auth-and-sessions.md`'s
+"`Auth::logoutOtherDevices()` is called, and other sessions stay signed in"
+entry is what this discipline caught — a docblock asserting a guarantee
+that was, at the time, false.
 
 ## One actor, no concurrency
 

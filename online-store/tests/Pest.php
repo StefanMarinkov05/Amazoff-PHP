@@ -95,8 +95,9 @@ expect()->extend('toBeOne', function () {
  *
  * Grant everything the operation needs *except* the permission under test —
  * an actor holding none is denied by whichever check runs first, which for a
- * composed Action is rarely the one being tested. See troubleshooting.md,
- * "An authorization test passes with the authorization check deleted".
+ * composed Action is rarely the one being tested. See
+ * how-to/troubleshooting/ide-and-static-analysis.md, "An authorization test
+ * passes with the authorization check deleted".
  */
 function catalogueActor(string ...$permissions): User
 {

@@ -28,8 +28,8 @@ use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {
     // RefreshDatabase truncates without clearing spatie's 24-hour permission
-    // cache — see troubleshooting.md, "A permission change saves and does not
-    // take effect".
+    // cache — see how-to/troubleshooting/database-and-migrations.md, "A
+    // permission change saves and does not take effect".
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->seed(PermissionSeeder::class);

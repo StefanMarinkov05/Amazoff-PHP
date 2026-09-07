@@ -21,7 +21,8 @@ class AttributeFactory extends Factory
         return [
             'name' => fake()->name(),
             // varchar(60). Bounded by word count so it cannot overrun — see
-            // TagFactory, and the truncation entry in how-to/troubleshooting.md.
+            // TagFactory, and the truncation entry in
+            // how-to/troubleshooting/data-and-factories.md.
             'slug' => fake()->unique()->slug(2),
             'input_type' => fake()->randomElement(AttributeInputType::cases()),
             'is_filterable' => fake()->boolean(),

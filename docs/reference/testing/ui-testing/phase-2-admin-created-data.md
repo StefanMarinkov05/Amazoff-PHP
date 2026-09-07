@@ -17,16 +17,16 @@ image.
 through `CreateProduct` exactly as an admin form submission would call
 it — not a factory shortcut.
 
-![Filament's create-product form: no image field anywhere in it](../../assets/ui-testing/phase2-admin-create-product-no-image-field.png)
+![Filament's create-product form: no image field anywhere in it](../../../assets/ui-testing/phase2-admin-create-product-no-image-field.png)
 
 This one **already worked correctly**, on all three storefront surfaces —
 worth recording as a clean result, not only the breaks:
 
 | Surface | Result |
 |---|---|
-| Product detail | ![Graceful "no photo" illustration](../../assets/ui-testing/phase2-no-image-row-graceful.png) |
-| Catalogue card | ![Same graceful placeholder on the card](../../assets/ui-testing/phase2-no-image-row-catalogue-card.png) |
-| Cart | ![And in the basket, after add-to-cart](../../assets/ui-testing/phase2-no-image-row-cart.png) |
+| Product detail | ![Graceful "no photo" illustration](../../../assets/ui-testing/phase2-no-image-row-graceful.png) |
+| Catalogue card | ![Same graceful placeholder on the card](../../../assets/ui-testing/phase2-no-image-row-catalogue-card.png) |
+| Cart | ![And in the basket, after add-to-cart](../../../assets/ui-testing/phase2-no-image-row-cart.png) |
 
 `ResolveVariationImage::urlOrDefault()` (cart) and each Blade template's own
 `@if ($image) … @else` branch (catalogue, product detail) both already
@@ -43,7 +43,7 @@ pointing at a path nothing was ever written to. Confirmed by creating
 exactly that row directly against the running database, the state any of
 those real causes converges on.
 
-![Before the fix: the browser's native broken-image icon, on a fully "valid" product](../../assets/ui-testing/phase2-broken-image-BEFORE-fix.png)
+![Before the fix: the browser's native broken-image icon, on a fully "valid" product](../../../assets/ui-testing/phase2-broken-image-BEFORE-fix.png)
 
 Console jumped from the 4-error baseline to 5 — `Failed to load resource:
 the server responded with a status of 403` against the missing path — on
@@ -63,7 +63,7 @@ Blade templates that previously called `Storage::url()` raw, and
 `ResolveVariationImage::urlOrDefault()`, which now defers to the model
 method instead of duplicating the check).
 
-![After the fix: the same broken row, same three surfaces, graceful placeholder throughout](../../assets/ui-testing/phase2-broken-image-AFTER-fix.png)
+![After the fix: the same broken row, same three surfaces, graceful placeholder throughout](../../../assets/ui-testing/phase2-broken-image-AFTER-fix.png)
 
 Console back to the 4-error baseline on all three. 8 regression tests in
 `tests/Feature/Support/ResolveVariationImageTest.php`, 2 of them new and

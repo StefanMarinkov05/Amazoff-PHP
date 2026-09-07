@@ -242,7 +242,7 @@ curl -s http://localhost:5173/resources/css/app.css | grep -c 'md...grid-cols-2'
 Note the escaping: `md:grid-cols-2` appears as `md\\:grid-cols-2`, so match
 the colon with `...` rather than a literal `:`.
 
-`how-to/troubleshooting.md` has the full entry.
+`how-to/troubleshooting/assets-vite-frontend.md` has the full entry.
 
 ### Version syntax
 

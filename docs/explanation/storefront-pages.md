@@ -133,5 +133,6 @@ The `@source` lines are load-bearing and non-obvious: Tailwind's automatic
 source detection anchors at the git root, `.git` sits one level above
 `online-store/`, and the container mounts only `online-store/`, so detection
 finds nothing and only the explicit globs apply. If a utility class appears
-not to work, read the entry in `how-to/troubleshooting.md` before editing the
+not to work, read the entry in
+`how-to/troubleshooting/assets-vite-frontend.md` before editing the
 template — the class is usually fine and simply was never compiled.

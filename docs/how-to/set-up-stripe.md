@@ -50,7 +50,8 @@ docker compose exec app php artisan tinker --execute='echo app(Stripe\StripeClie
 ```
 
 Compare the printed `acct_…` id against what the project actually uses —
-ask a teammate or check `how-to/troubleshooting.md`'s Stripe account
+ask a teammate or check
+`how-to/troubleshooting/payments-and-security-tooling.md`'s Stripe account
 section. **Do this check by account id, not by the account's display name**
 — a Stripe login can hold two accounts that show the identical name (this
 project's own account and a personal sandbox both display as "Amazoff"),
@@ -110,9 +111,9 @@ the switch took with the same `stripe config --list` check above, and cross-
 check against the app's own resolved account
 (`app(Stripe\StripeClient::class)->accounts->retrieve()->id`, §1) — they
 must match, or `stripe listen` forwards nothing while still printing
-`Ready!`. `how-to/troubleshooting.md`, "Stripe says a payment succeeded and
-the app still shows it pending", has the full incident this project hit
-from exactly this trap.
+`Ready!`. `how-to/troubleshooting/payments-and-security-tooling.md`,
+"Stripe says a payment succeeded and the app still shows it pending", has
+the full incident this project hit from exactly this trap.
 
 ## 3. Get the webhook signing secret
 

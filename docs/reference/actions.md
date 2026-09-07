@@ -676,5 +676,8 @@ cart, and last-live-variation refusals.
 `reference/write-rules/concurrency.md` records which specific test covers each.
 
 The two failure modes that make a guard test pass while proving nothing — an
-exception raised by a nested Action, and fault injection on the connection
-holding the lock — are written up in `how-to/troubleshooting.md`.
+exception raised by a nested Action, written up in
+`how-to/troubleshooting/ide-and-static-analysis.md`, and fault injection on
+the connection holding the lock, in
+`how-to/troubleshooting/concurrency-and-testing-races.md` — are written up
+in the troubleshooting tree.

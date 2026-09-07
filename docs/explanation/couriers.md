@@ -8,6 +8,12 @@ this page is the thing that decision produced.
 
 ## The shape of it
 
+Rendered as a component diagram:
+[view source](../reference/diagrams/courier-layers/courier-layers.puml) ·
+[view PDF](../reference/diagrams/courier-layers/courier-layers.pdf) — the
+maintained version if the two ever disagree. Kept here too for a plain-text
+read.
+
 ```
   CheckoutPage / CalculateDeliveryPrice          Actions\Order\CreateOrder
         │  Courier::for($carrier)                      │  CourierManager (injected)
@@ -89,9 +95,10 @@ Caching a write is a bug; caching a tracking poll would mean the customer's
 security default — which makes every `unserialize()`-based cache store
 silently discard the class of any cached object on the next read. Caching a
 `Collection<CourierOffice>` directly works on the first (cache-miss) call
-and then breaks every subsequent one; see `docs/how-to/troubleshooting.md`,
-"A cached object comes back as `__PHP_Incomplete_Class`", for the full
-failure mode and why the test suite cannot catch it.
+and then breaks every subsequent one; see
+`docs/how-to/troubleshooting/infra-and-environment.md`, "A cached object
+comes back as `__PHP_Incomplete_Class`", for the full failure mode and why
+the test suite cannot catch it.
 
 ## The fallback, and where `cod_fee` gets added
 

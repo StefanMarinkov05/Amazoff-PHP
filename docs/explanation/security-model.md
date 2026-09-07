@@ -69,9 +69,10 @@ There, the entire perimeter is **signature verification in middleware**
 the other is a free-products vulnerability.") — not anything inside the
 Actions. When that lands, the signature check needs the same proof every
 other guard in this codebase gets: delete it, watch a forged webhook succeed,
-restore it. See `how-to/troubleshooting.md`, "A concurrency test passes
-whether or not the lock is there" for the general shape of that proof, applied
-here to an authorization check instead of a lock.
+restore it. See `how-to/troubleshooting/concurrency-and-testing-races.md`,
+"A concurrency test passes whether or not the lock is there" for the general
+shape of that proof, applied here to an authorization check instead of a
+lock.
 
 ## If a future call site needs null-actor to be a real refusal
 
