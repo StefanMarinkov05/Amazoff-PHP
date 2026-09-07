@@ -51,16 +51,16 @@ hide circle
 
 legend top left
   |= Marker |= Meaning |
-  | dot before a column | Primary key |
-  | PK | Primary key (composite pivots carry more than one) |
-  | FK | Foreign key, verified against KEY_COLUMN_USAGE, not MySQL's MUL alone |
-  | unique | UNIQUE constraint |
-  | nullable | Column allows NULL |
-  |= Cardinality |= Meaning |
-  | 1 required to N optional | Standard 1:N, FK not nullable |
-  | 1 optional to N optional | 1:N, FK nullable |
-  | 1 to 0-or-1 | 1:1, FK unique and nullable |
-  | N to N | Many to many, drawn as two 1:N legs into the pivot table between them |
+  | ""*"" before a column | Primary key |
+  | ""<<PK>>"" | Primary key (composite pivots carry more than one) |
+  | ""<<FK>>"" | Foreign key, verified against KEY_COLUMN_USAGE, not MySQL's MUL alone |
+  | ""<<unique>>"" | UNIQUE constraint |
+  | ""<<nullable>>"" | Column allows NULL |
+  |= Connector |= Meaning |
+  | ""&#124;&#124;--o{"" | One (required) to many (optional) — standard 1:N, FK not nullable |
+  | ""&#124;o--o{"" | One (optional) to many (optional) — 1:N, FK nullable |
+  | ""&#124;&#124;--o&#124;"" | One to zero-or-one — 1:1, FK unique and nullable |
+  | ""}o--o{"" | Many to many, drawn as two 1:N legs into the pivot table between them |
 endlegend
 
 ' ---------- Identity ----------
