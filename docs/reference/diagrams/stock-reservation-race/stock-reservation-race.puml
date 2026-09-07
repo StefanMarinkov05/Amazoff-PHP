@@ -1,0 +1,55 @@
+@startuml stock-reservation-race
+
+' Replaces the t1..t10 ASCII interleaving table in
+' explanation/concurrency-and-locking.md, "The failure". Same scenario,
+' same timeline — two customers checking out on the last item,
+' current = 1, reserved = 0, no lock held.
+
+title Stock reservation — the race the lock exists to close
+
+participant "Request A" as A
+participant "Request B" as B
+database "inventories\n(current=1, reserved=0)" as DB
+
+A -> DB : BEGIN
+A -> DB : SELECT → reserved = 0
+activate A
+
+B -> DB : BEGIN
+B -> DB : SELECT → reserved = 0
+activate B
+
+note over A, B
+  **Both read before either wrote.**
+  Both decided on state that was true
+  when read and false once acted on.
+  This IS the check-then-act pattern —
+  the window between the two SELECTs
+  and the two UPDATEs below is where
+  every version of this bug lives.
+end note
+
+A -> A : available = 1 - 0 = 1 >= 1\n**proceed**
+B -> B : available = 1 - 0 = 1 >= 1\n**proceed**
+
+A -> DB : UPDATE reserved = 1
+A -> DB : COMMIT
+deactivate A
+
+B -> DB : UPDATE reserved = 1
+B -> DB : COMMIT
+deactivate B
+
+note over DB
+  **Oversold.** Both requests reserved the
+  same single unit. reserved=1 satisfies
+  chk_inventories_reserved_not_above_current
+  (it never went above current), so the
+  CHECK constraint — which catches a stale
+  read-modify-write — cannot catch THIS
+  failure, because current never got
+  compared against two DIFFERENT reservation
+  attempts, only the final value.
+end note
+
+@enduml

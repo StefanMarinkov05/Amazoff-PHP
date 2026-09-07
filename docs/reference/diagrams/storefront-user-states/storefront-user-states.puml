@@ -1,0 +1,116 @@
+@startuml storefront-user-states
+
+' Logical states a visitor moves through, not the OrderStatus/ShipmentStatus
+' backend enums (those are separate state machines — see ADR-0004 and
+' reference/write-rules/order.md). This is the site's own use-case-level
+' state machine: which routes belong to which mode, and how a visitor moves
+' between modes. Verified against online-store/routes/web.php and
+' AdminPanelProvider on 2026-09-07 (full-site-testing @ 3639994) — re-check
+' against those two files before trusting this diagram much later, since
+' routing is exactly the kind of thing that drifts.
+
+title Storefront and admin — logical state map
+
+state "Anonymous" as Anon {
+  state "Browsing" as Browsing
+  Browsing : /catalogue  (redirect target of /)
+  Browsing : /products/{slug}
+  Browsing : /journal, /journal/{slug}
+  Browsing : /about, /contact, /faq, /delivery,
+  Browsing : /payment-information, /terms,
+  Browsing : /privacy, /cookies
+
+  state "Shopping (cart)" as CartState
+  CartState : /cart — App\Livewire\Cart\CartPage
+
+  state "Checkout (guest)" as GuestCheckout
+  GuestCheckout : /checkout — same component whether
+  GuestCheckout : signed in or not (§37 #6/#7);
+  GuestCheckout : guest order carries no user_id
+
+  Browsing --> CartState : add to cart
+  CartState --> Browsing : keep browsing
+  CartState --> GuestCheckout : proceed to checkout
+}
+
+state "Authenticating" as AuthFlow {
+  state "Login" as Login
+  Login : /login (guest middleware only)
+  state "Register" as Register
+  Register : /register (guest middleware only)
+}
+
+Anon --> AuthFlow : follow /login or /register
+AuthFlow --> Anon : back (still no session)
+
+state "Authenticated customer" as Customer {
+  state "Browsing (signed in)" as CustBrowsing
+  state "Shopping (signed in)" as CustCart
+  state "Checkout (signed in)" as CustCheckout
+  CustCheckout : same CheckoutPage component as guest;
+  CustCheckout : prefilled details, order.user_id set
+
+  state "Order confirmation" as Confirmation
+  Confirmation : /checkout/confirmation/{order}
+  Confirmation : NOT a public lookup — refuses anything
+  Confirmation : the visitor neither owns nor just placed
+
+  state "Account" as Account
+  Account : /account/password (auth)
+  Account : /account/orders (auth, scoped to
+  Account : auth()->user()->orders(), never Order::query())
+
+  CustBrowsing --> CustCart : add to cart
+  CustCart --> CustCheckout : proceed to checkout
+  CustCheckout --> Confirmation : order placed
+  CustBrowsing --> Account : view account
+  Account --> CustBrowsing : back
+}
+
+AuthFlow --> Customer : credentials accepted
+GuestCheckout --> Confirmation : order placed (guest)
+
+Customer --> Anon : POST /logout\n(session invalidated,\ntoken regenerated,\nredirect → /catalogue)
+
+state "Order tracking (public, no session needed)" as Tracking
+Tracking : /orders/track — requires order number
+Tracking : AND email together (sequential numbers
+Tracking : alone would enumerate every address);
+Tracking : rate-limited
+
+Anon --> Tracking : has order number + email
+Customer --> Tracking : also reachable while signed in
+
+state "Admin panel" as AdminGate <<choice>>
+state "Staff (panel access)" as Staff
+Staff : /admin/* — gated by canAccessPanel():
+Staff : role membership (User::STAFF_ROLES)
+Staff : AND is_active, re-checked every request
+Staff : (EnsureAccountIsActive) — a session outlives
+Staff : the row it authenticated against
+
+state "Denied — 403" as PanelDenied
+
+Customer --> AdminGate : visits /admin
+AdminGate --> Staff : has a STAFF_ROLES role\nand is_active
+AdminGate --> PanelDenied : no role, or\ndeactivated mid-session
+PanelDenied --> Customer : back to storefront
+
+note right of Staff
+  No /admin/login — Filament's own login()
+  is removed; staff sign in through the same
+  /login the storefront uses, then reach the
+  panel via "Admin panel" in the account menu,
+  which calls canAccessPanel() itself so the
+  link and the gate cannot disagree.
+end note
+
+note bottom of Confirmation
+  Guest and signed-in checkout converge here.
+  This is NOT the OrderStatus state machine —
+  that begins after this point and is driven by
+  TransitionOrderStatus (ADR-0004), independent
+  of which visitor state placed the order.
+end note
+
+@enduml

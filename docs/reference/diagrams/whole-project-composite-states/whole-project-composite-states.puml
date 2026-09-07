@@ -1,0 +1,279 @@
+@startuml whole-project-composite-states
+
+' Everything this project has as a state machine, in ONE self-contained
+' diagram — no other file needed to read it. Every state and edge here is
+' verified against the same sources as the individual diagrams it absorbs:
+' App\Enums\OrderStatus, App\Enums\PaymentStatus,
+' App\Actions\Order\TransitionOrderStatus, routes/web.php, canAccessPanel().
+' Verified 2026-09-07. If this diagram and any of those disagree, the code
+' is right — regenerate.
+
+title The whole project as one state machine
+
+skinparam state {
+  BackgroundColor<<terminal>> #FFE0E0
+  BackgroundColor<<paid>> #E0F5E0
+  BackgroundColor<<fulfil>> #E8F0FF
+  BackgroundColor<<money_in>> #E0F5E0
+  BackgroundColor<<live>> #E8F0FF
+}
+
+state "IP allowed?" as IpGate <<choice>>
+state "Blocked" as IpBlocked <<terminal>>
+IpBlocked : host/firewall level — this app has\nNO general IP allowlist or blacklist of its\nown; if one exists it is infrastructure\nconfig outside this diagram's code, not a\ncondition any Action or middleware evaluates
+
+state "Has a valid session cookie?" as SessionGate <<choice>>
+SessionGate : checked once, at the first\nrequest of a visit — AuthenticateSession\n/ EnsureAccountIsActive re-check it on\nEVERY later request (see below)
+
+[*] --> IpGate : any visit to the site
+IpGate --> IpBlocked : no
+IpGate --> SessionGate : yes\n(the overwhelmingly common case —\nthere is no real gate here today)
+SessionGate --> Anon : no cookie,\nor cookie's session\nhas no authenticated user
+SessionGate --> Customer : valid session,\nauthenticated user\n(re-verified by AuthenticateSession\n+ EnsureAccountIsActive on THIS\nand every later request, not\ntrusted from the cookie alone)
+
+state "Stripe IP allowlisted?" as StripeIpGate <<choice>>
+state "Rejected — not Stripe" as StripeIpBlocked <<terminal>>
+
+[*] --> StripeIpGate : POST /stripe/webhook\n(external, independent of\nany visitor session above)
+StripeIpGate --> StripeIpBlocked : no
+StripeIpGate --> PPending : yes
+
+state "Visitor journey" as Journey {
+
+  state "Anonymous" as Anon {
+    state "Browsing" as Browsing
+    Browsing : /catalogue, /products/{slug}, /journal,\n/about, /contact, /faq, /delivery,\n/payment-information, /terms, /privacy, /cookies
+    state "Shopping (cart)" as CartState
+    CartState : /cart
+    Browsing --> CartState : add to cart
+    CartState --> Browsing : keep browsing
+  }
+
+  state "Authenticating" as AuthFlow {
+    state "Login" as Login
+    Login : /login (guest middleware)
+    state "Register" as Register
+    Register : /register (guest middleware)
+  }
+
+  state "Authenticated customer" as Customer {
+    state "Browsing (signed in)" as CustBrowsing
+    state "Shopping (signed in)" as CustCart
+    state "Account" as Account
+    Account : /account/password\n/account/orders\n(scoped to auth()->user()->orders())
+    CustBrowsing --> CustCart : add to cart
+    CustBrowsing --> Account : view account
+    Account --> CustBrowsing : back
+  }
+
+  Anon --> AuthFlow : follow /login or /register
+  AuthFlow --> Anon : back (still no session)
+  AuthFlow --> Customer : credentials accepted
+  Customer --> Anon : **POST /logout**\n(session invalidated,\ntoken regenerated,\nredirect to /catalogue)
+
+  state "Staff (panel access)" as Staff <<paid>>
+  Staff : /admin/* — canAccessPanel():\nrole membership (STAFF_ROLES)\nAND is_active, re-checked EVERY request
+  state "Denied — 403" as PanelDenied <<terminal>>
+
+  Customer --> Staff : has a STAFF_ROLES role\nand is_active
+  Customer --> PanelDenied : visits /admin,\nno role or deactivated
+  PanelDenied --> Customer : back to storefront
+
+  state "Order tracking" as Tracking
+  Tracking : /orders/track — order number\nAND email together, rate-limited\n(sequential numbers alone would\nenumerate every address)
+  Anon --> Tracking : has order number + email
+  Customer --> Tracking : also reachable while signed in
+}
+
+state "Checkout" as CheckoutSuper {
+  CheckoutSuper : same CheckoutPage component whether\nguest (§37 #6) or signed in (§37 #7) —\nonly difference is prefilled details\nand whether order.user_id is set
+
+  state "Order created" as OrderCreated <<paid>>
+  OrderCreated : **ONE transaction:**\nCreateOrder (reserves stock,\nredeems coupon, snapshots VAT)\n+ RecordPayment
+
+  [*] --> OrderCreated
+
+  state "Payment" as PaymentSuper {
+    PaymentSuper : §13, ADR-0004. Guards out-of-order Stripe\nwebhooks, NOT a user — UNIQUE on\npayment_events.stripe_event_id stops\none event applying twice (a different problem)
+
+    state "Pending" as PPending <<live>>
+    PPending : payment row exists,\nno money moved yet
+    state "Processing" as PProcessing <<live>>
+    PProcessing : intent confirmed,\nawaiting settlement
+    state "Paid" as PPaid <<money_in>>
+    PPaid : paid_at stamped;\nthe ONLY writer is the webhook
+    state "Failed" as PFailed <<live>>
+    PFailed : NOT terminal — Stripe allows retry\non the same PaymentIntent
+    state "PartiallyRefunded" as PPartial <<money_in>>
+    PPartial : refunded_amount < amount
+    state "Disputed" as PDisputed
+    PDisputed : chargeback opened\n(charge.dispute.created)
+    state "Cancelled" as PCancelled <<terminal>>
+    PCancelled : intent cancelled —\ncannot be revived
+    state "Refunded" as PRefunded <<terminal>>
+    PRefunded : full refund — end of the payment
+
+    [*] --> PPending : RecordPayment (order placed)
+
+    PPending --> PProcessing
+    PPending --> PPaid : webhook arrives before\nany processing update
+    PPending --> PFailed
+    PPending --> PCancelled
+
+    PProcessing --> PPaid : payment_intent.succeeded
+    PProcessing --> PFailed : payment_intent.payment_failed
+    PProcessing --> PCancelled
+
+    PFailed --> PPending : retry
+    PFailed --> PProcessing : retry
+    PFailed --> PPaid : retry succeeds outright
+    PFailed --> PCancelled
+
+    PPaid --> PRefunded : full refund
+    PPaid --> PPartial : partial refund
+    PPaid --> PDisputed : chargeback
+
+    PPartial --> PPartial : further partial refund\n(refunded_amount changes,\nstatus does not)
+    PPartial --> PRefunded : topped up to full
+    PPartial --> PDisputed
+
+    PDisputed --> PPaid : merchant WINS
+    PDisputed --> PRefunded : merchant LOSES
+
+    PCancelled --> [*]
+    PRefunded --> [*]
+
+    note right of PFailed
+      Failed loops back INTO the live
+      region — not a dead end. Only
+      Cancelled and Refunded are terminal.
+    end note
+
+    note bottom of PDisputed
+      charge.dispute.created moves it IN.
+      The closing events (charge.dispute.closed)
+      are NOT handled yet — the move back out
+      is currently a manual panel action.
+    end note
+  }
+
+  OrderCreated --> PaymentSuper : CreateStripeIntent (card path)
+  OrderCreated --> Confirmation : **cash on delivery**\n(no intent, no Stripe Elements —\nCreateStripeIntent refuses COD)
+
+  state "Order confirmation page" as Confirmation
+  Confirmation : /checkout/confirmation/{order}\n**NOT proof of payment** — the customer can\nclose the tab, lose connection, or never see\nthis page and the payment still completes,\nbecause the ONLY writer of payments.status\nis the webhook, on a completely different path
+
+  PPaid --> Confirmation : redirect after confirmPayment()\n(the webhook path is separate\nand asynchronous — see above)
+}
+
+Customer --> CheckoutSuper : proceed to checkout
+Anon --> CheckoutSuper : proceed to checkout (guest)
+CheckoutSuper --> Journey : back to browsing
+
+state "Order fulfilment" as OrderSuper {
+  OrderSuper : §18, ADR-0004 (legality) + ADR-0011 (side effects\nlive on the transition, not a wrapper Action).\n**TransitionOrderStatus is the ONLY writer**\nof orders.status and order_status_histories.
+
+  state "New" as ONew
+  state "AwaitingPayment" as OAwaiting <<paid>>
+  OAwaiting : Stripe orders only
+  state "Paid" as OPaid <<paid>>
+  state "Confirmed" as OConfirmed <<paid>>
+  state "Preparing" as OPreparing <<fulfil>>
+  state "ReadyForShipment" as OReady <<fulfil>>
+  state "Shipped" as OShipped <<fulfil>>
+  state "Delivered" as ODelivered <<fulfil>>
+  state "Cancelled" as OCancelled
+  state "Returned" as OReturned
+  state "Refunded" as ORefunded <<terminal>>
+
+  [*] --> ONew : CreateOrder\n(every order lands here,\nregardless of payment method)
+
+  ONew --> OAwaiting : card payment
+  ONew --> OConfirmed : **cash on delivery**\n(skips the payment leg entirely —\nroughly half of orders take this leg)
+  ONew --> OCancelled : **ReleaseStock**
+
+  OAwaiting --> OPaid : webhook confirms
+  OAwaiting --> OCancelled : **ReleaseStock**
+
+  OPaid --> OConfirmed
+  OPaid --> OCancelled : **ReleaseStock**
+  OPaid --> ORefunded
+
+  OConfirmed --> OPreparing
+  OConfirmed --> OCancelled : **ReleaseStock**
+  OConfirmed --> ORefunded
+
+  OPreparing --> OReady
+  OPreparing --> OCancelled : **ReleaseStock**
+
+  OReady --> OShipped : **CompleteSale**
+  OReady --> OCancelled : **ReleaseStock**
+
+  OShipped --> ODelivered
+  OShipped --> OReturned : **RestockReturn**
+
+  ODelivered --> OReturned : **RestockReturn**
+
+  OCancelled --> ORefunded
+  OReturned --> ORefunded
+
+  ORefunded --> [*]
+
+  note right of ONew
+    Two entry legs: COD goes New --> Confirmed
+    directly, never touching AwaitingPayment or
+    Paid. This is entirely independent of which
+    state the PAYMENT state machine above is in —
+    the two enums do not reference each other.
+  end note
+
+  note as EffectsNote
+    **Inventory effects live on the edge, not in a wrapper**
+    (TransitionOrderStatus::applyInventoryEffect).
+    Only three target statuses carry one:
+    --> Cancelled   ReleaseStock    (frees the reservation)
+    --> Shipped     CompleteSale    (reservation becomes a sale)
+    --> Returned    RestockReturn   (stock comes back)
+    Every other transition has no inventory effect. ADR-0011:
+    a caller reaching Cancelled cannot skip releasing stock
+    by forgetting a wrapper Action.
+  end note
+
+  note bottom of ORefunded
+    The graph is acyclic — proven by
+    tests/Unit/Enums/TransitionMatrixTest.php —
+    which is what makes a repeated transition a
+    safe no-op rather than a race.
+  end note
+}
+
+Confirmation --> OrderSuper : order placed —\nOrderSuper begins independently\nof whatever PaymentSuper does next
+
+note as WholeNote
+  <b>Payment and Order are two SEPARATE state machines running on the same order concurrently, not one combined graph.</b>
+  An order can sit in Confirmed while its payment sits in Disputed; neither enum
+  references or knows the other's current state directly — the only
+  connection between them is that the SAME order and payment row exist,
+  and TransitionOrderStatus/TransitionPaymentStatus are each the sole
+  writer of their own column.
+end note
+
+state "Visitor leaves" as SiteExit <<terminal>>
+SiteExit : closes the tab, navigates away, or the\nsession simply expires — no server-side\nevent marks this; it is the visitor's own\nchoice, reachable from literally anywhere above
+
+Journey --> SiteExit : close site
+CheckoutSuper --> SiteExit : close site\n(mid-checkout abandonment —\nthe order row already exists;\nsee OrderSuper's own states\nfor what happens to it)
+OrderSuper --> SiteExit : close site
+IpBlocked --> SiteExit
+
+note right of SiteExit
+  Modeled once, at the top level, rather than
+  repeating a "close site" edge on every leaf
+  state inside Journey/CheckoutSuper/OrderSuper —
+  a composite state's own exit transition covers
+  every substate inside it in PlantUML's semantics,
+  so one edge per top-level region is sufficient
+  and equivalent to one per leaf.
+end note
+
+@enduml

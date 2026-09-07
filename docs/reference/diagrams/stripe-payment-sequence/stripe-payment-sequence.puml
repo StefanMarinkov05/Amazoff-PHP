@@ -1,0 +1,156 @@
+@startuml stripe-payment-sequence
+
+' Replaces the hand-drawn ASCII diagram in explanation/stripe-payments.md
+' ("The shape of it"). Verified against that file,
+' App\Actions\Order\CreateOrder, App\Actions\Payment\RecordPayment,
+' App\Actions\Payment\CreateStripeIntent,
+' App\Http\Controllers\Payment\StripeWebhookController,
+' App\Http\Middleware\VerifyStripeWebhookSignature, and
+' resources/views/livewire/checkout/checkout-page.blade.php on 2026-09-07.
+' Keep the two in sync — the ASCII original documents intent well but this
+' is now the maintained source; update this file first.
+'
+' Every synchronous call RETURNS — the actual object/DTO/status the code
+' hands back, not a fire-and-forget arrow — so a reader can see what exists
+' after each step, not just infer success. Activation bars mark each
+' instance's real lifetime: CheckoutPage stays active across the whole
+' request; Webhook activates only for the async delivery it's actually
+' processing.
+
+title Stripe payment — the shape of it, with returns and failure paths (explanation/stripe-payments.md)
+
+participant "Cart page" as Cart
+participant "CheckoutPage" as Checkout
+participant "Stripe" as Stripe
+participant "Webhook\n(HandleStripeWebhookEvent)" as Webhook
+database "payments /\norders" as DB
+
+Cart -> Checkout : "Checkout"
+activate Checkout
+
+group ONE TRANSACTION
+  Checkout -> DB : CreateOrder(cart, addresses, carrier)
+  activate DB
+  DB --> Checkout : Order #1\n(serial=ORD-000001, status=New)
+  deactivate DB
+
+  Checkout -> DB : RecordPayment(order, method)
+  activate DB
+  DB --> Checkout : Payment #1\n(status=Pending, amount=19.90)
+  deactivate DB
+
+  Checkout -> Stripe : CreateStripeIntent(payment)
+  activate Stripe
+  Stripe --> Checkout : <color:green>200</color> Payment #1\n(stripe_payment_intent_id set,\nclient_secret returned)
+  deactivate Stripe
+end
+
+note over Checkout
+  Stripe Elements — card fields served
+  by Stripe, never by us. No card data
+  reaches this app's servers.
+end note
+
+Checkout -> Stripe : confirmPayment(client_secret)
+activate Stripe
+
+alt <color:green>card accepted</color>
+  Stripe --> Checkout : redirect_status=succeeded\n(browser redirected to\n/checkout/confirmation/1)
+  note right of Checkout
+    <b>NOT proof of payment.</b>
+    The customer can close the tab,
+    lose their connection, or never
+    see this page — see the webhook
+    path below, which is independent.
+  end note
+else <color:red>card declined / entry error</color>
+  Stripe --> Checkout : <color:red>{ error: stripeError }</color>\n(no redirect — stays on /checkout)
+  Checkout -> Checkout : stripeError.message shown inline\n(#stripe-error, role="alert") —\ncustomer sees "Your card was declined"\nimmediately, in Stripe's own words
+end
+deactivate Stripe
+
+deactivate Checkout
+
+...async, on Stripe's own schedule — independent of what the browser did above...
+
+Stripe -> Webhook : POST /stripe/webhook\npayment_intent.succeeded
+activate Webhook
+
+alt <color:red>signature missing or invalid</color>
+  Webhook --> Stripe : <color:red>400</color> {"error":"Missing signature."}\nor {"error":"Invalid signature."}
+  note right of Webhook
+    VerifyStripeWebhookSignature runs BEFORE
+    the controller. Fails closed — a payment
+    can never be marked Paid by a request that
+    doesn't verify. Stripe will retry a 400
+    with backoff for up to 3 days, same as
+    any other non-2xx.
+  end note
+else <color:orange>webhook secret not configured</color>
+  Webhook --> Stripe : <color:orange>500</color> {"error":"Webhook not configured."}
+  note right of Webhook
+    Deliberately 500, not 400 — the request may
+    well be legitimate; this is an ops gap on
+    THIS app's side, and 500 tells Stripe to
+    keep retrying until it's fixed.
+  end note
+else <color:green>signature verifies</color>
+  Webhook -> DB : insert payment_events row\n(stripe_event_id, UNIQUE)
+  activate DB
+  DB --> Webhook : PaymentEvent #1\n(id assigned) — or a caught\nUNIQUE violation on redelivery,\ntreated as already-applied, still 200
+  deactivate DB
+
+  alt <color:green>processing succeeds</color>
+    Webhook -> DB : TransitionPaymentStatus(payment,\nPaid)
+    activate DB
+    DB --> Webhook : Payment #1\n(status=Paid, paid_at=now())
+    deactivate DB
+    Webhook --> Stripe : <color:green>200</color> {"received": true}
+  else <color:orange>unexpected exception (e.g. DB briefly unavailable)</color>
+    Webhook --> Stripe : <color:orange>500</color> {"error":"Processing failed."}
+    note right of Webhook
+      Retryable on purpose. The PaymentEvent
+      insert's own idempotency (the UNIQUE
+      constraint above) is what makes a Stripe
+      retry of THIS event safe — a second
+      delivery re-processing the same
+      stripe_event_id is a no-op, not a
+      double-apply.
+    end note
+  end
+end
+
+deactivate Webhook
+
+note over Cart, Webhook
+  <b>The important asymmetry.</b> The browser's redirect and the
+  payment's status update travel on completely different paths.
+  The only writer of payments.status is the webhook — never the
+  browser-facing confirmation step, and never the "card accepted"
+  branch above by itself. A customer who never sees the
+  confirmation page can still have a payment that completes
+  correctly, once the webhook's own 200 lands.
+end note
+
+group cash on delivery (alt path)
+  activate Checkout
+  Checkout -> DB : CreateOrder(cart, addresses, carrier)
+  activate DB
+  DB --> Checkout : Order #2\n(serial=ORD-000002, status=New)
+  deactivate DB
+  Checkout -> DB : RecordPayment(order, COD)
+  activate DB
+  DB --> Checkout : Payment #2\n(status=Pending, method=COD)
+  deactivate DB
+  deactivate Checkout
+  note over Checkout, Stripe
+    No intent, no Elements — straight to
+    the confirmation page. CreateStripeIntent
+    refuses a COD payment (ADR-0016 names this
+    as roughly half the reason to prefer
+    Payment Intents: the two paths share
+    everything up to the intent step).
+  end note
+end
+
+@enduml

@@ -1,0 +1,91 @@
+@startuml payment-status-states
+
+' Source of truth: App\Enums\PaymentStatus::allowedTransitions().
+' Governed by ADR-0004. Verified against the enum on 2026-09-07.
+' If this diagram and the enum disagree, the enum is right — regenerate.
+'
+' The matrix guards against out-of-order Stripe webhooks, NOT against a user:
+' the UNIQUE on payment_events.stripe_event_id is what stops one event being
+' processed twice, which is a different problem (explanation/stripe-payments.md).
+
+title PaymentStatus — legal transitions (§13, ADR-0004)
+
+skinparam state {
+  BackgroundColor<<terminal>> #FFE0E0
+  BackgroundColor<<money_in>> #E0F5E0
+  BackgroundColor<<live>> #E8F0FF
+}
+
+[*] --> Pending : RecordPayment\n(order placed)
+
+state "Pending" as Pending <<live>>
+Pending : payment row exists,\nno money moved yet
+state "Processing" as Processing <<live>>
+Processing : intent confirmed,\nawaiting settlement
+state "Paid" as Paid <<money_in>>
+Paid : paid_at stamped;\nthe only writer is the webhook
+state "Failed" as Failed <<live>>
+Failed : NOT terminal — Stripe allows\nretry on the same PaymentIntent
+state "PartiallyRefunded" as Partial <<money_in>>
+Partial : refunded_amount < amount
+state "Disputed" as Disputed
+Disputed : chargeback opened\n(charge.dispute.created)
+state "Cancelled" as Cancelled <<terminal>>
+Cancelled : intent cancelled —\ncannot be revived
+state "Refunded" as Refunded <<terminal>>
+Refunded : full refund —\nend of the payment
+
+Pending --> Processing
+Pending --> Paid : webhook arrives before\nany processing update
+Pending --> Failed
+Pending --> Cancelled
+
+Processing --> Paid : payment_intent.succeeded
+Processing --> Failed : payment_intent.payment_failed
+Processing --> Cancelled
+
+' The retry region: Failed is a live state, not a dead end.
+Failed --> Pending : retry
+Failed --> Processing : retry
+Failed --> Paid : retry succeeds outright
+Failed --> Cancelled
+
+Paid --> Refunded : full refund
+Paid --> Partial : partial refund
+Paid --> Disputed : chargeback
+
+' Self-loop: a SECOND partial refund leaves status alone and
+' only moves refunded_amount. Legal and deliberate.
+Partial --> Partial : further partial refund\n(refunded_amount changes,\nstatus does not)
+Partial --> Refunded : topped up to full
+Partial --> Disputed
+
+' Dispute resolves both ways — the funds move either way.
+Disputed --> Paid : merchant WINS
+Disputed --> Refunded : merchant LOSES
+
+Cancelled --> [*]
+Refunded --> [*]
+
+note right of Failed
+  The shape worth seeing: Failed loops
+  back INTO the live region. A table row
+  reads as one more cell; here it is
+  visibly not a dead end.
+end note
+
+note bottom of Disputed
+  charge.dispute.created moves it IN.
+  The closing events (charge.dispute.closed)
+  are NOT handled yet — the move back out is
+  currently a manual panel action.
+  See explanation/stripe-payments.md.
+end note
+
+note as TerminalNote
+  Only Cancelled and Refunded are terminal
+  (allowedTransitions() returns []).
+  Everything else can still move.
+end note
+
+@enduml
