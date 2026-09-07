@@ -4,10 +4,13 @@ Everything about the shape of the data — tables, the visual diagram, the two
 seed-document formats, and what's actually in the demo dataset.
 
 - **[schema.md](schema.md)** — the tables. Generated from
-  `online-store/draft.yaml` by Blueprint; that file is the source of truth,
+  `src/draft.yaml` by Blueprint; that file is the source of truth,
   this page is the readable form.
-- **[erd-diagram.pdf](erd-diagram.pdf)** — the visual entity-relationship
-  diagram.
+- **[../diagrams/entity-relationship/](../diagrams/entity-relationship/)**
+  — the visual entity-relationship diagram: every table, every column,
+  every foreign key, generated from the live schema.
+  **[erd-diagram.pdf](erd-diagram.pdf)** is the earlier Blueprint-generated
+  version, kept as historical reference but no longer maintained.
 - **[fixture-format.md](fixture-format.md)** — the JSON shape
   `FixtureLoader` consumes and `fixtures:validate` checks, for demo product
   data.

@@ -129,6 +129,23 @@ sends the reader to the source.
 Specification sections are cited by number (§18, §37) because the numbering is
 fixed and greppable across both the spec and the codebase.
 
+**Every file reference is a markdown link, not a bare backtick path.**
+`` `src/routes/web.php` `` makes a human retype the path; `[src/routes/web.php](../../src/routes/web.php)`
+is one click. This applies to every path a doc names — a source file, a
+migration, another doc — with no exception for "it's obvious where that
+is." Backticks alone are still correct for a symbol that isn't a path
+(a class name, a config key, a column name).
+
+**A diagram gets both links every time it's mentioned, not just once in
+`diagrams/README.md`.** The pattern already used in
+`explanation/stripe-payments.md` and `explanation/concurrency-and-locking.md`
+is the standard:
+`` [view source](path/to/name.puml) · [view PDF](path/to/name.pdf) ``,
+adding `` · [view SVG](path/to/name.svg) `` where the SVG is the one meant
+for inline viewing rather than print. A page that says "see the diagram in
+`reference/diagrams/`" without linking it costs the reader a second search
+that the doc could have skipped for free.
+
 ## Writing for the machine reader
 
 Three locations, three loading behaviours. Putting content in the wrong one is

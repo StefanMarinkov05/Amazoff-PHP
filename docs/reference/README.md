@@ -11,7 +11,7 @@ opinions, no "why" (that's [`../explanation/`](../explanation/) and
   Every `§`-numbered reference anywhere in the docs points here.
 - **[coding-conventions.md](coding-conventions.md)** — the single source
   for this project's non-negotiable architecture and security rules.
-  `CLAUDE.md` and `online-store/.ai/guidelines/project-conventions.md` both
+  `CLAUDE.md` and `src/.ai/guidelines/project-conventions.md` both
   point here rather than restating it — read it before writing or
   reviewing any code.
 - **[actions.md](actions.md)** — every Action in `app/Actions`, what it
@@ -52,10 +52,10 @@ and the product-variation/category/attribute-value files.
 ## [schema/](schema/)
 
 Everything about the shape of the data: `schema.md` (the tables),
-`erd-diagram.pdf` (the visual form), the two seed-document fixture-format
-pages, `product-catalogue-worked-example.md` (one product's rows table by
-table), `demo-data.md` (what's actually in the seeded catalogue), and
-`open-schema-questions.md` (deferred schema decisions).
+`../diagrams/entity-relationship/` (the visual form), the two seed-document
+fixture-format pages, `product-catalogue-worked-example.md` (one product's
+rows table by table), `demo-data.md` (what's actually in the seeded
+catalogue), and `open-schema-questions.md` (deferred schema decisions).
 
 ## [testing/](testing/)
 

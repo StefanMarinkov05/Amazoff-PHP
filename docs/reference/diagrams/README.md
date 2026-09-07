@@ -91,6 +91,32 @@ disagree.
   `product_image_product_variation` for appearance) sharing one
   `attribute_values` vocabulary table, and a price that's computed at
   read time rather than stored.
+- **[entity-relationship/](entity-relationship/)** — every domain table,
+  every column, and every foreign key, grouped by the same areas
+  `../schema/schema.md` uses, with a legend (marker and connector meaning)
+  as the first thing the diagram shows. Supersedes `../schema/erd-diagram.pdf`
+  (a Blueprint-generated PDF, kept as historical reference but no longer
+  the maintained diagram) now that the schema work this was waiting on
+  (2026-09-07) is done. Crow's-foot, not Chen — matches this folder's
+  PlantUML toolchain rather than introducing a second one; generated
+  mechanically from `information_schema` rather than hand-typed, so it can
+  be regenerated the same way after the next schema change.
+  **[entity-relationship/schemaspy/](entity-relationship/schemaspy/)** is a
+  second, independently tool-generated ERD (SchemaSpy, straight off
+  `information_schema`) kept alongside as a cross-check — it includes
+  Laravel's framework tables and live row counts the hand-authored version
+  deliberately omits, and confirming the two agree on every relationship
+  is the actual value of having both rather than trusting one.
+- **[module-coupling/](module-coupling/)** — the ten `app/Actions/{Area}/`
+  modules (plus `App\Support` as an eleventh, shared one) and every real
+  cross-module Action-to-Action `use` statement, not the entity-relationship
+  diagram's foreign keys redrawn with a package boundary around them — a
+  foreign key is not the same coupling a PHP `use` statement is, and this
+  project's "no repository pattern" rule means a read crossing an area
+  boundary through Eloquent is deliberate, not a violation this diagram
+  should flag. 6 cross-module edges among 10 modules, all one-directional,
+  no cycles — the diagram this project's low-coupling claim can actually
+  point at.
 - **[security-defense-layers/](security-defense-layers/)** — every layer a
   request or a piece of data actually passes through, in the real order:
   IP allowlist → host configuration (cookies, headers, protocol, CSP,
@@ -103,9 +129,6 @@ disagree.
 
 ## Not yet built
 
-- An entity-relationship diagram lives at `../schema/erd-diagram.pdf`
-  already — not duplicated here, and not rebuilt until the schema work in
-  progress finishes (the user's own call, 2026-09-07).
 - `ShipmentStatus` / `ArticleStatus` transition diagrams — each is a real
   state machine with `canTransitionTo()` logic today, and each currently
   exists only as prose/code, not a picture. Worth building if a reader
