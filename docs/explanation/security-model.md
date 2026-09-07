@@ -6,6 +6,13 @@ against and what it does not — which is the question that comes up whenever a
 new call site is about to reach an Action. This page is that picture, current
 as of 2026-08-16.
 
+Every layer a request or a piece of data actually passes through, in order —
+IP allowlist, host configuration, client- and server-side validation, rate
+limiting, DB-level constraints — is drawn separately:
+[view source](../reference/diagrams/security-defense-layers/security-defense-layers.puml) ·
+[view PDF](../reference/diagrams/security-defense-layers/security-defense-layers.pdf) —
+not every layer applies to every route, and the diagram says which ones do.
+
 ## The trust boundary is the call site, not the Action
 
 An Action with a null actor is a fully privileged write primitive. `null`

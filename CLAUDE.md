@@ -42,13 +42,16 @@ in agreement: if a rule here changes, change it there too.
   resolved elsewhere — can be edited in place; it isn't a second opinion
   on what was decided, just upkeep on how it's described.
 - **[`docs/explanation/`](docs/explanation/)** — how the system fits
-  together *today*, updated as it changes. `concurrency-and-locking.md`,
-  `security-model.md`, `gdpr.md`, `filament-resources.md`,
-  `storefront-pages.md`, `db-schema-design.md`, `inventory.md`,
-  `product-variability.md`, `money.md`, `tech-stack-overview.md`,
-  `demo-seeding.md`, `stripe-payments.md`, `couriers.md`,
-  `secrets-and-env.md` — the last is the standing policy on credentials,
-  and the one to read before an agent goes anywhere near `.env`.
+  together *today*, updated as it changes. `system-overview.md` is the
+  single orientation page — the whole system as one state machine, read
+  this first if nothing more specific applies yet. Then
+  `concurrency-and-locking.md`, `security-model.md`, `gdpr.md`,
+  `filament-resources.md`, `storefront-pages.md`, `db-schema-design.md`,
+  `inventory.md`, `product-variability.md`, `money.md`,
+  `tech-stack-overview.md`, `demo-seeding.md`, `stripe-payments.md`,
+  `couriers.md`, `secrets-and-env.md` — the last is the standing policy on
+  credentials, and the one to read before an agent goes anywhere near
+  `.env`.
 - **[`docs/reference/`](docs/reference/)** — facts, no opinions.
   `specification.md` is the working spec (§-numbered, diverges from the
   issued PDF in tracked ways); `actions.md` lists every Action, what it

@@ -151,6 +151,13 @@ reachable from itself precisely for this, and an early "nothing to do when
 target equals current" return silently dropped every refund after the first
 until a test caught it.
 
+All 8 states and every transition between them, including this self-loop and
+the `Failed` retry loop back into the live region, are drawn in full:
+[view source](../reference/diagrams/payment-status-states/payment-status-states.puml) ·
+[view PDF](../reference/diagrams/payment-status-states/payment-status-states.pdf) —
+the diagram shows the parts a table hides, and is the maintained version if
+the two ever disagree.
+
 Full versus partial is decided by comparing amounts, never by trusting
 `charge.refunded` — a real charge object carries that boolean as `false`
 while partially refunded, so it would misclassify.

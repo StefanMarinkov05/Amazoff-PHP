@@ -91,6 +91,15 @@ disagree.
   `product_image_product_variation` for appearance) sharing one
   `attribute_values` vocabulary table, and a price that's computed at
   read time rather than stored.
+- **[security-defense-layers/](security-defense-layers/)** — every layer a
+  request or a piece of data actually passes through, in the real order:
+  IP allowlist → host configuration (cookies, headers, protocol, CSP,
+  encryption) → client-side validation → server-side validation → rate
+  limiting → DB-level validation. Not every box applies to every route —
+  the diagram says which ones do. Verified against `bootstrap/app.php`,
+  `VerifyStripeWebhookSignature`, `EnsureAccountIsActive`,
+  `SetSecurityHeaders`, `ThrottlesSubmissions`, CLAUDE.md's "Security rules
+  that are ours", and ADR-0005.
 
 ## Not yet built
 

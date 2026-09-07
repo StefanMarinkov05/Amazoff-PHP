@@ -11,6 +11,17 @@ ADR-0014; what each Action does is `reference/actions.md`.
 itself** — every Blade, Livewire, Alpine and Tailwind technique in use, and
 what breaks each one.
 
+## The visitor's path through it
+
+The pages below aren't independent — a visitor moves through them in a
+fairly fixed order: anonymous browsing, optional auth, shopping, checkout
+(guest and signed-in converge at order confirmation), account, order
+tracking. The full logical state map, each state annotated with its actual
+route, is drawn separately:
+[view source](../reference/diagrams/storefront-user-states/storefront-user-states.puml) ·
+[view PDF](../reference/diagrams/storefront-user-states/storefront-user-states.pdf) —
+verified against `routes/web.php` and `canAccessPanel()`.
+
 ## The files
 
 ```

@@ -6,6 +6,9 @@ sheet (that's [`../reference/`](../reference/)). Quick test: if the doc is
 making a case, it belongs in `adr/`; if it's describing a result, it
 belongs here.
 
+- **[system-overview.md](system-overview.md)** — the whole system as one
+  state machine, the single orientation diagram to open before the more
+  specific pages below.
 - **[tech-stack-overview.md](tech-stack-overview.md)** — what's installed
   and why, one level more concrete than the ADR that chose it.
 - **[db-schema-design.md](db-schema-design.md)** — the mechanisms the ERD
