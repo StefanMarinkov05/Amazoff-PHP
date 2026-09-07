@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Attributes\Schemas;
 
 use App\Enums\AttributeInputType;
-use App\Support\ResolveCategoryFamily;
+use App\Support\Resolvers\ResolveCategoryFamily;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -40,7 +40,7 @@ class AttributeForm
                     ->numeric()
                     ->default(0),
                 // Empty means unrestricted — allowed for every category —
-                // not "allowed nowhere". App\Support\ResolveAllowedAttributes
+                // not "allowed nowhere". App\Support\Resolvers\ResolveAllowedAttributes
                 // is the only place this emptiness is given that meaning; a
                 // category also inherits every ancestor's allow-list, so
                 // scoping "Colour" to the master "Clothing" category makes

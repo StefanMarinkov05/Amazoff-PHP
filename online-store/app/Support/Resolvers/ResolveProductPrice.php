@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace App\Support\Resolvers;
 
 use App\Models\Product;
+use App\Support\ProductPrice;
 use Illuminate\Support\Carbon;
 
 /**

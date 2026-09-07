@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Support\ResolveVariationPrice;
+use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Support\Carbon;
 
 /*

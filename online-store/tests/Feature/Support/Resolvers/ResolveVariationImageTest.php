@@ -7,7 +7,7 @@ use App\Actions\Catalogue\AddProductVariation;
 use App\Actions\Catalogue\SetVariationImages;
 use App\Models\Product;
 use App\Models\ProductImage;
-use App\Support\ResolveVariationImage;
+use App\Support\Resolvers\ResolveVariationImage;
 use Illuminate\Support\Facades\Storage;
 
 /*

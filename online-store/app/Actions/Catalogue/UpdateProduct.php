@@ -10,7 +10,7 @@ use App\Exceptions\RemovedFromCatalogueException;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
-use App\Support\ResolveAllowedAttributes;
+use App\Support\Resolvers\ResolveAllowedAttributes;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;

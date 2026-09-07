@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Cart;
 
-use App\Support\ResolveCurrentCart;
+use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;

@@ -13,6 +13,7 @@ use App\Models\CartItem;
 use App\Models\ProductVariation;
 use App\Support\Courier\DeliveryQuote;
 use App\Support\Courier\ShipmentRequest;
+use App\Support\Resolvers\ResolveVariationMeasurements;
 use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 

@@ -7,6 +7,7 @@ namespace App\Support;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;

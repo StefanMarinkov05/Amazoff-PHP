@@ -8,6 +8,7 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection;
 
 /**

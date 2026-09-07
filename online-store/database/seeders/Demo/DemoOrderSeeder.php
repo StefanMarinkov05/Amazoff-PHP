@@ -32,7 +32,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentTrackingEvent;
 use App\Models\User;
 use App\Support\ProtectedSkus;
-use App\Support\ResolveVariationPrice;
+use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;

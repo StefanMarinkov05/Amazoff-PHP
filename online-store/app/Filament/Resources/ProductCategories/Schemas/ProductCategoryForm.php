@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ProductCategories\Schemas;
 
 use App\Models\ProductCategory;
-use App\Support\ResolveCategoryFamily;
+use App\Support\Resolvers\ResolveCategoryFamily;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\View;

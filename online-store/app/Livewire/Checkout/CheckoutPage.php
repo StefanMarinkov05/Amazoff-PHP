@@ -19,7 +19,7 @@ use App\Support\CalculateCartTotals;
 use App\Support\CalculateDeliveryPrice;
 use App\Support\Courier\CourierOffice;
 use App\Support\Courier\DeliveryQuote;
-use App\Support\ResolveCurrentCart;
+use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

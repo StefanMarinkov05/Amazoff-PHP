@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace App\Support\Resolvers;
 
 use App\Models\Cart;
 use Illuminate\Database\Eloquent\Builder;

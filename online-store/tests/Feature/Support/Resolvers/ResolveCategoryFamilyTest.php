@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\ProductCategory;
-use App\Support\ResolveCategoryFamily;
+use App\Support\Resolvers\ResolveCategoryFamily;
 
 /*
  * The real seeded catalogue is 4 levels deep (Clothing → Men → Tops →

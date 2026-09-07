@@ -30,7 +30,7 @@ use App\Support\CalculateCouponDiscount;
 use App\Support\CalculateDeliveryPrice;
 use App\Support\CouponDiscountLine;
 use App\Support\Money;
-use App\Support\ResolveVariationPrice;
+use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;

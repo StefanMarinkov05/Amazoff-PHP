@@ -20,7 +20,7 @@ use App\Support\CalculateCartTotals;
 use App\Support\CalculateCouponDiscount;
 use App\Support\CouponDiscountLine;
 use App\Support\Money;
-use App\Support\ResolveCurrentCart;
+use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;

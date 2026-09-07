@@ -8,7 +8,7 @@
     // the header, which every page includes. 11 top-level rows with their
     // children eager-loaded (~50 rows total in the seeded catalogue) is one
     // cheap query; nothing here justifies a cache layer yet.
-    $categoryMenu = \App\Support\ResolveCategoryFamily::topLevelWithChildren();
+    $categoryMenu = \App\Support\Resolvers\ResolveCategoryFamily::topLevelWithChildren();
 @endphp
 
 <header

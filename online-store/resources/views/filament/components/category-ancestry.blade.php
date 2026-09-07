@@ -4,7 +4,7 @@
     opening each parent in turn.
 
     $ancestry is a list<ProductCategory> from
-    App\Support\ResolveCategoryFamily::ancestryOf() — always at least one
+    App\Support\Resolvers\ResolveCategoryFamily::ancestryOf() — always at least one
     entry (the category itself), so there is no empty state to handle.
 --}}
 <div class="fi-ancestry flex flex-wrap items-center gap-x-1 gap-y-2 text-sm">

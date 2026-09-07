@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace App\Support\Resolvers;
 
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Support\ProductPrice;
 
 /**
  * The one place §11's variation price rule is decided: current, never stored.

@@ -1,6 +1,6 @@
 @php
-    use App\Support\ResolveVariationImage;
-    use App\Support\ResolveVariationPrice;
+    use App\Support\Resolvers\ResolveVariationImage;
+    use App\Support\Resolvers\ResolveVariationPrice;
 
     $items = $this->items;
     $totals = $this->totals;

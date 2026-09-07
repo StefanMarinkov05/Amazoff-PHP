@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
-use App\Support\ResolveCardVariation;
+use App\Support\Resolvers\ResolveCardVariation;
 
 /*
  * Which variation a catalogue card represents. Reported live: a card whose

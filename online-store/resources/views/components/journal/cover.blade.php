@@ -1,7 +1,7 @@
 @props(['article', 'index' => null])
 
 @php
-    use App\Support\ResolveArticleImage;
+    use App\Support\Resolvers\ResolveArticleImage;
 
     /*
      * A real photo wins when one exists on disk — `demo:fetch-article-images`

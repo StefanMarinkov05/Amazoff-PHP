@@ -60,7 +60,7 @@ class Attribute extends Model
     /**
      * The categories this attribute is allowed for. Empty means unrestricted
      * — allowed everywhere — not "allowed nowhere"; see
-     * App\Support\ResolveAllowedAttributes, the only place this relation's
+     * App\Support\Resolvers\ResolveAllowedAttributes, the only place this relation's
      * emptiness is given that meaning.
      *
      * @return BelongsToMany<ProductCategory, $this>

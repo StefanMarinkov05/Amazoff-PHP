@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace App\Support\Resolvers;
 
 use App\Models\ProductCategory;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;

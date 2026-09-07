@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * An attribute with no rows here is allowed for every category — this is an
  * allow-list an admin opts an attribute into, not a mandatory classification
  * forced onto the ~40 attributes that already existed before it. See
- * App\Support\ResolveAllowedAttributes.
+ * App\Support\Resolvers\ResolveAllowedAttributes.
  */
 return new class extends Migration
 {

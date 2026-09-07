@@ -181,7 +181,7 @@ product's own category, or any of its ancestors —
 allow-list an admin opts an attribute into (`AttributeForm`'s "Allowed
 categories" field); an attribute with no rows there is unrestricted, not
 "allowed nowhere", so this cannot fire for any of the attributes that
-existed before the table did. `App\Support\ResolveAllowedAttributes` is the
+existed before the table did. `App\Support\Resolvers\ResolveAllowedAttributes` is the
 pure function both Actions call — a category's own allow-list, unioned with
 every ancestor's, unioned with every unrestricted attribute.
 `UpdateProduct` checks this **after** `save()`, using whichever category the

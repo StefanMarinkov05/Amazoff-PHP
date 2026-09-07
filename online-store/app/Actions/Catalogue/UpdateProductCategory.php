@@ -7,7 +7,7 @@ namespace App\Actions\Catalogue;
 use App\Exceptions\CategoryCycleException;
 use App\Models\ProductCategory;
 use App\Models\User;
-use App\Support\ResolveCategoryFamily;
+use App\Support\Resolvers\ResolveCategoryFamily;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;

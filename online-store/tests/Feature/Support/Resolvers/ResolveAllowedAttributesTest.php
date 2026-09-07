@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Attribute;
 use App\Models\ProductCategory;
-use App\Support\ResolveAllowedAttributes;
+use App\Support\Resolvers\ResolveAllowedAttributes;
 
 /*
  * attribute_product_category is an allow-list an admin opts an attribute

@@ -95,7 +95,7 @@ write is money.
 
 ## Which image represents a variation
 
-`App\Support\ResolveVariationImage::current()`, a function rather than an
+`App\Support\Resolvers\ResolveVariationImage::current()`, a function rather than an
 Action because it writes nothing — the same shape as `ResolveVariationPrice`.
 
 | State | Result |

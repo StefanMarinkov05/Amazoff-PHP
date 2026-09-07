@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Support\ResolveVariationMeasurements;
+use App\Support\Resolvers\ResolveVariationMeasurements;
 
 /*
  * Weight and the three dimension axes are nullable overrides that each
