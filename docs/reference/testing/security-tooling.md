@@ -58,7 +58,7 @@ once.
 ### Authenticated scan — the load-bearing settings, and why each exists
 
 The only configuration that reaches the admin panel, driven by
-`reference/testing/security/zap-auth.yaml`. The full plan and the traps that
+`reference/testing/scanner-tooling/zap-auth.yaml`. The full plan and the traps that
 make a wrong version fail *silently* are in `how-to/pentest-the-system.md`;
 the settings worth knowing the reasoning for:
 
@@ -323,8 +323,8 @@ verifiable, and an informed reader will find them anyway.
   *index* pages far more thoroughly than every edit/create/view sub-page.
 - **One role was scanned.** The authenticated run used `admin@example.com`.
   `content_editor` and `warehouse_employee` were probed by hand against every
-  admin route (the role matrix in `security-testing.md`), but never crawled
-  by a scanner.
+  admin route (the role matrix in `security-testing/what-held.md`), but never
+  crawled by a scanner.
 - **No production scan.** Everything here ran against the local Docker stack.
   Production runs on Forge with its own nginx and PHP configuration, so the
   two nginx-level fixes (SEC-004, SEC-007) do **not** reach it — see the

@@ -7,6 +7,10 @@ host — not discovered by an incident after launch. It starts small and grows
 as each area gets its own deploy rule; add to it rather than starting a
 second file.
 
+The two topologies, side by side — why nothing here is automatic:
+[view source](../reference/diagrams/deployment/deployment.puml) ·
+[view PDF](../reference/diagrams/deployment/deployment.pdf).
+
 ## Environment variables to set before first deploy
 
 - **`SESSION_SECURE_COOKIE=true`.** Unset locally (correctly — a `Secure`
@@ -15,10 +19,10 @@ second file.
   but documenting it is not setting it: this must be turned on explicitly in
   Forge's environment editor once the site is served over HTTPS, or the
   session cookie can be sent over plaintext HTTP if any request ever reaches
-  the site that way. See `reference/testing/security-testing.md` SEC-013 for
-  the full finding — it is recorded there as **half closed** for exactly
-  this reason, and stays half closed until this step happens on the real
-  host.
+  the site that way. See `reference/testing/security-testing/sec-011-to-013.md`
+  SEC-013 for the full finding — it is recorded there as **half closed** for
+  exactly this reason, and stays half closed until this step happens on the
+  real host.
 
 ## Server config to set independently of the app (nginx, PHP-FPM)
 
@@ -29,8 +33,8 @@ owed again here:
 - `add_header X-Content-Type-Options "nosniff" always;` on static assets
   (SEC-007).
 - `server_tokens off;` (nginx) and `expose_php = Off;` (`php.ini`) to
-  suppress version banners (see `reference/testing/security-testing.md`,
-  "What held").
+  suppress version banners (see
+  `reference/testing/security-testing/sec-001-to-004.md`, SEC-004).
 - **Stripe webhook IP allowlist.** `docker/nginx/stripe-ip-allowlist.conf.example`
   has the full setup — deliberately not enabled here, because
   `stripe listen --forward-to` delivers local test events from a Docker

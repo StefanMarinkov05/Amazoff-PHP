@@ -116,7 +116,7 @@ actually needed.
 
 ## Why Pest runs against the MySQL service
 
-`online-store/phpunit.xml` sets `DB_CONNECTION=mysql` and
+`src/phpunit.xml` sets `DB_CONNECTION=mysql` and
 `DB_DATABASE=online_shop_test`. Host, port, and credentials come from the
 environment, so the same file works in CI and in Docker locally, and only the
 database name is overridden — a test run cannot touch development data.
@@ -129,7 +129,7 @@ run. A factory writing past a `varchar(60)` passed every time.
 
 The cost that normally argues for SQLite — a slow `migrate:fresh` — turned out
 to be the database container's durability settings rather than MySQL itself.
-See the entry in `troubleshooting.md`.
+See the entry in `how-to/troubleshooting/database-and-migrations.md`.
 
 ## Reproducing a CI failure locally
 

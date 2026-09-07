@@ -132,8 +132,8 @@ session) reached it. `stripe listen --forward-to localhost:8080/stripe/webhook`
 now genuinely forwards this project's events — confirmed by the real
 checkout in the section above, the first one this project has ever run
 without the CLI silently listening on the wrong account.
-`docs/how-to/troubleshooting.md` has the full account, including the
-identical-display-name trap for future reference.
+`docs/how-to/troubleshooting/payments-and-security-tooling.md` has the full
+account, including the identical-display-name trap for future reference.
 
 Delivering the event directly — fetching it from the app's own account,
 signing it with the app's own secret, and POSTing to the real endpoint
@@ -172,8 +172,9 @@ the faked `StripeClient` the automated suite uses.
 
 Delivered directly rather than through `stripe listen`, for the same reason
 as the 3DS run: the CLI is authenticated to a different Stripe account than
-the app's keys (`troubleshooting.md`, "Stripe says a payment succeeded and
-the app still shows it pending"). Confirmed unchanged on 2026-09-05 — the
+the app's keys (`how-to/troubleshooting/payments-and-security-tooling.md`,
+"Stripe says a payment succeeded and the app still shows it pending").
+Confirmed unchanged on 2026-09-05 — the
 CLI still reports `acct_1UAbacHSYCrSsH7T` against the app's
 `acct_1U9BTmEinvfvnBsb`.
 

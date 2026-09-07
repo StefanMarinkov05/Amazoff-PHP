@@ -30,22 +30,37 @@ docker compose exec app ./vendor/bin/pest --testsuite=Concurrency
 
 `--memory-limit=1G` is required, not optional — the container's default 128M
 crashes Larastan's parallel workers and reports a fake `Found 1 error`;
-`docs/how-to/troubleshooting.md` has the full symptom. `tests/Concurrency`
+`docs/how-to/troubleshooting/ide-and-static-analysis.md` has the full symptom.
+`tests/Concurrency`
 must never run under `--parallel` — it spawns real subprocesses and needs a
 database of its own; `docs/how-to/run-the-tests.md` has the reasoning.
 
-Pint, Larastan, and Pest all run in CI too (`.github/workflows/ci.yml`),
-against a real MySQL service container — Feature and Concurrency each
-sharded across parallel jobs rather than run as the two local passes above.
-A red check blocks the merge once branch protection is turned on — don't
-rely on catching failures after the fact.
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs Pint, Larastan,
+and Pest against a real MySQL service container on every push to `main` and
+every pull request, regardless of target branch — Feature and Concurrency
+each sharded across parallel jobs rather than run as the two local passes
+above. External APIs are mocked, so it needs no real credentials.
+
+A red check does **not** currently block a merge — this repository has no
+branch protection rule (private repo, free organisation plan; see
+`docs/how-to/troubleshooting/ide-and-static-analysis.md`, "A failing Pint
+check reaches `main` anyway"). Run the gate locally before pushing rather
+than relying on CI to catch it after the fact; `docs/how-to/use-ci.md` has
+the full picture, including where a new test file goes in the shard list.
 
 ## Commit messages
 
-Type, then a short present-tense summary: `feat: add stock reservation to
-checkout`, `fix: webhook signature check bypassed on retry`, `docs: adr for
-translation storage`. One logical change per commit — not one commit per
-file, not one commit for the whole feature.
+`type(scope): short present-tense summary` — Conventional Commits, with a
+scope naming the area touched: `feat(payments): add stock reservation to
+checkout`, `fix(webhook): signature check bypassed on retry`,
+`docs(adr): translation storage decision`, `test(product-review): cover
+ApproveProductReview`, `refactor(types): raise Larastan to level 9`,
+`style: fix Pint violation`. `style` and a handful of repo-wide changes are
+the only cases that go scopeless — everything else names what it touched.
+One logical change per commit — not one commit per file, not one commit
+for the whole feature.
 
 Written by whoever or whatever is doing the committing at the time, following
 the shape above — a human writing their own commit is not the default this
@@ -86,6 +101,24 @@ newest at the top; the project is not large enough for that to strain.
 does not help the next person who hits the same symptom, because they are
 searching for the symptom and the entry is filed under the date of the fix. That
 is a different document with a different reader — see below.
+
+## Documentation
+
+`docs/` follows [Diátaxis](https://diataxis.fr/): tutorials, how-to guides,
+reference, and explanation, plus `adr/` and `changelog/` for the two things
+Diátaxis has no category for. `docs/README.md` states the split in full and
+is the place to start if it's unclear which of the four a new doc belongs
+in — don't improvise a fifth category or drop a file at the top level of
+`docs/` without checking there first.
+
+The shape that matters most in practice: a how-to page is a recipe (steps,
+no rationale); an explanation page describes how the system fits together
+today (no steps, updated as the system changes); reference is facts with no
+opinion (a table, not a paragraph); an ADR argues for one choice at one
+moment and is frozen once accepted. Putting *why* in a how-to page, or a
+recipe in an explanation page, is the most common way a new doc drifts out
+of its own category — if a section starts arguing or start listing numbered
+steps, check it's still in the right file.
 
 ## Architectural changes
 

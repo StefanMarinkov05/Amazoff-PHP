@@ -13,10 +13,13 @@ there, so it can be edited rather than copied blindly as it goes stale.
 ```
 Read these before doing anything, in order:
 
-1. CLAUDE.md — architecture and security rules. These override defaults and
-   are not up for negotiation. If something I ask for contradicts an accepted
-   ADR, say so rather than quietly diverging.
-2. README.md — the app lives in online-store/, not at the repo root, and
+1. CLAUDE.md — the router, and the always-needed rules (commit/push
+   discipline, Docker commands). It points at
+   docs/reference/coding-conventions.md for the full architecture and
+   security rules — read that one too before touching any code. These
+   override defaults and are not up for negotiation. If something I ask for
+   contradicts an accepted ADR, say so rather than quietly diverging.
+2. README.md — the app lives in src/, not at the repo root, and
    everything runs through Docker.
 3. docs/README.md — how docs/ is organised and what belongs in each folder.
 4. docs/reference/specification.md — §37 is the contract being graded. The
@@ -46,7 +49,8 @@ How I want you to work:
     docker compose exec app ./vendor/bin/pest
 - IDE diagnostics reporting Laravel or Filament classes as undefined are
   noise — vendor/ is in the container, not on the host. Larastan in the
-  container is the authority. See troubleshooting.md.
+  container is the authority. See
+  docs/how-to/troubleshooting/ide-and-static-analysis.md.
 - One vertical slice at a time, atomic commits, each one green on its own.
 - Do not commit or push unless I ask. I write my own commit messages and I do
   not want Co-Authored-By lines.
@@ -68,7 +72,7 @@ entry that says what was fixed without why it recurs is half an entry.
 
 `CLAUDE.md` first because it is the only file whose rules override the model's
 defaults, and because the two facts most likely to waste a session are in it
-and in `README.md`: the application is in `online-store/`, and nothing runs
+and in `README.md`: the application is in `src/`, and nothing runs
 outside Docker. A session that misses those spends its first several tool calls
 looking for `artisan` at the repository root and running `php` on the host.
 
@@ -78,7 +82,7 @@ goes stale fastest and is worth re-reading even in a continued session.
 
 ### Why ADRs are conditional rather than up front
 
-There are six and they are long. Reading all of them at the start of every
+There are sixteen and they are long. Reading all of them at the start of every
 session spends context on decisions the task will not touch. Reading the one
 that covers the area about to change is the useful half — and the instruction
 not to re-litigate matters because an LLM asked to review a decision will
@@ -130,9 +134,14 @@ that renders badly does.
 
 ## What not to put in the prompt
 
-**The architecture rules themselves.** They are in `CLAUDE.md`, which is loaded
-automatically. Repeating them wastes context and creates a second copy to keep
-in step.
+**The architecture rules themselves.** `CLAUDE.md` is loaded automatically
+and points at `docs/reference/coding-conventions.md` for the full rules —
+that file is not auto-loaded, which is why step 1 of the prompt says to
+read it explicitly, but its content still shouldn't be pasted into the
+prompt itself. Repeating rules in the prompt wastes context and creates a
+third copy to keep in step, on top of the two `coding-conventions.md`
+already unifies (`CLAUDE.md`'s old inline copy and
+`src/.ai/guidelines/project-conventions.md`'s).
 
 **A task description.** This prompt establishes how to work; the task is a
 separate message. Mixing them means re-pasting the whole thing for each new

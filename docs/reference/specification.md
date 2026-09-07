@@ -382,10 +382,10 @@ file declaring `root = true` stops the cascade, so nothing beneath it sees the
 outer config.
 
 That is exactly what happened before — a second `.editorconfig` in
-`online-store/` shadowed the root for the entire application, and the two
+`src/` shadowed the root for the entire application, and the two
 disagreed about compose indentation (2 versus 4) and about JavaScript, which the
 inner file did not mention at all. Since every JavaScript file lives under
-`online-store/`, all of them were indenting at 4 against the root's stated
+`src/`, all of them were indenting at 4 against the root's stated
 intent. Merged into the root file and the nested one deleted.
 
 ### Frontend

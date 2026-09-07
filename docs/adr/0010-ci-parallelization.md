@@ -38,12 +38,12 @@ isn't repeated:
    ~30s gap was chased as a `RefreshDatabase` schema-load cost specific to
    local Docker Desktop — plausible on its own (a real `mysql <
    mysql-schema.sql` load measured ~20-37s locally) and briefly written up
-   as such in `troubleshooting.md`, but wrong: it doesn't explain why the
-   cost followed a specific file (`RolePermissionTest`) rather than
-   "whichever test runs first," and CI's own log showed its first test at
-   0.02s, not ~30s. `troubleshooting.md`'s entry was corrected once (2) was
-   found; the local schema-load timing was real but unrelated to this
-   question.
+   as such in `how-to/troubleshooting/database-and-migrations.md`, but
+   wrong: it doesn't explain why the cost followed a specific file
+   (`RolePermissionTest`) rather than "whichever test runs first," and CI's
+   own log showed its first test at 0.02s, not ~30s. That entry was
+   corrected once (2) was found; the local schema-load timing was real but
+   unrelated to this question.
 
 **What `RolePermissionTest` is actually doing**, once correctly isolated:
 its `beforeEach` calls `forgetCachedPermissions()` and reseeds

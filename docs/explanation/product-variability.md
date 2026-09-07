@@ -6,7 +6,11 @@ ADR-0002 (schema), ADR-0007 (Actions), and ADR-0013 (variation images); this
 page assumes them and shows the arrangement they produce.
 `reference/schema/product-catalogue-worked-example.md` makes the same arrangement
 concrete with 1 product's actual rows, table by table — read that one first
-if the relationships below feel abstract.
+if the relationships below feel abstract. The same example rendered as an
+object diagram (instances, not classes — shows the two pivots sharing one
+vocabulary table, and what's computed vs. stored):
+[view source](../reference/diagrams/product-variability-objects/product-variability-objects.puml) ·
+[view PDF](../reference/diagrams/product-variability-objects/product-variability-objects.pdf).
 
 ## The four questions a variation answers
 

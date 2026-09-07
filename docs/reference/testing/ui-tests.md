@@ -568,8 +568,9 @@ no panel surface at all — the same shape the inventory gap had.
   only the transitions `ShipmentStatus`'s matrix allows are offered.
 
 `ShipmentFactory` randomises `status`, `shipped_at`, and `delivered_at`, so
-every case pins what it asserts against — the trap `troubleshooting.md`
-documents for the product factories applies here too.
+every case pins what it asserts against — the trap
+`how-to/troubleshooting/data-and-factories.md` documents for the product
+factories applies here too.
 
 ### `UserResourceTest`
 

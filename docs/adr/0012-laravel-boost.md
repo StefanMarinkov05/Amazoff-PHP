@@ -25,14 +25,14 @@ actually says before trusting it.
 
 ### Install shape: generated files are disposable, one file is not
 
-`php artisan boost:install` writes into `online-store/` (its `base_path()`,
+`php artisan boost:install` writes into `src/` (its `base_path()`,
 one level below repo root) rather than colliding with the hand-written,
 root-level `CLAUDE.md` this project already had. Four files it produces:
 
 | File | Tracked? | Why |
 |---|---|---|
-| `online-store/.ai/guidelines/project-conventions.md` | **Yes** | Hand-written. The actual decision this ADR is about |
-| `online-store/CLAUDE.md` | No | Generated: this project's conventions (compiled from the file above) followed by Boost's bundled guidance |
+| `src/.ai/guidelines/project-conventions.md` | **Yes** | Hand-written. The actual decision this ADR is about |
+| `src/CLAUDE.md` | No | Generated: this project's conventions (compiled from the file above) followed by Boost's bundled guidance |
 | `boost.json` | No | Generated: which agent/skills were selected |
 | `.claude/skills/` | No | Generated: skill content, copied from the installed package |
 | `.mcp.json` (repo root) | **Yes** | Hand-written — see below |
@@ -208,7 +208,7 @@ slice, not a drive-by addition to a Boost-adoption ADR.
   ADR but is newly relevant because of it.
   `reference/tech-stack.md` records this; worth confirming before the
   first real deployment.
-− Generated `online-store/CLAUDE.md` is a second file a new contributor
+− Generated `src/CLAUDE.md` is a second file a new contributor
   could mistake for the router, despite root `CLAUDE.md` now saying
   explicitly not to treat it that way. The gitignore comment and the
   cross-reference are the mitigation; neither stops someone from opening

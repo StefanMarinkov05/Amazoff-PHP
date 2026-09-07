@@ -1,9 +1,15 @@
 # Local access — accounts, URLs, and routes
 
 Seeded credentials and the full route map for a local Docker run. Verified
-against a running stack on 2026-08-29 (`amazoff_demo` database, `main` at
-`4c60f7c`) — the accounts were logged in, the panel gate checked per role,
-and every route below taken from `route:list`, not from reading code.
+against a running stack on 2026-09-07 (`amazoff_demo` database, `full-site-testing`
+at `3639994`) — the accounts were checked via `canAccessPanel()` directly,
+permission counts read live, and every route below taken from `route:list`
+(90 routes total), not from reading code.
+
+This file previously undercounted the app badly — it dated from before
+cart, checkout, order tracking, the article frontend, and several admin
+resources (Inventories, Payments, Users) existed. Refreshed in full rather
+than patched, since almost every section had drifted.
 
 Nothing here is a secret: `UserSeeder` gates itself to non-production, and
 every password is the factory default. On any deployed environment these
@@ -39,9 +45,10 @@ own orders is an ownership check in a policy, not a permission (§3).
 
 A `Gate::before` callback in `AppServiceProvider` returns `true` for that
 role and short-circuits every check, so the role cannot drift out of step
-with the 106-permission catalogue as permissions are added. The cost: a
-policy can no longer deny an administrator anything, which pushes
-"nobody may do X" rules into the Actions as domain invariants. ADR-0006.
+with the permission catalogue (**107** permissions, checked live) as
+permissions are added. The cost: a policy can no longer deny an
+administrator anything, which pushes "nobody may do X" rules into the
+Actions as domain invariants. ADR-0006.
 
 ### What each staff role actually reaches
 
@@ -60,23 +67,36 @@ full catalogue.
 | ANY | `/` | redirect → `/catalogue` | — |
 | GET | `/catalogue` | `App\Livewire\Catalogue\ProductList` | — |
 | GET | `/products/{product:slug}` | `App\Livewire\Catalogue\ProductDetails` | — |
+| GET | `/cart` | `App\Livewire\Cart\CartPage` | `cart` |
+| GET | `/checkout` | `App\Livewire\Checkout\CheckoutPage` | `checkout` |
+| GET | `/checkout/confirmation/{order}` | `App\Livewire\Checkout\OrderConfirmation` | `checkout.confirmation` |
+| GET | `/orders/track` | `App\Livewire\Orders\TrackOrder` | `orders.track` |
+| GET | `/account/orders` | `App\Livewire\Account\OrderHistory` | `account.orders` |
+| GET | `/journal` | `App\Livewire\Journal\ArticleList` | `journal` |
+| GET | `/journal/{article:slug}` | `App\Livewire\Journal\ArticleDetails` | — |
 | GET | `/about` | `pages.about` (static Blade) | `about` |
 | GET | `/contact` | `App\Livewire\Contact\ContactForm` | `contact` |
+| GET | `/cookies` | `pages.cookies` (static Blade) | `cookies` |
+| GET | `/delivery` | `pages.delivery` (static Blade) | `delivery` |
+| GET | `/faq` | `pages.faq` (static Blade) | `faq` |
+| GET | `/payment-information` | `pages.payment-information` (static Blade) | `payment-information` |
+| GET | `/privacy` | `pages.privacy` (static Blade) | `privacy` |
+| GET | `/terms` | `pages.terms` (static Blade) | `terms` |
 | GET | `/login` | `App\Livewire\Auth\Login` | `login` |
 | GET | `/register` | `App\Livewire\Auth\Register` | `register` |
 | GET | `/account/password` | `App\Livewire\Auth\ChangePassword` | `password.change` |
 | POST | `/logout` | closure | `logout` |
+| POST | `/stripe/webhook` | `Payment\StripeWebhookController` | `stripe.webhook` |
 
-`/login` and `/register` are behind the `guest` middleware; `/account/password`
-and `/logout` behind `auth`. Logout is POST-only — a GET logout is triggerable
-by any `<img>` tag on any page the user visits.
+`/login` and `/register` are behind the `guest` middleware; `/account/*`
+routes and `/logout` behind `auth`. Logout is POST-only — a GET logout is
+triggerable by any `<img>` tag on any page the user visits.
+`/stripe/webhook` is CSRF-excluded and signature-verified, registered
+outside the `web` middleware group entirely (`explanation/stripe-payments.md`).
 
 `NewsletterSignup` has no route of its own — it is embedded in the site
-footer component.
-
-There is no cart, checkout, storefront authentication, order tracking, or
-article frontend yet. See the specification's §37 table for what that
-leaves outstanding.
+footer component. `orders/track` requires order number **and** email —
+sequential order numbers alone would enumerate every customer's address.
 
 ## Admin panel routes
 
@@ -91,15 +111,19 @@ sign in there like anyone else and reach the panel through the **Admin panel**
 link in the header account menu, which is shown by calling `canAccessPanel()`
 itself — the link and the gate cannot disagree.
 
-| Resource | Index | Create | View | Edit |
+| Resource | Route base | Create | View | Edit |
 |---|---|---|---|---|
-| Products | `/admin/products` | yes | — | yes |
+| Products | `/admin/products` | yes | yes | yes |
 | Orders | `/admin/orders` | — | yes | **no** |
+| Inventories | `/admin/inventories` | — | yes | **no** |
+| Payments | `/admin/payments` | — | yes | **no** |
+| Shipments | `/admin/shipments` | — | yes | **no** |
 | Articles | `/admin/articles` | yes | yes | yes |
 | Product reviews | `/admin/product-reviews` | — | yes | — |
-| Coupons | `/admin/coupons` | yes | — | yes |
+| Coupons | `/admin/coupons` | yes | yes | yes |
 | Contact messages | `/admin/contact-messages` | — | yes | yes |
 | Newsletter subscribers | `/admin/newsletter-subscribers` | — | yes | yes |
+| Users | `/admin/users` | — | yes | yes |
 | Roles | `/admin/roles` | — | — | yes |
 | Brands | `/admin/brands` | yes | — | yes |
 | Tags | `/admin/tags` | yes | — | yes |
@@ -119,12 +143,16 @@ only: `canAccessPanel()` gates on the `User::STAFF_ROLES` constant, so a
 role created in the UI would grant no panel access until someone edited
 that constant and deployed.
 
-**`Orders` has no edit page and no status-transition action.** Its
-`getPages()` maps `index` and `view` only, and nothing in the panel calls
-`TransitionOrderStatus` — so §37 criterion 16 ("an employee can update
-order statuses") is not reachable through the UI, even though the Action,
-its policy, and its concurrency tests all exist. `ViewOrder` also renders an
-`EditAction` pointing at an edit route that is not registered.
+**`Orders` has no edit page, but status transitions are now wired into the
+panel.** `getPages()` still maps only `index` and `view` — no standalone
+edit route — but both `OrdersTable` and `ViewOrder` carry a status action
+calling `App\Actions\Order\TransitionOrderStatus` directly. This closes the
+gap an earlier version of this file recorded (§37 criterion 16, "an
+employee can update order statuses," was previously unreachable through the
+UI even though the Action, policy, and concurrency tests existed) —
+verify current behaviour against `ViewOrder.php`/`OrdersTable.php` rather
+than trusting this note if it is read much later, since panel wiring is
+exactly the kind of thing that drifts.
 
 ### Dashboard
 
@@ -162,14 +190,19 @@ typing the URL by hand was otherwise the only way back to the storefront.
 
 ## Database
 
-`.env`'s `DB_DATABASE` selects which database the app serves. Two exist
-locally:
+`.env`'s `DB_DATABASE` selects which database the app serves.
+`docker-compose.yml`'s default is `amazoff`; `phpunit.xml` forces
+`amazoff_test` for the test run regardless of `.env`.
 
 | Database | Contents |
 |---|---|
-| `amazoff_demo` | Full demo dataset — 169 products, 104 users, 140 orders, 90 reviews, 24 articles, 182 images |
-| `online_shop` | Schema only, no catalogue |
-| `online_shop_test` | What `phpunit.xml` forces; migrated, not seeded |
+| `amazoff_demo` | Full demo dataset on this machine right now — 169 products, 105 users, 159 orders, 110 reviews, 24 articles, 181 images (counted live, 2026-09-07). Pre-dates the `amazoff` default renamed to below; still what `.env` points at until re-pointed and re-seeded. |
+| `amazoff` | The fresh-clone default (`docker-compose.yml`/`.env.example`) — schema only until migrated and seeded. |
+| `amazoff_test` | What `phpunit.xml` forces; migrated, not seeded. |
 
 `docs/reference/schema/demo-data.md` has the exact seeder run order and the
-SKU-level inventory of what the demo contains.
+SKU-level inventory of what the demo contains — treat its counts as the
+source of truth over this file's snapshot, since seed data grows between
+verification passes (this file's own numbers already differ slightly from
+the 2026-08-29 pass that preceded it: users 104→105, orders 140→159,
+reviews 90→110, images 182→181).

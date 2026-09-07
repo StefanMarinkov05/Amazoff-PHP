@@ -181,7 +181,7 @@ product's own category, or any of its ancestors —
 allow-list an admin opts an attribute into (`AttributeForm`'s "Allowed
 categories" field); an attribute with no rows there is unrestricted, not
 "allowed nowhere", so this cannot fire for any of the attributes that
-existed before the table did. `App\Support\ResolveAllowedAttributes` is the
+existed before the table did. `App\Support\Resolvers\ResolveAllowedAttributes` is the
 pure function both Actions call — a category's own allow-list, unioned with
 every ancestor's, unioned with every unrestricted attribute.
 `UpdateProduct` checks this **after** `save()`, using whichever category the
@@ -676,5 +676,8 @@ cart, and last-live-variation refusals.
 `reference/write-rules/concurrency.md` records which specific test covers each.
 
 The two failure modes that make a guard test pass while proving nothing — an
-exception raised by a nested Action, and fault injection on the connection
-holding the lock — are written up in `how-to/troubleshooting.md`.
+exception raised by a nested Action, written up in
+`how-to/troubleshooting/ide-and-static-analysis.md`, and fault injection on
+the connection holding the lock, in
+`how-to/troubleshooting/concurrency-and-testing-races.md` — are written up
+in the troubleshooting tree.

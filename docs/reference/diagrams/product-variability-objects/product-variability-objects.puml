@@ -1,0 +1,211 @@
+@startuml product-variability-objects
+
+' Two products, each showing a different legal shape, rather than one
+' product forced to carry every case (harder to read, not more informative).
+' "Classic Tee" is the same worked example as
+' reference/schema/product-catalogue-worked-example.md, extended here with
+' cases that example doesn't cover. "Plain Mug" is new — the simplest legal
+' shape the schema allows: one variation, zero images anywhere.
+'
+' Together they show what a class diagram of this schema cannot:
+'  - TWO pivots sharing one vocabulary table (attribute_values used for
+'    both axis and description) — see "Two pivots over one vocabulary" in
+'    explanation/product-variability.md
+'  - price and image are COMPUTED at read time, never stored twice
+'  - the image pivot's cardinality is genuinely many-to-many: one variation
+'    can show several images, one image can appear on several variations,
+'    and two variations' galleries can overlap without being identical
+'  - ProductSpecification is a THIRD, unrelated table — free-text
+'    product-level prose, not a pivot, not filterable, not per-variation
+'  - the "no image anywhere" case, and the real fallback chain that
+'    resolves it (App\Support\ResolveVariationImage), not a null
+
+title Product variability — two real shapes, as instances (not classes)
+
+' ============================================================
+'  PRODUCT 1 — Classic Tee: variations, shared images, specs
+' ============================================================
+
+package "Classic Tee — variations, images, specifications" {
+
+  object "product : Products" as product {
+    id = 1
+    name = "Classic Tee"
+    regular_price = 20.00 <b>(the fallback)</b>
+  }
+
+  object "red-front.jpg : ProductImage" as img10 {
+    id = 10
+  }
+  object "red-back.jpg : ProductImage" as img11 {
+    id = 11
+  }
+  object "red-detail.jpg : ProductImage" as img14 {
+    id = 14
+  }
+  object "blue-front.jpg : ProductImage" as img12 {
+    id = 12
+  }
+  object "blue-back.jpg : ProductImage" as img15 {
+    id = 15
+  }
+  object "size-chart.jpg : ProductImage" as img13 {
+    id = 13
+    <b>belongs to no variation, ever</b>
+  }
+
+  object "TEE-RED-S : ProductVariation" as v100 {
+    id = 100
+    sku = "TEE-RED-S"
+    price_override = <color:blue>null</color> <b>(inherits 20.00)</b>
+  }
+  object "TEE-RED-M : ProductVariation" as v101 {
+    id = 101
+    sku = "TEE-RED-M"
+    price_override = 22.00 <b>(own price)</b>
+  }
+  object "TEE-BLUE-S : ProductVariation" as v102 {
+    id = 102
+    sku = "TEE-BLUE-S"
+  }
+  object "TEE-BLUE-M : ProductVariation" as v103 {
+    id = 103
+    sku = "TEE-BLUE-M"
+  }
+
+  object "Red : AttributeValue" as valRed
+  object "Blue : AttributeValue" as valBlue
+  object "S : AttributeValue" as valS
+  object "M : AttributeValue" as valM
+
+  object "spec: Material : ProductSpecification" as spec1 {
+    name = "Material"
+    value = "100% Cotton"
+  }
+  object "spec: Care : ProductSpecification" as spec2 {
+    name = "Care"
+    value = "Machine wash cold"
+  }
+
+  product "1" *-- "4" v100 : has variations
+  product "1" *-- "5" img10 : owns the ONLY\ncopies of these files
+  img11 : (same product)
+  img12 : (same product)
+  img13 : (same product)
+  img14 : (same product)
+  img15 : (same product)
+  product "1" *-- "2" spec1 : has specifications
+  spec2 : (same product)
+
+  ' --- Pivot 1: identity. "what IS this variation" ---
+  v100 -[#green]-> valRed : attribute_value_product_variation\n(IDENTITY)
+  v100 -[#green]-> valS
+  v101 -[#green]-> valRed
+  v101 -[#green]-> valM
+  v102 -[#green]-> valBlue
+  v102 -[#green]-> valS
+  v103 -[#green]-> valBlue
+  v103 -[#green]-> valM
+
+  ' --- Pivot 2: appearance. "what does it LOOK LIKE" ---
+  ' v100: THREE images on one variation (multi-image).
+  v100 -[#blue]-> img10 : product_image_product_variation\n(APPEARANCE) pos=1
+  v100 -[#blue]-> img11 : pos=2
+  v100 -[#blue]-> img14 : pos=3 (3rd image, same variation)
+
+  ' v101: reuses img10/img11 exactly — same gallery as v100 (many
+  ' variations to the same images, no overlap ambiguity).
+  v101 -[#blue]-> img10 : pos=1 <b>(reused file)</b>
+  v101 -[#blue]-> img11 : pos=2
+
+  ' v102 and v103: PARTIAL overlap. Both show img12, but v103 ALSO
+  ' shows img15, which v102 does not. Non-empty union, neither a
+  ' subset of the other, neither identical.
+  v102 -[#blue]-> img12 : pos=1
+  v103 -[#blue]-> img12 : pos=1 <b>(shared with v102)</b>
+  v103 -[#blue]-> img15 : pos=2 (v103 only — v102 does NOT show this)
+}
+
+note bottom of valRed
+  <b>The one distinction worth holding onto:</b>
+  Red and S are BOTH AttributeValue rows —
+  one vocabulary table, used by two DIFFERENT
+  pivots for two DIFFERENT questions. A class
+  diagram would show one association and hide
+  this; the green vs. blue edges here are the
+  same table used twice, on purpose.
+end note
+
+note right of v100
+  <b>Computed, not stored</b> — this is
+  the other thing a class diagram
+  cannot show. price_override=null
+  means ResolveVariationPrice::current()
+  returns the PRODUCT's regular_price
+  (20.00) at read time. Nothing here is
+  copied or kept in sync; there is no
+  second value to go stale.
+end note
+
+note right of spec1
+  <b>A third, unrelated table.</b> Free-text
+  name/value on the PRODUCT, not a pivot,
+  not per-variation, not filterable —
+  "Cotton", "cotton" and "100% Cotton" are
+  three ungroupable values no query can
+  filter on. The right home for prose a
+  customer reads but nobody searches by.
+  See explanation/product-variability.md,
+  "Why not product_specifications for the
+  descriptive half."
+end note
+
+note right of img13
+  Product-level-only image.
+  Normal, not orphaned — a
+  variation never has to
+  claim every product image.
+end note
+
+' ============================================================
+'  PRODUCT 2 — Plain Mug: the simplest legal shape, no images
+' ============================================================
+
+package "Plain Mug — no variations beyond one, NO images anywhere" {
+
+  object "product : Products" as product2 {
+    id = 2
+    name = "Plain Mug"
+    regular_price = 8.00
+  }
+
+  object "MUG-PLAIN : ProductVariation" as v200 {
+    id = 200
+    sku = "MUG-PLAIN"
+    price_override = <color:blue>null</color>
+  }
+
+  product2 "1" *-- "1" v200 : has variations\n(single SKU — a product\nneeds no more than one)
+
+  note right of product2
+    <b>Zero rows in product_images for this product_id.</b>
+    Legal — write-rules/product.md records it as such. No
+    AttributeValue pivots either: a single-variation product
+    needs no differentiating axis.
+  end note
+
+  note bottom of v200
+    <b>ResolveVariationImage::urlOrDefault()</b>
+    walks the real fallback chain and hits
+    every rung:
+    1. own gallery — empty, skip
+    2. product's is_main image — none exists, skip
+    3. images/default-product.png — the
+       checked-in placeholder, shipped with
+       the app, an admin never uploads it
+    Never returns null to a caller that
+    wants something to render.
+  end note
+}
+
+@enduml

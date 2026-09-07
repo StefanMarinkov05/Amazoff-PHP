@@ -4,10 +4,9 @@ This is where all the project docs live. We're following
 [Diátaxis](https://diataxis.fr/) for the structure, plus two extra folders
 for decisions and release history.
 
-## [Tutorials](tutorials/)
-
-For someone brand new to the codebase. Walk them through it step by step,
-top to bottom — this isn't a reference, it's a guided first lap.
+There is no `tutorials/` — Diátaxis's tutorial quadrant is intentionally
+empty here. `explanation/documentation-design.md` records why and what
+plays that role instead.
 
 ## [How-to](how-to/)
 
@@ -24,6 +23,8 @@ just what's true right now.
 How things fit together as they are today. Pulls several decisions into one
 picture, points at ADRs by number instead of repeating their reasoning, and
 gets updated whenever the system changes.
+`explanation/system-overview.md` is the single orientation page — the whole
+system as one state machine, with links out to every diagram.
 
 ## [ADR](adr/)
 
@@ -50,8 +51,13 @@ the original draft, which was never a changelog: a changelog entry says a bug is
 gone and is filed under the date of the fix, while a troubleshooting entry is
 found by the symptom someone is looking at right now.
 
-It lives at `how-to/troubleshooting.md` rather than in the `docs/troubleshooting/`
-folder early planning had. Someone with a symptom is someone with a specific job,
-which is what how-to is for, and one file is searchable in a way a folder of
-one-problem files is not. The folder becomes worth it if the guide outgrows a
-single sitting.
+It lives under `how-to/troubleshooting/`, one file per area, with
+`how-to/troubleshooting.md` as the index — early planning had it as a single
+file, on the reasoning that one file is searchable in a way a folder of
+one-problem files is not, but by the time it reached 48 entries and 2,400
+lines that stopped being true: a single sitting could no longer hold it, and
+a `grep` across a directory finds a symptom exactly as well as a `grep`
+within one large file does. Someone with a symptom is still someone with a
+specific job, which is what how-to is for; the index page states which area
+each file covers so a search can start there instead of scrolling one long
+page.

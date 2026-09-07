@@ -11,10 +11,21 @@ ADR-0014; what each Action does is `reference/actions.md`.
 itself** — every Blade, Livewire, Alpine and Tailwind technique in use, and
 what breaks each one.
 
+## The visitor's path through it
+
+The pages below aren't independent — a visitor moves through them in a
+fairly fixed order: anonymous browsing, optional auth, shopping, checkout
+(guest and signed-in converge at order confirmation), account, order
+tracking. The full logical state map, each state annotated with its actual
+route, is drawn separately:
+[view source](../reference/diagrams/storefront-user-states/storefront-user-states.puml) ·
+[view PDF](../reference/diagrams/storefront-user-states/storefront-user-states.pdf) —
+verified against `routes/web.php` and `canAccessPanel()`.
+
 ## The files
 
 ```
-online-store/
+src/
 ├── routes/web.php                                    a route per page
 ├── app/Livewire/Catalogue/ProductList.php            state + queries
 └── resources/
@@ -131,7 +142,8 @@ hex in a template is the thing that makes a design drift.
 
 The `@source` lines are load-bearing and non-obvious: Tailwind's automatic
 source detection anchors at the git root, `.git` sits one level above
-`online-store/`, and the container mounts only `online-store/`, so detection
+`src/`, and the container mounts only `src/`, so detection
 finds nothing and only the explicit globs apply. If a utility class appears
-not to work, read the entry in `how-to/troubleshooting.md` before editing the
+not to work, read the entry in
+`how-to/troubleshooting/assets-vite-frontend.md` before editing the
 template — the class is usually fine and simply was never compiled.

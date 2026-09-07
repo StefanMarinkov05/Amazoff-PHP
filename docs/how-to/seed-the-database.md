@@ -117,7 +117,7 @@ panel, never seeded, and these rows are catalogue content rather than the
 reference data the application cannot boot without.
 
 Its vocabulary lives in
-**`online-store/database/fixtures/reference/catalogue.json`**, not in the
+**`src/database/fixtures/reference/catalogue.json`**, not in the
 seeder. That file is the single source of truth for every slug a product
 fixture may reference, and the seeder is only the loader for it. Categories
 nest to **arbitrary depth** — the seeder recurses, so
@@ -423,9 +423,9 @@ neither the Action nor the run is wrong. Do not "fix" this by weakening that
 key: it is what stops a reloaded checkout charging a customer twice.
 
 Before driving an intent to a webhook, check the CLI/app account pair —
-`how-to/troubleshooting.md`, "Stripe says a payment succeeded and the app
-still shows it pending". A `stripe listen` authenticated to a different
-account prints `Ready!` and forwards nothing.
+`how-to/troubleshooting/payments-and-security-tooling.md`, "Stripe says a
+payment succeeded and the app still shows it pending". A `stripe listen`
+authenticated to a different account prints `Ready!` and forwards nothing.
 
 ## Article images
 

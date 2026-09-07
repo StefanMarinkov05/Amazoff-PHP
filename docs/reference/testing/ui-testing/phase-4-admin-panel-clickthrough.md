@@ -45,9 +45,10 @@ the same case is answered below through the rolled-back path instead.
 
 Every admin resource requested **by URL** as each seeded account. A hidden nav
 link is not access control, so the route is what was probed. Complete results
-are in `reference/testing/security-testing.md` ("Role-based access control"), which
-this pass extended from 13 routes to all 19; the summary is that each role
-reaches exactly what the permission catalogue grants it and nothing else:
+are in `reference/testing/security-testing/what-held.md` ("Role-based access
+control"), which this pass extended from 13 routes to all 19; the summary is
+that each role reaches exactly what the permission catalogue grants it and
+nothing else:
 
 - `content_editor` — `articles`, `article-categories`, `tags`. Nothing else.
 - `warehouse_employee` — `orders`, `shipments`, `inventories`, `carriers`.
@@ -56,11 +57,11 @@ reaches exactly what the permission catalogue grants it and nothing else:
 Confirmed in a real browser, not only at the kernel: signed in as
 `editor@example.com`, the sidebar renders exactly three resources.
 
-![Filament sidebar as content_editor: Dashboard, Article Categories, Articles, Tags — nothing else](../../assets/ui-testing/phase4-editor-sidebar-three-resources.png)
+![Filament sidebar as content_editor: Dashboard, Article Categories, Articles, Tags — nothing else](../../../assets/ui-testing/phase4-editor-sidebar-three-resources.png)
 
 And a forbidden resource is a real 403 page, not a missing link:
 
-![/admin/users as content_editor: 403 Forbidden](../../assets/ui-testing/phase4-editor-users-403.png)
+![/admin/users as content_editor: 403 Forbidden](../../../assets/ui-testing/phase4-editor-users-403.png)
 
 ### The article status menu is enforced, not merely hidden
 

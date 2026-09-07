@@ -13,6 +13,13 @@ this describes what each half does, what it prevents, and what it does not.
 
 Two customers check out on the last item. `current = 1`, `reserved = 0`.
 
+Rendered as a sequence diagram:
+[view source](../reference/diagrams/stock-reservation-race/stock-reservation-race.puml) ·
+[view PDF](../reference/diagrams/stock-reservation-race/stock-reservation-race.pdf) —
+the overlapping activation bars make the interleaving visible in a way this
+table only implies; the maintained version if the two ever disagree. Kept
+here too for a plain-text read:
+
 ```
         Request A                        Request B
 t1      BEGIN
@@ -482,7 +489,8 @@ window exists between a read and a write; it cannot demonstrate that anything
 closes the window — that is the right technique for proving a transaction
 rolls back, and the wrong one for proving a lock exists.
 
-`how-to/troubleshooting.md` records the designs that look correct and prove
-nothing, and why the suite fails as a block under load.
-`reference/write-rules/concurrency.md` lists every contested resource, its
-mechanism, and the test that has been observed failing without it.
+`how-to/troubleshooting/concurrency-and-testing-races.md` records the
+designs that look correct and prove nothing, and why the suite fails as a
+block under load. `reference/write-rules/concurrency.md` lists every
+contested resource, its mechanism, and the test that has been observed
+failing without it.

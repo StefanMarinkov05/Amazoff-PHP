@@ -6,7 +6,7 @@ action: warn
 conditions:
   - field: file_path
     operator: regex_match
-    pattern: online-store/database/migrations/.*\.php$
+    pattern: src/database/migrations/.*\.php$
 ---
 
 ⚠️ **Migrations are append-only after the schema freeze**

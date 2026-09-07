@@ -3,18 +3,9 @@
 Where a piece of knowledge goes, and what shape it takes when it gets there.
 
 `explanation/documentation-design.md` covers how `docs/` itself is organized —
-Diátaxis, the ADR/explanation split, and the writing style. This page covers
-the code side and the boundary between the two.
-
-## Two readers
-
-Everything here is read by people and by Claude, and the two fail differently.
-
-A person who cannot find a document asks someone. An agent that cannot find a
-document proceeds without it — confidently, and with a plausible answer built
-on a wrong premise. That asymmetry drives most of the rules below: knowledge
-that is merely *available* is not enough, it has to be reachable from the place
-where it is needed.
+Diátaxis, the ADR/explanation split, the writing style, and the person/agent
+reader split that drives most of the rules below. This page covers the code
+side and the boundary between the two.
 
 ## Where rationale lives: code or docs
 
@@ -137,6 +128,23 @@ sends the reader to the source.
 
 Specification sections are cited by number (§18, §37) because the numbering is
 fixed and greppable across both the spec and the codebase.
+
+**Every file reference is a markdown link, not a bare backtick path.**
+`` `src/routes/web.php` `` makes a human retype the path; `[src/routes/web.php](../../src/routes/web.php)`
+is one click. This applies to every path a doc names — a source file, a
+migration, another doc — with no exception for "it's obvious where that
+is." Backticks alone are still correct for a symbol that isn't a path
+(a class name, a config key, a column name).
+
+**A diagram gets both links every time it's mentioned, not just once in
+`diagrams/README.md`.** The pattern already used in
+`explanation/stripe-payments.md` and `explanation/concurrency-and-locking.md`
+is the standard:
+`` [view source](path/to/name.puml) · [view PDF](path/to/name.pdf) ``,
+adding `` · [view SVG](path/to/name.svg) `` where the SVG is the one meant
+for inline viewing rather than print. A page that says "see the diagram in
+`reference/diagrams/`" without linking it costs the reader a second search
+that the doc could have skipped for free.
 
 ## Writing for the machine reader
 

@@ -1,0 +1,85 @@
+@startuml module-coupling
+
+' What actually calls what, at the module level — not a re-drawing of the
+' entity-relationship diagram's foreign keys with a boundary fence around
+' them. A foreign key (order_items.product_id -> products.id) means one
+' row references another; it does not mean the Order module "depends on"
+' Catalogue the way a PHP `use` statement does. Coding-conventions.md's
+' "no repository pattern, Eloquent is the repository" rule means a read
+' crossing an area boundary through Eloquent is deliberate, not a coupling
+' violation — this diagram is about the other kind of coupling: one
+' Action's code calling another area's Action or Support class.
+'
+' Modules are app/Actions/{Area}/ folders, the same ten areas
+' reference/schema/schema.md groups tables into (Cart, Catalogue, Contact,
+' Content, Coupon, Inventory, Order, Payment, ProductReview, Shipment),
+' plus App\Support as an eleventh module for the calculators, resolvers,
+' and value objects several areas share (Money, the Resolve* classes,
+' CalculateCartTotals/CalculateCouponDiscount/CalculateDeliveryPrice).
+'
+' Every edge below is a real `use` statement, found by grepping every
+' Action file's imports for another area's App\Actions\{Area}\ or
+' App\Support\{Class}, not inferred from the schema. Two things this
+' diagram deliberately does NOT show, because they are not this kind of
+' coupling: the presentation layer calling into an Action (every module
+' is called from Filament/Livewire/Http — that is what modules are FOR,
+' not a coupling problem between them), and an Action or Model reading a
+' relation on another area's Eloquent model directly.
+'
+' The result is the actual argument for low coupling: 10 modules, 6
+' cross-module Action-to-Action edges, all one-directional, no cycles.
+' Verified against the codebase on 2026-09-07.
+
+title Action-to-Action module coupling — 10 modules, 6 cross-module edges, no cycles
+
+skinparam packageStyle rectangle
+
+package "Cart" as Cart
+package "Catalogue" as Catalogue
+package "Contact" as Contact
+package "Content" as Content
+package "Coupon" as Coupon
+package "Inventory" as Inventory
+package "Order" as Order
+package "Payment" as Payment
+package "ProductReview" as ProductReview
+package "Shipment" as Shipment
+package "Support\n(Money, Resolve*, Calculate*)" as Support
+
+Catalogue --> Inventory : AddProductVariation\n-> RecordInventoryMovement
+note right on link
+  A new variation starts an
+  inventory row: creating the
+  variation IS the initial stock
+  movement (ADR-0002).
+end note
+
+Order --> Inventory : TransitionOrderStatus\n-> CompleteSale / ReleaseStock / RestockReturn
+note right on link
+  The one place ADR-0011's
+  inventory side effects live —
+  a status change moves stock,
+  never the reverse.
+end note
+
+Order --> Coupon : CreateOrder -> RedeemCoupon
+note right on link
+  Redemption is recorded at
+  order creation, not at
+  checkout-preview time.
+end note
+
+Order ..> Support : CreateOrder ->\nMoney, ResolveVariationPrice,\nCalculateDeliveryPrice, CalculateCouponDiscount,\nCouponDiscountLine
+Coupon ..> Support : ApplyCoupon / RedeemCoupon ->\nCalculateCartTotals, CalculateCouponDiscount,\nCouponDiscountLine
+Catalogue ..> Support : CreateProduct / UpdateProduct /\nSetProductAttributeValues / UpdateProductCategory ->\nResolveAllowedAttributes, ResolveCategoryFamily
+Payment ..> Support : every Payment Action ->\nMoney
+
+note bottom
+  Not drawn — deliberately: Cart, Contact, Content, ProductReview and
+  Shipment have zero outgoing edges to another Actions area. Each is
+  called from the presentation layer (Filament/Livewire/Http) but never
+  calls into a sibling module's Actions — the actual "high cohesion" half
+  of the claim this diagram makes.
+end note
+
+@enduml

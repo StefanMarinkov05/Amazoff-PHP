@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: docker/php/Dockerfile
     volumes:
-      - ./online-store:/var/www/html
+      - ./src:/var/www/html
       # Named volumes, not the bind mount, for anything platform-compiled or
       # perf-sensitive — sharing vendor/node_modules through the Windows/WSL2
       # boundary is what makes Composer and Vite crawl.
@@ -21,7 +21,7 @@ services:
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
-      - ./online-store:/var/www/html
+      - ./src:/var/www/html
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
@@ -43,7 +43,7 @@ services:
       - --skip-log-bin
       - --innodb-flush-method=nosync
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-online_shop}
+      MYSQL_DATABASE: ${DB_DATABASE:-amazoff}
       MYSQL_USER: ${DB_USERNAME:-sail}
       MYSQL_PASSWORD: ${DB_PASSWORD:-password}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
@@ -63,7 +63,7 @@ services:
     working_dir: /var/www/html
     entrypoint: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
     volumes:
-      - ./online-store:/var/www/html
+      - ./src:/var/www/html
       - node_modules:/var/www/html/node_modules
     ports:
       - "${VITE_PORT:-5173}:5173"

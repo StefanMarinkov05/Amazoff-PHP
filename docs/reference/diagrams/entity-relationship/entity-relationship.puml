@@ -1,0 +1,745 @@
+@startuml entity-relationship
+
+' Every domain table, every column, and every foreign key, grouped by the
+' same areas reference/schema/schema.md uses (Identity, Catalogue,
+' Inventory, Promotions, Cart, Orders, Payments, Shipping, Content,
+' Engagement) so this diagram and that page read as one document split two
+' ways, not two independent descriptions that can drift apart.
+'
+' Excluded: Laravel's own framework infrastructure tables (cache,
+' cache_locks, sessions, jobs, job_batches, failed_jobs, migrations,
+' password_reset_tokens, activity_log) — none of them are domain schema,
+' none of them have a foreign key into anything below, and including them
+' would dilute a diagram about this project's design with tables every
+' Laravel app has by default.
+'
+' Crow's-foot notation, not Chen: every other diagram in this folder is
+' PlantUML, and PlantUML's entity-relationship support speaks crow's-foot
+' — introducing Chen's diamond notation here would mean a second toolchain
+' and a second visual language for one diagram. Crow's-foot also reads
+' 1:1/1:N/N:M directly off the connector shape with no legend needed,
+' which is the more useful property for a working schema this size (Chen's
+' explicit relationship-diamonds are the stronger choice for *teaching* ER
+' modeling on a handful of tables, not for using one at 48 tables).
+'
+' `linetype ortho` was tried first and rejected: at this entity count it
+' produced a single 4096x839 horizontal strip with entities cut off past
+' the right edge and connector lines crossing through unrelated boxes —
+' technically rendered, not actually readable. Default PlantUML routing,
+' used here, lets the layout engine give each entity the vertical space it
+' needs instead of forcing everything into orthogonal lanes.
+'
+' Every column is shown, not a thinned identity-only subset — 384 columns
+' across 48 tables, generated mechanically from information_schema.columns
+' rather than hand-typed, specifically so a full row-for-row cross-check
+' against schema.md or a live database is possible. FK tags come from
+' information_schema.KEY_COLUMN_USAGE specifically (not MySQL's COLUMN_KEY
+' = MUL alone), because MUL also marks plain non-unique indexes that are
+' not foreign keys — roles.name, permissions.name, and orders.email all
+' carry MUL for indexing reasons unrelated to any FK.
+'
+' Verified against the live schema in `amazoff`
+' (information_schema.columns for every column and nullability,
+' information_schema.KEY_COLUMN_USAGE for every foreign key,
+' information_schema.TABLE_CONSTRAINTS for which foreign keys are also
+' UNIQUE and therefore 1:1 rather than 1:N) on 2026-09-07, after
+' `2026_09_07_190000_derive_payment_status_enum_from_php_enum` — the most
+' recent migration at verification time. Regenerate this diagram before
+' trusting it against a schema with migrations dated after that one.
+
+hide circle
+
+' A text legend can't draw PlantUML's own crow's-foot graphics (the
+' circles/forks/bars only render on a real relationship between two real
+' entities) — so the legend is a small worked example, using the same
+' rendering the diagram below uses, not a description of it.
+'
+' Placement is left to PlantUML's default layout engine, not pinned —
+' `legend top left` doesn't apply to a package, and hidden links tried to
+' force top placement (LegendMarkers/LC1 -[hidden]down- users) without
+' actually achieving it. The legend currently lands wherever the layout
+' packs it (typically a corner), not guaranteed top-left; it stays clearly
+' identifiable by its own border and "Legend —" label regardless of where
+' it lands. Revisit if a later PlantUML version's layout engine handles
+' package placement hints differently.
+package "Legend — markers" {
+  entity "example" as LegendMarkers {
+    * id : bigint <<PK>>
+    --
+    other_id : bigint <<FK>>
+    code : string <<unique>>
+    note : text <<nullable>>
+  }
+}
+
+package "Legend — cardinality" {
+  entity "One\n(required)" as LC1
+  entity "Many\n(optional)" as LC2
+  LC1 ||--o{ LC2 : 1 required to N optional,\nFK not nullable
+
+  entity "One\n(optional)" as LC3
+  entity "Many\n(optional) " as LC4
+  LC3 |o--o{ LC4 : 1 optional to N optional,\nFK nullable
+
+  entity "One " as LC5
+  entity "Zero-or-one" as LC6
+  LC5 ||--o| LC6 : 1:1,\nFK unique and nullable
+
+  entity "Many " as LC7
+  entity "Many  " as LC8
+  LC7 }o--o{ LC8 : N:M, two 1:N legs\ninto the pivot table
+}
+
+' ---------- Identity ----------
+entity "users" as users {
+  * id : bigint unsigned <<PK>>
+  --
+  first_name : varchar(50)
+  last_name : varchar(50)
+  email : varchar(100) <<unique>>
+  email_verified_at : timestamp <<nullable>>
+  password : varchar(255)
+  remember_token : varchar(100) <<nullable>>
+  phone : varchar(30) <<nullable>>
+  avatar_path : varchar(255) <<nullable>>
+  is_active : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+  deleted_at : timestamp <<nullable>>
+}
+
+entity "addresses" as addresses {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK>>
+  label : varchar(50) <<nullable>>
+  first_name : varchar(50)
+  last_name : varchar(50)
+  phone : varchar(30)
+  country : char(2)
+  city : varchar(50)
+  postcode : varchar(20)
+  street : varchar(150)
+  is_default_billing : tinyint(1)
+  is_default_shipping : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "roles" as roles {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(255)
+  guard_name : varchar(255)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "permissions" as permissions {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(255)
+  guard_name : varchar(255)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "model_has_roles" as model_has_roles {
+  * role_id : bigint unsigned <<PK, FK>>
+  * model_type : varchar(255) <<PK>>
+  * model_id : bigint unsigned <<PK>>
+}
+
+entity "model_has_permissions" as model_has_permissions {
+  * permission_id : bigint unsigned <<PK, FK>>
+  * model_type : varchar(255) <<PK>>
+  * model_id : bigint unsigned <<PK>>
+}
+
+entity "role_has_permissions" as role_has_permissions {
+  * permission_id : bigint unsigned <<PK, FK>>
+  * role_id : bigint unsigned <<PK, FK>>
+}
+
+' ---------- Catalogue ----------
+entity "brands" as brands {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(50)
+  slug : varchar(100) <<unique>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "product_categories" as product_categories {
+  * id : bigint unsigned <<PK>>
+  --
+  parent_id : bigint unsigned <<FK, nullable>>
+  name : varchar(50)
+  slug : varchar(100) <<unique>>
+  description : varchar(255) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "products" as products {
+  * id : bigint unsigned <<PK>>
+  --
+  product_category_id : bigint unsigned <<FK>>
+  brand_id : bigint unsigned <<FK, nullable>>
+  name : varchar(100)
+  slug : varchar(100) <<unique>>
+  sku : varchar(64) <<unique>>
+  short_description : varchar(255) <<nullable>>
+  description : text <<nullable>>
+  regular_price : decimal(10,2)
+  discount_price : decimal(10,2) <<nullable>>
+  discount_starts_at : timestamp <<nullable>>
+  discount_ends_at : timestamp <<nullable>>
+  vat_rate : decimal(5,2)
+  min_order_quantity : int
+  length_mm : int unsigned <<nullable>>
+  width_mm : int unsigned <<nullable>>
+  height_mm : int unsigned <<nullable>>
+  dimension_display_unit : enum
+  weight_g : int unsigned <<nullable>>
+  weight_display_unit : enum
+  is_available : tinyint(1)
+  is_featured : tinyint(1)
+  demo_case_order : smallint unsigned <<nullable>>
+  demo_case_label : varchar(100) <<nullable>>
+  seo_title : varchar(100) <<nullable>>
+  seo_description : varchar(255) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+  deleted_at : timestamp <<nullable>>
+}
+
+entity "product_variations" as product_variations {
+  * id : bigint unsigned <<PK>>
+  --
+  product_id : bigint unsigned <<FK>>
+  sku : varchar(64) <<unique>>
+  price : decimal(10,2) <<nullable>>
+  discount_price : decimal(10,2) <<nullable>>
+  weight_g : int unsigned <<nullable>>
+  weight_display_unit : enum
+  length_mm : int unsigned <<nullable>>
+  width_mm : int unsigned <<nullable>>
+  height_mm : int unsigned <<nullable>>
+  is_available : tinyint(1)
+  is_default : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+  deleted_at : timestamp <<nullable>>
+}
+
+entity "product_images" as product_images {
+  * id : bigint unsigned <<PK>>
+  --
+  product_id : bigint unsigned <<FK>>
+  path : varchar(255)
+  alt_text : varchar(255) <<nullable>>
+  is_main : tinyint(1)
+  sort_order : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "product_specifications" as product_specifications {
+  * id : bigint unsigned <<PK>>
+  --
+  product_id : bigint unsigned <<FK>>
+  name : varchar(50)
+  value : varchar(100)
+  sort_order : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "attributes" as attributes {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(50)
+  slug : varchar(60) <<unique>>
+  input_type : enum
+  is_filterable : tinyint(1)
+  is_variation_only : tinyint(1)
+  sort_order : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "attribute_values" as attribute_values {
+  * id : bigint unsigned <<PK>>
+  --
+  attribute_id : bigint unsigned <<FK>>
+  value : varchar(100)
+  slug : varchar(120)
+  color_hex : char(7) <<nullable>>
+  sort_order : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "attribute_product" as attribute_product {
+  * attribute_id : bigint unsigned <<PK, FK>>
+  * product_id : bigint unsigned <<PK, FK>>
+}
+
+entity "attribute_product_category" as attribute_product_category {
+  * attribute_id : bigint unsigned <<PK, FK>>
+  * product_category_id : bigint unsigned <<PK, FK>>
+}
+
+entity "attribute_value_product" as attribute_value_product {
+  * attribute_value_id : bigint unsigned <<PK, FK>>
+  * product_id : bigint unsigned <<PK, FK>>
+}
+
+entity "attribute_value_product_variation" as attribute_value_product_variation {
+  * attribute_value_id : bigint unsigned <<PK, FK>>
+  * product_variation_id : bigint unsigned <<PK, FK>>
+}
+
+entity "product_image_product_variation" as product_image_product_variation {
+  * product_image_id : bigint unsigned <<PK, FK>>
+  * product_variation_id : bigint unsigned <<PK, FK>>
+  --
+  position : int
+}
+
+' ---------- Inventory ----------
+entity "inventories" as inventories {
+  * id : bigint unsigned <<PK>>
+  --
+  product_variation_id : bigint unsigned <<unique, FK>>
+  current_quantity : int
+  reserved_quantity : int
+  sold_quantity : int
+  returned_quantity : int
+  damaged_quantity : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "inventory_movements" as inventory_movements {
+  * id : bigint unsigned <<PK>>
+  --
+  inventory_id : bigint unsigned <<FK>>
+  created_by_id : bigint unsigned <<FK, nullable>>
+  movement_type : enum
+  quantity : int
+  note : varchar(255) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ---------- Promotions ----------
+entity "coupons" as coupons {
+  * id : bigint unsigned <<PK>>
+  --
+  code : varchar(50) <<unique>>
+  name : varchar(100)
+  description : varchar(255) <<nullable>>
+  type : enum
+  scope : enum
+  value : decimal(10,2)
+  max_discount_amount : decimal(10,2) <<nullable>>
+  minimum_order_value : decimal(10,2) <<nullable>>
+  starts_at : timestamp <<nullable>>
+  ends_at : timestamp <<nullable>>
+  total_usage_limit : int <<nullable>>
+  usage_limit_per_customer : int <<nullable>>
+  is_active : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "coupon_redemptions" as coupon_redemptions {
+  * id : bigint unsigned <<PK>>
+  --
+  coupon_id : bigint unsigned <<FK>>
+  order_id : bigint unsigned <<FK>>
+  user_id : bigint unsigned <<FK, nullable>>
+  email_hash : char(64)
+  discount_amount : decimal(10,2)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "coupon_product" as coupon_product {
+  * coupon_id : bigint unsigned <<PK, FK>>
+  * product_id : bigint unsigned <<PK, FK>>
+}
+
+entity "coupon_product_category" as coupon_product_category {
+  * coupon_id : bigint unsigned <<PK, FK>>
+  * product_category_id : bigint unsigned <<PK, FK>>
+}
+
+' ---------- Cart ----------
+entity "carts" as carts {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK, nullable>>
+  coupon_id : bigint unsigned <<FK, nullable>>
+  session_id : varchar(100) <<nullable>>
+  expires_at : timestamp <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "cart_items" as cart_items {
+  * id : bigint unsigned <<PK>>
+  --
+  cart_id : bigint unsigned <<FK>>
+  product_variation_id : bigint unsigned <<FK>>
+  quantity : int
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "wishlist_items" as wishlist_items {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK>>
+  product_id : bigint unsigned <<FK>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ---------- Orders ----------
+entity "carriers" as carriers {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(50)
+  code : varchar(20) <<unique>>
+  cod_fee : decimal(10,2)
+  base_delivery_price : decimal(10,2)
+  is_active : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "orders" as orders {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK, nullable>>
+  carrier_id : bigint unsigned <<FK, nullable>>
+  cart_id : bigint unsigned <<unique, nullable>>
+  serial_number : varchar(50) <<unique>>
+  email : varchar(100)
+  phone : varchar(30)
+  first_name : varchar(50)
+  last_name : varchar(50)
+  status : enum
+  payment_method : enum
+  currency : char(3)
+  subtotal_amount : decimal(10,2)
+  discount_amount : decimal(10,2)
+  shipping_amount : decimal(10,2)
+  vat_amount : decimal(10,2)
+  total_amount : decimal(10,2)
+  customer_note : text <<nullable>>
+  internal_note : text <<nullable>>
+  invoice_required : tinyint(1)
+  invoice_company : varchar(150) <<nullable>>
+  invoice_vat_number : varchar(30) <<nullable>>
+  invoice_eik : varchar(20) <<nullable>>
+  anonymized_at : timestamp <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "order_items" as order_items {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  product_id : bigint unsigned <<FK, nullable>>
+  product_variation_id : bigint unsigned <<FK, nullable>>
+  product_name : varchar(100)
+  product_sku : varchar(64)
+  variation_name : varchar(150) <<nullable>>
+  quantity : int
+  unit_price : decimal(10,2)
+  line_total : decimal(10,2)
+  discount_amount : decimal(10,2)
+  vat_rate : decimal(5,2)
+  vat_amount : decimal(10,2)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "order_addresses" as order_addresses {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  source_address_id : bigint unsigned <<FK, nullable>>
+  type : enum
+  delivery_type : enum
+  first_name : varchar(50)
+  last_name : varchar(50)
+  phone : varchar(30)
+  country : char(2)
+  city : varchar(50)
+  postcode : varchar(20)
+  street : varchar(150) <<nullable>>
+  courier_office_code : varchar(50) <<nullable>>
+  courier_office_name : varchar(150) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "order_status_histories" as order_status_histories {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  user_id : bigint unsigned <<FK, nullable>>
+  previous_status : enum <<nullable>>
+  new_status : enum
+  reason : varchar(255) <<nullable>>
+  note : text <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ---------- Payments ----------
+entity "payments" as payments {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  method : enum
+  status : enum
+  currency : char(3)
+  amount : decimal(10,2)
+  refunded_amount : decimal(10,2)
+  stripe_payment_intent_id : varchar(255) <<unique, nullable>>
+  stripe_checkout_session_id : varchar(255) <<nullable>>
+  paid_at : timestamp <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "payment_events" as payment_events {
+  * id : bigint unsigned <<PK>>
+  --
+  payment_id : bigint unsigned <<FK>>
+  stripe_event_id : varchar(255) <<unique>>
+  event_type : varchar(50)
+  status_before : enum <<nullable>>
+  status_after : enum
+  payload : json <<nullable>>
+  processed_at : timestamp
+  note : varchar(255) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ---------- Shipping ----------
+entity "shipments" as shipments {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  carrier_id : bigint unsigned <<FK>>
+  shipment_number : varchar(100) <<nullable>>
+  tracking_number : varchar(100) <<unique, nullable>>
+  status : enum
+  raw_status : varchar(100) <<nullable>>
+  label_path : varchar(255) <<nullable>>
+  courier_tracking_url : varchar(255) <<nullable>>
+  cod_amount : decimal(10,2) <<nullable>>
+  weight : decimal(8,2) <<nullable>>
+  shipped_at : timestamp <<nullable>>
+  delivered_at : timestamp <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "shipment_tracking_events" as shipment_tracking_events {
+  * id : bigint unsigned <<PK>>
+  --
+  shipment_id : bigint unsigned <<FK>>
+  status : enum
+  raw_status : varchar(100) <<nullable>>
+  description : varchar(255) <<nullable>>
+  event_time : timestamp
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ---------- Content ----------
+entity "article_categories" as article_categories {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(50)
+  slug : varchar(100) <<unique>>
+  description : varchar(255) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "articles" as articles {
+  * id : bigint unsigned <<PK>>
+  --
+  author_id : bigint unsigned <<FK>>
+  article_category_id : bigint unsigned <<FK, nullable>>
+  title : varchar(100)
+  slug : varchar(100) <<unique>>
+  summary : varchar(255) <<nullable>>
+  content : text
+  main_image_path : varchar(255) <<nullable>>
+  status : enum
+  featured : tinyint(1)
+  seo_title : varchar(100) <<nullable>>
+  seo_description : varchar(255) <<nullable>>
+  published_at : timestamp <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "tags" as tags {
+  * id : bigint unsigned <<PK>>
+  --
+  name : varchar(30)
+  slug : varchar(60) <<unique>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "article_product" as article_product {
+  * article_id : bigint unsigned <<PK, FK>>
+  * product_id : bigint unsigned <<PK, FK>>
+}
+
+entity "article_tag" as article_tag {
+  * article_id : bigint unsigned <<PK, FK>>
+  * tag_id : bigint unsigned <<PK, FK>>
+}
+
+' ---------- Engagement ----------
+entity "product_reviews" as product_reviews {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK, nullable>>
+  product_id : bigint unsigned <<FK>>
+  order_item_id : bigint unsigned <<FK, nullable>>
+  author_name : varchar(100)
+  rating : tinyint
+  body : text
+  approved : tinyint(1)
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "contact_messages" as contact_messages {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK, nullable>>
+  name : varchar(50)
+  email : varchar(100)
+  subject : varchar(100) <<nullable>>
+  message : text
+  handled_at : timestamp <<nullable>>
+  internal_note : text <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "newsletter_subscribers" as newsletter_subscribers {
+  * id : bigint unsigned <<PK>>
+  --
+  user_id : bigint unsigned <<FK, nullable>>
+  email : varchar(100) <<unique>>
+  status : enum
+  subscribed_at : timestamp
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+' ================= Relationships =================
+' ||--o{  one required, many optional (standard 1:N, FK not nullable)
+' |o--o{  one optional, many optional (1:N, FK nullable)
+' ||--o|  one to zero-or-one (1:1, FK unique and nullable)
+' }o--o{  many to many (through a pivot, drawn as two 1:N legs into it)
+
+users ||--o{ addresses
+users ||--o{ model_has_roles
+roles ||--o{ model_has_roles
+users ||--o{ model_has_permissions
+permissions ||--o{ model_has_permissions
+roles ||--o{ role_has_permissions
+permissions ||--o{ role_has_permissions
+
+brands ||--o{ products
+product_categories ||--o{ products
+product_categories |o--o{ product_categories : parent
+
+products ||--o{ product_variations
+products ||--o{ product_images
+products ||--o{ product_specifications
+
+attributes ||--o{ attribute_values
+attributes }o--o{ attribute_product
+products }o--o{ attribute_product
+attributes }o--o{ attribute_product_category
+product_categories }o--o{ attribute_product_category
+attribute_values }o--o{ attribute_value_product
+products }o--o{ attribute_value_product
+attribute_values }o--o{ attribute_value_product_variation
+product_variations }o--o{ attribute_value_product_variation
+product_images }o--o{ product_image_product_variation
+product_variations }o--o{ product_image_product_variation
+
+product_variations ||--o| inventories
+inventories ||--o{ inventory_movements
+users |o--o{ inventory_movements
+
+coupons ||--o{ coupon_redemptions
+orders ||--o{ coupon_redemptions
+users ||--o{ coupon_redemptions
+coupons }o--o{ coupon_product
+products }o--o{ coupon_product
+coupons }o--o{ coupon_product_category
+product_categories }o--o{ coupon_product_category
+
+users |o--o{ carts
+coupons |o--o{ carts
+carts ||--o{ cart_items
+product_variations ||--o{ cart_items
+users ||--o{ wishlist_items
+products ||--o{ wishlist_items
+
+carts |o--o| orders
+users |o--o{ orders
+carriers |o--o{ orders
+orders ||--o{ order_items
+products ||--o{ order_items
+product_variations ||--o{ order_items
+orders ||--o{ order_addresses
+addresses |o--o{ order_addresses
+orders ||--o{ order_status_histories
+users |o--o{ order_status_histories
+
+orders ||--o{ payments
+payments ||--o{ payment_events
+
+orders ||--o{ shipments
+carriers ||--o{ shipments
+shipments ||--o{ shipment_tracking_events
+
+article_categories ||--o{ articles
+users ||--o{ articles
+articles }o--o{ article_product
+products }o--o{ article_product
+articles }o--o{ article_tag
+tags }o--o{ article_tag
+
+products ||--o{ product_reviews
+users ||--o{ product_reviews
+order_items |o--o{ product_reviews
+
+users |o--o{ contact_messages
+users |o--o{ newsletter_subscribers
+
+@enduml

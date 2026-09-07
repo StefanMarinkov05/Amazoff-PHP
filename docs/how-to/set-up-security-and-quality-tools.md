@@ -32,9 +32,10 @@ Read, in this order:
 2. **`reference/testing/security-tooling.md`**, "Configuration, as actually
    used" — *why* each setting is what it is, and the measured evidence
    behind the authenticated scan's concurrency fix specifically.
-3. **`how-to/troubleshooting.md`**, "A ZAP full scan runs the machine out of
-   memory" — what to do when a full scan does not complete, and — just as
-   important — what *not* to conclude from that. An earlier version of that
+3. **`how-to/troubleshooting/payments-and-security-tooling.md`**, "A ZAP full
+   scan runs the machine out of memory" — what to do when a full scan does
+   not complete, and — just as important — what *not* to conclude from
+   that. An earlier version of that
    entry wrongly generalised a fix that was specific to the *authenticated*
    scan onto an unauthenticated one; the corrected entry has the accurate
    account.
@@ -74,31 +75,42 @@ always pass a Docker-level memory cap.**
 
 ```bash
 docker run --rm --network online_shop_teamb_default \
-  -m 10g --memory-swap 10g \
+  -m 12g --memory-swap 12g \
   -v "$(pwd)/scratchpad:/zap/wrk:rw" \
   ghcr.io/zaproxy/zaproxy:stable \
   zap-full-scan.py -t http://webserver:80/<path> \
     -r report.html -x report.xml -m 5
 ```
 
-`-m 10g --memory-swap 10g` is not optional — add it every time. It turns a
+`-m 12g --memory-swap 12g` is not optional — add it every time. It turns a
 runaway scan into a contained kill of just that container instead of a
 host-wide memory exhaustion, which has happened on this project's own
 machine more than once, including on retries where the scan target was
-smaller than the one that had previously succeeded without a cap. 10 GB is
-set above the one confirmed-successful full scan's measured peak (7.4 GB,
-SEC-005); adjust down only on a machine known to have less headroom, and
-expect the scan to fail to complete if you do. Budget real wall-clock time
-too — `pentest-the-system.md`'s cost table and `troubleshooting.md`'s
-memory entry (both linked above) explain why `-m <minutes>` alone is not
-a full-run time cap.
+smaller than the one that had previously succeeded without a cap.
+**12 GB, not 10 GB — measured, not guessed.** `DomXssScanRule`'s headless-
+browser launch (Firefox via geckodriver) needs real headroom beyond every
+other active-scan rule; against `/orders/track` this OOM-killed the scan
+at both 6 GB and 10 GB caps, confirmed via `docker inspect`'s `OOMKilled`
+field, and only completed at 12 GB (`docker inspect`: `OOMKilled: false`,
+report files written, ~1h33m wall-clock — see
+`reference/testing/security-testing/what-held.md`'s "Other checks" table and
+`how-to/troubleshooting/payments-and-security-tooling.md`'s ZAP entry for
+the full evidence trail). Adjust down only on a machine known to have less
+headroom, and expect the scan to fail to complete if you do — a smaller cap
+is a real, reproducible failure mode here, not overcaution. Budget real
+wall-clock time too, and expect it to run noticeably longer than a scan
+that never engages `DomXssScanRule`'s browser dependency:
+`pentest-the-system.md`'s cost table and
+`how-to/troubleshooting/payments-and-security-tooling.md`'s memory entry
+(both linked above) explain why `-m <minutes>` alone is not a full-run time
+cap.
 
 ### An authenticated scan
 
 Needs a real session cookie and an Automation Framework plan, not a bare
 CLI flag — `pentest-the-system.md`'s "The authenticated scan" subsection is
 the actual procedure and the one owner of the invocation, and
-`reference/testing/security/zap-auth.yaml` is the checked-in, reusable
+`reference/testing/scanner-tooling/zap-auth.yaml` is the checked-in, reusable
 plan. Do not write a new authenticated-scan config from scratch; that file
 already encodes four rounds of trial-and-error (session injection, the
 port-normalisation bug, the concurrency race) that would otherwise repeat.

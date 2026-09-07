@@ -53,7 +53,7 @@ only adds a write-time cost for the same read-time cost.
 
 Selecting a category shows products assigned to that category **or any of
 its descendants, at any depth** — not an exact match against the row picked.
-`App\Support\ResolveCategoryFamily::selfAndDescendantIds()` is the one place
+`App\Support\Resolvers\ResolveCategoryFamily::selfAndDescendantIds()` is the one place
 this walk happens.
 
 The real seeded tree is 4 levels deep (Clothing → Men → Tops → T-Shirts,
@@ -96,7 +96,7 @@ picked at once.
 ## Price: against the sticker price, not the discount-window price
 
 `minPrice`/`maxPrice` filter `products.regular_price` — the sticker price,
-**not** the discount-aware price `App\Support\ResolveProductPrice` resolves
+**not** the discount-aware price `App\Support\Resolvers\ResolveProductPrice` resolves
 for display. A product currently on sale at €50 (regular €80) will not match
 `maxPrice=60`, because the comparison never reaches the discount window.
 

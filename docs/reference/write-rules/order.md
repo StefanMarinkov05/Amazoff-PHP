@@ -8,6 +8,11 @@ Why the mechanisms differ is `explanation/concurrency-and-locking.md`. This
 page is the outcomes, in the same shape as its siblings,
 `reference/write-rules/cart.md` and `reference/write-rules/coupon.md`.
 
+The full `OrderStatus` transition graph, with the inventory side effect
+bolded on each edge that carries one, is rendered as a diagram:
+[view source](../diagrams/order-status-states/order-status-states.puml) ·
+[view PDF](../diagrams/order-status-states/order-status-states.pdf).
+
 ## What enforces any of this
 
 `App\Actions\Order\CreateOrder`, and nothing else. Direct Eloquent, a
