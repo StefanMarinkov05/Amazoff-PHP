@@ -50,18 +50,20 @@
 hide circle
 
 legend top left
-  |= Marker |= Meaning |
-  | <b>*</b> before a column | Primary key |
-  | <<PK>> | Primary key (composite pivots: multiple per entity) |
-  | <<FK>> | Foreign key — verified against KEY_COLUMN_USAGE, not MySQL's MUL alone |
-  | <<unique>> | UNIQUE constraint |
-  | <<nullable>> | Column allows NULL |
-  --
-  |= Connector |= Meaning |
-  | ||--o{{ | one (required) to many (optional) — standard 1:N, FK not nullable |
-  | \|o--o{{ | one (optional) to many (optional) — 1:N, FK nullable |
-  | ||--o\| | one to zero-or-one — 1:1, FK unique and nullable |
-  | }}o--o{{ | many to many, drawn as two 1:N legs into the pivot table between them |
+  <b>Markers</b>
+  * before a column = primary key
+  PK  = primary key (composite pivots carry more than one)
+  FK  = foreign key, verified against KEY_COLUMN_USAGE — not MySQL's
+        MUL alone, which also marks plain non-unique indexes
+  unique   = UNIQUE constraint
+  nullable = column allows NULL
+  ====
+  <b>Connectors</b>
+  one (required) --- many (optional)   : standard 1:N, FK not nullable
+  one (optional) --- many (optional)   : 1:N, FK nullable
+  one --- zero-or-one                  : 1:1, FK unique and nullable
+  many --- many                        : N:M, drawn as two 1:N legs into
+                                          the pivot table between them
 endlegend
 
 ' ---------- Identity ----------
