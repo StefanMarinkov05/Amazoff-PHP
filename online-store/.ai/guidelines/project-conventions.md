@@ -19,6 +19,8 @@ follows is the short version.
 - `docs/adr/` — one decision per file, `0001`–`0011`. The *decision* is
   frozen once accepted; a changed mind gets a new ADR marked
   `Superseded by ADR-XXXX`. Never argue against an accepted ADR silently.
+- `docs/reference/coding-conventions.md` — the architecture and security
+  rules, in full. Read before writing or reviewing any code.
 - `docs/reference/actions.md` — every Action, what it writes, who may call
   it, what it throws. Do not infer what exists from memory.
 - `docs/reference/write-rules/` — expected behaviour per aggregate:
@@ -35,63 +37,19 @@ follows is the short version.
   rendering a plausible page rather than an error, so neither Larastan nor
   Pest catches them.
 
-## Architecture, non-negotiable
+## Architecture and security rules
 
-- Business logic lives in `app/Actions/{Area}/{Verb}{Noun}.php`. One command
-  per class, a single `handle()`, grouped by the aggregate the write belongs
-  to. Controllers, Livewire components, Filament pages, and console commands
-  are thin callers **on the write path**: validate, call the Action, respond.
-  Reads do not go through Actions — a storefront Livewire component queries
-  Eloquent directly, because a read has no invariant for an Action to own.
-  ADR-0014, and `docs/explanation/storefront-pages.md` for the page shape.
-- **No repository pattern.** Eloquent is the repository. Do not introduce
-  one.
-- Filament resources call the same Actions as the storefront wherever a rule
-  exists. Plain lookup tables (`Brand`, `Tag`, `Attribute`, `Carrier`, …)
-  keep Filament's default CRUD — wrapping a single-table save in an Action
-  buys nothing. See ADR-0007.
-- Every fixed value set is a backed enum in `App\Enums` with behaviour on it.
-  Display goes through Filament's `HasLabel`/`HasColor`. Lifecycle rules
-  (`canTransitionTo()`) only where illegal moves exist. ADR-0004.
-  Exception: roles are `spatie/laravel-permission` rows, not an enum — §3.5
-  requires them editable at runtime.
-- **Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes
-  through `App\Support\Money`, never raw `bc*` calls or float.** See
-  `docs/explanation/money.md`.
-- **A table column crossing a relation gets that relation eager-loaded**, via
-  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does none of its
-  own — `make('brand.name')` is one extra query per row and the page still
-  renders, so nothing surfaces it. Same for an accessor that reads a relation
-  (`Order::$payment_status`), where no dot in the column name hints at it.
-  `preventLazyLoading()` is deliberately off (ADR-0012). See
-  `docs/explanation/filament-resources.md`, "Eager loading, and the N+1 rule".
-- Contested state (stock, coupon caps, order status): `DB::transaction`
-  **and** `lockForUpdate()` on the row the invariant actually lives on —
-  not necessarily the row being written. See
-  `docs/reference/write-rules/concurrency.md` and ADR-0008.
-- `orders.status` is written **only** by `TransitionOrderStatus`. Never
-  assign `->status` directly.
-- External APIs sit behind a Saloon connector plus an interface in
-  `App\Contracts`. Abstract the courier (two implementations); do **not**
-  abstract Stripe (one).
-- Validation via Form Requests. Never `$request->all()`.
-- Authorization on every mutating path and every route taking an ID. A
-  hidden button is not security.
-
-## Security rules that are ours, not the framework's
-
-- Scope queries to the user: `auth()->user()->orders()->findOrFail($id)`,
-  never `Order::findOrFail($id)`.
-- `canAccessPanel()` on `User` checks role membership — Filament is not
-  protected past login by default.
-- Stripe webhook: CSRF-excluded **and** signature-verified. One without the
-  other is a free-products vulnerability.
-- Article and review bodies are user input. Purify before rendering;
-  `{!! !!}` escapes nothing.
-- Idempotency via a UNIQUE constraint plus a caught violation, never
-  check-then-act.
-- Public order tracking requires order number **and** email.
-- Totals are always recalculated server-side.
+`docs/reference/coding-conventions.md` is the single source for this
+project's non-negotiable architecture rules (Actions own business logic,
+no repository pattern, backed enums, money as `decimal`/`App\Support\Money`,
+eager-loading discipline, contested-state locking, `TransitionOrderStatus`
+as the only writer of `orders.status`, Saloon-behind-a-contract for
+couriers) and security rules that are ours, not the framework's (scope
+queries to the user, `canAccessPanel()`, the Stripe webhook's
+CSRF-exclusion-plus-signature-verification pairing, purifying user input,
+idempotency via UNIQUE-plus-catch, order tracking's number-and-email
+pairing, server-recalculated totals). Read it before writing or reviewing
+any code in this repo.
 
 ## Testing
 
@@ -99,47 +57,24 @@ follows is the short version.
   Larastan needs `--memory-limit=1G` — not optional; the container default
   crashes its workers and reports a fake `Found 1 error`.
 - `tests/Feature` uses `LazilyRefreshDatabase`. `tests/Concurrency`
-  deliberately does **not** — those tests need a second real connection to
-  see committed rows, and spawn `php artisan race:worker` subprocesses.
+  deliberately does **not** — see `coding-conventions.md`'s "Testing
+  discipline" for the full reasoning, the CI-shard placement requirement,
+  and the "prove something ours, not the framework's" rule for whether a
+  test is worth writing at all.
 - **Never run `tests/Concurrency` under `pest --parallel`.** Laravel only
   gives a test case its own per-worker database when it uses
   `RefreshDatabase` or a sibling trait, so parallel workers collide.
   `--parallel --processes=4 --testsuite=Feature` is the supported form.
-- A test that has never been observed failing proves nothing. After writing
-  one, break the thing it covers and confirm it goes red.
-- **A new test file must be added to a CI shard in
-  `.github/workflows/ci.yml` in the same change.** Sharding is a
-  hand-maintained file list, not auto-discovery — an unlisted file runs
-  nowhere in CI. `docs/how-to/use-ci.md` has the placement rule: shard 2
-  by default for `tests/Unit`/`tests/Feature`, shard 1 only if it shares
-  `RolePermissionTest`'s per-test triple-reseed cost; the lightest
-  concurrency shard by default for `tests/Concurrency`.
 - Verify against a running app, not by reading code. `php -l` proves syntax,
   Larastan proves types, Pest proves the paths it covers — none of them
   executes the behaviour.
-- A test earns its place by proving something ours, not the framework's.
-  `ProductResourceTest.php`'s `'refuses a product with no variations'` uses
-  Filament's own `Livewire::test()->fillForm()->assertHasFormErrors()`
-  machinery, but what it proves is a domain rule
-  (`ProductRequiresVariationException`'s territory), not the form's
-  plumbing. A test reasserting that `->acceptedFileTypes()` rejects a bad
-  MIME type, or that `Illuminate\Validation\Rules\Dimensions` rejects a
-  too-small image, proves Filament and Laravel work — already proven
-  upstream — for a flaky, fixture-heavy cost. Before writing a test, name
-  what it proves and check whether that thing is ours. Root
-  `CLAUDE.md`'s "Working style" has this in full.
 
 ## Working style
 
-- Vertical slices, atomically: migration → model → factory → policy → admin
-  resource → public UI for one entity before starting a dependent one.
-- Migrations are append-only after the schema freeze. Never edit a merged
-  migration; add a new one.
-- Generated code is a first draft. It gets read before it is trusted.
-- **Before opening or updating a PR, merge `main` in and resolve any
-  conflicts first**, then re-run `pint --test`, `phpstan analyse`, and
-  `pest` — a clean textual merge can still combine two branches into
-  behaviour neither had alone.
+`coding-conventions.md`'s "Working style" section has the full rules
+(vertical slices, append-only migrations, the pre-PR merge-and-recheck
+step). The two that apply on every turn, not just coding tasks:
+
 - **Do not commit or push unless explicitly asked.** Never add a
   `Co-Authored-By` trailer on this repo. PR bodies use
   `.github/PULL_REQUEST_TEMPLATE.md` as written.

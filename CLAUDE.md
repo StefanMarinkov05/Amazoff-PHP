@@ -78,7 +78,7 @@ in agreement: if a rule here changes, change it there too.
   reach — read it before trusting any claim that an authorization path is
   safe; `security-tooling.md` is its inventory half — which scanners are
   configured how, the exact surface they reached, and the measured numbers
-  behind every coverage claim; `security/` holds that tooling's actual
+  behind every coverage claim; `scanner-tooling/` holds that tooling's actual
   inputs and outputs — `zap-auth.yaml` (the reusable authenticated-scan
   plan) and `reports/` (the dated, never-edited-after-the-fact output of
   each run); `tested-inputs.md` and `coverage.md` round out the numbers.
@@ -149,95 +149,28 @@ in agreement: if a rule here changes, change it there too.
 
 ---
 
-## Architecture — non-negotiable
+## Architecture and security rules
 
-- Business logic lives in `app/Actions/{Area}/{Verb}{Noun}.php`. One command
-  per class, single `handle()`, grouped by the aggregate the write belongs
-  to, not by the caller. `docs/reference/actions.md` is the current,
-  complete list; don't infer what exists from memory or from this file.
-- Controllers and Livewire components are thin **on the write path**:
-  validate → call Action → respond. Reads are the component's own business —
-  a storefront page queries Eloquent directly rather than through an Action,
-  because a read has no invariant for an Action to own. See ADR-0014, and
-  `docs/explanation/storefront-pages.md` for the shape a page takes.
-- Filament resources call the same Actions as the storefront wherever a rule
-  exists — this is what keeps two developers from building two subtly
-  different versions of the same business rule. A rule exists when a write
-  spans more than 1 table or enforces an invariant the schema cannot
-  express: a product needs a variation and an inventory row, an order needs
-  items and addresses, a status change needs a history row. Plain lookup
-  tables (`Brand`, `Tag`, `Attribute`, `AttributeValue`, `ProductCategory`,
-  `ArticleCategory`, `Carrier`) keep Filament's default CRUD, because
-  wrapping a single-table save in an Action buys nothing and costs a class.
-  So does `CouponResource` — coupon *redemption* is the contested state,
-  not the coupon row itself. See ADR-0007.
-- No repository pattern. Eloquent is the repository.
-- Every fixed value set is a backed enum in `App\Enums`, with behaviour on
-  it. Never the same list twice. Display goes through Filament's `HasLabel`
-  and `HasColor` contracts — Filament reads those off the enum by itself, so
-  a bespoke `label()` would have to be wired up in every resource showing the
-  column. Lifecycle behaviour (`canTransitionTo()`) only where illegal moves
-  exist and some actor can attempt them; see `docs/adr/0004-state-transitions.md`.
+**[`docs/reference/coding-conventions.md`](docs/reference/coding-conventions.md)**
+is the single source for this project's non-negotiable architecture rules
+(Actions own business logic, no repository pattern, backed enums, money as
+`decimal`/`App\Support\Money`, eager-loading discipline, contested-state
+locking, `TransitionOrderStatus` as the only writer of `orders.status`,
+Saloon-behind-a-contract for couriers) and security rules that are ours,
+not the framework's (scope queries to the user, `canAccessPanel()`, the
+Stripe webhook's CSRF-exclusion-plus-signature-verification pairing,
+purifying user input, idempotency via UNIQUE-plus-catch, order tracking's
+number-and-email pairing, server-recalculated totals). Read it before
+writing or reviewing any code — every rule there is load-bearing, not
+aspirational.
 
-  Exception: roles. Provided by `spatie/laravel-permission`, not an enum —
-  §3.5 requires them editable at runtime. See
-  `docs/adr/0001-tech-stack-selection.md`.
-- Money: `decimal(10,2)` columns, `decimal:2` casts. Arithmetic goes through
-  `App\Support\Money`, never raw `bc*` calls or float. See
-  `docs/explanation/money.md`.
-- **A table column crossing a relation gets that relation eager-loaded**, via
-  `->modifyQueryUsing(fn ($q) => $q->with([...]))`. Filament does no
-  eager-loading of its own — a `make('brand.name')` column is one extra query
-  per row, and the page still renders, so it goes unnoticed. Applies equally
-  to an accessor that reads a relation (`Order::$payment_status`), where the
-  column name contains no dot to hint at it. `preventLazyLoading()` is
-  deliberately still off (ADR-0012); the rule is enforced by review and by
-  query-count tests. `docs/explanation/filament-resources.md`, "Eager
-  loading, and the N+1 rule".
-- Contested state (stock reservation, coupon usage caps): `DB::transaction`
-  **and** `lockForUpdate()` on the row the invariant actually lives on —
-  not necessarily the row being written. The transaction alone does not
-  prevent the race; `docs/reference/write-rules/concurrency.md` has the
-  full contested-resource map and lock order.
-- Order status changes go through the `TransitionOrderStatus` Action —
-  designed in ADR-0004, routed by `OrderPolicy::updateStatus()` per
-  ADR-0011, and built. It is the **only** writer of `orders.status` and of
-  `order_status_histories`; never assign `->status` directly, and never
-  compose the inventory effect yourself — the Action already picks
-  `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status.
-  `CreateOrder` still lands every order at `New` regardless of payment
-  method; moving it from there is a separate, deliberate call.
-- External APIs sit behind a Saloon connector plus an interface in
-  `App\Contracts`. Abstract the courier (two implementations); do not
-  abstract Stripe (one).
-- Validation via Form Requests. Never `$request->all()`.
-- Authorization on every mutating path and every route taking an ID. A
-  hidden button is not security.
+`online-store/.ai/guidelines/project-conventions.md` (compiled into the
+gitignored `online-store/CLAUDE.md` by Boost) carries the same rules in a
+condensed form for the Laravel-ecosystem context. Both files point at
+`coding-conventions.md` as the source; edit rules there, not in either
+pointer.
 
-## Security rules that are ours, not the framework's
 
-- Scope queries to the user (`auth()->user()->orders()->findOrFail($id)`),
-  never `Order::findOrFail($id)`.
-- `canAccessPanel()` on the User model checks role membership — Filament is
-  not protected past login by default.
-- Stripe webhook: CSRF-excluded **and** signature-verified. One without the
-  other is a free-products vulnerability.
-- Article and review bodies are user input. Purify before rendering;
-  `{!! !!}` escapes nothing.
-- Idempotency via a UNIQUE constraint plus caught violation, never
-  check-then-act.
-- Public order tracking requires order number **and** email — sequential
-  numbers alone enumerate every customer's address.
-- Totals are always recalculated server-side. The browser total is never
-  trusted.
-
-## Scope
-
-- **VAT in scope.** Prices stored gross (BG B2C convention). Per-product
-  `vat_rate`, snapshotted onto order items.
-- **Cash on delivery in scope.** COD orders skip Stripe, reserve stock on
-  confirmation, carry the COD amount to the courier, and are marked paid on
-  remittance.
 
 ## Working style
 
@@ -255,38 +188,10 @@ in agreement: if a rule here changes, change it there too.
 - Migrations are append-only after the schema freeze. Never edit a merged
   migration; always add a new one.
 - Generated code is a first draft. It gets read before it's trusted.
-- Verify against a running app, not by reading code: `php -l` proves
-  syntax, Larastan proves types, Pest proves the paths it covers — none of
-  them executes the behaviour. `docs/how-to/troubleshooting.md`'s own
-  cases are all green-static-check, wrong-behaviour bugs.
-- **A test earns its place by proving something ours, not the framework's.**
-  `ProductResourceTest.php`'s `'refuses a product with no variations'`
-  already draws this line correctly: it exercises Filament's own
-  `Livewire::test()->fillForm()->assertHasFormErrors()` machinery, but what
-  it *proves* is `ProductRequiresVariationException`'s territory — a domain
-  rule expressed through a form, not the form's plumbing. The same
-  reasoning that keeps a plain lookup table on default Filament CRUD
-  applies one layer down: a test reasserting that `->acceptedFileTypes()`
-  rejects a disallowed MIME type, or that `Illuminate\Validation\Rules
-  \Dimensions` rejects a too-small image, proves Filament and Laravel work,
-  which their own upstream suites already do — it costs a flaky,
-  fixture-heavy test for zero information gained. What *is* worth
-  confirming there is that the right constant reached the right method
-  (`ProductImage::MIN_WIDTH_PX` actually wired into the form) — Larastan
-  already does that, by refusing to compile a typo'd or wrongly-typed
-  reference. Before writing a test, name what it would prove and check
-  whether that thing is ours.
-- **A new `tests/Unit` or `tests/Feature` or `tests/Concurrency` file must
-  be added to a shard in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-  in the same change** — CI sharding here is a hand-maintained file list,
-  not auto-discovery, so a new test file runs nowhere until it's added to
-  one. `docs/how-to/use-ci.md` has the placement rule (shard 2 by default
-  for `tests/Unit`/`tests/Feature`, shard 1 only if the file shares
-  `RolePermissionTest`'s per-test triple-reseed cost; the lightest
-  concurrency shard by default for `tests/Concurrency`). Don't hand-time a
-  precise rebalance for one or two files — place by the rule and let a
-  shard that visibly drifts get re-measured later, per that doc's own
-  stated policy.
+- Verify against a running app, not by reading code — see
+  `docs/reference/coding-conventions.md`'s "Testing discipline" section for
+  the full reasoning, the "prove something ours" rule, and the CI-shard
+  placement requirement for any new test file.
 - **Commits and pushes: do not, unless explicitly asked.** Commit messages
   are written by hand and reviewed as part of the project's implementation
   standards — never add a `Co-Authored-By` trailer, on this repo or any
@@ -331,4 +236,4 @@ docker compose exec app ./vendor/bin/pest
 `--memory-limit=1G` is required, not optional — the container's default
 128M crashes Larastan's parallel workers on this codebase's current size,
 reporting `Found 1 error` in the same shape as a real finding.
-`troubleshooting.md` has the full symptom.
+`docs/how-to/troubleshooting/ide-and-static-analysis.md` has the full symptom.
