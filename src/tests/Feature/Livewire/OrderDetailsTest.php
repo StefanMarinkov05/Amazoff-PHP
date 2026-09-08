@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use App\Enums\AddressType;
 use App\Enums\DeliveryType;
+use App\Enums\ShipmentStatus;
 use App\Livewire\Account\OrderDetails;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Shipment;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -104,9 +106,9 @@ it('shows the tracking placeholder once a shipment exists without a number', fun
     $user = User::factory()->create();
     /** @var Order $order */
     $order = Order::factory()->create(['user_id' => $user->id]);
-    App\Models\Shipment::factory()->create([
+    Shipment::factory()->create([
         'order_id' => $order->id,
-        'status' => App\Enums\ShipmentStatus::Pending,
+        'status' => ShipmentStatus::Pending,
         'tracking_number' => null,
     ]);
 

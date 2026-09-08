@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Livewire\Orders\TrackOrder;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -203,7 +204,7 @@ it('requires both fields', function (): void {
  */
 
 it('prefills a signed-in customer\'s own email', function (): void {
-    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+    $user = User::factory()->create(['email' => 'me@example.com']);
 
     Livewire::actingAs($user)
         ->test(TrackOrder::class)
@@ -212,7 +213,7 @@ it('prefills a signed-in customer\'s own email', function (): void {
 });
 
 it('prefills both fields when arriving from one of the customer\'s own orders', function (): void {
-    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+    $user = User::factory()->create(['email' => 'me@example.com']);
     $order = Order::factory()->create(['user_id' => $user->id, 'email' => 'me@example.com']);
 
     Livewire::actingAs($user)
@@ -223,9 +224,9 @@ it('prefills both fields when arriving from one of the customer\'s own orders', 
 });
 
 it('does not fill the email from a serial the visitor does not own', function (): void {
-    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+    $user = User::factory()->create(['email' => 'me@example.com']);
     $strangersOrder = Order::factory()->create([
-        'user_id' => App\Models\User::factory()->create()->id,
+        'user_id' => User::factory()->create()->id,
         'email' => 'stranger@example.com',
     ]);
 
