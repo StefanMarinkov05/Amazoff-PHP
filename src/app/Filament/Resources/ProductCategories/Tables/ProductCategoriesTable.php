@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ProductCategories\Tables;
 
+use App\Actions\Catalogue\DeleteProductCategory;
+use App\Filament\Actions\DomainDeleteBulkAction;
+use App\Models\ProductCategory;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -44,7 +47,14 @@ class ProductCategoriesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DomainDeleteBulkAction::make(
+                        fn (ProductCategory $record, ?User $actor) => app(DeleteProductCategory::class)->handle($record, $actor),
+                        'category',
+                    ),
+                    DomainDeleteBulkAction::makeAtomic(
+                        fn (ProductCategory $record, ?User $actor) => app(DeleteProductCategory::class)->handle($record, $actor),
+                        'category',
+                    ),
                 ]),
             ]);
     }

@@ -620,12 +620,32 @@ class a domain exception uses. `tests/Feature/Filament/ReportsDomainFailuresTest
 covers both, plus that a non-domain exception of either base class and a
 `QueryException` still pass through uncaught.
 
+### Bulk delete composes with the per-record Action
+
+`DeleteBulkAction` is a second, independent call site Filament wires up by
+default, and it calls `$record->delete()` directly — so routing a resource's
+*single* delete through an Action does nothing for its bulk path. On a
+soft-deleting model (`Product`) the bulk delete even succeeds silently,
+skipping the Action's cascade with no error at all.
+
+`App\Filament\Actions\DomainDeleteBulkAction` closes this. It replaces the
+process closure (Filament v4's `DeleteBulkAction::using()` seam) with a loop
+that calls the per-record delete Action for each selected row, catching only
+`App\Exceptions\*` refusals — the same namespace filter
+`ReportsDomainFailures` uses. Two entries land in the resource's
+`BulkActionGroup`: `make()` (partial — delete what can be deleted, summarise
+the rest) and `makeAtomic()` (all-or-nothing — one transaction, rolled back
+if any row is refused). Applied to `Products`, `ProductCategories`, `Brands`,
+`Attributes`, `ArticleCategories`, `Coupons`, `Carriers`; the ruleless
+lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
+`tests/Feature/Filament/DomainDeleteBulkActionTest.php`.
+
 ## Callers
 
 | Action | Called from |
 |---|---|
 | `CreateProduct`, `UpdateProduct` | `CreateProduct` / `EditProduct` pages, tests |
-| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
+| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions; `DeleteProduct` also from `ProductsTable`'s bulk delete via `DomainDeleteBulkAction`; tests |
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `SetVariationAttributeValues` | composed by `AddProductVariation`; also called directly by `ProductVariationsRelationManager`'s edit action, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
@@ -638,8 +658,9 @@ covers both, plus that a non-domain exception of either base class and a
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
 | `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |
 | `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
-| `DeleteProductCategory` | `EditProductCategory` header action, tests |
+| `DeleteProductCategory` | `EditProductCategory` header action; `ProductCategoriesTable` bulk delete via `DomainDeleteBulkAction`; tests |
 | `UpdateProductCategory` | `EditProductCategory`, tests |
+| `DeleteBrand`, `DeleteAttribute`, `DeleteArticleCategory`, `DeleteCoupon`, `DeleteCarrier` | their `Edit*` page header action, and their resource table's bulk delete via `DomainDeleteBulkAction`; tests |
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |

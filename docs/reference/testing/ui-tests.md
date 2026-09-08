@@ -518,6 +518,35 @@ other domain exception.
 - A `QueryException` is not caught — a database-level failure is not a
   domain refusal and must not be presented to staff as if it were one.
 
+### `DomainDeleteBulkActionTest`
+
+`App\Filament\Actions\DomainDeleteBulkAction` routes a resource's bulk
+delete through its per-record delete Action instead of Filament's default
+per-record `$record->delete()`. Wired into `Products`, `ProductCategories`,
+`Brands`, `Attributes`, `ArticleCategories`, `Coupons`, `Carriers` as two
+`BulkActionGroup` entries — `delete` (partial) and `deleteAtomic`
+(all-or-nothing). Each test goes red if the resource is reverted to a plain
+`DeleteBulkAction::make()`.
+
+- **Bulk-deleting `Product`s cascades to their variations.** The default
+  bulk path soft-deletes only the `products` row; the variations stay
+  un-trashed and reservable, because `ReserveStock` checks the variation.
+  This is the silent case — no error, just a skipped guard.
+- **An in-use `Brand` is refused with a notification that names the
+  dependency** ("Brand Acme has 1 product(s) and cannot be deleted"), from
+  `BrandCannotBeDeletedException` via `DeleteBrand` — not Filament's generic
+  "could not be deleted." Partial mode: the free brand in the same selection
+  is still deleted.
+- **All-or-nothing mode deletes nothing when one record is refused.** The
+  whole selection runs in one transaction that is rolled back on the first
+  refusal; both the in-use and the free brand remain.
+
+Verified live in the panel before the automated coverage: both entries
+render in the bulk-actions menu, the atomic modal carries its
+"if any … cannot be deleted, none of them will be" description, and running
+it against an in-use brand left every row intact with a
+"No brand deleted — 1 in the selection blocked it" notification.
+
 ### `OrderStatusActionTest`
 
 §37 criterion 16 ("an employee can update order statuses") had no panel
@@ -654,5 +683,6 @@ found none, despite both having a live panel row action and a bulk action on
   `ApproveProductReview` once per selected record rather than writing
   `approved = true` directly, so authorization and the Action's own logic
   both still apply per record. Confirmed correct, not a bug — worth
-  recording precisely because the same-shaped bug exists on other
-  resources and this one could easily have repeated it.
+  recording precisely because the same-shaped bug existed on other
+  resources and this one could easily have repeated it. Those other
+  resources are now fixed too — see `DomainDeleteBulkActionTest` above.

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Actions\Catalogue\DeleteProduct;
+use App\Filament\Actions\DomainDeleteBulkAction;
 use App\Models\Product;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
@@ -131,7 +133,19 @@ class ProductsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    // Routes each row through DeleteProduct so its soft-delete
+                    // cascade to variations still runs — Product soft-deletes,
+                    // so the default bulk delete succeeds silently while
+                    // leaving variations reservable. ForceDelete/Restore keep
+                    // Filament's defaults: neither can break an invariant.
+                    DomainDeleteBulkAction::make(
+                        fn (Product $record, ?User $actor) => app(DeleteProduct::class)->handle($record, $actor),
+                        'product',
+                    ),
+                    DomainDeleteBulkAction::makeAtomic(
+                        fn (Product $record, ?User $actor) => app(DeleteProduct::class)->handle($record, $actor),
+                        'product',
+                    ),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),
                 ]),

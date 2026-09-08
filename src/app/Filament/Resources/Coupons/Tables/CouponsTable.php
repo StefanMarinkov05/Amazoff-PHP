@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Coupons\Tables;
 
+use App\Actions\Coupon\DeleteCoupon;
 use App\Enums\CouponScope;
 use App\Enums\CouponType;
+use App\Filament\Actions\DomainDeleteBulkAction;
 use App\Models\Coupon;
+use App\Models\User;
 use Carbon\CarbonInterface;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -115,7 +117,14 @@ class CouponsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DomainDeleteBulkAction::make(
+                        fn (Coupon $record, ?User $actor) => app(DeleteCoupon::class)->handle($record, $actor),
+                        'coupon',
+                    ),
+                    DomainDeleteBulkAction::makeAtomic(
+                        fn (Coupon $record, ?User $actor) => app(DeleteCoupon::class)->handle($record, $actor),
+                        'coupon',
+                    ),
                 ]),
             ]);
     }

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Carriers\Tables;
 
+use App\Actions\Shipment\DeleteCarrier;
+use App\Filament\Actions\DomainDeleteBulkAction;
+use App\Models\Carrier;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -42,7 +45,19 @@ class CarriersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    // Routes each selected row through DeleteCarrier so the
+                    // shipments foreign key surfaces as "carrier still has
+                    // shipments" rather than an uncaught QueryException — the
+                    // single-delete path (EditCarrier) already does this, and
+                    // the bulk path is a separate call site that needs it too.
+                    DomainDeleteBulkAction::make(
+                        fn (Carrier $record, ?User $actor) => app(DeleteCarrier::class)->handle($record, $actor),
+                        'carrier',
+                    ),
+                    DomainDeleteBulkAction::makeAtomic(
+                        fn (Carrier $record, ?User $actor) => app(DeleteCarrier::class)->handle($record, $actor),
+                        'carrier',
+                    ),
                 ]),
             ]);
     }
