@@ -61,7 +61,8 @@ in agreement: if a rule here changes, change it there too.
   `coupon.md`, `order.md`, `auth.md`, `concurrency.md`) is the
   expected-behaviour page per aggregate — refusals, races, what a change
   does to state that already exists; `console-commands.md` lists every
-  custom Artisan command and what invokes it; `permissions.md` and
+  custom Artisan command and what invokes it; `components.md` is the shared
+  Blade components and what each is for; `permissions.md` and
   `tech-stack.md` are the rest.
 
   **[`docs/reference/testing/`](docs/reference/testing/)** groups every

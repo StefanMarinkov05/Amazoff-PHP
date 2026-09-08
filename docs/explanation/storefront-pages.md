@@ -51,13 +51,20 @@ Six more followed that shape: `/delivery`, `/payment-information`, `/faq`,
 `resources/views/pages/`. They share `<x-site.prose-page>`, which owns the
 heading, the optional standfirst and "last updated" line, the body
 typography, and the back-link — so the six carry content and nothing else.
+`docs/reference/components.md` is the full list of shared Blade components
+and what each one is for.
 `/about` deliberately does *not* use it: it has its own hero and layout, and
 folding it in would mean parameterising the component for one caller.
 
-The two order pages went the other way, because both hold state. `/orders/track`
+The order pages went the other way, because they hold state. `/orders/track`
 is a `TrackOrder` component (a form, a lookup, a rate limiter, a found-order
-id) and `/account/orders` is `OrderHistory` (a paginated, user-scoped
-query).
+id), `/account/orders` is `OrderHistory` (a paginated, user-scoped query
+split into "in progress" and "completed"), and `/account/orders/{order}` is
+`OrderDetails` — one order in full, scoped the same way `OrderHistory` is
+(`auth()->user()->orders()->find()`, then `abort_if(null, 404)`). Route-model
+binding resolves the `{order}` segment; the component keeps only the id and
+re-scopes on every render, so a stranger's id is a 404 rather than a
+disclosed row.
 
 The component and its view are paired by name, not by configuration.
 `App\Livewire\Catalogue\ProductList` renders
