@@ -165,6 +165,68 @@ it('prefills a signed-in customer without locking the fields', function (): void
         ->assertSet('email', 'other@example.test');
 });
 
+it('starts a signed-in customer on their default shipping address', function (): void {
+    $user = User::factory()->create();
+    $user->addresses()->create([
+        'label' => 'Home',
+        'first_name' => 'Ada',
+        'last_name' => 'Lovelace',
+        'phone' => '0888123456',
+        'country' => 'BG',
+        'city' => 'Plovdiv',
+        'postcode' => '4000',
+        'street' => 'Ulitsa 1',
+        'is_default_shipping' => true,
+        'is_default_billing' => false,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(CheckoutPage::class)
+        ->assertSet('selected_address_id', $user->addresses()->first()->id)
+        ->assertSet('city', 'Plovdiv')
+        ->assertSet('postcode', '4000')
+        ->assertSet('street', 'Ulitsa 1')
+        ->assertSet('delivery_type', 'address');
+});
+
+it('fills the delivery fields when a saved address is picked, and only from the customers own', function (): void {
+    $user = User::factory()->create();
+    $mine = $user->addresses()->create([
+        'first_name' => 'A', 'last_name' => 'B', 'phone' => '1', 'country' => 'BG',
+        'city' => 'Varna', 'postcode' => '9000', 'street' => 'Sea St 3',
+        'is_default_shipping' => false, 'is_default_billing' => false,
+    ]);
+    $someoneElse = User::factory()->create()->addresses()->create([
+        'first_name' => 'X', 'last_name' => 'Y', 'phone' => '2', 'country' => 'BG',
+        'city' => 'Ruse', 'postcode' => '7000', 'street' => 'Not Yours 1',
+        'is_default_shipping' => false, 'is_default_billing' => false,
+    ]);
+
+    $component = Livewire::actingAs($user)->test(CheckoutPage::class)
+        ->set('selected_address_id', $mine->id)
+        ->assertSet('city', 'Varna')
+        ->assertSet('street', 'Sea St 3');
+
+    // An id the customer does not own resolves to nothing.
+    $component->set('selected_address_id', $someoneElse->id)
+        ->assertSet('selected_address_id', null)
+        ->assertSet('city', 'Varna');
+});
+
+it('drops the saved-address selection once a delivery field is hand-edited', function (): void {
+    $user = User::factory()->create();
+    $address = $user->addresses()->create([
+        'first_name' => 'A', 'last_name' => 'B', 'phone' => '1', 'country' => 'BG',
+        'city' => 'Sofia', 'postcode' => '1000', 'street' => 'Main 1',
+        'is_default_shipping' => true, 'is_default_billing' => false,
+    ]);
+
+    Livewire::actingAs($user)->test(CheckoutPage::class)
+        ->assertSet('selected_address_id', $address->id)
+        ->set('city', 'Burgas')
+        ->assertSet('selected_address_id', null);
+});
+
 /*
  * ── §37 #6: a guest can complete checkout ───────────────────────────────
  */

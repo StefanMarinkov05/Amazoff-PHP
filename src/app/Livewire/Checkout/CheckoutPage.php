@@ -11,6 +11,7 @@ use App\Enums\DeliveryType;
 use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
+use App\Models\Address;
 use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\Order;
@@ -132,6 +133,16 @@ class CheckoutPage extends Component
     public string $customer_note = '';
 
     /**
+     * Which of the signed-in customer's saved addresses is selected in the
+     * "use a saved address" picker, or `null` for "enter a new address".
+     * Bound `.live` so picking one fills the delivery fields immediately via
+     * `updatedSelectedAddressId()`. Not `#[Locked]`: an id the customer does
+     * not own is simply ignored by `applySavedAddress()`, which scopes the
+     * lookup to `auth()->user()->addresses()`.
+     */
+    public ?int $selected_address_id = null;
+
+    /**
      * Set once the order is placed; drives the payment step. Both are
      * written only by placeOrder() on the server and never legitimately come
      * from the client, so both are `#[Locked]` — a public property is
@@ -201,7 +212,94 @@ class CheckoutPage extends Component
             $this->first_name = $user->first_name;
             $this->last_name = $user->last_name;
             $this->phone = (string) ($user->phone ?? '');
+
+            // If the customer has a default shipping address, start with it
+            // selected and its fields filled — the same "prefill, don't
+            // commit" rule: they can switch to "enter a new address" or edit
+            // any field, and only what they submit is snapshotted.
+            $default = $user->addresses()
+                ->where('is_default_shipping', true)
+                ->first()
+                ?? $user->addresses()->first();
+
+            if ($default instanceof Address) {
+                $key = $default->getKey();
+                $this->selected_address_id = is_int($key) ? $key : null;
+                $this->applySavedAddress($default);
+            }
         }
+    }
+
+    /**
+     * The signed-in customer's saved addresses, for the checkout picker.
+     * Empty for a guest, so the picker is not rendered at all.
+     *
+     * @return EloquentCollection<int, Address>
+     */
+    #[Computed]
+    public function savedAddresses(): EloquentCollection
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            /** @var EloquentCollection<int, Address> */
+            return new EloquentCollection;
+        }
+
+        return $user->addresses()
+            ->orderByDesc('is_default_shipping')
+            ->orderBy('label')
+            ->get();
+    }
+
+    /**
+     * Fills the delivery fields from the address the customer picked. Scoped
+     * to their own addresses — an id for someone else's row resolves to
+     * `null` and nothing changes.
+     */
+    public function updatedSelectedAddressId(mixed $value): void
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            $this->selected_address_id = null;
+
+            return;
+        }
+
+        $user = auth()->user();
+
+        $address = $user instanceof User
+            ? $user->addresses()->find((int) $value)
+            : null;
+
+        if ($address instanceof Address) {
+            $this->selected_address_id = (int) $value;
+            $this->applySavedAddress($address);
+
+            return;
+        }
+
+        // Not one of this customer's addresses — treat as "new address".
+        $this->selected_address_id = null;
+    }
+
+    private function applySavedAddress(Address $address): void
+    {
+        // A saved address is a street address, never a courier office.
+        $this->delivery_type = DeliveryType::Address->value;
+        $this->first_name = $address->first_name;
+        $this->last_name = $address->last_name;
+        $this->phone = $address->phone;
+        $this->country = mb_strtoupper($address->country);
+        $this->city = $address->city;
+        $this->postcode = $address->postcode;
+        $this->street = $address->street;
+
+        // The city/postcode changed, so any office selection and delivery
+        // quote no longer apply — same reset updated() performs.
+        $this->courier_office_code = '';
+        $this->courier_office_name = '';
+        $this->lastKnownOffices = [];
+        unset($this->offices, $this->deliveryPrice);
     }
 
     /** @return array<string, mixed> */
@@ -405,6 +503,13 @@ class CheckoutPage extends Component
 
         if (in_array($property, ['payment_method', 'billing_same_as_delivery'], true)) {
             unset($this->deliveryPrice);
+        }
+
+        // Hand-editing any delivery field means the customer is no longer
+        // using a saved address verbatim — drop the selection so the picker
+        // reads "New address" rather than implying an unedited saved one.
+        if (in_array($property, ['first_name', 'last_name', 'phone', 'country', 'city', 'postcode', 'street', 'delivery_type'], true)) {
+            $this->selected_address_id = null;
         }
     }
 
