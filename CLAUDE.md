@@ -33,8 +33,8 @@ in agreement: if a rule here changes, change it there too.
   in this file or the docs points here. Its implementation-standards table
   at the bottom is the part that goes stale fastest and is worth
   re-reading even mid-session.
-- **[`docs/adr/`](docs/adr/)** — one decision, one file. Sixteen so far
-  (`0001`–`0016`). The *decision* — the choice made and the reasoning
+- **[`docs/adr/`](docs/adr/)** — one decision, one file. Eighteen so far
+  (`0001`–`0018`). The *decision* — the choice made and the reasoning
   behind it — is frozen once accepted: a changed mind gets a new ADR
   marked `Superseded by ADR-XXXX`, never a rewrite of the old one. Purely
   additive or subtractive housekeeping that doesn't touch the decision

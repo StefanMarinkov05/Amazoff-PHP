@@ -23,3 +23,6 @@ note) is the one thing that can still be edited in place.
 - **[0015](0015-html-sanitization.md)** — HTML sanitization
 - **[0016](0016-payment-intents-over-checkout-sessions.md)** — Payment
   Intents over Checkout Sessions
+- **[0017](0017-adopt-pest-browser-testing.md)** — Pest browser tests
+  over standalone Playwright
+- **[0018](0018-adopt-pest-5.md)** — Upgrade to Pest 5 / PHPUnit 13

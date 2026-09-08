@@ -19,8 +19,14 @@ use App\Support\Courier\CourierTrackingEvent;
 use App\Support\Courier\DeliveryQuote;
 use App\Support\Courier\ShipmentRequest;
 use App\Support\Courier\ShipmentResult;
+use Database\Seeders\System\CarrierSeeder;
+use Database\Seeders\System\PermissionSeeder;
+use Database\Seeders\System\RoleSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /*
@@ -54,6 +60,47 @@ pest()->extend(TestCase::class)
 */
 pest()->extend(TestCase::class)
     ->in('Concurrency');
+
+/*
+| Browser tests (tests/Browser, ADR-0017) are the other exception. Pest only
+| loads this root Pest.php — a Pest.php inside tests/Browser is never read —
+| so the browser suite's binding lives here.
+|
+| pest-plugin-browser boots the application in-process and drives a real
+| Chromium against it. A page load is a committed round-trip, so the suite
+| uses no refresh trait: it runs against its own database (amazoff_browser,
+| set in phpunit.browser.xml), which is migrated once, then has every data
+| table truncated and the system reference data reseeded before each test —
+| the tests/Concurrency model. Catalogue data is the documented "no real
+| creation event" exception and is built with factories inside each spec;
+| everything with a real creation path goes through the app's own Actions.
+|
+| This block is inert for the Feature/Unit/Concurrency runs — tests/Browser
+| is not in their testsuites.
+*/
+pest()->extend(TestCase::class)
+    ->beforeEach(function (): void {
+        if (! Schema::hasTable('sessions')) {
+            Artisan::call('migrate', ['--force' => true]);
+        }
+
+        Schema::disableForeignKeyConstraints();
+
+        foreach (Schema::getTableListing(schema: false) as $table) {
+            if ($table === 'migrations') {
+                continue;
+            }
+
+            DB::table($table)->truncate();
+        }
+
+        Schema::enableForeignKeyConstraints();
+
+        foreach ([PermissionSeeder::class, RoleSeeder::class, CarrierSeeder::class] as $seeder) {
+            Artisan::call('db:seed', ['--class' => $seeder, '--force' => true]);
+        }
+    })
+    ->in('Browser');
 
 /*
 |--------------------------------------------------------------------------

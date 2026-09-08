@@ -56,11 +56,17 @@ any code in this repo.
 - Run everything through Docker: `docker compose exec app ./vendor/bin/pest`.
   Larastan needs `--memory-limit=1G` — not optional; the container default
   crashes its workers and reports a fake `Found 1 error`.
-- `tests/Feature` uses `LazilyRefreshDatabase`. `tests/Concurrency`
-  deliberately does **not** — see `coding-conventions.md`'s "Testing
+- Pest 5 / PHPUnit 13 (ADR-0018). `tests/Feature` uses
+  `LazilyRefreshDatabase`. `tests/Concurrency` and `tests/Browser`
+  deliberately do **not** — see `coding-conventions.md`'s "Testing
   discipline" for the full reasoning, the CI-shard placement requirement,
   and the "prove something ours, not the framework's" rule for whether a
   test is worth writing at all.
+- `tests/Browser` (ADR-0017) is a real-Chromium suite with its own config
+  (`phpunit.browser.xml`) and database (`amazoff_browser`). It is not in the
+  default `pest` run: drive it through the `playwright` compose service
+  (`docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml`).
+  It does not load `Pest.php`'s Stripe/courier fakes for the 3DS path.
 - **Never run `tests/Concurrency` under `pest --parallel`.** Laravel only
   gives a test case its own per-worker database when it uses
   `RefreshDatabase` or a sibling trait, so parallel workers collide.

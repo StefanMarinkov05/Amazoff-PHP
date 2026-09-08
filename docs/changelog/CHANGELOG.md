@@ -205,6 +205,25 @@ when the work happened, not when it was committed — nothing in
 
 ### Changed
 
+- **Test stack upgraded to Pest 5 / PHPUnit 13** (ADR-0018). `pestphp/pest`
+  `^4.7 → ^5.1`, `phpunit/phpunit` `^12.5 → ^13.3`, all Pest plugins and
+  `brianium/paratest` to their 5.x / 7.24 lines. Adopted for TIA (test
+  impact analysis) and time-balanced sharding — the two features that
+  directly address ADR-0010's documented CI-time cost — and so the new
+  browser plugin is not stranded on a frozen 4.x line. PHPUnit 13's
+  backward-compatibility breaks were grepped against the suite first (zero
+  hits); the full suite (1194 Feature/Unit, Concurrency, Pint, Larastan)
+  passes unchanged, no test file modified.
+
+- **Real-browser testsuite (`tests/Browser/`, ADR-0017).**
+  `pestphp/pest-plugin-browser` drives a real Chromium against the
+  application booted in-process. New opt-in `playwright` Docker Compose
+  service (a `browser` image target carrying Node + Chromium — the default
+  stack is untouched), its own `phpunit.browser.xml` and `amazoff_browser`
+  database, no refresh trait (the `tests/Concurrency` model). First spec is
+  a home-page smoke check; ResponsiveTest / SmokeTest / CheckoutLifecycle /
+  ThreeDSecure follow.
+
 - **Review and contact-message text moved out of PHP and into JSON.**
   `DemoReviewSeeder` carried a ~40-line `BODIES` const and
   `DemoEngagementSeeder` a ~30-line `CONTACT_MESSAGES` const, both of which

@@ -19,6 +19,13 @@
         <testsuite name="Concurrency">
             <directory>tests/Concurrency</directory>
         </testsuite>
+        <!--
+            Browser tests (tests/Browser, ADR-0017) are deliberately
+            NOT a testsuite here: they need Node + Chromium and a dedicated
+            database, and a bare `pest` run must not try to execute them.
+            They have their own config, phpunit.browser.xml, run through the
+            `playwright` compose service.
+        -->
     </testsuites>
     <source>
         <include>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Pest 4 browser testsuite (ADR-0017). Kept separate from phpunit.xml so a
+    plain `pest` run never tries to execute it: it needs Node and Chromium
+    (only the `browser` image target carries them) and its own database.
+
+    Run it through the `playwright` compose service, documented in
+    docs/reference/testing/browser-testing.md and docs/how-to/run-the-tests.md.
+
+    pest-plugin-browser boots the Laravel application in-process and drives a
+    real Chromium against it, so these tests exercise the same server code a
+    Feature test does, plus the JS / Livewire / Vite layer. They use no
+    refresh trait: tests/Browser/Pest.php truncates and reseeds the
+    amazoff_browser database per test, the tests/Concurrency model.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <!-- A real browser makes real cross-request calls; an array cache/session
+             would not survive them. database-backed both, in amazoff_browser. -->
+        <env name="CACHE_STORE" value="database"/>
+        <env name="SESSION_DRIVER" value="database"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="amazoff_browser"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>
