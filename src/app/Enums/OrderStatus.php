@@ -91,4 +91,19 @@ enum OrderStatus: string implements HasColor, HasLabel
     {
         return in_array($status, $this->allowedTransitions(), true);
     }
+
+    /**
+     * Whether the order has reached an end state from the customer's point
+     * of view — nothing more is coming in the normal flow. Refunded is the
+     * only true terminal state in `allowedTransitions()`, but Delivered,
+     * Cancelled and Returned are "concluded" for grouping the account order
+     * list: an order sitting in one of these is history, not in progress.
+     */
+    public function isConcluded(): bool
+    {
+        return match ($this) {
+            self::Delivered, self::Cancelled, self::Returned, self::Refunded => true,
+            default => false,
+        };
+    }
 }

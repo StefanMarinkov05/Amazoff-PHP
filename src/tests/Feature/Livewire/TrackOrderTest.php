@@ -197,3 +197,52 @@ it('requires both fields', function (): void {
         ->call('track')
         ->assertHasErrors(['serial_number', 'email']);
 });
+
+/*
+ * Prefill — a convenience that never bypasses track()'s single-query check.
+ */
+
+it('prefills a signed-in customer\'s own email', function (): void {
+    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+
+    Livewire::actingAs($user)
+        ->test(TrackOrder::class)
+        ->assertSet('email', 'me@example.com')
+        ->assertSet('serial_number', '');
+});
+
+it('prefills both fields when arriving from one of the customer\'s own orders', function (): void {
+    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+    $order = Order::factory()->create(['user_id' => $user->id, 'email' => 'me@example.com']);
+
+    Livewire::actingAs($user)
+        ->withQueryParams(['order' => $order->serial_number])
+        ->test(TrackOrder::class)
+        ->assertSet('serial_number', $order->serial_number)
+        ->assertSet('email', 'me@example.com');
+});
+
+it('does not fill the email from a serial the visitor does not own', function (): void {
+    $user = App\Models\User::factory()->create(['email' => 'me@example.com']);
+    $strangersOrder = Order::factory()->create([
+        'user_id' => App\Models\User::factory()->create()->id,
+        'email' => 'stranger@example.com',
+    ]);
+
+    Livewire::actingAs($user)
+        ->withQueryParams(['order' => $strangersOrder->serial_number])
+        ->test(TrackOrder::class)
+        // Serial reflects the visitor's own URL input; email stays their own,
+        // never the stranger's — no enumeration oracle.
+        ->assertSet('serial_number', $strangersOrder->serial_number)
+        ->assertSet('email', 'me@example.com');
+});
+
+it('prefills nothing identifying for a guest', function (): void {
+    $order = Order::factory()->create(['email' => 'buyer@example.com']);
+
+    Livewire::withQueryParams(['order' => $order->serial_number])
+        ->test(TrackOrder::class)
+        ->assertSet('serial_number', $order->serial_number)
+        ->assertSet('email', '');
+});

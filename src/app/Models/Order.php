@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -70,6 +71,9 @@ class Order extends Model
             'cart_id' => 'integer',
             'status' => OrderStatus::class,
             'payment_method' => PaymentMethod::class,
+            // Cast to the enum (ADR-0004) so the storefront and the panel get
+            // a symbol and a label, not a bare "EUR" string.
+            'currency' => Currency::class,
             'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'shipping_amount' => 'decimal:2',

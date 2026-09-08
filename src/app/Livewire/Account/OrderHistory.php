@@ -24,12 +24,11 @@ use Livewire\WithPagination;
  * address and contents. A policy check on a row already loaded is the weaker
  * half — scoping stops the row being loaded at all.
  *
- * There is deliberately no `$orderId` property and no per-order route here.
- * A customer opening one of these rows goes to
- * `checkout.confirmation`, which already performs the ownership check on
- * every render (not only on mount). Adding a second detail page would mean a
- * second entitlement check to keep correct, and ADR-0014's reasoning applies:
- * this page holds no invariant an Action could own, it is a scoped read.
+ * A row links to `account.orders.show` (`OrderDetails`), which re-runs the
+ * same `auth()->user()->orders()->findOrFail()` scoping on every render.
+ * That entitlement check is one line, the same one this component uses —
+ * see `OrderDetails`'s docblock for why the earlier "a second page means a
+ * second check to keep correct" objection did not hold up.
  *
  * The route is behind `auth` middleware, so `auth()->user()` cannot be null
  * here. It is still narrowed explicitly with an instanceof check rather than
@@ -70,8 +69,21 @@ class OrderHistory extends Component
 
     public function render(): View
     {
+        // Split the current page into "in progress" and "concluded" so a
+        // customer with a long history sees the orders that still need
+        // watching first. Grouped in PHP, not two queries: the pagination
+        // is over the whole set (concluded orders are the bulk of an old
+        // account's history, and a per-group paginator would need its own
+        // page state).
+        $orders = $this->orders();
+
+        [$concluded, $active] = collect($orders->items())
+            ->partition(fn (Order $order): bool => $order->status->isConcluded());
+
         return view('livewire.account.order-history', [
-            'orders' => $this->orders(),
+            'orders' => $orders,
+            'activeOrders' => $active,
+            'concludedOrders' => $concluded,
         ]);
     }
 }

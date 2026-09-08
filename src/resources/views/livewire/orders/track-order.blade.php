@@ -102,7 +102,7 @@
 
                 <div class="flex justify-between border-t border-ink-200 pt-3 text-base font-semibold">
                     <dt class="text-ink-900">Total</dt>
-                    <dd class="text-ink-900">{{ $order->total_amount }}</dd>
+                    <dd class="text-ink-900"><x-money :amount="$order->total_amount" :currency="$order->currency" /></dd>
                 </div>
             </dl>
 
