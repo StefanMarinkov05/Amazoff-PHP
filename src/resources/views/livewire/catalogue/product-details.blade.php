@@ -11,8 +11,6 @@
     <div class="mx-auto max-w-6xl px-4 py-6 lg:py-10">
 
         {{-- ── Breadcrumb ─────────────────────────────────────────────── --}}
-        {{-- Breadcrumb links carry `-my-1 py-1` for a 24px-minimum tap target
-             (WCAG 2.5.8 / EAA) without changing the visual line height. --}}
         <nav aria-label="Breadcrumb" class="mb-6 text-xs text-ink-400">
             <ol class="flex flex-wrap items-center gap-1.5">
                 <li><a href="/catalogue" class="-my-1 inline-block py-1 transition-colors hover:text-marine-700">Catalogue</a></li>
@@ -343,6 +341,40 @@
                             </span>
                             <span wire:loading wire:target="addToCart">Adding…</span>
                         </button>
+
+                        {{-- Optimistic toggle: the heart flips the instant it
+                             is clicked, client-side, then wire:click does the
+                             INSERT/DELETE in the background. Without this the
+                             heart sat unchanged for a full Livewire
+                             round-trip on every click, which read as "slow".
+
+                             The button is wire:key'd on the server's value,
+                             so once the round-trip lands Livewire replaces
+                             the element — re-running x-data from the fresh
+                             server state and discarding the optimistic guess
+                             if it was wrong (a failed write, or a guest who
+                             gets redirected to /login). Until then the local
+                             flip is what the visitor sees. --}}
+                        <button
+                            type="button"
+                            wire:key="wishlist-toggle-{{ $this->isWishlisted ? 'on' : 'off' }}"
+                            x-data="{ wishlisted: @js($this->isWishlisted) }"
+                            wire:click="toggleWishlist"
+                            x-on:click="wishlisted = !wishlisted"
+                            x-bind:aria-label="wishlisted ? 'Remove from wishlist' : 'Add to wishlist'"
+                            x-bind:aria-pressed="wishlisted ? 'true' : 'false'"
+                            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-control border
+                                   border-ink-300 text-ink-500 transition-colors duration-200
+                                   hover:border-red-300 hover:text-red-500 focus:outline-none
+                                   focus-visible:ring-4 focus-visible:ring-marine-600/25"
+                        >
+                            <svg class="h-5 w-5" x-bind:class="wishlisted && 'text-red-500'"
+                                 x-bind:fill="wishlisted ? 'currentColor' : 'none'"
+                                 viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                            </svg>
+                        </button>
                     </div>
 
                     @if ($belowMinimumStock)
@@ -444,6 +476,55 @@
                 Only customers who ordered this product and had it delivered can
                 leave a review. Reviews are checked before they appear.
             </p>
+
+            @if ($reviewSubmitted)
+                <div role="status"
+                     class="mt-5 rounded-card border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                    Thanks — your review is submitted and will appear once approved.
+                </div>
+            @elseif ($this->canReview)
+                <form wire:submit="submitReview" class="mt-5 rounded-card border border-ink-200 bg-white p-4">
+                    <h3 class="text-sm font-semibold text-ink-900">Write a review</h3>
+
+                    @error('review')
+                        <div role="alert"
+                             class="mt-3 rounded-control border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
+                    <div class="mt-3 flex items-center gap-1" role="radiogroup" aria-label="Rating">
+                        @foreach (range(1, 5) as $star)
+                            <button type="button" wire:click="$set('reviewRating', {{ $star }})"
+                                    role="radio" aria-checked="{{ $reviewRating === $star ? 'true' : 'false' }}"
+                                    aria-label="{{ $star }} out of 5">
+                                <svg class="h-6 w-6 {{ $star <= $reviewRating ? 'text-amber-400' : 'text-ink-200' }}"
+                                     fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 15.27 16.18 19l-1.64-7.03L20 7.24l-7.19-.61L10 0 7.19 6.63 0 7.24l5.46 4.73L3.82 19z"/>
+                                </svg>
+                            </button>
+                        @endforeach
+                    </div>
+                    @error('reviewRating')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+
+                    <textarea wire:model="reviewBody" rows="4" maxlength="2000"
+                              placeholder="What did you think of this product?"
+                              class="mt-3 w-full rounded-control border px-3 py-2 text-sm
+                                     @error('reviewBody') border-red-400 focus:border-red-500 focus:ring-red-500/20
+                                     @else border-ink-200 focus:border-marine-600 focus:ring-marine-600/20 @enderror"></textarea>
+                    @error('reviewBody')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+
+                    <button type="submit"
+                            class="mt-3 rounded-control bg-marine-600 px-4 py-2 text-sm font-semibold text-white
+                                   hover:bg-marine-700">
+                        Submit review
+                    </button>
+                </form>
+            @endif
 
             @forelse ($this->reviews as $review)
                 <article wire:key="review-{{ $review->id }}"

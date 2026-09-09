@@ -484,10 +484,11 @@
                             <article
                                 wire:key="product-{{ $product->id }}"
                                 style="animation-delay: {{ min($index * 40, 320) }}ms"
-                                class="group animate-card-in flex flex-col overflow-hidden rounded-card border
+                                class="group animate-card-in relative flex flex-col overflow-hidden rounded-card border
                                        border-ink-200 bg-white transition-all duration-300
                                        hover:-translate-y-1.5 hover:border-marine-600/50 hover:shadow-xl hover:shadow-ink-900/10"
                             >
+                                <div class="relative">
                                 <a href="/products/{{ $product->slug }}" class="relative block aspect-square overflow-hidden bg-ink-50">
                                     {{-- One flourish, on the core action. --}}
                                     <span aria-hidden="true"
@@ -541,6 +542,36 @@
                                         </span>
                                     @endif
                                 </a>
+
+                                {{-- A sibling of the image link, not nested inside it —
+                                     <button> inside <a> is invalid HTML and browsers
+                                     handle the click-through inconsistently. The
+                                     wrapping <div class="relative"> above scopes this to
+                                     the image's own box, not the whole card.
+
+                                     Optimistic: the heart flips on click, client-side,
+                                     while wire:click writes in the background. wire:key'd
+                                     on the server's value so Livewire re-runs x-data from
+                                     the truth once the round-trip lands. --}}
+                                @php($wishlisted = in_array($product->id, $this->wishlistedProductIds, true))
+                                <button type="button"
+                                        wire:key="wishlist-{{ $product->id }}-{{ $wishlisted ? 'on' : 'off' }}"
+                                        x-data="{ wishlisted: @js($wishlisted) }"
+                                        wire:click="toggleWishlist({{ $product->id }})"
+                                        x-on:click="wishlisted = !wishlisted"
+                                        x-bind:aria-label="wishlisted ? 'Remove from wishlist' : 'Add to wishlist'"
+                                        x-bind:aria-pressed="wishlisted ? 'true' : 'false'"
+                                        class="absolute bottom-2.5 right-2.5 z-10 flex h-8 w-8 items-center
+                                               justify-center rounded-full bg-white/90 text-ink-500 shadow-sm
+                                               backdrop-blur-sm transition-colors duration-200 hover:text-red-500">
+                                    <svg class="h-4 w-4" x-bind:class="wishlisted && 'text-red-500'"
+                                         x-bind:fill="wishlisted ? 'currentColor' : 'none'"
+                                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                                    </svg>
+                                </button>
+                                </div>
 
                                 <div class="flex flex-1 flex-col p-3.5">
                                     @if ($product->brand)

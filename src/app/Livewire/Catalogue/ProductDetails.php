@@ -5,23 +5,32 @@ declare(strict_types=1);
 namespace App\Livewire\Catalogue;
 
 use App\Actions\Cart\AddToCart;
+use App\Actions\ProductReview\CreateProductReview;
+use App\Enums\OrderStatus;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
+use App\Exceptions\ReviewNotAllowedException;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\Brand;
 use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
+use App\Models\User;
+use App\Models\WishlistItem;
 use App\Support\ProductPrice;
 use App\Support\Resolvers\ResolveCurrentCart;
 use App\Support\Resolvers\ResolveProductPrice;
 use App\Support\Resolvers\ResolveVariationPrice;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
@@ -45,6 +54,8 @@ use Livewire\Component;
  * @property-read int $stock
  * @property-read Collection<int, ProductImage> $gallery
  * @property-read Collection<int, ProductReview> $reviews
+ * @property-read bool $canReview
+ * @property-read bool $isWishlisted
  * @property-read list<ProductCategory> $breadcrumb
  * @property-read array<int, array{attribute: Attribute, values: list<AttributeValue>}> $attributeGroups
  */
@@ -67,6 +78,12 @@ class ProductDetails extends Component
     public mixed $variationId = null;
 
     public int $imageIndex = 0;
+
+    public int $reviewRating = 5;
+
+    public string $reviewBody = '';
+
+    public bool $reviewSubmitted = false;
 
     /**
      * Deliberately untyped, not `int`. `wire:model` sends whatever the
@@ -219,6 +236,109 @@ class ProductDetails extends Component
             ->latest()
             ->limit(10)
             ->get();
+    }
+
+    /**
+     * Whether the signed-in visitor may submit a review right now — a read,
+     * so it goes straight to Eloquent rather than through
+     * `CreateProductReview`, same reasoning `ADR-0014` gives for every other
+     * `#[Computed]` on this page. Mirrors the Action's own two refusal
+     * cases (`ReviewNotAllowedException::notPurchased()`/`alreadyReviewed()`)
+     * so the form can hide itself instead of only failing on submit — but
+     * `submitReview()` still calls the real Action and still handles both
+     * exceptions, since a purchase or a review by someone else could land
+     * between this render and that click.
+     */
+    #[Computed]
+    public function canReview(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        $alreadyReviewed = ProductReview::query()
+            ->where('product_id', $this->productId)
+            ->where('user_id', $user->getKey())
+            ->exists();
+
+        if ($alreadyReviewed) {
+            return false;
+        }
+
+        return OrderItem::query()
+            ->whereHas('order', function (Builder $query) use ($user): Builder {
+                /** @var Builder<Order> $query */
+                return $query
+                    ->where('user_id', $user->getKey())
+                    ->where('status', OrderStatus::Delivered);
+            })
+            ->whereHas('productVariation', function (Builder $query): Builder {
+                /** @var Builder<ProductVariation> $query */
+                return $query->where('product_id', $this->productId);
+            })
+            ->exists();
+    }
+
+    /**
+     * Whether the signed-in visitor has this product on their wishlist —
+     * a read, so it goes straight to Eloquent, same reasoning `canReview()`
+     * above gives.
+     */
+    #[Computed]
+    public function isWishlisted(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        return WishlistItem::query()
+            ->where('user_id', $user->getKey())
+            ->where('product_id', $this->productId)
+            ->exists();
+    }
+
+    /**
+     * No Action: one INSERT or DELETE on one table with no invariant the
+     * schema cannot express beyond `UNIQUE(user_id, product_id)`, which the
+     * caught violation below already respects rather than checks first —
+     * same idempotency discipline `CreateProductReview` uses. Mirrors
+     * `ProductList::toggleWishlist()`; not extracted into a shared trait,
+     * since the two callers differ in which id they act on
+     * (`$this->productId` here vs. a method parameter there) and the whole
+     * method is four lines.
+     */
+    public function toggleWishlist(): void
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            $this->redirect('/login', navigate: true);
+
+            return;
+        }
+
+        $existing = WishlistItem::query()
+            ->where('user_id', $user->getKey())
+            ->where('product_id', $this->productId)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->delete();
+        } else {
+            try {
+                WishlistItem::create(['user_id' => $user->getKey(), 'product_id' => $this->productId]);
+            } catch (UniqueConstraintViolationException) {
+                // Already wishlisted by a concurrent click from the same
+                // user — nothing to do, the row this click wanted already
+                // exists.
+            }
+        }
+
+        unset($this->isWishlisted);
     }
 
     /**
@@ -423,6 +543,42 @@ class ProductDetails extends Component
             InsufficientStockException $e
         ) {
             $this->addError('cart', $e->getMessage());
+        }
+    }
+
+    /**
+     * Submits a review through `CreateProductReview`, which is where §24's
+     * verified-purchase rule and the one-review-per-customer constraint are
+     * actually enforced — `canReview()` above only decides whether to show
+     * the form, never whether to accept what it submits.
+     */
+    public function submitReview(CreateProductReview $createProductReview): void
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $validated = $this->validate([
+            'reviewRating' => 'required|integer|min:1|max:5',
+            'reviewBody' => 'required|string|min:10|max:2000',
+        ]);
+
+        try {
+            $createProductReview->handle(
+                $this->product,
+                $user,
+                (int) $validated['reviewRating'],
+                $validated['reviewBody'],
+            );
+
+            unset($this->reviews, $this->canReview);
+            $this->reset(['reviewRating', 'reviewBody']);
+            $this->reviewRating = 5;
+            $this->reviewSubmitted = true;
+        } catch (ReviewNotAllowedException $e) {
+            $this->addError('review', $e->getMessage());
         }
     }
 

@@ -13,6 +13,7 @@ use App\Models\ProductCategory;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
 use App\Models\User;
+use App\Models\WishlistItem;
 use App\Support\ProductPrice;
 use App\Support\Resolvers\ResolveAllowedAttributes;
 use App\Support\Resolvers\ResolveCardVariation;
@@ -24,6 +25,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\View\View;
@@ -168,6 +170,65 @@ class ProductList extends Component
             : $selected->push($valueId)->values()->all();
 
         $this->resetPage();
+    }
+
+    /**
+     * The signed-in visitor's wishlisted product ids, one query for the
+     * whole grid rather than one per card — the same N+1 discipline
+     * CLAUDE.md states for Filament tables applies equally here.
+     *
+     * @return list<int>
+     */
+    #[Computed]
+    public function wishlistedProductIds(): array
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return [];
+        }
+
+        /** @var list<int> $ids */
+        $ids = $user->wishlistItems()->pluck('product_id')->all();
+
+        return $ids;
+    }
+
+    /**
+     * No Action: one INSERT or DELETE on one table with no invariant the
+     * schema cannot express beyond `UNIQUE(user_id, product_id)`, which the
+     * caught violation below already respects rather than checks first —
+     * same idempotency discipline `CreateProductReview` uses, on a table
+     * with nothing else to enforce.
+     */
+    public function toggleWishlist(int $productId): void
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            $this->redirect('/login', navigate: true);
+
+            return;
+        }
+
+        $existing = WishlistItem::query()
+            ->where('user_id', $user->getKey())
+            ->where('product_id', $productId)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->delete();
+        } else {
+            try {
+                WishlistItem::create(['user_id' => $user->getKey(), 'product_id' => $productId]);
+            } catch (UniqueConstraintViolationException) {
+                // Already wishlisted by a concurrent click from the same
+                // user — nothing to do, the row this click wanted already
+                // exists.
+            }
+        }
+
+        unset($this->wishlistedProductIds);
     }
 
     public function updated(string $property): void
