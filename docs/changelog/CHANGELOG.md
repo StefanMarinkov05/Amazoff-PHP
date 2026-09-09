@@ -216,13 +216,18 @@ when the work happened, not when it was committed — nothing in
   passes unchanged, no test file modified.
 
 - **Real-browser testsuite (`tests/Browser/`, ADR-0017).**
-  `pestphp/pest-plugin-browser` drives a real Chromium against the
+  `pestphp/pest-plugin-browser` (Pest 5) drives a real Chromium against the
   application booted in-process. New opt-in `playwright` Docker Compose
   service (a `browser` image target carrying Node + Chromium — the default
   stack is untouched), its own `phpunit.browser.xml` and `amazoff_browser`
-  database, no refresh trait (the `tests/Concurrency` model). First spec is
-  a home-page smoke check; ResponsiveTest / SmokeTest / CheckoutLifecycle /
-  ThreeDSecure follow.
+  database, no refresh trait (the `tests/Concurrency` model). Two specs so
+  far: `SmokeTest` (every public route, the account pages and the admin
+  dashboard load with no server error and no JS console error) and
+  `ResponsiveTest` (§37 #19 — no horizontal overflow at 375 / 768 / 1440 px
+  on ten storefront pages, each gated on a compiled-Tailwind precondition so
+  an unstyled page fails loudly rather than passing empty).
+  `CheckoutLifecycleTest` and a local-runbook `ThreeDSecureTest` follow.
+  Full docs in `docs/reference/testing/browser-testing.md`.
 
 - **Review and contact-message text moved out of PHP and into JSON.**
   `DemoReviewSeeder` carried a ~40-line `BODIES` const and

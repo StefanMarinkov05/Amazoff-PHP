@@ -1,15 +1,62 @@
 # Browser testing — what a real browser proves that Pest cannot
 
-Everything under `tests/` runs without a browser. Pest renders no layout,
-`Livewire::test()` executes no CSS, and Larastan reads types rather than
-pixels. That leaves a class of requirement none of them can reach — §37 #19
-("responsive, desktop and mobile") being the graded example, unverifiable by
-any tool this project had until 2026-09-02.
+Everything under `tests/Feature` and `tests/Unit` runs without a browser.
+Pest renders no layout, `Livewire::test()` executes no CSS, and Larastan
+reads types rather than pixels. That leaves a class of requirement none of
+them can reach — §37 #19 ("responsive, desktop and mobile") being the
+graded example.
 
-This page records what the browser tooling is, how it is wired against a
-Dockerised app, what it verified, and — as `stripe-testing.md` does for
-payments — what it did **not** cover and why. A pass here is a claim about
-one browser at three widths on one machine, not a claim about every device.
+Since 2026-09-09 there is an **automated** browser suite, `tests/Browser/`
+(ADR-0017), on top of the manual MCP passes this page originally recorded.
+The two are complementary: the automated suite is the regression net that
+runs on every change; the manual passes are the exploratory, screenshot-
+against-the-claim work that finds what no assertion was written for.
+
+## The automated suite (`tests/Browser/`)
+
+`pestphp/pest-plugin-browser` (Pest 5) boots the Laravel application
+**in-process** and drives a real Chromium against it. So a browser test
+runs in the same process as its own `factory()` calls and DB assertions,
+but exercises the full JS / Livewire / Vite layer a Feature test skips.
+
+Run it through the opt-in `playwright` Compose service — never part of
+`docker compose up`, and not in a bare `pest` run:
+
+```
+docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml
+```
+
+| Spec | What it proves |
+|---|---|
+| `SmokeTest` | Every public storefront route, the signed-in account pages, and the admin dashboard load with no server error and no JavaScript console error. Pages are visited in batches (`visit([...])`) — Pest tears down a browser context per `it()`, so one batched test is ~15s where 20 separate ones are ~5min. |
+| `ResponsiveTest` | §37 #19. At 375 / 768 / 1440 px, no element and no document overflows its viewport horizontally on any of ten storefront pages. Each case first asserts compiled Tailwind actually applied (a probe element must compute `display:grid` and `padding-left:16px`) — an overflow check on an unstyled page is a false pass, so it fails loudly there instead. Decorations deliberately drawn outside an `overflow-hidden` box are not counted. |
+| `CheckoutLifecycleTest` | *(planned)* guest → cart → checkout → COD order → admin ships → customer tracks, every step through the real UI/Action, DB-asserted between steps. |
+| `ThreeDSecureTest` | *(planned, local-runbook-only)* the SCA challenge flow with a real Stripe test key and `stripe listen`; `->skip()` in CI. |
+
+Key wiring facts, all in `tests/Pest.php`'s Browser block and
+`phpunit.browser.xml`:
+
+- **No refresh trait.** A browser page load is a committed round-trip. The
+  suite runs against its own database (`amazoff_browser`), truncates every
+  data table and reseeds `Permission`/`Role`/`Carrier` before each test —
+  the `tests/Concurrency` model.
+- **`@vite` is forced onto the built manifest.** The in-process server has
+  no route to the Vite dev server on `:5173`; if `public/hot` exists (the
+  `vite` Compose service is running) `@vite` would serve raw
+  `resources/css/app.css` and every page would render unstyled. The
+  `beforeEach` points the hot-file path at a nonexistent file.
+  `public/build/` must be current — the CI browser job runs `npm run build`
+  first; locally, run it if `ResponsiveTest`'s styles precondition fails.
+- **Nested `Pest.php` is never loaded by Pest** — the Browser binding lives
+  in the root `tests/Pest.php`, not `tests/Browser/Pest.php`.
+
+## The manual MCP passes — what a real browser proves that Pest cannot
+
+The rest of this page records the manual browser tooling, how it is wired
+against a Dockerised app, what it verified, and — as `stripe-testing.md`
+does for payments — what it did **not** cover and why. A pass here is a
+claim about one browser at three widths on one machine, not a claim about
+every device.
 
 ## The tooling
 

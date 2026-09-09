@@ -27,6 +27,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
 /*
@@ -80,13 +81,30 @@ pest()->extend(TestCase::class)
 */
 pest()->extend(TestCase::class)
     ->beforeEach(function (): void {
+        // Force `@vite` to resolve against the built manifest, never the dev
+        // server. pest-plugin-browser's in-process server has no route to
+        // Vite on :5173, and if the `vite` compose service is running,
+        // `public/hot` exists on the shared mount — `@vite` would then serve
+        // raw `resources/css/app.css` (an `@import "tailwindcss"` with no
+        // compiled utilities) and every page would render unstyled, making
+        // every ResponsiveTest overflow check a false pass. Pointing the hot
+        // file at a path that does not exist is env-scoped and touches
+        // nothing on disk. `public/build/` must be current — the CI browser
+        // job runs `npm run build` first; locally, run it if the styles
+        // assertion in ResponsiveTest fails.
+        Vite::useHotFile(base_path('storage/framework/testing/vite-no-hot'));
+
         if (! Schema::hasTable('sessions')) {
             Artisan::call('migrate', ['--force' => true]);
         }
 
         Schema::disableForeignKeyConstraints();
 
-        foreach (Schema::getTableListing(schema: false) as $table) {
+        // getTableListing() returns schema-qualified names ("amazoff_browser.x")
+        // on this MySQL/Laravel 13 combination; DB::table() wants the bare name.
+        foreach (Schema::getTableListing() as $qualified) {
+            $table = str_contains($qualified, '.') ? explode('.', $qualified, 2)[1] : $qualified;
+
             if ($table === 'migrations') {
                 continue;
             }
@@ -96,8 +114,10 @@ pest()->extend(TestCase::class)
 
         Schema::enableForeignKeyConstraints();
 
+        // Seeders run in-process here — Artisan::call() would reboot the
+        // console kernel three times, ~1s per test.
         foreach ([PermissionSeeder::class, RoleSeeder::class, CarrierSeeder::class] as $seeder) {
-            Artisan::call('db:seed', ['--class' => $seeder, '--force' => true]);
+            test()->seed($seeder);
         }
     })
     ->in('Browser');
