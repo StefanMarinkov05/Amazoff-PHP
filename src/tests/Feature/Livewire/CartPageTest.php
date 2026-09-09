@@ -282,12 +282,13 @@ it('computes discount, payable and coupon-aware vat for a scoped coupon matching
     $discount = $component->instance()->discount();
 
     // 15% of the matched 400.00 = 60.00. Payable: 420.00 - 60.00 = 360.00.
-    // vat: (400.00 - 60.00) * 20/120 = 56.66, plus the unmatched line's
-    // untouched 20.00 * 20/120 = 3.33 — both, not only the matched line's,
-    // which is the exact regression CalculateCouponDiscount's fix covers.
+    // vat: (400.00 - 60.00) * 20/120 = 56.6666..., half-up rounded to 56.67,
+    // plus the unmatched line's untouched 20.00 * 20/120 = 3.3333..., rounded
+    // to 3.33 — both, not only the matched line's, which is the exact
+    // regression CalculateCouponDiscount's fix covers. 56.67 + 3.33 = 60.00.
     expect($discount['discount'])->toBe('60.00')
         ->and($discount['payable'])->toBe('360.00')
-        ->and($discount['vat'])->toBe('59.99');
+        ->and($discount['vat'])->toBe('60.00');
 });
 
 it('falls back to no discount once the applied coupon becomes inapplicable', function (): void {
