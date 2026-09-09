@@ -18,7 +18,7 @@ fact that decides how much of the DSA applies (almost none).
 
 The regime with the most code behind it. `explanation/gdpr.md` is the
 narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
-[ADR-0019](../adr/0019-gdpr-erasure.md) is the erasure decision;
+[ADR-0019](../adr/0019-regulatory-compliance.md) is the erasure decision;
 [ADR-0015](../adr/0015-html-sanitization.md) and
 `explanation/security-model.md` cover the processing-security side.
 

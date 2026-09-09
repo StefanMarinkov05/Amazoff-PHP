@@ -4,7 +4,7 @@ What `App\Actions\Gdpr\EraseCustomer` does to every table that holds a
 customer's personal data, alone and when a second actor touches the same
 account. Facts as of 2026-09-09, measured against the running stack. The
 *policy* — what is kept vs. deleted and why — is
-[ADR-0019](../../adr/0019-gdpr-erasure.md); `explanation/gdpr.md` is the
+[ADR-0019](../../adr/0019-regulatory-compliance.md); `explanation/gdpr.md` is the
 narrative. This page is the outcomes.
 
 ## What enforces any of this

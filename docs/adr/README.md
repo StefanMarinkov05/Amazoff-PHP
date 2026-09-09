@@ -26,5 +26,6 @@ note) is the one thing that can still be edited in place.
 - **[0017](0017-adopt-pest-browser-testing.md)** — Pest browser tests
   over standalone Playwright
 - **[0018](0018-adopt-pest-5.md)** — Upgrade to Pest 5 / PHPUnit 13
-- **[0019](0019-gdpr-erasure.md)** — GDPR erasure: anonymise the order,
-  delete everything else
+- **[0019](0019-regulatory-compliance.md)** — Regulatory compliance posture
+  (GDPR incl. erasure, ePrivacy, Consumer Rights, Omnibus, DSA scoping,
+  EAA, tax retention)
