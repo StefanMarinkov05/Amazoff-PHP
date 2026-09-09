@@ -5,23 +5,30 @@ declare(strict_types=1);
 use App\Http\Controllers\NewsletterController;
 use App\Livewire\Account\DeleteAccount;
 use App\Livewire\Account\DownloadData;
+use App\Livewire\Account\EditProfile;
+use App\Livewire\Account\ManageAddresses;
+use App\Livewire\Account\OrderDetails;
 use App\Livewire\Account\OrderHistory;
+use App\Livewire\Account\Wishlist;
 use App\Livewire\Auth\ChangePassword;
+use App\Livewire\Auth\ConfirmPasswordReset;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
+use App\Livewire\Auth\RequestPasswordReset;
 use App\Livewire\Cart\CartPage;
 use App\Livewire\Catalogue\ProductDetails;
 use App\Livewire\Catalogue\ProductList;
 use App\Livewire\Checkout\CheckoutPage;
 use App\Livewire\Checkout\OrderConfirmation;
 use App\Livewire\Contact\ContactForm;
+use App\Livewire\Home;
 use App\Livewire\Journal\ArticleDetails;
 use App\Livewire\Journal\ArticleList;
 use App\Livewire\Orders\TrackOrder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/catalogue');
+Route::get('/', Home::class)->name('home');
 
 Route::get('/catalogue', ProductList::class);
 Route::get('/products/{product:slug}', ProductDetails::class);
@@ -73,8 +80,7 @@ Route::view('/returns/withdrawal-form', 'pages.returns.withdrawal-form')->name('
 
 // Newsletter double opt-in (ePrivacy Art. 13, ADR-0019). The token in the
 // path is the whole input — a UNIQUE 64-char column, matched by the Action.
-// Not behind `guest` or `auth`: the link is followed from an email client,
-// by whoever holds the address, signed in or not.
+// Not behind `guest` or `auth`: the link is followed from an email client.
 Route::get('/newsletter/confirm/{token}', [NewsletterController::class, 'confirm'])->name('newsletter.confirm');
 Route::get('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
 
@@ -89,7 +95,22 @@ Route::middleware('guest')->group(function (): void {
     Route::get('/register', Register::class)->name('register');
 });
 
+/*
+ * Password reset is NOT behind `guest`: a signed-in customer who no longer
+ * knows their current password still needs to recover it (the link from
+ * `/account/password`). RequestPasswordReset only ever emails the address
+ * typed into it, with the same enumeration defence Login uses;
+ * ConfirmPasswordReset requires a valid token and invalidates every other
+ * session on success. Neither is a login bypass, so gating them to guests
+ * only would lock out exactly the people who need them.
+ */
+Route::get('/password/reset', RequestPasswordReset::class)->name('password.request');
+Route::get('/password/reset/{token}', ConfirmPasswordReset::class)->name('password.reset');
+
 Route::middleware('auth')->group(function (): void {
+    Route::get('/account/profile', EditProfile::class)->name('account.profile');
+    Route::get('/account/addresses', ManageAddresses::class)->name('account.addresses');
+    Route::get('/wishlist', Wishlist::class)->name('wishlist');
     Route::get('/account/password', ChangePassword::class)->name('password.change');
 
     // GDPR Art. 17 self-service erasure (ADR-0019). Requires the current
@@ -105,6 +126,12 @@ Route::middleware('auth')->group(function (): void {
     // Order::query() — the middleware answers "is anyone signed in", the
     // scoping answers "whose orders are these".
     Route::get('/account/orders', OrderHistory::class)->name('account.orders');
+
+    // One order in full — contents, addresses, payment, shipment/tracking.
+    // Scoped the same way: OrderDetails::order() starts from
+    // auth()->user()->orders() and 404s for anyone else's id. Route-model
+    // binding resolves the row; the ownership check is the component's.
+    Route::get('/account/orders/{order}', OrderDetails::class)->name('account.orders.show');
 
     // POST, not GET: a GET logout is triggerable by any <img> tag on any page
     // the user visits, which is CSRF by prefetch rather than by form.

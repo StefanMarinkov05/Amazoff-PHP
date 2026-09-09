@@ -1,10 +1,10 @@
 # Local access — accounts, URLs, and routes
 
 Seeded credentials and the full route map for a local Docker run. Verified
-against a running stack on 2026-09-07 (`amazoff_demo` database, `full-site-testing`
-at `3639994`) — the accounts were checked via `canAccessPanel()` directly,
-permission counts read live, and every route below taken from `route:list`
-(90 routes total), not from reading code.
+against a running stack on 2026-09-09 (`amazoff` database, `full-site-testing`)
+— the accounts were checked via `canAccessPanel()` directly, permission
+counts read live, and every route below taken from `route:list`
+(101 routes total), not from reading code.
 
 This file previously undercounted the app badly — it dated from before
 cart, checkout, order tracking, the article frontend, and several admin
@@ -64,7 +64,7 @@ full catalogue.
 
 | Method | URI | Component | Name |
 |---|---|---|---|
-| ANY | `/` | redirect → `/catalogue` | — |
+| GET | `/` | `App\Livewire\Home` | `home` |
 | GET | `/catalogue` | `App\Livewire\Catalogue\ProductList` | — |
 | GET | `/products/{product:slug}` | `App\Livewire\Catalogue\ProductDetails` | — |
 | GET | `/cart` | `App\Livewire\Cart\CartPage` | `cart` |
@@ -72,6 +72,7 @@ full catalogue.
 | GET | `/checkout/confirmation/{order}` | `App\Livewire\Checkout\OrderConfirmation` | `checkout.confirmation` |
 | GET | `/orders/track` | `App\Livewire\Orders\TrackOrder` | `orders.track` |
 | GET | `/account/orders` | `App\Livewire\Account\OrderHistory` | `account.orders` |
+| GET | `/account/orders/{order}` | `App\Livewire\Account\OrderDetails` | `account.orders.show` |
 | GET | `/journal` | `App\Livewire\Journal\ArticleList` | `journal` |
 | GET | `/journal/{article:slug}` | `App\Livewire\Journal\ArticleDetails` | — |
 | GET | `/about` | `pages.about` (static Blade) | `about` |
@@ -82,14 +83,32 @@ full catalogue.
 | GET | `/payment-information` | `pages.payment-information` (static Blade) | `payment-information` |
 | GET | `/privacy` | `pages.privacy` (static Blade) | `privacy` |
 | GET | `/terms` | `pages.terms` (static Blade) | `terms` |
+| GET | `/returns/withdrawal-form` | `pages.returns.withdrawal-form` (static Blade) | `returns.withdrawal-form` |
+| GET | `/newsletter/confirm/{token}` | `NewsletterController@confirm` | `newsletter.confirm` |
+| GET | `/newsletter/unsubscribe/{token}` | `NewsletterController@unsubscribe` | `newsletter.unsubscribe` |
 | GET | `/login` | `App\Livewire\Auth\Login` | `login` |
 | GET | `/register` | `App\Livewire\Auth\Register` | `register` |
+| GET | `/password/reset` | `App\Livewire\Auth\RequestPasswordReset` | `password.request` |
+| GET | `/password/reset/{token}` | `App\Livewire\Auth\ConfirmPasswordReset` | `password.reset` |
+| GET | `/account/profile` | `App\Livewire\Account\EditProfile` | `account.profile` |
+| GET | `/account/addresses` | `App\Livewire\Account\ManageAddresses` | `account.addresses` |
+| GET | `/wishlist` | `App\Livewire\Account\Wishlist` | `wishlist` |
 | GET | `/account/password` | `App\Livewire\Auth\ChangePassword` | `password.change` |
+| GET | `/account/delete` | `App\Livewire\Account\DeleteAccount` | `account.delete` |
+| GET | `/account/data` | `App\Livewire\Account\DownloadData` | `account.data` |
 | POST | `/logout` | closure | `logout` |
 | POST | `/stripe/webhook` | `Payment\StripeWebhookController` | `stripe.webhook` |
 
-`/login` and `/register` are behind the `guest` middleware; `/account/*`
-routes and `/logout` behind `auth`. Logout is POST-only — a GET logout is
+`/login` and `/register` are behind the `guest` middleware. `/password/reset`
+and `/password/reset/{token}` are deliberately **not** — a signed-in
+customer who no longer knows their current password still needs to recover
+it, reached from the `/account/password` link; gating them to guests only
+would lock out exactly the people who need them.
+`/newsletter/confirm/{token}`/`/newsletter/unsubscribe/{token}` are outside
+both `guest` and `auth` — the link is followed from an email client,
+possibly signed out. `/account/*`
+routes (including `/account/delete` and `/account/data`, GDPR Art. 17/15/20)
+and `/logout` are behind `auth`. Logout is POST-only — a GET logout is
 triggerable by any `<img>` tag on any page the user visits.
 `/stripe/webhook` is CSRF-excluded and signature-verified, registered
 outside the `web` middleware group entirely (`explanation/stripe-payments.md`).
