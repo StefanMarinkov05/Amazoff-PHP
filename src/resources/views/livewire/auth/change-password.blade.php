@@ -54,4 +54,16 @@
             <span wire:loading wire:target="updatePassword">Updating…</span>
         </button>
     </form>
+
+    {{-- The forgot-current-password path: the request step emails a reset
+         link, which ConfirmPasswordReset accepts without the old password.
+         Same broker as /password/reset — this is just a signed-in entry
+         point to it. --}}
+    <p class="mt-6 text-sm text-ink-500">
+        Don't remember your current password?
+        <a href="{{ route('password.request') }}" wire:navigate
+           class="font-medium text-marine-700 underline-offset-4 hover:underline">
+            Reset it by email
+        </a>
+    </p>
 </div>
