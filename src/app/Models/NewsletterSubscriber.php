@@ -9,7 +9,12 @@ use Database\Factories\NewsletterSubscriberFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property NewsletterStatus $status
+ * @property Carbon|null $subscribed_at
+ */
 class NewsletterSubscriber extends Model
 {
     /** @use HasFactory<NewsletterSubscriberFactory> */

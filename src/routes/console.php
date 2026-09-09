@@ -16,3 +16,11 @@ Artisan::command('inspire', function () {
 // run should skip the next tick rather than queue a second one against the
 // same table.
 Schedule::command('carts:expire')->daily()->withoutOverlapping();
+
+// GDPR Art. 5(1)(e) — delete anonymised orders past their accounting
+// retention period (ADR-0019). Weekly is ample: the window is measured in
+// years, so a few days' lag between expiry and deletion is immaterial, and
+// a daily run would mostly do nothing. Disabled unless
+// GDPR_ORDER_RETENTION_YEARS is set — the Action returns null and the
+// command says so.
+Schedule::command('orders:purge-anonymised')->weekly()->withoutOverlapping();

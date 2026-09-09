@@ -1,11 +1,13 @@
 # GDPR: deletion, retention, and erasure
 
-Status: implemented for the erasure routine (ADR-0019, 2026-09-09). The
-schema this doc designed is built; `App\Actions\Gdpr\EraseCustomer` is the
-routine, reachable at `/account/delete` (self-service) and from `ViewUser`
-in the panel. Per-table behaviour is `reference/write-rules/gdpr.md`. What
-is still design, not code, is the **retention purge** — see "Open" at the
-bottom. Regulatory scope beyond GDPR is `reference/regulatory-compliance.md`.
+Status: implemented (ADR-0019, 2026-09-09). The schema this doc designed is
+built. `App\Actions\Gdpr\EraseCustomer` is the Art. 17 routine, at
+`/account/delete` and `ViewUser`; `ExportCustomerData` is the Art. 15 / 20
+export at `/account/data`; `PurgeAnonymisedOrders` (`orders:purge-anonymised`,
+weekly) is the retention purge, whose *period* is the one thing still left
+to a human — `config('gdpr.order_retention_years')`, set from BG accounting
+law before go-live. Per-table behaviour is `reference/write-rules/gdpr.md`.
+Regulatory scope beyond GDPR is `reference/regulatory-compliance.md`.
 
 ## Two different deletions
 
@@ -118,14 +120,18 @@ actions.
 
 ## Open
 
-- Retention period for orders after erasure. Bulgarian accounting law sets
-  a minimum; the anonymized order should be purged once that expires, which
-  nothing currently does. This is a scheduled command against
-  `anonymized_at`, not a change to `EraseCustomer`, and it needs the exact
-  statutory period confirmed first.
+- **The retention period itself.** `orders:purge-anonymised` and its Action
+  are built; `config('gdpr.order_retention_years')` (default 11, `.env`
+  `GDPR_ORDER_RETENTION_YEARS`) drives them. What is not decided is the
+  number — Bulgarian accounting and tax law set the minimum, and it has to
+  be confirmed with counsel before go-live. Until then the conservative
+  default stands; set it to `null` to disable the purge outright.
 - `activity_log` (spatie/laravel-activitylog) records nothing
   customer-facing yet. When it does, its `causer` and `properties` rows
   join the erasure routine.
+- Concurrency coverage for the erasure and purge paths is single-process
+  (`EraseCustomerTest`). A `tests/Concurrency/` pass proving the locks, not
+  just the guards, is a follow-up — `reference/write-rules/gdpr.md`.
 
 **Resolved by ADR-0019:** contact messages and newsletter subscriptions are
 **deleted outright** on erasure — no accounting obligation attaches, and an

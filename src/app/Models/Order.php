@@ -15,11 +15,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
  * @property OrderStatus $status
  * @property PaymentMethod $payment_method
  * @property-read PaymentStatus $payment_status
+ * @property Currency $currency
+ * @property Carbon|null $anonymized_at
  */
 class Order extends Model
 {

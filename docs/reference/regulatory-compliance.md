@@ -25,12 +25,12 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | Article | Obligation | Where |
 |---|---|---|
 | Art. 5(1)(c) — data minimisation | Snapshot only what checkout needs; the coupon cap stores a peppered hash, never the email | `explanation/gdpr.md` "Coupon limits without storing an email"; `CouponRedemption.email_hash` |
-| Art. 5(1)(e) — storage limitation | Soft-delete for deactivation; erasure for Art. 17; retention purge of anonymised orders **not built** | `explanation/gdpr.md` "Open" |
+| Art. 5(1)(e) — storage limitation | Soft-delete for deactivation; erasure for Art. 17; retention purge | `App\Actions\Gdpr\PurgeAnonymisedOrders` + `orders:purge-anonymised` (weekly), driven by `config('gdpr.order_retention_years')` — a config a human sets from BG accounting law |
 | Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; `App\Mail\OrderPlaced` (queued from `CheckoutPage::placeOrder`) |
 | Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | newsletter double opt-in **gap** (sequenced after the email); cookie policy page exists (`/cookies`), a consent *mechanism* is a **gap** |
 | Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link in every marketing email | **gap** — part of the newsletter slice |
 | Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | `/privacy` page exists; its text is placeholder and needs a real notice — **gap** |
-| Art. 15 — right of access (data export) | Give the customer a copy of their data | **gap** — `EraseCustomer` walks every table already; an `ExportCustomerData` sibling Action is the same shape |
+| Art. 15 / 20 — access / portability | Give the customer a machine-readable copy of their data | **done** — `App\Actions\Gdpr\ExportCustomerData` + `/account/data`, streamed as JSON |
 | Art. 16 — rectification | Edit name / email / phone / addresses | `EditProfile`, `ManageAddresses` |
 | Art. 17 — erasure | Anonymise the order, delete the rest | `App\Actions\Gdpr\EraseCustomer`, ADR-0019, `write-rules/gdpr.md` |
 | Art. 25 / 32 — security by design, processing security | Scoped queries, `canAccessPanel()`, purified user input, CSRF+signature on the Stripe webhook, idempotency via UNIQUE | `reference/coding-conventions.md` security rules; `explanation/security-model.md` |
@@ -47,7 +47,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | ePrivacy Art. 5(3) — cookies / storage access | Consent before non-essential cookies; the session cookie and CSRF token are essential and exempt | `/cookies` page describes them; **no consent gate** because nothing non-essential is set yet (no analytics, no ad pixels). If any are added, a consent mechanism becomes mandatory first |
 | ePrivacy Art. 13 — unsolicited marketing | Opt-in for the newsletter (double opt-in), unsubscribe in every send | **gap** — the newsletter slice. Today `SubscribeToNewsletter` subscribes immediately with no confirmation and there is no unsubscribe route |
 | Omnibus Dir. (EU) 2019/2161 — price reductions | When a product shows a reduced price, also show the lowest price in the 30 days before the reduction | **gap** — `products.discount_price` / `discount_starts_at` exist; the "was N, lowest recent N" display does not. Needs a price-history table or a computed lowest-recent value |
-| Omnibus — review authenticity | State whether and how the shop ensures reviews come from real purchasers | **partly done**: `ProductDetails::canReview()` + `CreateProductReview` only accept a review from a customer with a delivered order line for that product (`write-rules/` / `ui-tests.md`). The *statement* to the customer that this is enforced is a **gap** — one sentence near the reviews block |
+| Omnibus — review authenticity | State whether and how the shop ensures reviews come from real purchasers | **done** — enforced by `ProductDetails::canReview()` / `CreateProductReview` (delivered order line only), and stated in a sentence under the reviews heading |
 | Omnibus — "personalised pricing" disclosure | Disclose if a price is personalised by automated decision-making | N/A — every customer sees the same price |
 
 ---
@@ -101,7 +101,7 @@ but the exemption is not something to rely on by default.
 |---|---|
 | Responsive layout, three widths | `tests/Browser/ResponsiveTest` (ADR-0017); real devices / landscape / 200% zoom still **gap** (`browser-testing.md`) |
 | Contrast, focus order, screen-reader semantics, keyboard nav | **gap** — no audit run; `chrome-devtools-mcp`'s `a11y-debugging` skill and `pest-plugin-browser`'s `assertNoAccessibilityIssues()` are the tools |
-| Tap-target sizes | `misc/todo.md` records 15 nav/footer targets under WCAG 2.5.8's 24px |
+| Tap-target sizes | **done** for the footer links and breadcrumbs (24px minimum via `-my-1 py-1`); the skip-link is large once focused |
 
 ---
 

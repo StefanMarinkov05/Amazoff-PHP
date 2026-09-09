@@ -6,7 +6,7 @@
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <nav aria-label="Breadcrumb" class="text-xs text-ink-400">
                 <ol class="flex items-center gap-1.5">
-                    <li><a href="/" class="hover:text-ink-700">Home</a></li>
+                    <li><a href="/" class="-my-1 inline-block py-1 hover:text-ink-700">Home</a></li>
                     <li aria-hidden="true">/</li>
                     <li class="font-medium text-ink-700">Catalogue</li>
                 </ol>

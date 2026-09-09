@@ -11,15 +11,17 @@
     <div class="mx-auto max-w-6xl px-4 py-6 lg:py-10">
 
         {{-- ── Breadcrumb ─────────────────────────────────────────────── --}}
+        {{-- Breadcrumb links carry `-my-1 py-1` for a 24px-minimum tap target
+             (WCAG 2.5.8 / EAA) without changing the visual line height. --}}
         <nav aria-label="Breadcrumb" class="mb-6 text-xs text-ink-400">
             <ol class="flex flex-wrap items-center gap-1.5">
-                <li><a href="/catalogue" class="transition-colors hover:text-marine-700">Catalogue</a></li>
+                <li><a href="/catalogue" class="-my-1 inline-block py-1 transition-colors hover:text-marine-700">Catalogue</a></li>
 
                 @foreach ($this->breadcrumb as $crumb)
                     <li aria-hidden="true" class="text-ink-300">/</li>
                     <li wire:key="crumb-{{ $crumb->id }}">
                         <a href="/catalogue?category={{ $crumb->slug }}"
-                           class="transition-colors hover:text-marine-700">{{ $crumb->name }}</a>
+                           class="-my-1 inline-block py-1 transition-colors hover:text-marine-700">{{ $crumb->name }}</a>
                     </li>
                 @endforeach
 
@@ -436,6 +438,12 @@
                     <span class="ml-1 text-sm font-normal text-ink-400">({{ $this->reviews->count() }})</span>
                 @endif
             </h2>
+
+            {{-- Omnibus Directive: state how review authenticity is ensured. --}}
+            <p class="mt-1 text-xs text-ink-400">
+                Only customers who ordered this product and had it delivered can
+                leave a review. Reviews are checked before they appear.
+            </p>
 
             @forelse ($this->reviews as $review)
                 <article wire:key="review-{{ $review->id }}"

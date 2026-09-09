@@ -1,9 +1,11 @@
 # GDPR erasure — expected behaviour
 
-What `App\Actions\Gdpr\EraseCustomer` does to every table that holds a
+What the three `App\Actions\Gdpr\` Actions do to every table that holds a
 customer's personal data, alone and when a second actor touches the same
-account. Facts as of 2026-09-09, measured against the running stack. The
-*policy* — what is kept vs. deleted and why — is
+account. `EraseCustomer` is the bulk of this page; `ExportCustomerData`
+(read-only) and `PurgeAnonymisedOrders` (the retention purge) have short
+sections at the end. Facts as of 2026-09-09, measured against the running
+stack. The *policy* — what is kept vs. deleted and why — is
 [ADR-0019](../../adr/0019-regulatory-compliance.md); `explanation/gdpr.md` is the
 narrative. This page is the outcomes.
 
@@ -66,16 +68,38 @@ Proven red by removing the mechanism: `EraseCustomerTest` reverts the
 then succeeds; `DeleteAccountTest` reverts the password and confirmation
 rules and confirms the account is erased without either.
 
+## `ExportCustomerData` (Art. 15 / 20)
+
+Read-only, no transaction. Walks the same tables `EraseCustomer` does —
+including newsletter and contact rows matched by *email* as well as
+`user_id` — and returns a structured array the `/account/data` route
+streams as JSON. `coupon_redemptions` appears as the *fact* of a redemption
+(which coupon, when) but never the `email_hash`: the hash is derived data
+the customer cannot verify. An anonymised order is included, flagged
+`anonymised: true`, with its `[erased]` values — the export tells the truth
+about what is held, not what was once held.
+
+## `PurgeAnonymisedOrders` (Art. 5(1)(e))
+
+| | |
+|---|---|
+| Scope | `orders` where `anonymized_at` is set **and** older than `config('gdpr.order_retention_years')` |
+| Effect | `$order->delete()` — every child of `orders` is `cascadeOnDelete`, so the row and its whole subtree go |
+| Disabled | when the config value is `null`: returns `null`, the command prints "disabled", nothing is deleted |
+| Refuses | a config value that is set but not a positive integer (`RuntimeException`) — it will not guess |
+| Locking | the matched orders are `lockForUpdate()` inside one transaction, so a purge racing a late refund or status change on an about-to-be-deleted order serialises on the `orders` row |
+| Idempotency | trivially — a second run finds the rows already gone |
+
 ## Known gaps
 
-- **No retention purge.** An anonymised order should be deleted outright
-  once the Bulgarian accounting retention minimum expires. Nothing does
-  this. It is a scheduled command against `anonymized_at`, not a change to
-  this Action, and needs the statutory period confirmed first —
-  `explanation/gdpr.md`, "Open".
 - **`activity_log` is not scanned.** `spatie/laravel-activitylog` records
   nothing customer-facing yet. When it does, its `causer` and `properties`
   rows join this routine.
+- **Concurrency coverage is single-process.** The "one actor at a time"
+  table above is asserted by `EraseCustomerTest` in one process, which
+  proves the guard but not the lock. A `tests/Concurrency/` pass with the
+  `race:worker` subprocess pattern — two erasures, erasure vs. transition,
+  purge vs. refund — is a follow-up.
 - **`OrderFactory` sets `anonymized_at` by default**, so a factory-built
   order looks pre-erased to this Action. Tests that want a live order pass
   `anonymized_at => null` explicitly. Not a production concern —

@@ -8,6 +8,29 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **GDPR data export, retention purge, and Omnibus / accessibility fixes.**
+  Continuing ADR-0019's compliance pass:
+  - **Art. 15 / 20 data export.** `App\Actions\Gdpr\ExportCustomerData` (the
+    read-only mirror of `EraseCustomer`) builds a structured document of
+    everything held about a customer — profile, addresses, orders, reviews,
+    wishlist, newsletter status, contact messages — matched by email as well
+    as `user_id`, with anonymised orders flagged and the coupon `email_hash`
+    withheld. `/account/data` streams it as JSON.
+  - **Art. 5(1)(e) retention purge.** `App\Actions\Gdpr\PurgeAnonymisedOrders`
+    + `orders:purge-anonymised` (scheduled weekly) delete anonymised orders
+    once `config('gdpr.order_retention_years')` has passed — an `.env` value
+    (`GDPR_ORDER_RETENTION_YEARS`, default 11) that a human sets from
+    Bulgarian accounting law; `null` disables the purge and the command says
+    so rather than guessing.
+  - **Omnibus review authenticity.** A sentence under the reviews heading
+    states that only customers with a delivered order for the product can
+    review it — the enforcement (`ProductDetails::canReview()`) was already
+    there.
+  - **Accessibility (EAA / WCAG 2.5.8).** Footer links and breadcrumbs are
+    now 24px-minimum tap targets (`-my-1 py-1`, no visual change).
+  8 new tests. `Order` and `NewsletterSubscriber` gain `@property` docblocks
+  for enum/date casts Larastan reads through nested relations.
+
 - **Order-confirmation email — the first transactional email.**
   `App\Mail\OrderPlaced`, queued from `CheckoutPage::placeOrder` after the
   order transaction commits, both payment paths. The full order as

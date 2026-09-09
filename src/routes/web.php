@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Livewire\Account\DeleteAccount;
+use App\Livewire\Account\DownloadData;
 use App\Livewire\Account\OrderHistory;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Auth\Login;
@@ -87,6 +88,10 @@ Route::middleware('auth')->group(function (): void {
     // password and a typed confirmation; calls App\Actions\Gdpr\EraseCustomer
     // then flushes the session.
     Route::get('/account/delete', DeleteAccount::class)->name('account.delete');
+
+    // GDPR Art. 15 / 20 — a machine-readable copy of everything held about
+    // the account (App\Actions\Gdpr\ExportCustomerData), streamed as JSON.
+    Route::get('/account/data', DownloadData::class)->name('account.data');
 
     // Scoped to auth()->user()->orders() inside the component, never
     // Order::query() — the middleware answers "is anyone signed in", the

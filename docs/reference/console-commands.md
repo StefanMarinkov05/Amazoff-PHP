@@ -11,6 +11,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | Command | Purpose | Invoked by |
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
+| `orders:purge-anonymised` | Deletes GDPR-anonymised orders past `config('gdpr.order_retention_years')` — the accounting-retention window. Disabled (says so, does nothing) when the config value is `null` (ADR-0019) | The scheduler, weekly |
 | `race:worker` | Runs 1 Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
 | `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
 | `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |
@@ -50,6 +51,25 @@ it, because the TTL policy is not built. The intended shape, not yet
 implemented: guest carts expire roughly a month after last touch; a
 registered customer's cart does not expire at all, since the thing that
 expires for a logged-in customer is the checkout stage rather than the cart.
+
+## `orders:purge-anonymised`
+
+```bash
+docker compose exec app php artisan orders:purge-anonymised
+```
+
+Scheduled `->weekly()`. A GDPR-anonymised order still exists because it is
+an invoice under Bulgarian accounting law; once that retention window
+expires nothing keeps it, so it is deleted outright (ADR-0019). The window
+is `config('gdpr.order_retention_years')`, an `.env` value
+(`GDPR_ORDER_RETENTION_YEARS`, default 11): the exact figure is a matter of
+BG accounting law and a human sets it before go-live. Left `null`, the
+command prints "disabled" and deletes nothing rather than guessing.
+
+The command is a caller; `App\Actions\Gdpr\PurgeAnonymisedOrders` is the
+rule. Weekly rather than daily because the window is measured in years — a
+few days' lag between expiry and deletion is immaterial, and a daily run
+would almost always find nothing.
 
 ## `race:worker`
 

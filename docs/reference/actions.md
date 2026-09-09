@@ -429,6 +429,8 @@ is the same test that keeps the lookup tables on Filament's default CRUD.
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
 | `EraseCustomer` | `orders` + `order_addresses` (identity columns overwritten, `orders.anonymized_at` set); `product_reviews.author_name`; deletes `newsletter_subscribers`, `contact_messages` (by id or email), and — via cascade FKs — `addresses`, `carts`, `cart_items`, `wishlist_items`; `users` (`forceDelete`) | optional — the self-service path (`DeleteAccount`) passes none; the Filament path passes an actor and is authorized `erase` on the `User` | `AuthorizationException` (Filament path only) |
+| `ExportCustomerData` | nothing — read-only | required (the `User` to export) | — |
+| `PurgeAnonymisedOrders` | deletes `orders` (and every child, by cascade FK) where `anonymized_at` is older than `config('gdpr.order_retention_years')` | — no actor: the `orders:purge-anonymised` schedule | `RuntimeException` if the config value is set but not a positive integer |
 
 GDPR Art. 17 erasure (ADR-0019). Crosses aggregates on purpose — one request
 touches the user and everything that snapshotted their identity — so it sits
@@ -474,6 +476,8 @@ behaviour.
 | `RecordInventoryMovement` | no |
 | `SubscribeToNewsletter` | no - one row either way, and the UNIQUE index is what serialises it |
 | `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
+| `ExportCustomerData` | no — read-only |
+| `PurgeAnonymisedOrders` | yes — the matched orders are locked and deleted together |
 
 Nesting is by savepoint, so the outermost boundary commits.
 `RecordInventoryMovement` is the exception: it writes one row and is never the
@@ -684,6 +688,8 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
 | `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); tests |
+| `ExportCustomerData` | `Account\DownloadData` (`/account/data`); tests |
+| `PurgeAnonymisedOrders` | `orders:purge-anonymised` console command (`routes/console.php`, scheduled weekly); tests |
 | `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
