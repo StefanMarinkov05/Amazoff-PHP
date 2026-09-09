@@ -50,8 +50,9 @@ reachable through either caller.
 
 | Scenario | Outcome |
 |---|---|
-| Two erasure requests for the same customer race | The user row and its orders are `lockForUpdate()` inside one transaction. The second waits for the first to commit, then finds no user (self-service `firstOrFail` on the locked row) or an already-anonymised order set (Filament path: no-op) |
-| Erasure races a `TransitionOrderStatus` on one of the customer's orders | Both lock the `orders` row. Whichever commits first wins; the status transition against an anonymised order still succeeds (status is not identity), and erasure against an order mid-transition waits for that lock |
+| Two erasure requests for the same customer race | The user row and its orders are `lockForUpdate()` inside one transaction. The second waits for the first to commit, then finds no user (self-service `firstOrFail` on the locked row raises `ModelNotFoundException`, never a `QueryException`) or an already-anonymised order set (Filament path: no-op). The order's identity columns are overwritten exactly once. `GdprErasureConcurrencyTest` |
+| Erasure races a `TransitionOrderStatus` on one of the customer's orders | Both lock the `orders` row (no cycle — erasure locks `users` then `orders`, the transition locks `orders` only). Both effects land: the order ends up anonymised **and** at its new status, with exactly one history row, whichever commits first. Status is not identity. `GdprErasureConcurrencyTest` |
+| `PurgeAnonymisedOrders` races a refund on an about-to-be-deleted order | The purge `lockForUpdate()`s the matched orders inside one transaction, so it serialises against the concurrent write to the payment's child row. The order and its whole subtree are deleted; the refund either ran before the delete (`OK`) or found the row gone (`ModelNotFoundException`) — never a foreign-key `QueryException` or a partially deleted subtree. `GdprErasureConcurrencyTest` |
 | Erasure races the customer placing a new order | `CreateOrder` needs the `User` row (`user_id`) it is passed; once erasure has committed the `forceDelete`, the checkout actor lookup fails with `CheckoutActorRemovedException` rather than creating an orphan |
 
 ## Authorization
@@ -99,11 +100,11 @@ about what is held, not what was once held. Each order also carries its
 - **`activity_log` is not scanned.** `spatie/laravel-activitylog` records
   nothing customer-facing yet. When it does, its `causer` and `properties`
   rows join this routine.
-- **Concurrency coverage is single-process.** The "one actor at a time"
-  table above is asserted by `EraseCustomerTest` in one process, which
-  proves the guard but not the lock. A `tests/Concurrency/` pass with the
-  `race:worker` subprocess pattern — two erasures, erasure vs. transition,
-  purge vs. refund — is a follow-up.
+- **Concurrency coverage:** `GdprErasureConcurrencyTest` (`race:worker`
+  subprocess pattern) proves the locks, not just the guards — two erasures,
+  erasure vs. `TransitionOrderStatus`, and `PurgeAnonymisedOrders` vs. a
+  refund. Removing the `EraseCustomer` user lock turns the two-erasures test
+  red (the loser gets a `QueryException` instead of `ModelNotFoundException`).
 - **`OrderFactory` sets `anonymized_at` by default**, so a factory-built
   order looks pre-erased to this Action. Tests that want a live order pass
   `anonymized_at => null` explicitly. Not a production concern —

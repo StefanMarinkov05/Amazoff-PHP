@@ -137,9 +137,10 @@ actions.
 - `activity_log` (spatie/laravel-activitylog) records nothing
   customer-facing yet. When it does, its `causer` and `properties` rows
   join the erasure routine.
-- Concurrency coverage for the erasure and purge paths is single-process
-  (`EraseCustomerTest`). A `tests/Concurrency/` pass proving the locks, not
-  just the guards, is a follow-up — `reference/write-rules/gdpr.md`.
+- Concurrency coverage for the erasure and purge paths: `GdprErasureConcurrencyTest`
+  proves the locks with the `race:worker` subprocess pattern — two erasures,
+  erasure vs. an order-status transition, and the retention purge vs. a
+  refund. `reference/write-rules/gdpr.md` has the outcomes.
 
 **Resolved by ADR-0019:** contact messages and newsletter subscriptions are
 **deleted outright** on erasure — no accounting obligation attaches, and an

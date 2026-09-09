@@ -609,6 +609,16 @@ current MySQL version, so removing the explicit sort does not turn any
 test red. Kept anyway rather than relying on that unstated access path.
 `reference/write-rules/order.md`, "Known gaps" has the full reasoning.
 
+`EraseCustomer` (GDPR Art. 17) takes `lockForUpdate()` on the `users` row and
+then on that customer's non-anonymised `orders`, all inside one transaction —
+lock order `users` before `orders`, and no Action takes those in the opposite
+order (`TransitionOrderStatus` locks `orders` only). `PurgeAnonymisedOrders`
+locks each matched `orders` row, so it serialises against a concurrent write
+to an about-to-be-deleted order's child rows rather than colliding with it.
+Both are proven by deletion in `tests/Concurrency/GdprErasureConcurrencyTest.php`
+(two erasures, erasure vs. a status transition, purge vs. a refund) —
+`reference/write-rules/gdpr.md` has the outcomes.
+
 Duplicate SKUs and slugs are safe by the `UNIQUE` constraints from ADR-0005
 rather than by anything in the Actions. A losing insert raises
 `QueryException` rather than a validation error.
@@ -735,9 +745,9 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
 | `ConfirmNewsletterSubscription` / `UnsubscribeFromNewsletter` | `NewsletterController` (`/newsletter/confirm/{token}`, `/newsletter/unsubscribe/{token}`), tests |
 | `PurgeUnconfirmedSubscribers` | `newsletter:purge-unconfirmed` (scheduled daily), tests |
-| `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); tests |
+| `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); `RaceWorker` (`erase-customer`); tests |
 | `ExportCustomerData` | `Account\DownloadData` (`/account/data`); tests |
-| `PurgeAnonymisedOrders` | `orders:purge-anonymised` console command (`routes/console.php`, scheduled weekly); tests |
+| `PurgeAnonymisedOrders` | `orders:purge-anonymised` console command (`routes/console.php`, scheduled weekly); `RaceWorker` (`purge-anonymised-orders`); tests |
 | `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37

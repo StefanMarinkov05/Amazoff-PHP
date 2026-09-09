@@ -15,6 +15,8 @@ use App\Actions\Catalogue\SetVariationAttributeValues;
 use App\Actions\Catalogue\SetVariationImages;
 use App\Actions\Catalogue\UpdateProduct;
 use App\Actions\Coupon\RedeemCoupon;
+use App\Actions\Gdpr\EraseCustomer;
+use App\Actions\Gdpr\PurgeAnonymisedOrders;
 use App\Actions\Inventory\ReleaseStock;
 use App\Actions\Inventory\ReserveStock;
 use App\Actions\Order\CreateOrder;
@@ -245,6 +247,18 @@ final class RaceWorker extends Command
                     OrderStatus::from($this->stringArg(0)),
                     null,
                 ),
+            // --id is the user. GDPR Art. 17 erasure, self-service path (null
+            // actor). Locks the user row and its non-anonymised orders inside
+            // one transaction — the second racer finds the user already
+            // forceDeleted (ModelNotFoundException) or the orders already
+            // anonymised (no-op). ADR-0019, write-rules/gdpr.md.
+            'erase-customer' => app(EraseCustomer::class)
+                ->handle(User::findOrFail($this->id(0)), null),
+            // No args. Deletes anonymised orders past the retention cutoff,
+            // each `lockForUpdate()` inside one transaction — serialises
+            // against a concurrent write to an about-to-be-deleted order's
+            // child rows. Returns null when retention is disabled.
+            'purge-anonymised-orders' => app(PurgeAnonymisedOrders::class)->handle(),
             'create-order' => $this->createOrder(),
             // --id is the order. Two checkouts of one order must produce one
             // payment and one refusal: Order::payment() is a HasOne, but
