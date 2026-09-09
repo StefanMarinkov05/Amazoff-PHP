@@ -62,8 +62,8 @@ already flagged in `misc/todo.md`.
 | Art. 6 — pre-contractual information | Main characteristics, total price incl. taxes, delivery cost, trader identity, payment/delivery terms | product pages show price incl. VAT and `min_order_quantity`; delivery cost is computed at checkout; static pages `/delivery`, `/payment-information`, `/terms` carry the terms — **their text is placeholder** |
 | Art. 8(2) — "order with obligation to pay" | The order button must be labelled unambiguously | **done** — the checkout submit button reads "Order with obligation to pay" |
 | Art. 8(7) — confirmation on a durable medium | Confirm the concluded contract, with all Art. 6 information, on a durable medium within a reasonable time | **done** — `App\Mail\OrderPlaced`: line items with variation/image/price/qty, totals with VAT, delivery + billing address, payment method label, order number + tracking link, withdrawal information. `explanation/transactional-email.md` |
-| Art. 9–15 — 14-day right of withdrawal | The customer may withdraw within 14 days of delivery, with a model withdrawal form and clear information on the right | **gap** — `misc/todo.md` "Customer-facing returns" tracks this. Needs a returns request flow, the 14-day window as an Action-level guard, and the withdrawal information in the pre-contract text |
-| Art. 6(1)(h) + Annex I(B) — model withdrawal form | Provide the standard form | **done** — `/returns/withdrawal-form`, linked from the order email; the online returns request is the returns slice |
+| Art. 9–15 — 14-day right of withdrawal | The customer may withdraw within 14 days of delivery, with a model withdrawal form and clear information on the right | **done** — the `OrderReturn` aggregate ([ADR-0020](../adr/0020-order-return-aggregate.md)): `App\Actions\Returns\RequestReturn` enforces the 14-day window as an Action guard (`Order::deliveredAt()` + `config('returns.withdrawal_days')`), `/account/orders/{order}/return` is the request form, `ReviewReturn` / `RefundReturn` are the staff review + refund, `ReturnResource` the panel. **Caveat:** delivery-cost reimbursement on a full withdrawal (Art. 13) is not yet computed — the refund is goods value only. Counsel to confirm |
+| Art. 6(1)(h) + Annex I(B) — model withdrawal form | Provide the standard form | **done** — `/returns/withdrawal-form`, linked from checkout, the order email, and the order-details / return-request pages |
 
 ---
 
@@ -124,10 +124,11 @@ but the exemption is not something to rely on by default.
    of the feature).
 2. Newsletter double opt-in + unsubscribe — ePrivacy Art. 13.
 
-**Legally load-bearing, tracked, not yet sequenced:**
+**Legally load-bearing, done:**
 
-3. 14-day right of withdrawal + returns flow + model form — CRD Arts. 9–15
-   (`misc/todo.md`).
+3. 14-day right of withdrawal + returns flow + model form — CRD Arts. 9–15.
+   `OrderReturn` aggregate, ADR-0020. Remaining sub-gap: delivery-cost
+   reimbursement on a full withdrawal (Art. 13).
 4. "Order with obligation to pay" button wording — CRD Art. 8(2). One
    string.
 5. Real privacy policy and terms text — GDPR Arts. 12–14, CRD Art. 6.

@@ -6,7 +6,10 @@ use App\Actions\Gdpr\ExportCustomerData;
 use App\Models\ContactMessage;
 use App\Models\NewsletterSubscriber;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\ProductReview;
+use App\Models\ReturnItem;
 use App\Models\User;
 
 /*
@@ -33,6 +36,32 @@ it('includes the account, addresses, orders, reviews, wishlist, newsletter and c
         ->and($doc['reviews'][0]['body'])->toBe('Solid.')
         ->and($doc['newsletter'][0]['email'])->toBe('me@example.com')   // matched by email, not user_id
         ->and($doc['contact_messages'][0]['message'])->toBe('hello');
+});
+
+it('includes the customer\'s returns and their items (ADR-0020)', function (): void {
+    $user = User::factory()->create();
+    $order = Order::factory()->for($user)->create(['anonymized_at' => null, 'serial_number' => 'ORD-RET-1']);
+    $item = OrderItem::factory()->create([
+        'order_id' => $order->getKey(),
+        'product_name' => 'Wool jumper',
+        'quantity' => 2,
+    ]);
+    $return = OrderReturn::factory()->create([
+        'order_id' => $order->getKey(),
+        'reason' => 'too small',
+    ]);
+    ReturnItem::factory()->create([
+        'return_id' => $return->getKey(),
+        'order_item_id' => $item->getKey(),
+        'quantity' => 1,
+    ]);
+
+    $doc = app(ExportCustomerData::class)->handle($user);
+
+    expect($doc['orders'][0]['returns'])->toHaveCount(1)
+        ->and($doc['orders'][0]['returns'][0]['reason'])->toBe('too small')
+        ->and($doc['orders'][0]['returns'][0]['items'][0]['product'])->toBe('Wool jumper')
+        ->and($doc['orders'][0]['returns'][0]['items'][0]['quantity'])->toBe(1);
 });
 
 it('marks an anonymised order as anonymised and never exposes the coupon hash', function (): void {

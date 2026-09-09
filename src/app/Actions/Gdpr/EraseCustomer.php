@@ -8,6 +8,7 @@ use App\Models\ContactMessage;
 use App\Models\NewsletterSubscriber;
 use App\Models\Order;
 use App\Models\OrderAddress;
+use App\Models\OrderReturn;
 use App\Models\ProductReview;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +102,17 @@ final class EraseCustomer
                     'courier_office_name' => null,
                     // country is kept: a 2-letter code does not identify a
                     // person and is the place-of-supply for the VAT record.
+                ]);
+
+            // The return's free-text fields are the customer's own words and
+            // a staff note that may quote them — same class as
+            // orders.customer_note. status, refunded_amount and the
+            // timestamps stay: that is the refund record (ADR-0020).
+            OrderReturn::query()
+                ->where('order_id', $order->getKey())
+                ->update([
+                    'reason' => self::REDACTED,
+                    'resolution_note' => null,
                 ]);
         }
     }

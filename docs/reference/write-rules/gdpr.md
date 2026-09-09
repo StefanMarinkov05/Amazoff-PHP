@@ -28,6 +28,8 @@ with an actor, authorized `erase` on the `User`).
 | `orders` | **yes** | `email` → `erased-{id}@anonymized.invalid`, `first_name`/`last_name` → `[erased]`, `phone` → `''`, `customer_note` → `null`, `anonymized_at` → now. `user_id` nulled by the FK. Every amount, `serial_number`, `status`, `payment_*`, `currency`, `internal_note`, `invoice_*` untouched — that is the accounting record |
 | `order_addresses` | yes | `first_name`/`last_name` → `[erased]`, `phone` → `''`, `city`/`postcode` → `[erased]`, `street`/`courier_office_code`/`courier_office_name` → `null`. `country` kept (2-letter code, place of supply) |
 | `product_reviews` | yes | `author_name` → `Anonymous`; `user_id` nulled by the FK. `body`, `rating`, `product_id` untouched |
+| `returns` | yes | `reason` → `[erased]`, `resolution_note` → `null` (customer free text — same class as `orders.customer_note`). `status`, `refunded_amount`, `requested_at`, `resolved_at` untouched — the refund record (ADR-0020) |
+| `return_items` | yes | nothing — no personal data, and it belongs to the retained order |
 | `coupon_redemptions` | yes | nothing but `user_id` (nulled by the FK). `email_hash` stays — peppered pseudonymisation, own retention basis |
 | `newsletter_subscribers` | no | deleted where `user_id` matches **or** `email` matches (a pre-registration guest row has `user_id = null`) |
 | `contact_messages` | no | deleted, same id-or-email match |
@@ -77,14 +79,16 @@ streams as JSON. `coupon_redemptions` appears as the *fact* of a redemption
 (which coupon, when) but never the `email_hash`: the hash is derived data
 the customer cannot verify. An anonymised order is included, flagged
 `anonymised: true`, with its `[erased]` values — the export tells the truth
-about what is held, not what was once held.
+about what is held, not what was once held. Each order also carries its
+`returns` (status, reason, refunded amount, timestamps) and their items
+(product name + quantity) — ADR-0020.
 
 ## `PurgeAnonymisedOrders` (Art. 5(1)(e))
 
 | | |
 |---|---|
 | Scope | `orders` where `anonymized_at` is set **and** older than `config('gdpr.order_retention_years')` |
-| Effect | `$order->delete()` — every child of `orders` is `cascadeOnDelete`, so the row and its whole subtree go |
+| Effect | `$order->delete()` — every child of `orders` is `cascadeOnDelete` (`order_items`, `order_addresses`, `order_status_histories`, `payments`, `shipments`, `coupon_redemptions`, `returns` → `return_items`), so the row and its whole subtree go |
 | Disabled | when the config value is `null`: returns `null`, the command prints "disabled", nothing is deleted |
 | Refuses | a config value that is set but not a positive integer (`RuntimeException`) — it will not guess |
 | Locking | the matched orders are `lockForUpdate()` inside one transaction, so a purge racing a late refund or status change on an about-to-be-deleted order serialises on the `orders` row |

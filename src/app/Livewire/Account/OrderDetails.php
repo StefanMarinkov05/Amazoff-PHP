@@ -80,6 +80,7 @@ class OrderDetails extends Component
                 'orderAddresses',
                 'payment',
                 'shipment.carrier:id,name',
+                'returns.returnItems',
             ])
             ->find($this->orderId);
 
@@ -104,6 +105,27 @@ class OrderDetails extends Component
             ->firstWhere('type', AddressType::Billing);
     }
 
+    /**
+     * Whether a return can still be requested for this order — delivered, and
+     * within the 14-day withdrawal window (`RequestReturn`'s own guard, shown
+     * here so the button only appears when the click would succeed). The rule
+     * lives in `Order::deliveredAt()` and `config('returns.withdrawal_days')`,
+     * not restated.
+     */
+    public function returnWindowOpen(): bool
+    {
+        $deliveredAt = $this->order()->deliveredAt();
+
+        if ($deliveredAt === null) {
+            return false;
+        }
+
+        $configured = config('returns.withdrawal_days', 14);
+        $days = is_numeric($configured) ? (int) $configured : 14;
+
+        return ! $deliveredAt->copy()->addDays($days)->isPast();
+    }
+
     public function render(): View
     {
         $order = $this->order();
@@ -112,6 +134,7 @@ class OrderDetails extends Component
             'order' => $order,
             'shippingAddress' => $this->shippingAddress(),
             'billingAddress' => $this->billingAddress(),
+            'returnWindowOpen' => $this->returnWindowOpen(),
         ]);
     }
 }

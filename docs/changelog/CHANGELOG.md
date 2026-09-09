@@ -8,6 +8,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **The 14-day right of withdrawal — a customer returns flow (CRD Arts.
+  9–15, ADR-0020).** New `OrderReturn` aggregate (`returns` / `return_items`
+  tables, `ReturnStatus` enum). `App\Actions\Returns\RequestReturn` enforces
+  the 14-day window as an Action guard — measured from the `Delivered`
+  `order_status_histories` row via `Order::deliveredAt()`, configurable
+  through `config('returns.withdrawal_days')` — and the per-line remaining
+  returnable quantity under an `orders` lock. `ReviewReturn` (approve / deny)
+  and `RefundReturn` (composes `RefundPayment` for a card order, marks a COD
+  order refunded with an offline-cash note, and runs `RestockReturn` per
+  line either way). Customer surface: `/account/orders/{order}/return` and a
+  "Request a return" button on the order-details page inside the window.
+  Staff surface: `ReturnResource` (`admin/returns`), administrator-only,
+  Approve / Deny / Refund as header actions. New permissions `viewAny_return`
+  / `view_return` / `update_return` / `delete_return` / `refund_return`
+  (through `PermissionCatalogue`, no seeder edit). **Deliberately independent
+  of `orders.status`** — a fully-refunded return leaves the order at
+  `Delivered`, because `OrderStatus::Returned` already carries a whole-order
+  restock and driving it too would double-count. GDPR: `EraseCustomer`
+  scrubs a return's `reason` / `resolution_note` (keeping the refund record);
+  `ExportCustomerData` includes returns. 40+ new tests across Feature,
+  Filament, Livewire, and a `RequestReturnConcurrencyTest`. Known gap:
+  delivery-cost reimbursement on a full withdrawal (Art. 13) is not yet
+  computed — flagged for counsel.
+
 - **`/password/reset` and `/password/reset/{token}` — the last of §4–5's
   missing account pages, and the only one with no existing model to wire
   up.** Delegates entirely to Laravel's own `Password` broker

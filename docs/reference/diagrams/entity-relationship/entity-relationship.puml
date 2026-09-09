@@ -504,6 +504,32 @@ entity "order_status_histories" as order_status_histories {
   updated_at : timestamp <<nullable>>
 }
 
+' returns / return_items — the customer 14-day withdrawal aggregate
+' (ADR-0020). Model class is OrderReturn; the table is `returns`.
+entity "returns" as returns {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  status : enum
+  reason : text
+  resolution_note : text <<nullable>>
+  requested_at : timestamp
+  resolved_at : timestamp <<nullable>>
+  refunded_amount : decimal(10,2) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "return_items" as return_items {
+  * id : bigint unsigned <<PK>>
+  --
+  return_id : bigint unsigned <<FK>>
+  order_item_id : bigint unsigned <<FK>>
+  quantity : int unsigned
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
 ' ---------- Payments ----------
 entity "payments" as payments {
   * id : bigint unsigned <<PK>>
@@ -720,6 +746,10 @@ orders ||--o{ order_addresses
 addresses |o--o{ order_addresses
 orders ||--o{ order_status_histories
 users |o--o{ order_status_histories
+
+orders ||--o{ returns
+returns ||--o{ return_items
+order_items ||--o{ return_items
 
 orders ||--o{ payments
 payments ||--o{ payment_events

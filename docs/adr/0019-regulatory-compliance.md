@@ -183,6 +183,12 @@ decision 1's config value.
 
 ## The returns flow (decision 3, Arts. 9–15)
 
+> **Implemented as the `OrderReturn` aggregate — see
+> [ADR-0020](0020-order-return-aggregate.md)**, which records the decisions
+> this section left open (the model name, independence from `orders.status`,
+> cash-on-delivery, where the 14-day date comes from). The design below is
+> unchanged; ADR-0020 is the detail, not a reversal.
+
 **A `Return` aggregate with its own status enum and a `RequestReturn` /
 `ReviewReturn` / `RefundReturn` Action trio.**
 

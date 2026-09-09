@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -109,6 +110,32 @@ class Order extends Model
     public function couponRedemptions(): HasMany
     {
         return $this->hasMany(CouponRedemption::class);
+    }
+
+    /** @return HasMany<OrderReturn, $this> */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
+    }
+
+    /**
+     * When this order reached `Delivered`, or null if it has not.
+     *
+     * Read from the `order_status_histories` row for the `Delivered`
+     * transition rather than a column — `UNIQUE(order_id, new_status)` means
+     * there is at most one, and `OrderStatus`'s graph is acyclic so it cannot
+     * be re-entered. The 14-day withdrawal window (`RequestReturn`,
+     * `config('returns.withdrawal_days')`) and the storefront's
+     * return-eligibility display both start from this, so the rule lives once
+     * here. ADR-0020.
+     */
+    public function deliveredAt(): ?CarbonInterface
+    {
+        $row = $this->orderStatusHistories()
+            ->where('new_status', OrderStatus::Delivered)
+            ->first();
+
+        return $row?->created_at;
     }
 
     /** @return HasOne<Shipment, $this> */

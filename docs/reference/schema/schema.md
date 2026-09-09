@@ -47,7 +47,7 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 **Cart** — `carts`, `cart_items`, `wishlist_items`.
 
 **Orders** — `orders`, `order_items`, `order_addresses`,
-`order_status_histories`.
+`order_status_histories`, `returns`, `return_items`.
 
 **Payments** — `payments`, `payment_events`.
 
@@ -70,7 +70,8 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 | `payments` | `UNIQUE(stripe_payment_intent_id)` | One payment row per intent |
 | `coupon_redemptions` | `UNIQUE(coupon_id, order_id)` | A coupon counts once per order |
 | `order_addresses` | `UNIQUE(order_id, type)` | One billing and one delivery address per order |
-| `order_status_histories` | `UNIQUE(order_id, new_status)` | An order enters a given status once — backstop for `TransitionOrderStatus`'s `orders` lock, safe because `OrderStatus`'s transition graph is acyclic |
+| `order_status_histories` | `UNIQUE(order_id, new_status)` | An order enters a given status once — backstop for `TransitionOrderStatus`'s `orders` lock, safe because `OrderStatus`'s transition graph is acyclic. `RequestReturn` / `Order::deliveredAt()` read the `Delivered` row's `created_at` as the 14-day window's start |
+| `return_items` | `UNIQUE(return_id, order_item_id)` | One row per order line per return — a customer editing quantities updates the row, not adds a second (ADR-0020) |
 | `product_reviews` | `UNIQUE(user_id, product_id)` | One review per customer per product (§24) |
 | `wishlist_items` | `UNIQUE(user_id, product_id)` | No duplicate favourites |
 | `cart_items` | `UNIQUE(cart_id, product_variation_id)` | One line per variation; quantity changes instead |
@@ -155,6 +156,7 @@ the right of `=` below, not the case name.
 | Enum | Values | Columns |
 |---|---|---|
 | `OrderStatus` | `new`, `awaiting_payment`, `paid`, `confirmed`, `preparing`, `ready_for_shipment`, `shipped`, `delivered`, `cancelled`, `returned`, `refunded` | `orders.status`, `order_status_histories.previous_status`, `.new_status` |
+| `ReturnStatus` | `requested`, `approved`, `denied`, `refunded` | `returns.status` (ADR-0020) |
 | `PaymentStatus` | `pending`, `processing`, `paid`, `failed`, `cancelled`, `refunded`, `partially_refunded` | `payments.status`, `orders.payment_status`, `payment_events.status_before`, `.status_after` |
 | `PaymentMethod` | `stripe`, `cash_on_delivery` | `payments.method`, `orders.payment_method` |
 | `ShipmentStatus` | `pending`, `shipped`, `in_transit`, `delivered`, `returned`, `cancelled` | `shipments.status`, `shipment_tracking_events.status` |

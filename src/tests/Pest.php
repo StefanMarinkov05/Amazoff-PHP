@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Contracts\CourierGateway;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
 use App\Models\Carrier;
@@ -11,6 +12,7 @@ use App\Models\Cart;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -19,6 +21,7 @@ use App\Support\Courier\CourierTrackingEvent;
 use App\Support\Courier\DeliveryQuote;
 use App\Support\Courier\ShipmentRequest;
 use App\Support\Courier\ShipmentResult;
+use Carbon\CarbonInterface;
 use Database\Seeders\System\CarrierSeeder;
 use Database\Seeders\System\PermissionSeeder;
 use Database\Seeders\System\RoleSeeder;
@@ -307,6 +310,73 @@ function orderWithVariationLine(ProductVariation $variation, OrderStatus $status
     ]);
 
     return $order->fresh();
+}
+
+/*
+ * Shared by the returns Action tests (RequestReturn / ReviewReturn /
+ * RefundReturn) and RefundReturnConcurrencyTest — Feature and Concurrency are
+ * separate suites, so the helper lives here.
+ */
+
+/**
+ * A delivered order eligible for a return: one line per `$lines`, each against
+ * its own variation whose `inventories.sold_quantity` is `$quantity` (so
+ * `RestockReturn` has stock to credit back), a `Delivered`
+ * `order_status_histories` row stamped `$deliveredAt` (so `Order::deliveredAt()`
+ * and the 14-day window resolve), and `anonymized_at` explicitly null (the
+ * `OrderFactory` gotcha — its default makes an order look pre-erased).
+ */
+function deliveredOrderForReturn(
+    ?User $customer = null,
+    int $quantity = 2,
+    int $lines = 1,
+    ?CarbonInterface $deliveredAt = null,
+    PaymentMethod $paymentMethod = PaymentMethod::Stripe,
+    string $unitPrice = '25.00',
+): Order {
+    $order = Order::factory()->create([
+        'user_id' => $customer?->getKey() ?? User::factory(),
+        'status' => OrderStatus::Delivered,
+        'payment_method' => $paymentMethod,
+        'currency' => 'EUR',
+        'anonymized_at' => null,
+    ]);
+
+    $history = OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'previous_status' => OrderStatus::Shipped,
+        'new_status' => OrderStatus::Delivered,
+        'user_id' => null,
+    ]);
+    $history->forceFill(['created_at' => $deliveredAt ?? now()])->save();
+
+    for ($i = 0; $i < $lines; $i++) {
+        $variation = ProductVariation::factory()->create([
+            'price' => $unitPrice,
+            'discount_price' => null,
+        ]);
+
+        Inventory::factory()->create([
+            'product_variation_id' => $variation->getKey(),
+            'current_quantity' => 0,
+            'reserved_quantity' => 0,
+            'sold_quantity' => $quantity,
+            'returned_quantity' => 0,
+            'damaged_quantity' => 0,
+        ]);
+
+        OrderItem::factory()->create([
+            'order_id' => $order->getKey(),
+            'product_id' => $variation->product_id,
+            'product_variation_id' => $variation->getKey(),
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'line_total' => bcmul($unitPrice, (string) $quantity, 2),
+            'discount_amount' => 0,
+        ]);
+    }
+
+    return $order->fresh(['orderItems']);
 }
 
 /*

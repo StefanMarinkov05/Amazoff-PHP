@@ -30,6 +30,11 @@ verification date and source-of-truth notes:
 - **[order-status-states](../reference/diagrams/order-status-states/)** —
   `OrderStatus`'s 11 states in isolation, with the inventory side effect
   on each edge that carries one. Discussed in `reference/write-rules/order.md`.
+- **[return-status-states](../reference/diagrams/return-status-states/)** —
+  `ReturnStatus`'s 4 states (the 14-day right of withdrawal, ADR-0020).
+  Deliberately a *separate* machine that runs beside `orders.status`, not
+  inside it — a fully-refunded return leaves the order at `Delivered`.
+  Discussed in `reference/write-rules/returns.md`.
 - **[security-defense-layers](../reference/diagrams/security-defense-layers/)**
   — not a state machine and not absorbed into the composite diagram above,
   but the other half of "what a request passes through": every layer

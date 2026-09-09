@@ -6,7 +6,8 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Fifty-plus Actions across eleven areas (Gdpr joined the ten in ADR-0019),
+Fifty-plus Actions across twelve areas (Gdpr joined the ten in ADR-0019,
+Returns in ADR-0020),
 twenty-six domain exceptions in `app/Exceptions`.
 
 The Exceptions table below lists twenty-one of them. Five raised only by the Payment, Shipment, and ProductReview Actions — `IllegalPaymentStatusTransitionException`, `IllegalShipmentStatusTransitionException`, `PaymentAlreadyRecordedException`, `ReviewNotAllowedException`, `ShipmentNotAllowedException` — are documented in their own Action sections and have never been added here. Noted rather than left as a silent discrepancy between the count and the table.
@@ -270,6 +271,21 @@ a `Coupon` row is single-table with no second writer, decision 10.
 
 `reference/write-rules/order.md` is the outcomes page.
 
+## Returns
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `RequestReturn` | `returns`, `return_items` | the **customer**, optional (ownership is the order being theirs, not a permission — the `CreateProductReview` shape) | `ReturnNotAllowedException` (`orderNotDelivered`, `windowExpired`, `nothingSelected`, `lineNotOnOrder`, `quantityExceedsRemaining`) |
+| `ReviewReturn` | `returns.status`, `resolution_note`, `resolved_at` | optional, `update_return` | `IllegalReturnStatusTransitionException`, `AuthorizationException` |
+| `RefundReturn` | `returns.status` (`Refunded`), `refunded_amount`, `resolution_note`, `resolved_at`; composes `RefundPayment` (Stripe path only) and `RestockReturn` per line | optional, `refund_return`; the actor is passed to `RefundPayment`, so `refund_payment` is also required on the card path | `ReturnNotAllowedException::notApproved`, `RefundNotAllowedException` (from `RefundPayment`), `AuthorizationException` |
+
+The `OrderReturn` aggregate (ADR-0020) — the 14-day right of withdrawal. Runs
+**beside** `orders.status`, never through `TransitionOrderStatus`: a granular
+return that also transitioned the order would double-restock against
+`OrderStatus::Returned`'s whole-order effect. COD orders are marked `Refunded`
+with an offline-cash note and still restocked. `reference/write-rules/returns.md`
+is the outcomes page.
+
 The shipment Actions are the *domain* half of slice 8, deliberately split
 from its connector: every courier column is nullable, so a shipment can be
 opened, transitioned and reported on before any Saloon connector exists.
@@ -435,8 +451,8 @@ is the same test that keeps the lookup tables on Filament's default CRUD.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `EraseCustomer` | `orders` + `order_addresses` (identity columns overwritten, `orders.anonymized_at` set); `product_reviews.author_name`; deletes `newsletter_subscribers`, `contact_messages` (by id or email), and — via cascade FKs — `addresses`, `carts`, `cart_items`, `wishlist_items`; `users` (`forceDelete`) | optional — the self-service path (`DeleteAccount`) passes none; the Filament path passes an actor and is authorized `erase` on the `User` | `AuthorizationException` (Filament path only) |
-| `ExportCustomerData` | nothing — read-only | required (the `User` to export) | — |
+| `EraseCustomer` | `orders` + `order_addresses` (identity columns overwritten, `orders.anonymized_at` set); `returns.reason`/`resolution_note` scrubbed (status and `refunded_amount` kept — ADR-0020); `product_reviews.author_name`; deletes `newsletter_subscribers`, `contact_messages` (by id or email), and — via cascade FKs — `addresses`, `carts`, `cart_items`, `wishlist_items`; `users` (`forceDelete`) | optional — the self-service path (`DeleteAccount`) passes none; the Filament path passes an actor and is authorized `erase` on the `User` | `AuthorizationException` (Filament path only) |
+| `ExportCustomerData` | nothing — read-only (includes the customer's orders, reviews, addresses, newsletter/contact rows, and their **returns**) | required (the `User` to export) | — |
 | `PurgeAnonymisedOrders` | deletes `orders` (and every child, by cascade FK) where `anonymized_at` is older than `config('gdpr.order_retention_years')` | — no actor: the `orders:purge-anonymised` schedule | `RuntimeException` if the config value is set but not a positive integer |
 
 GDPR Art. 17 erasure (ADR-0019). Crosses aggregates on purpose — one request
@@ -486,6 +502,9 @@ behaviour.
 | `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
 | `ExportCustomerData` | no — read-only |
 | `PurgeAnonymisedOrders` | yes — the matched orders are locked and deleted together |
+| `RequestReturn` | yes — `orders` locked while the per-line remaining quantity is read and the `returns` rows written |
+| `ReviewReturn` | yes — the `returns` row is locked and its status re-read before the write |
+| `RefundReturn` | yes — wraps the `returns` lock, the composed `RefundPayment` (`payments` lock) and every `RestockReturn` (`inventories` lock) |
 
 Nesting is by savepoint, so the outermost boundary commits.
 `RecordInventoryMovement` is the exception: it writes one row and is never the
@@ -545,6 +564,15 @@ TransitionOrderStatusConcurrencyTest.php` proves it by deletion). Lock order
 is **`orders` before `inventories`**: the composed inventory Action, if any,
 locks its lines only after the `orders` lock is already held. No Action
 today takes both in the opposite order.
+
+The returns Actions (ADR-0020) take `lockForUpdate()` on the row whose
+invariant they guard: `RequestReturn` on `orders` (the per-line remaining
+returnable quantity is a check-then-act read across the order's non-denied
+returns — `RequestReturnConcurrencyTest` proves it by deletion), `ReviewReturn`
+and `RefundReturn` on the `returns` row, re-reading `status` from the locked
+row the same way `TransitionOrderStatus` does. `RefundReturn`'s lock order is
+`returns` → `payments` (via `RefundPayment`) → `inventories` (via
+`RestockReturn`); no Action takes those in the opposite order.
 
 `UpdateProduct`, `RemoveProductVariation`, and `ForceDeleteProductVariation`
 take `lockForUpdate()` on the `products` row — the aggregate root — rather
@@ -613,6 +641,8 @@ Measured and pinned, including the wrong behaviour, in
 | `CartAlreadyCheckedOutException` | `CreateOrder` | the cart |
 | `CheckoutActorRemovedException` | `CreateOrder` | the actor |
 | `IllegalOrderStatusTransitionException` | `TransitionOrderStatus` | the order, the `from` status, the `to` status |
+| `ReturnNotAllowedException` | `RequestReturn`, `RefundReturn` | five named constructors — `orderNotDelivered`, `windowExpired`, `nothingSelected`, `lineNotOnOrder`, `quantityExceedsRemaining` for the request; `notApproved` for the refund |
+| `IllegalReturnStatusTransitionException` | `ReviewReturn` | the return, the `from` status, the `to` status |
 | `ProductCategoryCannotBeDeletedException` | `DeleteProductCategory` | the category; two named constructors, `hasChildren()` and `hasProducts()` |
 | `ArticleTransitionNotAllowedException` | `PublishArticle` | the `from` and `to` statuses, as `ArticleStatus` instances rather than strings |
 
@@ -632,7 +662,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Twenty of the twenty-one listed extend `RuntimeException`. `InvalidCartQuantityException`
+Twenty-two of the twenty-three listed extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -685,8 +715,10 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
 | `RedeemCoupon` | composed by `CreateOrder`, tests |
 | `CreateOrder` | tests only |
-| `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
-| `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
+| `TransitionOrderStatus` | `ViewOrder`'s "Change status" menu; tests |
+| `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus` and (`RestockReturn`) by `RefundReturn`, tests |
+| `RequestReturn` | `Account\RequestReturn` (`/account/orders/{order}/return`); `RaceWorker` (`request-return`); tests |
+| `ReviewReturn`, `RefundReturn` | `ViewReturn`'s Approve / Deny / Refund header actions (`ReturnResource`); tests |
 | `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |
 | `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
 | `DeleteProductCategory` | `EditProductCategory` header action; `ProductCategoriesTable` bulk delete via `DomainDeleteBulkAction`; tests |
@@ -731,6 +763,17 @@ two quantity guards, the `products` lock shared by `UpdateProduct` and
 cart, and last-live-variation refusals.
 
 `reference/write-rules/concurrency.md` records which specific test covers each.
+
+The returns Actions (ADR-0020) follow the same discipline: each of
+`RequestReturn`'s five refusals has a test with a "writes nothing" partner
+assertion (`RequestReturnTest`); `ReviewReturn`'s legality, authorization and
+no-op are proven by deletion (`ReviewReturnTest`); `RefundReturn`'s
+not-approved guard, `refund_return` authorization, the Stripe amount, the COD
+branch, the per-line restock, and the multi-return accumulation are covered
+(`RefundReturnTest`); the `orders` lock in `RequestReturn` is proven
+load-bearing by `RequestReturnConcurrencyTest` (removing it lets a line be
+over-returned); and the panel path runs each header action through the real
+Action against a control row (`ReturnResourceTest`).
 
 The two failure modes that make a guard test pass while proving nothing — an
 exception raised by a nested Action, written up in

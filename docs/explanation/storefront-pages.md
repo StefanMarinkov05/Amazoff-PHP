@@ -66,6 +66,17 @@ binding resolves the `{order}` segment; the component keeps only the id and
 re-scopes on every render, so a stranger's id is a 404 rather than a
 disclosed row.
 
+`/account/orders/{order}/return` is `RequestReturn` (ADR-0020) — the 14-day
+right of withdrawal, scoped identically. It renders the order's returnable
+lines (ordered quantity minus what earlier non-denied returns hold) and a
+reason field only while `windowOpen()` is true; the enforcement itself is
+`App\Actions\Returns\RequestReturn`'s guard, and an
+`ReturnNotAllowedException` from it becomes a form error, never a 500. The
+order-details page shows a "Request a return" button inside the window and
+lists each return's status. Staff then approve / deny / refund in
+`admin/returns` (`ReturnResource`) — a fully-refunded return never changes
+`orders.status`, which stays `Delivered`.
+
 The component and its view are paired by name, not by configuration.
 `App\Livewire\Catalogue\ProductList` renders
 `resources/views/livewire/catalogue/product-list.blade.php`. Rename one and

@@ -10,7 +10,9 @@ use App\Models\NewsletterSubscriber;
 use App\Models\Order;
 use App\Models\OrderAddress;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\ProductReview;
+use App\Models\ReturnItem;
 use App\Models\User;
 use App\Models\WishlistItem;
 use DateTimeInterface;
@@ -43,6 +45,7 @@ final class ExportCustomerData
             'orders.orderItems',
             'orders.orderAddresses',
             'orders.payment',
+            'orders.returns.returnItems.orderItem:id,product_name',
             'orders.couponRedemptions.coupon:id,code',
             'productReviews.product:id,name',
         ]);
@@ -149,6 +152,20 @@ final class ExportCustomerData
                 ->filter()
                 ->values()
                 ->all(),
+            'returns' => $order->returns
+                ->map(fn (OrderReturn $return): array => [
+                    'status' => $return->status->value,
+                    'reason' => $return->reason,
+                    'resolution_note' => $return->resolution_note,
+                    'refunded_amount' => $return->refunded_amount,
+                    'requested_at' => $this->iso($return->requested_at),
+                    'resolved_at' => $this->iso($return->resolved_at),
+                    'items' => $return->returnItems
+                        ->map(fn (ReturnItem $item): array => [
+                            'product' => $item->orderItem?->product_name,
+                            'quantity' => $item->quantity,
+                        ])->all(),
+                ])->all(),
         ];
     }
 

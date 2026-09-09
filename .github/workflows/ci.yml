@@ -114,6 +114,7 @@ jobs:
               tests/Feature/Actions/Order
               tests/Feature/Actions/Payment
               tests/Feature/Actions/ProductReview
+              tests/Feature/Actions/Returns
               tests/Feature/Actions/Shipment
 
     services:
@@ -186,6 +187,7 @@ jobs:
             paths: >-
               tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php
               tests/Concurrency/StripeWebhookConcurrencyTest.php
+              tests/Concurrency/RequestReturnConcurrencyTest.php
           - name: b
             paths: >-
               tests/Concurrency/AddToCartConcurrencyTest.php

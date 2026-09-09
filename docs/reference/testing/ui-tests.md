@@ -360,6 +360,22 @@ Verified live: the page renders with product links resolving, another
 customer's id 404s in the browser, and the `?order=` prefill from the
 "Open the tracking page" link fills both fields for an owned order.
 
+### `Account/RequestReturnTest`
+
+Four cases over `/account/orders/{order}/return` (`RequestReturn`, ADR-0020) —
+the 14-day right of withdrawal, scoped exactly like `OrderDetails`.
+
+- The owner of a **delivered, in-window** order submits a line + reason and a
+  `returns` row (status `Requested`) plus its `return_items` are written; the
+  page shows "received".
+- **404 for another customer's order** — `order()` starts from
+  `auth()->user()->orders()`.
+- An order **outside the window** (delivered 30 days ago) renders the "not
+  eligible" message, not the form.
+- An Action refusal (`ReturnNotAllowedException`, forced by the order flipping
+  status between render and submit) surfaces as a **form error, not a 500**,
+  and writes nothing.
+
 ### `OrderHistoryTest`
 
 Five cases over `/account/orders`. The component is a scoped read, so the
@@ -856,6 +872,26 @@ no panel surface at all — the same shape the inventory gap had.
 every case pins what it asserts against — the trap
 `how-to/troubleshooting/data-and-factories.md` documents for the product
 factories applies here too.
+
+### `ReturnResourceTest`
+
+The panel side of the 14-day right of withdrawal (`ReturnResource`,
+`admin/returns`, ADR-0020).
+
+- Reachable by `administrator`; **forbidden to `content_editor` and
+  `warehouse_employee`** (`return` is administrator-only for now).
+- **Approve** and **Deny** on a `Requested` return reach `ReviewReturn` and
+  move it to `Approved` / `Denied`.
+- **Refund** on an `Approved` return reaches `RefundReturn` — the Stripe
+  refund is faked (the `getService('refunds')` mock, `StripePaymentTest`'s
+  approach), and the return lands at `Refunded`.
+- The three actions are offered only for the status that makes them legal —
+  `Requested` shows Approve/Deny not Refund; `Refunded` shows none.
+
+`deliveredOrderForReturn()` (in `tests/Pest.php`) builds the fixture: a
+delivered order with a `Delivered` status-history row (for
+`Order::deliveredAt()`), one line per variation with `inventories.sold_quantity`
+set so `RestockReturn` has stock to credit back.
 
 ### `UserResourceTest`
 

@@ -110,8 +110,16 @@ violation rather than doing anything.
 What `EraseCustomer` walks: `users`, `addresses`, `orders`,
 `order_addresses`, `product_reviews`, `coupon_redemptions`,
 `newsletter_subscribers`, `contact_messages`, `carts`, `cart_items`,
-`wishlist_items`, `order_status_histories`.
+`wishlist_items`, `order_status_histories`, `returns`.
 `reference/write-rules/gdpr.md` says what happens to each.
+
+A `returns` row (the 14-day withdrawal aggregate, ADR-0020) carries the
+customer's stated `reason` and a staff `resolution_note` — free text, the
+same class as `orders.customer_note`. Erasure overwrites both (`reason` →
+`[erased]`, `resolution_note` → `null`) while keeping `status`,
+`refunded_amount` and the timestamps: the refund is part of the retained
+financial record, and `ExportCustomerData` includes the returns so the
+customer can see them.
 
 `activity_log` (spatie/laravel-activitylog) also records a causer and
 arbitrary `properties` JSON, which can capture personal data depending on

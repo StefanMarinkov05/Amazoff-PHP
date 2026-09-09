@@ -29,3 +29,5 @@ note) is the one thing that can still be edited in place.
 - **[0019](0019-regulatory-compliance.md)** — Regulatory compliance posture
   (GDPR incl. erasure, ePrivacy, Consumer Rights, Omnibus, DSA scoping,
   EAA, tax retention)
+- **[0020](0020-order-return-aggregate.md)** — The `OrderReturn` aggregate
+  (14-day right of withdrawal; independent of `orders.status`; COD handling)

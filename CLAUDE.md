@@ -33,8 +33,8 @@ in agreement: if a rule here changes, change it there too.
   in this file or the docs points here. Its implementation-standards table
   at the bottom is the part that goes stale fastest and is worth
   re-reading even mid-session.
-- **[`docs/adr/`](docs/adr/)** — one decision, one file. Nineteen so far
-  (`0001`–`0019`). The *decision* — the choice made and the reasoning
+- **[`docs/adr/`](docs/adr/)** — one decision, one file. Twenty so far
+  (`0001`–`0020`). The *decision* — the choice made and the reasoning
   behind it — is frozen once accepted: a changed mind gets a new ADR
   marked `Superseded by ADR-XXXX`, never a rewrite of the old one. Purely
   additive or subtractive housekeeping that doesn't touch the decision
@@ -58,7 +58,8 @@ in agreement: if a rule here changes, change it there too.
   writes, who can call it, what it throws; `write-rules/` (`product.md`,
   `product-variation-images.md`, `product-variation-attribute-values.md`,
   `product-attribute-values.md`, `product-category.md`, `cart.md`,
-  `coupon.md`, `order.md`, `auth.md`, `gdpr.md`, `concurrency.md`) is the
+  `coupon.md`, `order.md`, `returns.md`, `auth.md`, `gdpr.md`,
+  `concurrency.md`) is the
   expected-behaviour page per aggregate — refusals, races, what a change
   does to state that already exists; `console-commands.md` lists every
   custom Artisan command and what invokes it; `components.md` is the shared

@@ -23,6 +23,7 @@ use App\Actions\Payment\HandleStripeWebhookEvent;
 use App\Actions\Payment\RecordPayment;
 use App\Actions\Payment\TransitionPaymentStatus;
 use App\Actions\ProductReview\CreateProductReview;
+use App\Actions\Returns\RequestReturn;
 use App\Actions\Shipment\CreateShipment;
 use App\Enums\DeliveryType;
 use App\Enums\OrderStatus;
@@ -282,6 +283,18 @@ final class RaceWorker extends Command
                     5,
                     'Race review.',
                 ),
+            // --id is the order then one order item; --arg the quantity each
+            // side asks to return. Two requests racing the same line's
+            // remaining returnable quantity: RequestReturn reads
+            // "already returned" then writes inside the orders lock, so the
+            // second must see the first's write or a line can be
+            // over-returned (ADR-0020).
+            'request-return' => app(RequestReturn::class)->handle(
+                Order::findOrFail($this->id(0)),
+                [$this->id(1) => (int) $this->stringArg(0)],
+                'Race return.',
+                null,
+            ),
             default => throw new \InvalidArgumentException(
                 'Unknown race action: '.(string) $this->argument('action'),
             ),

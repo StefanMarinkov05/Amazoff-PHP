@@ -9,6 +9,7 @@ use App\Livewire\Account\EditProfile;
 use App\Livewire\Account\ManageAddresses;
 use App\Livewire\Account\OrderDetails;
 use App\Livewire\Account\OrderHistory;
+use App\Livewire\Account\RequestReturn;
 use App\Livewire\Account\Wishlist;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Auth\ConfirmPasswordReset;
@@ -132,6 +133,12 @@ Route::middleware('auth')->group(function (): void {
     // auth()->user()->orders() and 404s for anyone else's id. Route-model
     // binding resolves the row; the ownership check is the component's.
     Route::get('/account/orders/{order}', OrderDetails::class)->name('account.orders.show');
+
+    // The 14-day right of withdrawal (CRD Arts. 9–15, ADR-0020). Scoped the
+    // same way as OrderDetails — RequestReturn::order() starts from
+    // auth()->user()->orders() and 404s for anyone else's id; the 14-day
+    // window is App\Actions\Returns\RequestReturn's own guard.
+    Route::get('/account/orders/{order}/return', RequestReturn::class)->name('account.orders.return');
 
     // POST, not GET: a GET logout is triggerable by any <img> tag on any page
     // the user visits, which is CSRF by prefetch rather than by form.

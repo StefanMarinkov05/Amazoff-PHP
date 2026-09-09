@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Actions\Gdpr\EraseCustomer;
+use App\Enums\ReturnStatus;
 use App\Models\ContactMessage;
 use App\Models\NewsletterSubscriber;
 use App\Models\Order;
 use App\Models\OrderAddress;
+use App\Models\OrderReturn;
 use App\Models\ProductReview;
 use App\Models\User;
 use App\Models\WishlistItem;
@@ -61,6 +63,26 @@ it('anonymises the customer\'s order and its addresses but keeps the financial f
         ->and($address->postcode)->toBe('[erased]')
         ->and($address->street)->toBeNull()
         ->and($address->country)->toBe('BG');  // kept — place of supply
+});
+
+it('scrubs the free text on a return but keeps the refund record (ADR-0020)', function (): void {
+    $user = User::factory()->create();
+    $order = Order::factory()->for($user)->create(['anonymized_at' => null]);
+    $return = OrderReturn::factory()->refunded()->create([
+        'order_id' => $order->getKey(),
+        'reason' => 'the jumper unravelled after one wash',
+        'resolution_note' => 'customer says it unravelled — approved',
+        'refunded_amount' => '42.00',
+    ]);
+
+    app(EraseCustomer::class)->handle($user);
+
+    $return->refresh();
+    expect($return->reason)->toBe('[erased]')
+        ->and($return->resolution_note)->toBeNull()
+        ->and($return->status)->toBe(ReturnStatus::Refunded)
+        ->and((string) $return->refunded_amount)->toBe('42.00')
+        ->and($return->resolved_at)->not->toBeNull();
 });
 
 it('does not re-anonymise an already-anonymised order', function (): void {

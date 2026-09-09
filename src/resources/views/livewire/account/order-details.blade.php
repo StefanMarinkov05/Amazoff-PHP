@@ -155,4 +155,44 @@
             @endif
         </p>
     </section>
+
+    {{-- ── Returns / right of withdrawal (CRD Arts. 9–15) ──────────── --}}
+    <section class="mt-4 rounded-control border border-ink-200 bg-white p-4">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-500">Returns</h2>
+
+        @forelse ($order->returns as $return)
+            <div wire:key="return-{{ $return->id }}" class="mt-3 flex items-baseline justify-between gap-4 text-sm">
+                <span class="text-ink-700">
+                    Return requested {{ $return->requested_at?->format('j M Y') }}
+                    <span class="text-ink-400">
+                        ({{ $return->returnItems->sum('quantity') }} item(s))
+                    </span>
+                </span>
+                <span class="shrink-0 font-medium text-ink-800">{{ $return->status->getLabel() }}</span>
+            </div>
+            @if ($return->resolution_note !== null)
+                <p class="mt-1 text-sm text-ink-500">{{ $return->resolution_note }}</p>
+            @endif
+        @empty
+            <p class="mt-3 text-sm text-ink-500">No returns for this order.</p>
+        @endforelse
+
+        @if ($returnWindowOpen)
+            <a href="{{ route('account.orders.return', $order) }}" wire:navigate
+               class="mt-4 inline-block rounded-control bg-marine-700 px-4 py-2 text-sm font-medium text-white
+                      hover:bg-marine-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20">
+                Request a return
+            </a>
+        @elseif ($order->status === \App\Enums\OrderStatus::Delivered)
+            <p class="mt-4 text-sm text-ink-500">
+                The 14-day withdrawal period for this order has passed.
+            </p>
+        @endif
+
+        <p class="mt-3 text-xs text-ink-400">
+            See the
+            <a href="{{ route('returns.withdrawal-form') }}"
+               class="underline underline-offset-4 hover:text-ink-600">model withdrawal form</a>.
+        </p>
+    </section>
 </div>
