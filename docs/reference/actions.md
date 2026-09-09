@@ -6,7 +6,8 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Forty-three Actions across ten areas, twenty-six domain exceptions in `app/Exceptions`.
+Fifty-plus Actions across eleven areas (Gdpr joined the ten in ADR-0019),
+twenty-six domain exceptions in `app/Exceptions`.
 
 The Exceptions table below lists twenty-one of them. Five raised only by the Payment, Shipment, and ProductReview Actions — `IllegalPaymentStatusTransitionException`, `IllegalShipmentStatusTransitionException`, `PaymentAlreadyRecordedException`, `ReviewNotAllowedException`, `ShipmentNotAllowedException` — are documented in their own Action sections and have never been added here. Noted rather than left as a silent discrepancy between the count and the table.
 
@@ -403,22 +404,28 @@ to decide anything.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `SubscribeToNewsletter` | `newsletter_subscribers.status`, `.subscribed_at`, `.user_id` | optional — a guest subscribes with `null` | — |
+| `SubscribeToNewsletter` | `newsletter_subscribers` — creates/updates to `Pending` with a fresh `confirmation_token`; claims `user_id`; queues `NewsletterConfirmation` | optional — a guest subscribes with `null` | — |
+| `ConfirmNewsletterSubscription` | `newsletter_subscribers.status` → `Subscribed`, `.confirmed_at` | — no actor: the token in the email link is the input | — returns `null` on a bad/used token |
+| `UnsubscribeFromNewsletter` | `newsletter_subscribers.status` → `Unsubscribed`; queues `NewsletterUnsubscribed` | — no actor: token | — returns `null` on a bad token |
+| `PurgeUnconfirmedSubscribers` | deletes `newsletter_subscribers` rows `Pending` past a 30-day grace | — the `newsletter:purge-unconfirmed` schedule | — |
 
-Below ADR-0007's bar on the write itself — one row, one table — and built
-anyway because `NewsletterSubscriberForm` also sets `status`. Two writers
-decide it, and only this one knows that subscribing again reverses an
-unsubscribe rather than failing. That second writer is the whole reason the
-ADR's "no second writer" carve-out does not apply.
+Double opt-in (ePrivacy Art. 13, ADR-0019). Submitting the footer form does
+**not** subscribe — `SubscribeToNewsletter` creates a `Pending` row and
+emails a confirmation link; nothing is ever sent to a `Pending` row.
+`ConfirmNewsletterSubscription` (the link) moves it to `Subscribed`;
+`UnsubscribeFromNewsletter` (a link in every send) to `Unsubscribed`. All
+three match on `confirmation_token`, a UNIQUE 64-char column — possessing it
+is the authorisation.
 
-Idempotent through the UNIQUE index on `email` plus a caught violation, per
-CLAUDE.md — never `exists()` then insert, which two simultaneous submissions
-of one address both pass. The update on that path skips null values, so a
-guest re-subscribing cannot blank a `user_id` an account already owns, while
-a signed-in user claims a row they created as a guest. Without that, a
-subscription made before registering stays unlinked and an erasure request
-scanning by user never finds it — `explanation/gdpr.md` lists the table as
-personal data.
+`SubscribeToNewsletter` is still an Action for ADR-0007's reason
+(`NewsletterSubscriberForm` is a second writer of `status`) and now also
+because the consent state machine only lives in one place if it lives here.
+Idempotent through the UNIQUE index on `email` plus a caught violation. It
+claims `user_id` for a subscriber who registered after subscribing as a
+guest — otherwise an erasure request scanning by user never finds the row
+(`explanation/gdpr.md` lists the table as personal data); the erasure
+routine also matches by email, which covers the pre-registration case
+regardless.
 
 Contact messages deliberately have no Action. One insert, one table, no
 second writer: `ContactForm` calls `ContactMessage::create()` directly, which
@@ -474,7 +481,8 @@ behaviour.
 | `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
 | `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
-| `SubscribeToNewsletter` | no - one row either way, and the UNIQUE index is what serialises it |
+| `SubscribeToNewsletter` | no - one row either way, the UNIQUE index serialises it |
+| `ConfirmNewsletterSubscription` / `UnsubscribeFromNewsletter` / `PurgeUnconfirmedSubscribers` | no |
 | `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
 | `ExportCustomerData` | no — read-only |
 | `PurgeAnonymisedOrders` | yes — the matched orders are locked and deleted together |
@@ -687,6 +695,8 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
+| `ConfirmNewsletterSubscription` / `UnsubscribeFromNewsletter` | `NewsletterController` (`/newsletter/confirm/{token}`, `/newsletter/unsubscribe/{token}`), tests |
+| `PurgeUnconfirmedSubscribers` | `newsletter:purge-unconfirmed` (scheduled daily), tests |
 | `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); tests |
 | `ExportCustomerData` | `Account\DownloadData` (`/account/data`); tests |
 | `PurgeAnonymisedOrders` | `orders:purge-anonymised` console command (`routes/console.php`, scheduled weekly); tests |

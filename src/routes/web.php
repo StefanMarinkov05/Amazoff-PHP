@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\NewsletterController;
 use App\Livewire\Account\DeleteAccount;
 use App\Livewire\Account\DownloadData;
 use App\Livewire\Account\OrderHistory;
@@ -69,6 +70,13 @@ Route::view('/cookies', 'pages.cookies')->name('cookies');
 // available whether or not the customer uses the online returns flow.
 // Linked from checkout, the order-confirmation email, and the order page.
 Route::view('/returns/withdrawal-form', 'pages.returns.withdrawal-form')->name('returns.withdrawal-form');
+
+// Newsletter double opt-in (ePrivacy Art. 13, ADR-0019). The token in the
+// path is the whole input — a UNIQUE 64-char column, matched by the Action.
+// Not behind `guest` or `auth`: the link is followed from an email client,
+// by whoever holds the address, signed in or not.
+Route::get('/newsletter/confirm/{token}', [NewsletterController::class, 'confirm'])->name('newsletter.confirm');
+Route::get('/newsletter/unsubscribe/{token}', [NewsletterController::class, 'unsubscribe'])->name('newsletter.unsubscribe');
 
 /*
  * Authentication. Laravel's own guard and session, no starter kit — the

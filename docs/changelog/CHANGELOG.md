@@ -8,6 +8,30 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Newsletter double opt-in.** The footer signup no longer subscribes on
+  submit (ePrivacy Art. 13, ADR-0019). `SubscribeToNewsletter` creates a
+  `NewsletterStatus::Pending` row with a random `confirmation_token` and
+  queues `App\Mail\NewsletterConfirmation`; nothing is ever mailed to a
+  `Pending` row. Clicking the link (`/newsletter/confirm/{token}` →
+  `ConfirmNewsletterSubscription`) moves it to `Subscribed`. Every
+  confirmation email — and the plan is every send — carries a one-click
+  unsubscribe link (`/newsletter/unsubscribe/{token}` →
+  `UnsubscribeFromNewsletter`, GDPR Art. 7(3)) that flips the row to
+  `Unsubscribed` and sends an acknowledgement. `newsletter:purge-unconfirmed`
+  (scheduled daily) drops rows still `Pending` after 30 days — an address
+  held without consent. Migration widens the `status` enum and adds
+  `confirmation_token` + `confirmed_at`; existing `subscribed` rows are
+  grandfathered as confirmed. The signup form now says "check your inbox".
+  The Action still claims `user_id` for a subscriber who registered after
+  subscribing as a guest, and the erasure routine already matched by email
+  too. 24 tests.
+
+- **Local queue worker.** New `queue` service in `docker-compose.yml`
+  running `php artisan queue:work` — `QUEUE_CONNECTION=database` meant every
+  queued email (order confirmation, newsletter, password reset) sat in the
+  `jobs` table with nothing to run it. Mirrors how `vite` is its own
+  service; production runs the worker via a supervisor, not this file.
+
 - **Cookie-consent banner and consent gate.** `<x-site.cookie-consent>`
   (rendered once by the app layout, ePrivacy Art. 5(3), ADR-0019) shows a
   short notice on the first visit and lets the visitor decline non-essential

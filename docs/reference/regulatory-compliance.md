@@ -27,8 +27,8 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | Art. 5(1)(c) — data minimisation | Snapshot only what checkout needs; the coupon cap stores a peppered hash, never the email | `explanation/gdpr.md` "Coupon limits without storing an email"; `CouponRedemption.email_hash` |
 | Art. 5(1)(e) — storage limitation | Soft-delete for deactivation; erasure for Art. 17; retention purge | `App\Actions\Gdpr\PurgeAnonymisedOrders` + `orders:purge-anonymised` (weekly), driven by `config('gdpr.order_retention_years')` — a config a human sets from BG accounting law |
 | Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; `App\Mail\OrderPlaced` (queued from `CheckoutPage::placeOrder`) |
-| Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | newsletter double opt-in **gap**; cookie-consent banner + `App\Support\CookieConsent::granted()` gate **done** (nothing to gate yet — only essential cookies are set) |
-| Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link in every marketing email | **gap** — part of the newsletter slice |
+| Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | **done** — newsletter double opt-in (`SubscribeToNewsletter` → `Pending` + `NewsletterConfirmation` email → confirm link); cookie-consent banner + `CookieConsent::granted()` gate |
+| Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link | **done** — `/newsletter/unsubscribe/{token}` in every confirmation/send, `UnsubscribeFromNewsletter` + acknowledgement email |
 | Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | `/privacy` page exists; its text is placeholder and needs a real notice — **gap** |
 | Art. 15 / 20 — access / portability | Give the customer a machine-readable copy of their data | **done** — `App\Actions\Gdpr\ExportCustomerData` + `/account/data`, streamed as JSON |
 | Art. 16 — rectification | Edit name / email / phone / addresses | `EditProfile`, `ManageAddresses` |
@@ -45,7 +45,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | Rule | Obligation | Where |
 |---|---|---|
 | ePrivacy Art. 5(3) — cookies / storage access | Consent before non-essential cookies; session + CSRF are essential and exempt | **done** — `<x-site.cookie-consent>` banner records the choice in a first-party `cookie_consent` cookie; `App\Support\CookieConsent::granted()` is the gate any future analytics/marketing script must pass (undecided = not granted). Nothing non-essential is set today |
-| ePrivacy Art. 13 — unsolicited marketing | Opt-in for the newsletter (double opt-in), unsubscribe in every send | **gap** — the newsletter slice. Today `SubscribeToNewsletter` subscribes immediately with no confirmation and there is no unsubscribe route |
+| ePrivacy Art. 13 — unsolicited marketing | Opt-in for the newsletter (double opt-in), unsubscribe in every send | **done** — `NewsletterStatus::Pending` until the confirmation link is clicked; nothing is mailed to a Pending row; `newsletter:purge-unconfirmed` drops rows never confirmed |
 | Omnibus Dir. (EU) 2019/2161 — price reductions | When a product shows a reduced price, also show the lowest price in the 30 days before the reduction | **gap** — `products.discount_price` / `discount_starts_at` exist; the "was N, lowest recent N" display does not. Needs a price-history table or a computed lowest-recent value |
 | Omnibus — review authenticity | State whether and how the shop ensures reviews come from real purchasers | **done** — enforced by `ProductDetails::canReview()` / `CreateProductReview` (delivered order line only), and stated in a sentence under the reviews heading |
 | Omnibus — "personalised pricing" disclosure | Disclose if a price is personalised by automated decision-making | N/A — every customer sees the same price |

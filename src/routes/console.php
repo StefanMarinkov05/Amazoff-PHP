@@ -24,3 +24,9 @@ Schedule::command('carts:expire')->daily()->withoutOverlapping();
 // GDPR_ORDER_RETENTION_YEARS is set — the Action returns null and the
 // command says so.
 Schedule::command('orders:purge-anonymised')->weekly()->withoutOverlapping();
+
+// ePrivacy Art. 13 — an address that was submitted but never confirmed the
+// double opt-in is held without consent; drop it after the grace period
+// (ADR-0019). Daily is fine: the set is small and the grace window is 30
+// days, so timing is not tight.
+Schedule::command('newsletter:purge-unconfirmed')->daily()->withoutOverlapping();

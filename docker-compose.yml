@@ -75,6 +75,30 @@ services:
       - "${FORWARD_MAILPIT_PORT:-8025}:8025"   # web UI
       - "1025:1025"                             # SMTP
 
+  # QUEUE_CONNECTION is `database`, so anything ShouldQueue (the order
+  # confirmation email, ADR-0019) sits in the `jobs` table until a worker
+  # runs it. This is that worker for local dev — Forge runs it via a
+  # supervisor process in production, not this file. Same image as `app`.
+  # --max-time recycles the process hourly so a code change is picked up
+  # within the hour without a manual restart; `docker compose restart queue`
+  # forces it immediately.
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: base
+    command: php artisan queue:work --tries=3 --max-time=3600 --sleep=1
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - vendor:/var/www/html/vendor
+      - node_modules:/var/www/html/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+
   # Pest browser testsuite only (ADR-0017). Opt-in: the `browser` profile
   # keeps it out of `docker compose up`. Run the suite with
   #   docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml
