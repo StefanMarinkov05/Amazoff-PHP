@@ -86,6 +86,10 @@ pages were placeholder.
   Every section carries a visible **"DRAFT — review with counsel before
   go-live"** banner: it reads like a real notice and is explicitly not
   certified.
+  > **Done** — `/privacy` and `/terms` are full structured drafts with the
+  > banner (a `draft` prop on `<x-site.prose-page>`) and `[placeholder]`
+  > company details; `LegalPagesTest` pins the shape. Counsel review and the
+  > real registration details are the remaining go-live step.
 
 - **Art. 30 records of processing, Arts. 33–34 breach notification,
   Art. 44+ transfers (Stripe DPA):** document tasks, not code. Structured

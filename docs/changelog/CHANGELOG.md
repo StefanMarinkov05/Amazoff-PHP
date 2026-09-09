@@ -8,6 +8,22 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Privacy notice and T&Cs — full structured drafts (GDPR Arts. 12–14, CRD
+  Art. 6; ADR-0019).** `/privacy` is now a real-shaped notice: controller
+  identity, a per-purpose table of data / purpose / Art. 6 legal basis,
+  retention periods, the data-subject rights wired to the self-service routes
+  (`/account/data`, `/account/delete`, `/account/profile`), the processors
+  (Stripe incl. the US transfer under SCCs, Econt/Speedy, mail and hosting
+  providers), and the КЗЛД supervisory authority. `/terms` covers order
+  formation and the durable-medium confirmation, the "Order with obligation
+  to pay" button, payment, delivery and risk, the 14-day right of withdrawal
+  (linking the returns request and the model form), faulty-goods rights,
+  complaints (КЗП + EU ODR) and governing law. Both carry a visible
+  **"Draft — not legal advice yet"** banner (a `draft` prop on
+  `<x-site.prose-page>`) and mark company-specific details `[like this]`.
+  `LegalPagesTest` pins the shape. Counsel review and the real registration
+  details are the remaining go-live step.
+
 - **Omnibus 30-day prior-price display (Directive (EU) 2019/2161 / ЗЗП чл.
   6б, ADR-0021).** New `product_price_history` table recording each product's
   *effective* selling price. `App\Actions\Catalogue\RecordPriceObservation`

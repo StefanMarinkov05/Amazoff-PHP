@@ -29,7 +29,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; `App\Mail\OrderPlaced` (queued from `CheckoutPage::placeOrder`) |
 | Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | **done** — newsletter double opt-in (`SubscribeToNewsletter` → `Pending` + `NewsletterConfirmation` email → confirm link); cookie-consent banner + `CookieConsent::granted()` gate |
 | Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link | **done** — `/newsletter/unsubscribe/{token}` in every confirmation/send, `UnsubscribeFromNewsletter` + acknowledgement email |
-| Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | `/privacy` page exists; its text is placeholder and needs a real notice — **gap** |
+| Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | **drafted** — `/privacy` is a full structured notice: controller identity, a per-purpose table of data / purpose / Art. 6 legal basis, retention periods, the data-subject rights with the self-service routes (`/account/data`, `/account/delete`, `/account/profile`), processors (Stripe incl. the US transfer under SCCs, Econt/Speedy, mail and hosting providers), and the supervisory authority (КЗЛД, Art. 77). Carries a visible **"Draft — not legal advice yet"** banner and marks company-specific details `[like this]`. Counsel review and the real company details are the remaining step (ADR-0019) |
 | Art. 15 / 20 — access / portability | Give the customer a machine-readable copy of their data | **done** — `App\Actions\Gdpr\ExportCustomerData` + `/account/data`, streamed as JSON |
 | Art. 16 — rectification | Edit name / email / phone / addresses | `EditProfile`, `ManageAddresses` |
 | Art. 17 — erasure | Anonymise the order, delete the rest | `App\Actions\Gdpr\EraseCustomer`, ADR-0019, `write-rules/gdpr.md` |
@@ -59,7 +59,7 @@ already flagged in `misc/todo.md`.
 
 | Rule | Obligation | Where |
 |---|---|---|
-| Art. 6 — pre-contractual information | Main characteristics, total price incl. taxes, delivery cost, trader identity, payment/delivery terms | product pages show price incl. VAT and `min_order_quantity`; delivery cost is computed at checkout; static pages `/delivery`, `/payment-information`, `/terms` carry the terms — **their text is placeholder** |
+| Art. 6 — pre-contractual information | Main characteristics, total price incl. taxes, delivery cost, trader identity, payment/delivery terms | product pages show price incl. VAT and `min_order_quantity`; delivery cost is computed at checkout; `/terms` is now a **drafted** full T&Cs — trader identity, price/VAT, order formation and the durable-medium confirmation, payment, delivery and risk, the 14-day right of withdrawal (linking the returns request and the model form), faulty-goods rights, complaints (КЗП + EU ODR), governing law — with the same **draft** banner. `/delivery` and `/payment-information` text is still lighter — **partial** |
 | Art. 8(2) — "order with obligation to pay" | The order button must be labelled unambiguously | **done** — the checkout submit button reads "Order with obligation to pay" |
 | Art. 8(7) — confirmation on a durable medium | Confirm the concluded contract, with all Art. 6 information, on a durable medium within a reasonable time | **done** — `App\Mail\OrderPlaced`: line items with variation/image/price/qty, totals with VAT, delivery + billing address, payment method label, order number + tracking link, withdrawal information. `explanation/transactional-email.md` |
 | Art. 9–15 — 14-day right of withdrawal | The customer may withdraw within 14 days of delivery, with a model withdrawal form and clear information on the right | **done** — the `OrderReturn` aggregate ([ADR-0020](../adr/0020-order-return-aggregate.md)): `App\Actions\Returns\RequestReturn` enforces the 14-day window as an Action guard (`Order::deliveredAt()` + `config('returns.withdrawal_days')`), `/account/orders/{order}/return` is the request form, `ReviewReturn` / `RefundReturn` are the staff review + refund, `ReturnResource` the panel. **Caveat:** delivery-cost reimbursement on a full withdrawal (Art. 13) is not yet computed — the refund is goods value only. Counsel to confirm |
@@ -131,8 +131,10 @@ but the exemption is not something to rely on by default.
    reimbursement on a full withdrawal (Art. 13).
 4. "Order with obligation to pay" button wording — CRD Art. 8(2). One
    string.
-5. Real privacy policy and terms text — GDPR Arts. 12–14, CRD Art. 6.
-   Currently placeholder.
+5. Privacy notice and T&Cs — GDPR Arts. 12–14, CRD Art. 6. **Drafted** to
+   the correct shape and content, with a "not legal advice yet" banner and
+   `[placeholder]` company details. Remaining: counsel review and the real
+   company registration details.
 6. Data-export (Art. 15) Action — same shape as `EraseCustomer`.
 
 **Compliance-hygiene, not blocking a build:**
