@@ -8,6 +8,25 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **GDPR Art. 17 erasure — `/account/delete` and a panel action.**
+  `App\Actions\Gdpr\EraseCustomer` (ADR-0019) anonymises what accounting law
+  forces the shop to keep — the order and its addresses, identity columns
+  overwritten and `anonymized_at` set, every amount and invoice field left
+  intact — and hard-deletes the rest: the `users` row (`forceDelete`),
+  newsletter and contact rows (matched by id *or* email, so a
+  pre-registration guest row is caught), and — by the existing cascade FKs
+  — addresses, cart and wishlist. Reviews stay as `Anonymous`;
+  `coupon_redemptions` is untouched (its `email_hash` is peppered
+  pseudonymisation with its own retention basis). Idempotent on
+  `anonymized_at IS NULL`. Customers reach it at `/account/delete` (current
+  password + a typed `DELETE`, then the session is flushed); staff reach it
+  from `ViewUser` for a request emailed to the shop, gated on the new
+  `erase_user` permission and blocked for your own account. 18 tests, the
+  authorization and confirmation guards each proven red by removing the
+  mechanism. New `docs/reference/regulatory-compliance.md` maps GDPR /
+  ePrivacy / Consumer-Rights / DSA / accessibility / tax obligations to the
+  code or gap that answers each.
+
 - **Docs restructuring: split `troubleshooting.md` and `security-testing.md`
   by area, extracted `coding-conventions.md`, added diagrams.**
   `troubleshooting.md` (2400+ lines, 48 flat entries) is now a short index
