@@ -424,6 +424,24 @@ Contact messages deliberately have no Action. One insert, one table, no
 second writer: `ContactForm` calls `ContactMessage::create()` directly, which
 is the same test that keeps the lookup tables on Filament's default CRUD.
 
+## GDPR
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `EraseCustomer` | `orders` + `order_addresses` (identity columns overwritten, `orders.anonymized_at` set); `product_reviews.author_name`; deletes `newsletter_subscribers`, `contact_messages` (by id or email), and — via cascade FKs — `addresses`, `carts`, `cart_items`, `wishlist_items`; `users` (`forceDelete`) | optional — the self-service path (`DeleteAccount`) passes none; the Filament path passes an actor and is authorized `erase` on the `User` | `AuthorizationException` (Filament path only) |
+
+GDPR Art. 17 erasure (ADR-0019). Crosses aggregates on purpose — one request
+touches the user and everything that snapshotted their identity — so it sits
+in its own `App\Actions\Gdpr\` area rather than under any one of them. One
+transaction, user row and orders `lockForUpdate()`. Anonymises what
+accounting law forces the shop to keep (the order, as an invoice) and
+hard-deletes the rest; `coupon_redemptions` is left untouched because its
+`email_hash` is peppered pseudonymisation with its own retention basis
+(`explanation/gdpr.md`). Idempotent: only orders with
+`anonymized_at IS NULL` are rewritten, and a re-run after the user row is
+gone is a no-op. `reference/write-rules/gdpr.md` has the per-table
+behaviour.
+
 ## Transactions
 
 | Action | Opens `DB::transaction` |
@@ -455,6 +473,7 @@ is the same test that keeps the lookup tables on Filament's default CRUD.
 | `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
 | `SubscribeToNewsletter` | no - one row either way, and the UNIQUE index is what serialises it |
+| `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
 
 Nesting is by savepoint, so the outermost boundary commits.
 `RecordInventoryMovement` is the exception: it writes one row and is never the
@@ -664,6 +683,7 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
+| `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); tests |
 | `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Account\DeleteAccount;
 use App\Livewire\Account\OrderHistory;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Auth\Login;
@@ -76,6 +77,11 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/account/password', ChangePassword::class)->name('password.change');
+
+    // GDPR Art. 17 self-service erasure (ADR-0019). Requires the current
+    // password and a typed confirmation; calls App\Actions\Gdpr\EraseCustomer
+    // then flushes the session.
+    Route::get('/account/delete', DeleteAccount::class)->name('account.delete');
 
     // Scoped to auth()->user()->orders() inside the component, never
     // Order::query() — the middleware answers "is anyone signed in", the

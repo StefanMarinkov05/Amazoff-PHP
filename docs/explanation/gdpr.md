@@ -1,6 +1,11 @@
 # GDPR: deletion, retention, and erasure
 
-Status: design. Describes the schema `draft.yaml`. The only part currently in the codebase is soft deletes on `User`.
+Status: implemented for the erasure routine (ADR-0019, 2026-09-09). The
+schema this doc designed is built; `App\Actions\Gdpr\EraseCustomer` is the
+routine, reachable at `/account/delete` (self-service) and from `ViewUser`
+in the panel. Per-table behaviour is `reference/write-rules/gdpr.md`. What
+is still design, not code, is the **retention purge** — see "Open" at the
+bottom. Regulatory scope beyond GDPR is `reference/regulatory-compliance.md`.
 
 ## Two different deletions
 
@@ -100,9 +105,11 @@ violation rather than doing anything.
 
 ## Tables holding personal data
 
-For whoever writes the erasure routine: `users`, `addresses`, `orders`,
+What `EraseCustomer` walks: `users`, `addresses`, `orders`,
 `order_addresses`, `product_reviews`, `coupon_redemptions`,
-`newsletter_subscribers`, `contact_messages`, `carts`, `wishlist_items`.
+`newsletter_subscribers`, `contact_messages`, `carts`, `cart_items`,
+`wishlist_items`, `order_status_histories`.
+`reference/write-rules/gdpr.md` says what happens to each.
 
 `activity_log` (spatie/laravel-activitylog) also records a causer and
 arbitrary `properties` JSON, which can capture personal data depending on
@@ -112,8 +119,14 @@ actions.
 ## Open
 
 - Retention period for orders after erasure. Bulgarian accounting law sets
-  a minimum; the anonymized order should presumably be purged once that
-  expires, which nothing currently does.
-- Whether contact messages and newsletter subscriptions are deleted
-  outright on erasure or anonymized like orders. They carry no accounting
-  obligation, so deletion is the simpler answer.
+  a minimum; the anonymized order should be purged once that expires, which
+  nothing currently does. This is a scheduled command against
+  `anonymized_at`, not a change to `EraseCustomer`, and it needs the exact
+  statutory period confirmed first.
+- `activity_log` (spatie/laravel-activitylog) records nothing
+  customer-facing yet. When it does, its `causer` and `properties` rows
+  join the erasure routine.
+
+**Resolved by ADR-0019:** contact messages and newsletter subscriptions are
+**deleted outright** on erasure — no accounting obligation attaches, and an
+anonymized free-text message is not reliably anonymized.

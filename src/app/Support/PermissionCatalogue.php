@@ -120,7 +120,7 @@ final class PermissionCatalogue
         'article' => ['publish'],
         'product_review' => ['approve'],
         'payment' => ['refund'],
-        'user' => ['assignRole'],
+        'user' => ['assignRole', 'erase'],
     ];
 
     /**

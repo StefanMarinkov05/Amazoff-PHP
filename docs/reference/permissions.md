@@ -36,6 +36,7 @@ The catalogue's shape is defined once, in `App\Support\PermissionCatalogue`.
 | `approve` | `product_review` | §24 — moderation rather than an edit |
 | `refund` | `payment` | Refunding money is not editing a row |
 | `assignRole` | `user` | Granting a role is how an account gains panel access, so it is not folded into `update_user` — otherwise every holder of `update_user` could promote themselves. Administrator-only |
+| `erase` | `user` | GDPR Art. 17 erasure through the panel, for a request emailed to the shop (ADR-0019). Distinct from `delete_user`, which is deactivation. `UserPolicy::erase` also blocks erasing your own account here — self-service at `/account/delete` is that path. Administrator-only |
 
 `restore` and `forceDelete` do not exist. Only `User`, `Product`, and
 `ProductVariation` soft-delete and no admin surface exposes a trash view; they

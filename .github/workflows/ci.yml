@@ -107,6 +107,7 @@ jobs:
               tests/Feature/Actions/Contact
               tests/Feature/Actions/Content
               tests/Feature/Actions/Coupon
+              tests/Feature/Actions/Gdpr
               tests/Feature/Actions/Inventory
               tests/Feature/Actions/Order
               tests/Feature/Actions/Payment
