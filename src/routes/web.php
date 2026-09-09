@@ -64,6 +64,11 @@ Route::view('/terms', 'pages.terms')->name('terms');
 Route::view('/privacy', 'pages.privacy')->name('privacy');
 Route::view('/cookies', 'pages.cookies')->name('cookies');
 
+// Consumer Rights Directive Annex I(B) — the model withdrawal form must be
+// available whether or not the customer uses the online returns flow.
+// Linked from checkout, the order-confirmation email, and the order page.
+Route::view('/returns/withdrawal-form', 'pages.returns.withdrawal-form')->name('returns.withdrawal-form');
+
 /*
  * Authentication. Laravel's own guard and session, no starter kit — the
  * implementation standards allow at most one authentication library, and

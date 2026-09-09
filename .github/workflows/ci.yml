@@ -84,6 +84,7 @@ jobs:
               tests/Feature/Filament
               tests/Feature/Http
               tests/Feature/Livewire
+              tests/Feature/Mail
               tests/Feature/Models
               tests/Feature/Payment
               tests/Feature/Support

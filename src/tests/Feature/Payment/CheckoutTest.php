@@ -7,12 +7,14 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Livewire\Checkout\CheckoutPage;
 use App\Livewire\Checkout\OrderConfirmation;
+use App\Mail\OrderPlaced;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
 use Livewire\Exceptions\PublicPropertyNotFoundException;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
@@ -232,10 +234,19 @@ it('drops the saved-address selection once a delivery field is hand-edited', fun
  */
 
 it('lets a guest place a cash-on-delivery order', function (): void {
+    Mail::fake();
     $cart = checkoutCart(quantity: 2, price: '50.00');
 
     $component = Livewire::test(CheckoutPage::class);
     fillCheckout($component)->call('placeOrder')->assertHasNoErrors();
+
+    // The durable-medium order confirmation (CRD Art. 8(7), ADR-0019) is
+    // queued to the address the order carries.
+    Mail::assertQueued(
+        OrderPlaced::class,
+        fn (OrderPlaced $mail): bool => $mail->hasTo('ada@example.test')
+            && $mail->order->is(Order::query()->latest('id')->first()),
+    );
 
     $order = Order::query()->latest('id')->first();
 
@@ -290,12 +301,10 @@ it('charges the server-computed total, not anything the browser could send', fun
         // ~16.67, not 20.00. shipping_amount carries no VAT of its own here
         // (§37's delivery-VAT treatment is not part of this slice).
         //
-        // 16.66 and not 16.67 because Money::percentageOf() truncates its
-        // double-scale intermediate (bcadd does not round). The true value
-        // is 16.6667. Asserted as-is so this test documents what the code
-        // does rather than what it ought to; the rounding question is a
-        // separate decision about shared money code, not a Stripe one.
-        ->and((string) $order->vat_amount)->toBe('16.66');
+        // 16.67, half-up rounded from the true 16.6666...: Money's
+        // percentageOf() rounds half-up at its final digit rather than
+        // truncating, same as ordinary commercial rounding.
+        ->and((string) $order->vat_amount)->toBe('16.67');
 });
 
 it('has no price property a client could set, and refuses one that is invented', function (): void {

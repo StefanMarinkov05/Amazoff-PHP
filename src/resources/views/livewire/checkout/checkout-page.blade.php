@@ -357,8 +357,10 @@
                         class="mt-5 w-full rounded-control bg-marine-700 px-4 py-2.5 text-sm font-medium text-white
                                hover:bg-marine-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20"
                         wire:loading.attr="disabled" wire:target="placeOrder">
-                    <span wire:loading.remove wire:target="placeOrder">Place order</span>
-                    <span wire:loading wire:target="placeOrder">Placing…</span>
+                    {{-- Consumer Rights Directive Art. 8(2): the button that
+                         concludes a paid contract must say so unambiguously. --}}
+                    <span wire:loading.remove wire:target="placeOrder">Order with obligation to pay</span>
+                    <span wire:loading wire:target="placeOrder">Placing your order…</span>
                 </button>
 
                 <p class="mt-3 text-center text-[0.7rem] text-ink-400">

@@ -8,6 +8,21 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Order-confirmation email — the first transactional email.**
+  `App\Mail\OrderPlaced`, queued from `CheckoutPage::placeOrder` after the
+  order transaction commits, both payment paths. The full order as
+  concluded — line items with variation, product image, unit and line
+  price, quantity; totals with VAT; delivery address or courier office;
+  billing address when it differs; payment method label; order number and
+  tracking link; and the 14-day withdrawal information with a link to the
+  new `/returns/withdrawal-form` (the CRD model form, Annex I(B)). **No card
+  or payment-token data** — asserted directly. CRD Art. 8(7) (durable
+  medium) and GDPR Art. 6(1)(b). The checkout submit button now reads
+  **"Order with obligation to pay"** (CRD Art. 8(2)). New
+  `docs/explanation/transactional-email.md` records the pattern (queued,
+  Markdown templates, `SerializesModels` so the view re-reads the order,
+  mailpit locally, provider unconfigured for production). 6 tests.
+
 - **GDPR Art. 17 erasure — `/account/delete` and a panel action.**
   `App\Actions\Gdpr\EraseCustomer` (ADR-0019) anonymises what accounting law
   forces the shop to keep — the order and its addresses, identity columns

@@ -65,7 +65,7 @@ it('walks a guest purchase from the catalogue to a shipped-order tracking page',
         ->click('Econt')                                     // carrier radio (label)
         ->click('Cash on delivery')                          // payment radio (label)
         ->click('Billing address is the same as delivery')   // checkbox (label)
-        ->click('Place order')
+        ->click('Order with obligation to pay')
         ->assertPathBeginsWith('/checkout/confirmation');
 
     // ── The real order, asserted from the database ───────────────────────

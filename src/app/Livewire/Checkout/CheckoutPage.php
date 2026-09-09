@@ -11,6 +11,7 @@ use App\Enums\DeliveryType;
 use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
+use App\Mail\OrderPlaced;
 use App\Models\Address;
 use App\Models\Carrier;
 use App\Models\Cart;
@@ -24,6 +25,7 @@ use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -582,6 +584,15 @@ class CheckoutPage extends Component
 
             return;
         }
+
+        // The order-confirmation email — Consumer Rights Directive Art. 8(7),
+        // the confirmation of the concluded contract on a durable medium
+        // (ADR-0019). Sent for both paths: the contract is concluded at
+        // placement, not at payment, and the email states the payment
+        // status. Queued, so a slow mail host cannot hold checkout open;
+        // after the transaction has committed, so a rolled-back order never
+        // triggers one.
+        Mail::to($order->email)->queue(new OrderPlaced($order));
 
         // Entitles this session — and only this session — to view the
         // confirmation. OrderConfirmation refuses a bare id otherwise, since

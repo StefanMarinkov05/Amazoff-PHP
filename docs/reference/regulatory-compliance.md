@@ -26,7 +26,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 |---|---|---|
 | Art. 5(1)(c) — data minimisation | Snapshot only what checkout needs; the coupon cap stores a peppered hash, never the email | `explanation/gdpr.md` "Coupon limits without storing an email"; `CouponRedemption.email_hash` |
 | Art. 5(1)(e) — storage limitation | Soft-delete for deactivation; erasure for Art. 17; retention purge of anonymised orders **not built** | `explanation/gdpr.md` "Open" |
-| Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; order email **gap** (sequenced next) |
+| Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; `App\Mail\OrderPlaced` (queued from `CheckoutPage::placeOrder`) |
 | Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | newsletter double opt-in **gap** (sequenced after the email); cookie policy page exists (`/cookies`), a consent *mechanism* is a **gap** |
 | Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link in every marketing email | **gap** — part of the newsletter slice |
 | Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | `/privacy` page exists; its text is placeholder and needs a real notice — **gap** |
@@ -60,10 +60,10 @@ already flagged in `misc/todo.md`.
 | Rule | Obligation | Where |
 |---|---|---|
 | Art. 6 — pre-contractual information | Main characteristics, total price incl. taxes, delivery cost, trader identity, payment/delivery terms | product pages show price incl. VAT and `min_order_quantity`; delivery cost is computed at checkout; static pages `/delivery`, `/payment-information`, `/terms` carry the terms — **their text is placeholder** |
-| Art. 8(2) — "order with obligation to pay" | The order button must be labelled unambiguously (e.g. "Order and pay") | **gap** — the checkout button says "Place order"; "Order with obligation to pay" / "Поръчка със задължение за плащане" is the compliant wording |
-| Art. 8(7) — confirmation on a durable medium | Confirm the concluded contract, with all Art. 6 information, on a durable medium within a reasonable time | **gap** — this is a large part of *why* the order-confirmation email is being built next. The email is the durable medium |
+| Art. 8(2) — "order with obligation to pay" | The order button must be labelled unambiguously | **done** — the checkout submit button reads "Order with obligation to pay" |
+| Art. 8(7) — confirmation on a durable medium | Confirm the concluded contract, with all Art. 6 information, on a durable medium within a reasonable time | **done** — `App\Mail\OrderPlaced`: line items with variation/image/price/qty, totals with VAT, delivery + billing address, payment method label, order number + tracking link, withdrawal information. `explanation/transactional-email.md` |
 | Art. 9–15 — 14-day right of withdrawal | The customer may withdraw within 14 days of delivery, with a model withdrawal form and clear information on the right | **gap** — `misc/todo.md` "Customer-facing returns" tracks this. Needs a returns request flow, the 14-day window as an Action-level guard, and the withdrawal information in the pre-contract text |
-| Art. 6(1)(h) + Annex I(B) — model withdrawal form | Provide the standard form | **gap** — a static page / PDF, part of the returns slice |
+| Art. 6(1)(h) + Annex I(B) — model withdrawal form | Provide the standard form | **done** — `/returns/withdrawal-form`, linked from the order email; the online returns request is the returns slice |
 
 ---
 
