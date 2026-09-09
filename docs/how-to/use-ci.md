@@ -17,16 +17,16 @@ untested. A formatting failure reached `main` that way.
 ## Where to see it
 
 On a PR, in the checks section near the bottom, listed as "CI / lint",
-four "CI / test (1–4)" shards, and three "CI / test-concurrency (a/b/c)"
-shards — eight jobs, running in parallel. The repo's **Actions** tab has
-the full run history.
+four "CI / test (1–4)" shards, three "CI / test-concurrency (a/b/c)"
+shards, and "CI / test-browser" — nine jobs, running in parallel. The
+repo's **Actions** tab has the full run history.
 
 ## What it does, in order
 
-Eight jobs. `test` and `test-concurrency` each have their own MySQL 8
-service container per shard (services are not shared across jobs or
-matrix shards); `lint` needs no database. All run in parallel rather than
-one after another.
+Nine jobs. `test`, `test-concurrency`, and `test-browser` each have their
+own MySQL 8 service container (per shard where sharded; services are not
+shared across jobs or matrix shards); `lint` needs no database. All run in
+parallel rather than one after another.
 
 **`lint`** — no database needed:
 
@@ -58,6 +58,31 @@ subset of `tests/Concurrency`:
 4. Copies `.env.example` to `.env`, generates an app key.
 5. Runs `php artisan migrate --force`.
 6. Runs `pest` against that shard's file list.
+
+**`test-browser`** — the Pest 5 real-browser suite (`tests/Browser/`,
+ADR-0017), one job, not sharded (~7 tests, ~2 min, dominated by per-test
+Chromium context setup that sharding would not help). Its MySQL service
+provisions `amazoff_browser`, not `amazoff_test`.
+
+1. Checks out the code.
+2. Installs PHP 8.4 with the same extensions **plus `sockets`** —
+   `pestphp/pest-plugin-browser` talks to its Playwright server over a
+   socket.
+3. Installs Node 22, then `npm ci`, then
+   `npx playwright install --with-deps chromium` (the browser binaries and
+   their system libraries), then **`npm run build`**. The build is not
+   optional: `pest-plugin-browser` boots the app in-process and `@vite`
+   must resolve against the built manifest — an unstyled page makes
+   `ResponsiveTest`'s compiled-CSS precondition fail, which is the point of
+   that precondition.
+4. `composer install`, `.env`, key, `php artisan migrate --force` against
+   `amazoff_browser`.
+5. Runs `pest -c phpunit.browser.xml`. No app server is started —
+   `pest-plugin-browser` runs the HTTP kernel in-process.
+
+`ThreeDSecureTest` (once it exists) skips itself here: it needs a real
+Stripe test key and a live `stripe listen`, and no Stripe/Econt/Speedy
+secret goes in CI (see "Secrets" below). It is a local runbook.
 
 Within a job, any step failing turns that job (or that shard) red and
 stops it — later steps do not execute. Jobs and shards don't block each
@@ -117,9 +142,10 @@ actually needed.
 ## Why Pest runs against the MySQL service
 
 `src/phpunit.xml` sets `DB_CONNECTION=mysql` and
-`DB_DATABASE=online_shop_test`. Host, port, and credentials come from the
-environment, so the same file works in CI and in Docker locally, and only the
-database name is overridden — a test run cannot touch development data.
+`DB_DATABASE=amazoff_test` (`phpunit.browser.xml` sets `amazoff_browser` for
+the browser suite). Host, port, and credentials come from the environment,
+so the same file works in CI and in Docker locally, and only the database
+name is overridden — a test run cannot touch development data.
 
 It used to run against SQLite in memory, which was faster and wrong. SQLite
 ignores `VARCHAR` lengths, keeps `enum` columns as free text, and has no

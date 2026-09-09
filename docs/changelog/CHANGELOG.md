@@ -230,7 +230,9 @@ when the work happened, not when it was committed — nothing in
   checkout → COD → confirmation → tracked in one browser session, every
   write through the real Livewire button / form / Action and the database
   asserted between steps. A local-runbook `ThreeDSecureTest` still follows.
-  Full docs in `docs/reference/testing/browser-testing.md`.
+  Runs in CI as a new `test-browser` job (Node + Chromium + `npm run build`,
+  no app server — the plugin runs the HTTP kernel in-process). Full docs in
+  `docs/reference/testing/browser-testing.md`.
 
 - **Review and contact-message text moved out of PHP and into JSON.**
   `DemoReviewSeeder` carried a ~40-line `BODIES` const and

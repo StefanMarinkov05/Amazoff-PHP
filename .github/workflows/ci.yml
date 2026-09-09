@@ -93,6 +93,8 @@ jobs:
               tests/Feature/Actions/Catalogue/AddProductVariationTest.php
               tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
               tests/Feature/Actions/Catalogue/CreateProductTest.php
+              tests/Feature/Actions/Catalogue/DeleteAttributeTest.php
+              tests/Feature/Actions/Catalogue/DeleteBrandTest.php
               tests/Feature/Actions/Catalogue/DeleteProductCategoryTest.php
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
@@ -257,3 +259,98 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: password
         run: ./vendor/bin/pest ${{ matrix.shard.paths }}
+
+  test-browser:
+    name: test-browser
+    runs-on: ubuntu-latest
+
+    # The Pest 5 real-browser suite (tests/Browser/, ADR-0017). One job, not
+    # sharded — it is ~7 tests / ~2 min, dominated by Chromium context setup
+    # per test, which sharding would not help.
+    #
+    # No app server is started: pest-plugin-browser boots the application
+    # in-process (an amphp HTTP server calling the HTTP kernel) and drives
+    # Chromium against that. What it does need that no other job does:
+    #   - the `sockets` PHP extension (the plugin talks to its Playwright
+    #     server over a socket);
+    #   - Node, the `playwright` npm package (`npm ci`), and Chromium plus
+    #     its system libraries (`npx playwright install --with-deps`);
+    #   - a real `npm run build` — @vite must resolve against the built
+    #     manifest or every page renders unstyled and ResponsiveTest's
+    #     compiled-CSS precondition fails loudly (which is the point of it).
+    #
+    # ThreeDSecureTest skips itself here — use-ci.md is categorical that no
+    # Stripe/Econt/Speedy secret goes in CI, and that test needs a real
+    # Stripe test key plus a live `stripe listen`. It is a local runbook.
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: amazoff_browser
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif, sockets
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build front-end assets
+        run: npm run build
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: amazoff_browser
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Pest (browser suite)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest -c phpunit.browser.xml
