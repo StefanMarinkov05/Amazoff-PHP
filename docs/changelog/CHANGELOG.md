@@ -8,6 +8,53 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **`/password/reset` and `/password/reset/{token}` — the last of §4–5's
+  missing account pages, and the only one with no existing model to wire
+  up.** Delegates entirely to Laravel's own `Password` broker
+  (`password_reset_tokens`, in the schema since the starter kit, never
+  previously used) rather than hand-rolled tokens. Extends `Login`'s
+  account-enumeration defence: identical success state whether or not the
+  submitted email has an account, verified with `Notification::fake()`
+  proving nothing is sent for an unknown email, not just a matching UI
+  string. A successful reset signs the visitor in and invalidates every
+  other session for the account (`logoutOtherDevices()`), the same
+  response `ChangePassword` gives to "someone else may know the old
+  password." Deliberately not gated to guests — a signed-in customer who
+  no longer knows their current password still needs to recover it,
+  linked from both `/login` and `/account/password`. Both request and
+  confirm steps throttled, per-IP and per-email respectively. Verified
+  live before writing tests: a real Mailpit-delivered email, the real
+  link, the password genuinely changed in the database. 18 new tests.
+
+- **`/account/profile` and `/account/addresses`.** `EditProfile` (name,
+  email, phone — no Action, one UPDATE with no invariant the schema can't
+  express) and `ManageAddresses` (a saved-address CRUD; `Address` already
+  existed with a full schema but had zero readers or writers anywhere,
+  deliberately not wired into checkout yet). Both added to the header's
+  account dropdown, closing a navigation gap that predated this — the
+  routes existed with no menu entry. 17 new tests.
+
+- **`/wishlist` and an add/remove toggle on `ProductDetails` and
+  `ProductList`'s grid cards.** `WishlistItem` had the same shape as
+  `Address` — schema already existed, already load-bearing
+  (`ForceDeleteProduct` already refuses to erase a wishlisted product),
+  zero UI. Idempotency via a caught `UNIQUE(user_id, product_id)`
+  violation. Also wires `CreateProductReview` — tested at the Action
+  layer, but nothing on the storefront called it — into `ProductDetails`
+  via a `canReview()` eligibility check and a review form. Fixed a real
+  Vite CORS bug found while browser-verifying: no Livewire interactivity
+  worked in a real browser at all, not just this feature — `vite.config.js`
+  now sets `cors: true`. 31 new tests.
+
+- **§4's home page — `/` is `App\Livewire\Home`, replacing
+  `Route::redirect('/', '/catalogue')`.** Banner, featured products,
+  on-sale products, new arrivals, popular (by approved-review count)
+  products, and the latest visible articles. "Administrator-controlled
+  content" is `Product::is_featured` — a column and a `ProductForm`
+  toggle that already existed and was already editable, just never read
+  by the storefront. `specification.md` §4 moved from Not met to Met.
+  8 new tests.
+
 - **Newsletter double opt-in.** The footer signup no longer subscribes on
   submit (ePrivacy Art. 13, ADR-0019). `SubscribeToNewsletter` creates a
   `NewsletterStatus::Pending` row with a random `confirmation_token` and
@@ -293,6 +340,30 @@ when the work happened, not when it was committed — nothing in
   command reports these as skips rather than failures. The key is a
   double-charge defence and was deliberately not weakened to make the demo
   tidier.
+
+### Fixed
+
+- **`Money::percentageOf()`/`shareOf()` now round half-up instead of
+  truncating.** 20% VAT on a 100.00 gross line was `16.66`, not the
+  correct `16.67` — the double-scale intermediate was narrowed with a
+  scale-less `bcadd`, which truncates. Every VAT and coupon-discount VAT
+  figure was therefore up to a cent low, systematically in the same
+  direction. Implemented as a portable bcmath half-up nudge, not PHP
+  8.4's `bcround()`, to stay compatible with `composer.json`'s declared
+  PHP constraint. Corrected every existing test assertion that depended
+  on the old truncating value, found via a full test-suite run rather
+  than only the files that seemed related.
+
+- **Bare `DeleteAction` on `Brand`, `Attribute`, `ArticleCategory`,
+  `Carrier`, and `Coupon` now guards against a blocking dependency**,
+  matching `Product`/`ProductCategory`'s existing pattern. The default
+  Filament action called `$record->delete()` directly, surfacing a
+  foreign-key violation as an uncaught `QueryException` instead of a
+  message naming the dependency. New `DeleteX` Actions + domain
+  exceptions per resource. Confirmed the other originally-suspected
+  resources (`AttributeValue`, `Article`, `Tag`, `ContactMessage`,
+  `NewsletterSubscriber`) don't need this — their only dependents
+  cascade-delete or there's no blocking foreign key at all.
 
 ### Changed
 
