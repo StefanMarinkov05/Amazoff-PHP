@@ -138,6 +138,21 @@ checked in two places — where the sort button renders, and where
   component state — the gate is on the viewer, not just on the sort being
   active.
 
+### `ProductPriorPriceDisplayTest`
+
+The Omnibus / ЗЗП чл. 6б prior-price line (ADR-0021), shown wherever a reduced
+price is announced.
+
+- **Product page** shows "Lowest price in the last 30 days: €X" for a
+  discounted product with price history — X is the lowest observation in the
+  30 days before `discount_starts_at`.
+- **Not shown** for a product that is not on sale, even when history exists.
+- **Catalogue card** shows "Lowest in 30 days: €X" for a discounted product.
+
+The Action / resolver logic — which price gets recorded, how the window and
+the fallback resolve — is `RecordPriceObservationTest`, `ResolvePriorPriceTest`
+and `SnapshotProductPricesTest`; this file covers only the rendered line.
+
 ### `ProductDetailsQuantityTest`
 
 `$quantity` reaching the component is user input in the same sense

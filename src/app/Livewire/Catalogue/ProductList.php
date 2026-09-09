@@ -879,7 +879,15 @@ class ProductList extends Component
         };
 
         $query = Product::query()
-            ->with(['productImages', 'brand', 'productVariations.inventory'])
+            // priceHistory: last 40 days only — enough for the Omnibus 30-day
+            // prior-price line on a card (ADR-0021), loaded here so the grid
+            // does not fan out to one query per product.
+            ->with([
+                'productImages',
+                'brand',
+                'productVariations.inventory',
+                'priceHistory' => fn ($q) => $q->where('recorded_at', '>=', now()->subDays(40)),
+            ])
             ->withAvg(['productReviews as rating_avg' => $approvedOnly], 'rating')
             ->withCount(['productReviews as rating_count' => $approvedOnly]);
 

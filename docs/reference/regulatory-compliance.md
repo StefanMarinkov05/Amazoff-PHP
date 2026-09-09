@@ -46,7 +46,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 |---|---|---|
 | ePrivacy Art. 5(3) — cookies / storage access | Consent before non-essential cookies; session + CSRF are essential and exempt | **done** — `<x-site.cookie-consent>` banner records the choice in a first-party `cookie_consent` cookie; `App\Support\CookieConsent::granted()` is the gate any future analytics/marketing script must pass (undecided = not granted). Nothing non-essential is set today |
 | ePrivacy Art. 13 — unsolicited marketing | Opt-in for the newsletter (double opt-in), unsubscribe in every send | **done** — `NewsletterStatus::Pending` until the confirmation link is clicked; nothing is mailed to a Pending row; `newsletter:purge-unconfirmed` drops rows never confirmed |
-| Omnibus Dir. (EU) 2019/2161 — price reductions | When a product shows a reduced price, also show the lowest price in the 30 days before the reduction | **gap** — `products.discount_price` / `discount_starts_at` exist; the "was N, lowest recent N" display does not. Needs a price-history table or a computed lowest-recent value |
+| Omnibus Dir. (EU) 2019/2161 — price reductions | When a product shows a reduced price, also show the lowest price in the 30 days before the reduction | **done** — [ADR-0021](../adr/0021-omnibus-prior-price-display.md): `product_price_history` records each product's effective price (`RecordPriceObservation` on `CreateProduct`/`UpdateProduct` + a daily `products:snapshot-prices` sweep for scheduled window transitions); `ResolvePriorPrice` computes the lowest in the 30 days before `discount_starts_at`; shown as "Lowest price in the last 30 days: €X" on the product page, catalogue card, and home discounted section. **Caveat:** the exact ЗЗП чл. 6б wording, and whether the badge should be suppressed when there was no genuine recent reduction, are for counsel; per-variation overrides are not tracked |
 | Omnibus — review authenticity | State whether and how the shop ensures reviews come from real purchasers | **done** — enforced by `ProductDetails::canReview()` / `CreateProductReview` (delivered order line only), and stated in a sentence under the reviews heading |
 | Omnibus — "personalised pricing" disclosure | Disclose if a price is personalised by automated decision-making | N/A — every customer sees the same price |
 
@@ -137,7 +137,8 @@ but the exemption is not something to rely on by default.
 
 **Compliance-hygiene, not blocking a build:**
 
-7. Omnibus 30-day-low price display; the review-authenticity sentence.
+7. ~~Omnibus 30-day-low price display~~ — **done**, ADR-0021. The
+   review-authenticity sentence — done.
 8. Accessibility audit (EAA — exemption likely but unconfirmed).
 9. ROPA (Art. 30), breach process (Arts. 33–34), Stripe DPA / transfer
    note — go-live document tasks.

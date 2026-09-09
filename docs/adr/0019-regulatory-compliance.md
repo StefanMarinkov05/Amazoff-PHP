@@ -141,6 +141,11 @@ pages were placeholder.
   `product_price_history` row is written whenever a product's
   `regular_price` or `discount_price` changes (through `UpdateProduct`),
   and the storefront computes "lowest in the last 30 days" from it.
+  > **Implemented in [ADR-0021](0021-omnibus-prior-price-display.md)**, which
+  > adds a daily `products:snapshot-prices` sweep alongside the
+  > write-triggered capture — a scheduled discount window opening or closing
+  > changes the effective price with no `UpdateProduct` call, so write-only
+  > history would miss it.
 
 - **Review authenticity:** `CreateProductReview` already only accepts a
   review from a customer with a *delivered* order line for that product. A

@@ -101,6 +101,13 @@ final class UpdateProduct
                 $product->attributes()->sync($variationAxisIds);
             }
 
+            // Omnibus prior-price display (ADR-0021): a new point on the price
+            // timeline whenever this edit moved the effective price. The
+            // Action itself no-ops when nothing changed.
+            if ($product->wasChanged(['regular_price', 'discount_price', 'discount_starts_at', 'discount_ends_at'])) {
+                app(RecordPriceObservation::class)->handle($product);
+            }
+
             return $product;
         });
     }

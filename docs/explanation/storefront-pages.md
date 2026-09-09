@@ -138,9 +138,17 @@ customer as "no results".
 
 **Eager load whatever the card touches.** The component is responsible for its
 own N+1 protection — nothing warns. `ProductList` loads `productImages`,
-`brand`, and `productVariations.inventory` because the card reads all three.
-A template change that reaches a fourth relation silently issues a query per
-row.
+`brand`, `productVariations.inventory`, and a 40-day slice of `priceHistory`
+(for the Omnibus prior-price line, ADR-0021 — `ResolvePriorPrice` reads the
+loaded relation rather than querying per card). A template change that reaches
+a fifth relation silently issues a query per row.
+
+**Omnibus prior-price line.** When a card or the product page shows a reduced
+price, it also shows "Lowest price in the last 30 days: €X"
+(`ResolvePriorPrice::forProduct()`, from `product_price_history`). Product
+page, catalogue grid, and the home discounted-products section all carry it;
+the resolver returns `null` — and the line is hidden — when the product is
+not on sale or has under 30 days of history. ADR-0021.
 
 **Writes still go through Actions.** Reading is the component's own business;
 the moment a page changes state it calls an Action, exactly as a Filament

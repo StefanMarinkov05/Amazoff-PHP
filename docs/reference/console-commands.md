@@ -13,6 +13,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
 | `orders:purge-anonymised` | Deletes GDPR-anonymised orders past `config('gdpr.order_retention_years')` — the accounting-retention window. Disabled (says so, does nothing) when the config value is `null` (ADR-0019) | The scheduler, weekly |
 | `newsletter:purge-unconfirmed` | Deletes newsletter rows still `Pending` 30 days after submission — an address held without consent (ePrivacy Art. 13, ADR-0019) | The scheduler, daily |
+| `products:snapshot-prices` | Records every product's effective selling price into `product_price_history`, unconditionally, for the Omnibus 30-day prior-price display (ADR-0021). The daily cadence captures a scheduled discount window opening or closing without an admin edit | The scheduler, daily |
 | `race:worker` | Runs 1 Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
 | `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
 | `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |

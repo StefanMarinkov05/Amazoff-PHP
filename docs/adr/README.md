@@ -31,3 +31,6 @@ note) is the one thing that can still be edited in place.
   EAA, tax retention)
 - **[0020](0020-order-return-aggregate.md)** — The `OrderReturn` aggregate
   (14-day right of withdrawal; independent of `orders.status`; COD handling)
+- **[0021](0021-omnibus-prior-price-display.md)** — Omnibus prior-price
+  display (`product_price_history`; daily snapshot + write-triggered; lowest
+  price in the 30 days before a reduction)

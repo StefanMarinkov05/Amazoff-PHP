@@ -72,7 +72,13 @@ class Home extends Component
             ->whereNotNull('discount_price')
             ->where(fn (Builder $q) => $q->whereNull('discount_starts_at')->orWhere('discount_starts_at', '<=', $now))
             ->where(fn (Builder $q) => $q->whereNull('discount_ends_at')->orWhere('discount_ends_at', '>=', $now))
-            ->with(['productImages', 'brand'])
+            // priceHistory for the Omnibus prior-price line (ADR-0021) — this
+            // is the one home section that announces a reduction.
+            ->with([
+                'productImages',
+                'brand',
+                'priceHistory' => fn ($q) => $q->where('recorded_at', '>=', $now->copy()->subDays(40)),
+            ])
             ->latest('id')
             ->limit(self::SECTION_LIMIT)
             ->get();

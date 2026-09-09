@@ -8,6 +8,21 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Omnibus 30-day prior-price display (Directive (EU) 2019/2161 / ЗЗП чл.
+  6б, ADR-0021).** New `product_price_history` table recording each product's
+  *effective* selling price. `App\Actions\Catalogue\RecordPriceObservation`
+  writes a row from `CreateProduct` / `UpdateProduct` when a price field
+  moves; a new daily `products:snapshot-prices` command
+  (`App\Actions\Catalogue\RecordProductPrices`) records one per product
+  unconditionally, so a scheduled discount window opening or closing with no
+  admin edit is still captured. `App\Support\Resolvers\ResolvePriorPrice`
+  computes the lowest price in the 30 days before the reduction; the
+  storefront shows "Lowest price in the last 30 days: €X" on the product
+  page, catalogue cards, and the home discounted-products section whenever a
+  reduced price is announced. The migration backfills a two-point starting
+  timeline for existing products. 16 new tests. Known gap: per-variation
+  price overrides are not tracked, and the exact ЗЗП wording is for counsel.
+
 - **The 14-day right of withdrawal — a customer returns flow (CRD Arts.
   9–15, ADR-0020).** New `OrderReturn` aggregate (`returns` / `return_items`
   tables, `ReturnStatus` enum). `App\Actions\Returns\RequestReturn` enforces

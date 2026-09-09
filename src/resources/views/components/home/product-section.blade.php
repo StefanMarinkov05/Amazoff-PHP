@@ -59,6 +59,16 @@
                             </span>
                         @endif
                     </div>
+
+                    @if ($cardPrice->onSale)
+                        @php($priorPrice = \App\Support\Resolvers\ResolvePriorPrice::forProduct($product))
+                        @if ($priorPrice !== null)
+                            {{-- Omnibus / ЗЗП чл. 6б prior price (ADR-0021). --}}
+                            <p class="mt-0.5 text-[0.65rem] text-ink-500">
+                                Lowest in 30 days: €{{ number_format((float) $priorPrice, 2) }}
+                            </p>
+                        @endif
+                    @endif
                 </div>
             </a>
         @endforeach

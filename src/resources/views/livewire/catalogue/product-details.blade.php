@@ -178,6 +178,13 @@
                             </span>
                         @endif
                     </div>
+                    @if ($price->onSale && $this->priorPrice !== null)
+                        {{-- Omnibus Directive (EU) 2019/2161 / ЗЗП чл. 6б —
+                             the lowest price in the 30 days before this reduction. --}}
+                        <p class="mt-1 text-xs text-ink-500">
+                            Lowest price in the last 30 days: €{{ number_format((float) $this->priorPrice, 2) }}
+                        </p>
+                    @endif
                     <p class="mt-1 text-xs text-ink-400">VAT included</p>
                 </div>
 

@@ -16,7 +16,7 @@ follows is the short version.
 
 - `docs/reference/specification.md` — the working spec. §37 is the graded
   contract. Every `§`-number in any doc points here.
-- `docs/adr/` — one decision per file, `0001`–`0020`. The *decision* is
+- `docs/adr/` — one decision per file, `0001`–`0021`. The *decision* is
   frozen once accepted; a changed mind gets a new ADR marked
   `Superseded by ADR-XXXX`. Never argue against an accepted ADR silently.
 - `docs/reference/coding-conventions.md` — the architecture and security

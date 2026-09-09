@@ -35,8 +35,8 @@ tables (`roles`, `permissions`, `model_has_roles`, `model_has_permissions`,
 `role_has_permissions`).
 
 **Catalogue** — `product_categories`, `brands`, `products`, `product_images`,
-`product_variations`, `product_specifications`, `attributes`,
-`attribute_values`, and the pivots `attribute_product`,
+`product_variations`, `product_specifications`, `product_price_history`,
+`attributes`, `attribute_values`, and the pivots `attribute_product`,
 `attribute_value_product_variation`, and `product_image_product_variation`.
 
 **Inventory** — `inventories`, `inventory_movements`.
@@ -157,6 +157,12 @@ the right of `=` below, not the case name.
 |---|---|---|
 | `OrderStatus` | `new`, `awaiting_payment`, `paid`, `confirmed`, `preparing`, `ready_for_shipment`, `shipped`, `delivered`, `cancelled`, `returned`, `refunded` | `orders.status`, `order_status_histories.previous_status`, `.new_status` |
 | `ReturnStatus` | `requested`, `approved`, `denied`, `refunded` | `returns.status` (ADR-0020) |
+
+`product_price_history` has no enum column. It records the effective selling
+price observed at `recorded_at` — one row per price change (`RecordPriceObservation`)
+plus a daily snapshot (`products:snapshot-prices`) — for the Omnibus 30-day
+prior-price display (ADR-0021). Append-only; `index(product_id, recorded_at)`
+serves the `MIN(price)` prior-price query directly.
 | `PaymentStatus` | `pending`, `processing`, `paid`, `failed`, `cancelled`, `refunded`, `partially_refunded` | `payments.status`, `orders.payment_status`, `payment_events.status_before`, `.status_after` |
 | `PaymentMethod` | `stripe`, `cash_on_delivery` | `payments.method`, `orders.payment_method` |
 | `ShipmentStatus` | `pending`, `shipped`, `in_transit`, `delivered`, `returned`, `cancelled` | `shipments.status`, `shipment_tracking_events.status` |

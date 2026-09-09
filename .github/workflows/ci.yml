@@ -100,6 +100,7 @@ jobs:
               tests/Feature/Actions/Catalogue/DeleteProductCategoryTest.php
               tests/Feature/Actions/Catalogue/DeleteProductTest.php
               tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
+              tests/Feature/Actions/Catalogue/RecordPriceObservationTest.php
               tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
               tests/Feature/Actions/Catalogue/SetProductAttributeValuesTest.php
               tests/Feature/Actions/Catalogue/SetVariationAttributeValuesTest.php

@@ -257,6 +257,18 @@ entity "product_specifications" as product_specifications {
   updated_at : timestamp <<nullable>>
 }
 
+' Effective-price observations for the Omnibus 30-day prior-price display
+' (ADR-0021). Append-only.
+entity "product_price_history" as product_price_history {
+  * id : bigint unsigned <<PK>>
+  --
+  product_id : bigint unsigned <<FK>>
+  price : decimal(10,2)
+  recorded_at : timestamp
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
 entity "attributes" as attributes {
   * id : bigint unsigned <<PK>>
   --
@@ -704,6 +716,7 @@ product_categories |o--o{ product_categories : parent
 products ||--o{ product_variations
 products ||--o{ product_images
 products ||--o{ product_specifications
+products ||--o{ product_price_history
 
 attributes ||--o{ attribute_values
 attributes }o--o{ attribute_product

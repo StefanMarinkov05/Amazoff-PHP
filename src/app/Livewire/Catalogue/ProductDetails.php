@@ -26,6 +26,7 @@ use App\Models\User;
 use App\Models\WishlistItem;
 use App\Support\ProductPrice;
 use App\Support\Resolvers\ResolveCurrentCart;
+use App\Support\Resolvers\ResolvePriorPrice;
 use App\Support\Resolvers\ResolveProductPrice;
 use App\Support\Resolvers\ResolveVariationPrice;
 use Illuminate\Database\Eloquent\Builder;
@@ -175,6 +176,18 @@ class ProductDetails extends Component
         return $variation === null
             ? ResolveProductPrice::current($this->product)
             : ResolveVariationPrice::detailed($variation);
+    }
+
+    /**
+     * The Omnibus prior price (lowest in the 30 days before the reduction) —
+     * product-level, so the same figure whichever variation is selected.
+     * Null when the product is not on sale or has too little history to draw a
+     * compliant number. ADR-0021.
+     */
+    #[Computed]
+    public function priorPrice(): ?string
+    {
+        return ResolvePriorPrice::forProduct($this->product);
     }
 
     #[Computed]

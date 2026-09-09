@@ -84,8 +84,8 @@ race-condition backstop, not the primary guard.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateProduct` | `products`, `attribute_product`, `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product` | `ProductRequiresVariationException`, `AttributeNotAllowedForCategoryException` |
-| `UpdateProduct` | `products`, `attribute_product` (only when the caller supplies the key) | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException` |
+| `CreateProduct` | `products`, `attribute_product`, `product_variations`, `inventories`, `inventory_movements`, `product_price_history` (the first price observation, ADR-0021) | optional, checked against `create_product` | `ProductRequiresVariationException`, `AttributeNotAllowedForCategoryException` |
+| `UpdateProduct` | `products`, `attribute_product` (only when the caller supplies the key); `product_price_history` via `RecordPriceObservation` when a price field changed (ADR-0021) | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException` |
 | `DeleteProduct` | `products` (soft delete, cascaded to its variations) | optional, `delete_product` | — never refuses |
 | `ForceDeleteProduct` | `products`, `product_variations`, `inventories`, `product_images`, `product_specifications` (all erased) | optional, `delete_product` | `ProductCannotBeErasedException`, plus whatever `ForceDeleteProductVariation` raises |
 | `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements`, `attribute_value_product_variation` (only when the caller supplies `attribute_value_ids`) | optional, checked against `create_product_variation` | `InvalidArgumentException` |
@@ -98,6 +98,8 @@ race-condition backstop, not the primary guard.
 | `SetProductAttributeValues` | `attribute_value_product` (the whole set for 1 product) | optional, `update_product` | `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException`, `AttributeValueIsAVariationAxisException` |
 | `SetVariationAttributeValues` | `attribute_value_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `AttributeValueNotOnProductException`, `DuplicateVariationAttributeException`, `DuplicateVariationCombinationException` |
 | `SetDefaultVariation` | `product_variations` | optional, `update_product_variation` | — |
+| `RecordPriceObservation` | `product_price_history` (one row — the product's effective selling price); no-ops when the price is unchanged unless `force` | **none** — it observes, it does not mutate the product, and its callers are already gated | — |
+| `RecordProductPrices` | `product_price_history` (one `force` row per product) | **none** — the `products:snapshot-prices` schedule | — |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
 | `UpdateProductCategory` | `product_categories` | optional, `update_product_category` | `CategoryCycleException` |
 
@@ -502,6 +504,8 @@ behaviour.
 | `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
 | `ExportCustomerData` | no — read-only |
 | `PurgeAnonymisedOrders` | yes — the matched orders are locked and deleted together |
+| `RecordPriceObservation` | no — one insert, and its Action callers already hold a transaction |
+| `RecordProductPrices` | no — a per-product insert loop, no cross-row invariant |
 | `RequestReturn` | yes — `orders` locked while the per-line remaining quantity is read and the `returns` rows written |
 | `ReviewReturn` | yes — the `returns` row is locked and its status re-read before the write |
 | `RefundReturn` | yes — wraps the `returns` lock, the composed `RefundPayment` (`payments` lock) and every `RestockReturn` (`inventories` lock) |
@@ -717,6 +721,8 @@ lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
 | `CreateOrder` | tests only |
 | `TransitionOrderStatus` | `ViewOrder`'s "Change status" menu; tests |
 | `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus` and (`RestockReturn`) by `RefundReturn`, tests |
+| `RecordPriceObservation` | composed by `CreateProduct` and `UpdateProduct` (post-save); `RecordProductPrices`; tests |
+| `RecordProductPrices` | `products:snapshot-prices` (scheduled daily); tests |
 | `RequestReturn` | `Account\RequestReturn` (`/account/orders/{order}/return`); `RaceWorker` (`request-return`); tests |
 | `ReviewReturn`, `RefundReturn` | `ViewReturn`'s Approve / Deny / Refund header actions (`ReturnResource`); tests |
 | `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |

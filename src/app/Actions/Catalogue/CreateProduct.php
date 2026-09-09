@@ -112,6 +112,11 @@ final class CreateProduct
                 );
             }
 
+            // The first point on the product's price timeline — the Omnibus
+            // prior-price display has nothing to compare against without it
+            // (ADR-0021).
+            app(RecordPriceObservation::class)->handle($product);
+
             return $product;
         });
     }

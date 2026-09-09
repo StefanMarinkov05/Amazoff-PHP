@@ -30,3 +30,10 @@ Schedule::command('orders:purge-anonymised')->weekly()->withoutOverlapping();
 // (ADR-0019). Daily is fine: the set is small and the grace window is 30
 // days, so timing is not tight.
 Schedule::command('newsletter:purge-unconfirmed')->daily()->withoutOverlapping();
+
+// Omnibus Directive (EU) 2019/2161 — record every product's effective price
+// once a day so the storefront can show the lowest price in the 30 days
+// before a reduction (ADR-0021). Daily is the whole point: it captures a
+// scheduled discount window opening or closing without an admin edit, and
+// makes "the lowest price applied during the 30 days" a direct query.
+Schedule::command('products:snapshot-prices')->daily()->withoutOverlapping();
