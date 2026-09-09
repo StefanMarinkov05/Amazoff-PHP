@@ -8,6 +8,16 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Cookie-consent banner and consent gate.** `<x-site.cookie-consent>`
+  (rendered once by the app layout, ePrivacy Art. 5(3), ADR-0019) shows a
+  short notice on the first visit and lets the visitor decline non-essential
+  cookies. The choice is stored in a first-party `cookie_consent` cookie
+  (excluded from `EncryptCookies` since it is written from Alpine), and
+  `App\Support\CookieConsent::granted()` is the read side any future
+  analytics or marketing script must pass — undecided counts as not
+  granted. Nothing is gated today: only the session and CSRF cookies are
+  set, both strictly necessary. `/cookies` updated. 5 tests.
+
 - **GDPR data export, retention purge, and Omnibus / accessibility fixes.**
   Continuing ADR-0019's compliance pass:
   - **Art. 15 / 20 data export.** `App\Actions\Gdpr\ExportCustomerData` (the

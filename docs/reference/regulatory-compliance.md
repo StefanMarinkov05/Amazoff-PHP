@@ -27,7 +27,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 | Art. 5(1)(c) — data minimisation | Snapshot only what checkout needs; the coupon cap stores a peppered hash, never the email | `explanation/gdpr.md` "Coupon limits without storing an email"; `CouponRedemption.email_hash` |
 | Art. 5(1)(e) — storage limitation | Soft-delete for deactivation; erasure for Art. 17; retention purge | `App\Actions\Gdpr\PurgeAnonymisedOrders` + `orders:purge-anonymised` (weekly), driven by `config('gdpr.order_retention_years')` — a config a human sets from BG accounting law |
 | Art. 6(1)(b) — lawful basis, contract | Order processing, order-confirmation email | checkout flow; `App\Mail\OrderPlaced` (queued from `CheckoutPage::placeOrder`) |
-| Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | newsletter double opt-in **gap** (sequenced after the email); cookie policy page exists (`/cookies`), a consent *mechanism* is a **gap** |
+| Art. 6(1)(a) / ePrivacy — consent | Newsletter opt-in, cookie banner | newsletter double opt-in **gap**; cookie-consent banner + `App\Support\CookieConsent::granted()` gate **done** (nothing to gate yet — only essential cookies are set) |
 | Art. 7(3) — withdraw consent as easily as given | One-click unsubscribe link in every marketing email | **gap** — part of the newsletter slice |
 | Art. 12–14 — transparency / privacy notice | A privacy policy the customer can read | `/privacy` page exists; its text is placeholder and needs a real notice — **gap** |
 | Art. 15 / 20 — access / portability | Give the customer a machine-readable copy of their data | **done** — `App\Actions\Gdpr\ExportCustomerData` + `/account/data`, streamed as JSON |
@@ -44,7 +44,7 @@ narrative; `reference/write-rules/gdpr.md` is the erasure outcomes;
 
 | Rule | Obligation | Where |
 |---|---|---|
-| ePrivacy Art. 5(3) — cookies / storage access | Consent before non-essential cookies; the session cookie and CSRF token are essential and exempt | `/cookies` page describes them; **no consent gate** because nothing non-essential is set yet (no analytics, no ad pixels). If any are added, a consent mechanism becomes mandatory first |
+| ePrivacy Art. 5(3) — cookies / storage access | Consent before non-essential cookies; session + CSRF are essential and exempt | **done** — `<x-site.cookie-consent>` banner records the choice in a first-party `cookie_consent` cookie; `App\Support\CookieConsent::granted()` is the gate any future analytics/marketing script must pass (undecided = not granted). Nothing non-essential is set today |
 | ePrivacy Art. 13 — unsolicited marketing | Opt-in for the newsletter (double opt-in), unsubscribe in every send | **gap** — the newsletter slice. Today `SubscribeToNewsletter` subscribes immediately with no confirmation and there is no unsubscribe route |
 | Omnibus Dir. (EU) 2019/2161 — price reductions | When a product shows a reduced price, also show the lowest price in the 30 days before the reduction | **gap** — `products.discount_price` / `discount_starts_at` exist; the "was N, lowest recent N" display does not. Needs a price-history table or a computed lowest-recent value |
 | Omnibus — review authenticity | State whether and how the shop ensures reviews come from real purchasers | **done** — enforced by `ProductDetails::canReview()` / `CreateProductReview` (delivered order line only), and stated in a sentence under the reviews heading |

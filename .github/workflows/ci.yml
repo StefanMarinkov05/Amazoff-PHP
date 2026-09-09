@@ -79,6 +79,7 @@ jobs:
               tests/Unit/Support/MoneyTest.php
               tests/Feature/Auth
               tests/Feature/Console
+              tests/Feature/CookieConsentBannerTest.php
               tests/Feature/ExampleTest.php
               tests/Feature/FactoryTest.php
               tests/Feature/Filament
