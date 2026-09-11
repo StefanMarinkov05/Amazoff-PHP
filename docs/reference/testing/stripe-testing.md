@@ -271,7 +271,7 @@ constant.
 `tests/Browser/ThreeDSecureTest.php` (ADR-0017's Pest browser suite) now
 drives the manual 2026-09-04 run above end to end: real checkout, real
 Stripe Elements, card `4000 0025 0000 3155`, the real hosted 3DS2 challenge,
-**Complete authentication** clicked in a real browser.
+**Complete** taken in a real browser.
 
 **Not `stripe listen`.** The plan this was scoped from
 (`~/.claude/plans/zippy-growing-pike.md`) assumed a pre-started
@@ -305,25 +305,73 @@ message naming which failed, never a false pass):
   `VerifyStripeWebhookSignature` checks against.
 - No `stripe listen` process needed or used — see above.
 
+**The test bumps `payments` AUTO_INCREMENT before it runs — do not remove
+it.** `CreateStripeIntent` keys its `paymentIntents->create` call on
+`'payment-intent-'.$payment->id`, deliberately, so a retry after a timeout
+returns the first intent rather than charging the customer twice. That is
+correct in production, where ids never repeat. It is actively hostile to a
+test database that is truncated before every run: `payments.id` restarts at
+1, so the *second* run sends idempotency key `payment-intent-1` again and
+Stripe replays the intent the first run already drove to `succeeded`.
+
+The symptom points nowhere near the cause. Elements refuses to initialise on
+a terminal intent, tears its own iframe back out of the DOM, and the run
+fails with "Stripe never swapped its 2px placeholder for the real card
+form" — a card field that never appears, which reads as a wait or selector
+problem. The real message is only visible in the Element's `loaderror`:
+*"This PaymentIntent is in a terminal state and cannot be used to initialize
+Elements."* It also fails **every run after the first**, so a single green
+run proves nothing here; re-run the test at least twice.
+
+`resetStripeIdempotencyScope()` in the test seeds AUTO_INCREMENT from the
+clock. Truncation resets AUTO_INCREMENT, so seeding it from the table's own
+rows would not work — the offset has to come from something monotonic and
+independent of the database.
+
 **Not run in CI.** Real Stripe test-mode calls, never CI secrets
 (`how-to/use-ci.md`). The `test-browser` CI job runs the rest of
 `tests/Browser/`; this file is excluded there and is a local-only check
 before a release.
 
-**Two selectors are asserted, not merely assumed** — Stripe.js's iframe
-naming is not part of its stability contract, so both are called out in the
-test's own comments with the one-liner (`$page->script(...)`) to re-derive
-them from the live DOM if Stripe changes either:
-
-- The Payment Element mount (`#stripe-payment-element`) contains one iframe,
-  conventionally `title="Secure payment input frame"`, with fields
-  addressable by label (`Card number`, `Expiration`, `CVC`, `ZIP`).
-- The 3DS2 challenge itself is conventionally `iframe[name="stripe-challenge-frame"]`,
-  with a **Complete authentication** test button (**Fail authentication**
-  is the sibling test option, unused here).
-
-If a run fails inside either `withinFrame()` call, that drift — not a real
+**The selectors below were read out of the live DOM (2026-09-11), not
+assumed.** Stripe.js's iframe naming is not part of its stability contract,
+so if a run fails inside a `withinFrame()` call, drift here — not a real
 regression — is the first thing to check.
+
+- **Payment Element.** `#stripe-payment-element iframe[title="Secure payment
+  input frame"]`. Fields are addressable by input `name`: `number`,
+  `expiry`, `cvc` (plus `country`). The visible labels are "Card number",
+  "Expiration date", "Security code" — *not* "Expiration"/"CVC" — and there
+  is **no ZIP field** in this Element's configuration.
+- **The Element mounts twice.** Stripe inserts a 2px placeholder iframe
+  first and swaps in the real ~400px form a moment later. Waiting for the
+  iframe to be *present* finds the placeholder, whose document has no inputs
+  at all; the test waits for a laid-out height > 100px instead.
+- **The 3DS2 challenge is doubly nested**, and the outer frame has neither a
+  usable `name` (a random `__privateStripeFrame<n>`) nor a `title` (empty).
+  Its `src` is the only stable handle:
+
+  ```
+  iframe[src*="three-ds-2-challenge"]      ← outer; random name, no title
+    └─ dialog                               ← the "Cancel" button lives here
+         └─ iframe[name="stripe-challenge-frame"]
+              └─ heading "3D Secure 2 Test Page"
+                 button "Fail" | button "Complete"
+  ```
+
+  The button reads **Complete**, not "Complete authentication".
+
+- **The challenge is submitted as a form, not clicked.** The test page is
+  two plain POST forms to the same ACS endpoint, distinguished only by one
+  hidden input — `challenge=allow` (the "Complete" button,
+  `#test-source-authorize-3ds`) and `challenge=deny` ("Fail",
+  `#test-source-fail-3ds`) — with no JavaScript handler on either.
+  Playwright's `click()` reports success on the button and does **not**
+  trigger native submission: measured, the button is still present
+  afterwards and `location.href` never changes, so the dialog stays open and
+  the run fails ~20s later at `assertPathBeginsWith('/checkout/confirmation')`
+  with nothing pointing back at the click. The test submits the
+  `challenge=allow` form directly, which is what pressing the button does.
 
 ### `Money::percentageOf()` truncation is asserted, not fixed
 

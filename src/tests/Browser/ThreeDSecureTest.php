@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
+use Illuminate\Support\Facades\DB;
 use Stripe\StripeClient;
 
 /*
@@ -64,6 +65,32 @@ function threeDsWebhookSignature(string $payload, string $secret): string
     return "t={$timestamp},v1={$digest}";
 }
 
+/**
+ * Move `payments.id` past every id this database has already issued, so the
+ * Stripe idempotency key this run produces has never been seen before.
+ *
+ * `CreateStripeIntent` keys its `paymentIntents->create` call on
+ * `'payment-intent-'.$payment->id` — deliberately, so a retry after a timeout
+ * returns the first intent instead of charging the customer twice. That is
+ * correct in production, where ids never repeat. It is actively hostile to a
+ * test database that is truncated before every run: `payments.id` restarts at
+ * 1, so the *second* run of this test sends idempotency key
+ * `payment-intent-1` again and Stripe dutifully replays the intent the first
+ * run already drove to `succeeded`. Elements then refuses to initialise with
+ * "This PaymentIntent is in a terminal state", tears its own iframe back out
+ * of the DOM, and the failure presents as a card form that never appears —
+ * nowhere near the real cause.
+ *
+ * Truncation resets AUTO_INCREMENT, so seeding it from the table's own rows
+ * is not enough; the offset has to come from something monotonic that is
+ * independent of the database. The clock is, and a `payments` row id is a
+ * plain integer with no meaning attached, so a large value is harmless.
+ */
+function resetStripeIdempotencyScope(): void
+{
+    DB::statement('ALTER TABLE payments AUTO_INCREMENT = '.(time() % 2_000_000_000));
+}
+
 it('completes a 3-D Secure challenge and reaches Paid via a Stripe-shaped webhook', function (): void {
     if (! stripeConfiguredForRealTestCalls()) {
         $this->markTestSkipped(
@@ -73,6 +100,7 @@ it('completes a 3-D Secure challenge and reaches Paid via a Stripe-shaped webhoo
     }
 
     swapFakeCourier();
+    resetStripeIdempotencyScope();
 
     $variation = cartVariation(stock: 5, product: [
         'name' => '3DS Runbook Widget',
@@ -82,10 +110,20 @@ it('completes a 3-D Secure challenge and reaches Paid via a Stripe-shaped webhoo
     $product = $variation->product;
 
     // ── Guest: catalogue → product → cart → checkout, card payment ──────
+    // The intermediate assertions are load-bearing, not decoration: each one
+    // waits for the Livewire round-trip before the next navigate(). Without
+    // the "Added to cart" wait, /cart renders empty — and the Checkout
+    // button only exists in the non-empty branch of cart-page.blade.php, so
+    // the next click times out instead of failing with something legible.
+    // CheckoutLifecycleTest has the same shape for the same reason.
     $page = visit('/catalogue')
+        ->assertSee($product->name)
         ->navigate("/products/{$product->slug}")
+        ->assertSee($product->name)
         ->click('Add to cart')
+        ->assertSee('Added to cart')
         ->navigate('/cart')
+        ->assertSee($product->name)
         ->click('Checkout')
         ->assertPathIs('/checkout')
         ->fill('first_name', 'Iva')
@@ -99,41 +137,131 @@ it('completes a 3-D Secure challenge and reaches Paid via a Stripe-shaped webhoo
         // Payment method radio defaults to Stripe (PaymentMethod::Stripe is
         // CheckoutPage's initial $payment_method) — no click needed, unlike
         // CheckoutLifecycleTest's explicit "Cash on delivery".
+        //
+        // This click TICKS the box — CheckoutPage::$billing_same_as_delivery
+        // is `false` by default, and the three billing fields are
+        // `required_if:billing_same_as_delivery,false`. Without it the submit
+        // fails validation ("The billing city field is required when billing
+        // same as delivery is false.", + postcode, street) and never reaches
+        // Stripe. A signed-in customer with a saved address sees it already
+        // ticked; a guest — which is what this test is — does not.
         ->click('Billing address is the same as delivery')
         ->click('Order with obligation to pay')
         // Card path: placeOrder() sets $clientSecret and stays on /checkout
         // rather than redirecting (CheckoutPage::placeOrder, "Stripe: stay
         // on the page and hand the secret to Stripe Elements").
-        ->assertPathIs('/checkout');
+        // NOT assertPathIs('/checkout') — that passes trivially, since the
+        // card path never leaves /checkout. Assert on the payment step's own
+        // copy instead, so this waits for the placeOrder round-trip (which
+        // includes a real Stripe intent call) to actually land.
+        ->assertSee('Enter your card to pay');
 
     $order = Order::query()->where('email', '3ds-runbook@example.test')->sole();
 
     // ── Fill the real Stripe Payment Element and confirm ─────────────────
     //
-    // GOTCHA (confirm on first live run): Stripe's unified Payment Element
-    // mounts as one iframe inside #stripe-payment-element, conventionally
-    // titled "Secure payment input frame" in Stripe.js's current build. If
-    // this selector has drifted, `$page->script("document.querySelector('#stripe-payment-element iframe').outerHTML")`
-    // shows the real attributes to fix it against.
+    // Wait for the Payment Element to be *laid out*, not merely present:
+    // Stripe mounts a 2px placeholder iframe first and swaps in the real
+    // ~400px card form a moment later. Asserting presence alone finds the
+    // placeholder, whose document has no inputs at all — measured, and the
+    // reason the field fills below would otherwise fail intermittently.
+    //
+    // Polled in short chunks on purpose: `script()` rejects anything still
+    // pending after 5s, so a single promise that waits ~25s internally is
+    // killed by that cap — which surfaces as a bare "Timeout 5000ms
+    // exceeded" with no hint that the budget, not the page, was the problem.
+    // Each call below stays well inside the cap; the loop owns the real
+    // budget.
+    $mounted = false;
+
+    for ($attempt = 0; $attempt < 12 && ! $mounted; $attempt++) {
+        $heights = $page->script(
+            "Array.from(document.querySelectorAll('#stripe-payment-element iframe'))".
+            '.map(f => Math.round(f.getBoundingClientRect().height))'
+        );
+
+        $mounted = is_array($heights) && array_filter($heights, fn ($h) => $h > 100) !== [];
+
+        if (! $mounted) {
+            $page->script('new Promise(r => setTimeout(() => r(true), 1500))');
+        }
+    }
+
+    // If this fails, read the Element's own load error before suspecting the
+    // selector or the wait — Stripe reports the real cause there, and it is
+    // usually a *terminal PaymentIntent* rather than anything about layout.
+    // See `resetStripeIdempotencyScope()` above for why that happens here.
+    expect($mounted)->toBeTrue('Stripe never swapped its 2px placeholder for the real card form.');
+
+    // Field names and labels below are the live ones, read out of the
+    // rendered frame rather than assumed: inputs are `number` / `expiry` /
+    // `cvc`, labelled "Card number" / "Expiration date" / "Security code".
+    // There is no postcode field in this Element's configuration.
     $page->withinFrame('#stripe-payment-element iframe[title="Secure payment input frame"]', function ($frame): void {
-        $frame->fill('Card number', '4000002500003155')
-            ->fill('Expiration', '12/34')
-            ->fill('CVC', '123')
-            ->fill('ZIP', '1000');
+        $frame->fill('number', '4000002500003155')
+            ->fill('expiry', '12/34')
+            ->fill('cvc', '123');
     });
 
     $page->click('stripe-submit');
 
     // ── The 3DS2 challenge — Stripe's own hosted test page ───────────────
     //
-    // GOTCHA (confirm on first live run): Stripe's test-mode 3DS2 challenge
-    // frame is conventionally named "stripe-challenge-frame"; the test
-    // button reads "Complete authentication" (as opposed to "Fail
-    // authentication", the other test option). If Stripe has changed either
-    // string, `$page->script("document.body.innerHTML")` on the outer page
-    // shows the actual challenge iframe's name/src to retarget this.
-    $page->withinFrame('iframe[name="stripe-challenge-frame"]', function ($frame): void {
-        $frame->click('Complete authentication');
+    // The challenge is **doubly nested**, and the outer frame cannot be
+    // targeted by name or title — both are useless (`name` is a random
+    // `__privateStripeFrame<n>`, `title` is empty). Its `src` is the only
+    // stable handle. Structure, read out of a live Chromium session:
+    //
+    //   iframe[src*="three-ds-2-challenge"]   ← outer, random name, no title
+    //     └─ dialog (a "Cancel" button lives here, not in the inner frame)
+    //          └─ iframe[name="stripe-challenge-frame"]
+    //               └─ heading "3D Secure 2 Test Page"
+    //                  button "Fail" | button "Complete"
+    //
+    // The two buttons carry stable ids — `#test-source-authorize-3ds`
+    // ("Complete") and `#test-source-fail-3ds` ("Fail") — and those are what
+    // this targets. Matching on the visible text instead does NOT work here:
+    // each button is paired with a hidden `<input name="challenge">`
+    // (`allow` / `deny`), and a text lookup resolves to a wrapper rather than
+    // the submit button, so the click lands on nothing and the dialog simply
+    // stays open — a redirect timeout, with no hint that the selector was the
+    // problem. Read out of the live frame, not assumed.
+    $page->withinFrame('iframe[src*="three-ds-2-challenge"]', function ($outer): void {
+        $outer->withinFrame('iframe[name="stripe-challenge-frame"]', function ($challenge): void {
+            // Wait for `readyState === 'complete'` before clicking. Stripe's
+            // test page binds its submit handler on load, and `withinFrame`
+            // resolves the frame as soon as it is attached — while the
+            // document is still "interactive". A click that lands in that
+            // window is accepted by Playwright and does nothing: the button
+            // is present and clickable, so no error is raised, but the form
+            // never submits and the dialog just stays open. Measured: the
+            // button exists both before and after such a click, and
+            // `location.href` never changes.
+            $challenge->script(
+                "new Promise(r => { if (document.readyState === 'complete') return r(true);".
+                "window.addEventListener('load', () => r(true)); })"
+            );
+
+            // Submit the "allow" form rather than clicking the button.
+            //
+            // The page is two plain POST forms to the same ACS endpoint,
+            // distinguished only by a single hidden input — `challenge=deny`
+            // (the "Fail" button) and `challenge=allow` ("Complete") — with
+            // no JavaScript handler on either. Playwright's click reports
+            // success on `#test-source-authorize-3ds` but does not trigger
+            // native submission here: measured, the button is still present
+            // afterwards and `location.href` is unchanged, so the dialog just
+            // stays open and the failure surfaces 20s later as "path is
+            // /checkout" with nothing pointing at the click. Submitting the
+            // form the button belongs to does exactly what pressing it does.
+            $submitted = $challenge->script(
+                "(() => { const f = Array.from(document.querySelectorAll('form')).find(".
+                "f => Array.from(f.elements).some(e => e.name === 'challenge' && e.value === 'allow'));".
+                'if (! f) { return false; } f.submit(); return true; })()'
+            );
+
+            expect($submitted)->toBeTrue('The 3DS test page had no challenge=allow form to submit.');
+        });
     });
 
     // Back on the app: confirmPayment's redirect lands on the confirmation
