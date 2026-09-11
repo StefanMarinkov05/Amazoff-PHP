@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Actions\Cart;
 
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
+use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use InvalidArgumentException;
 
 /**
  * Sets a cart line's quantity to an absolute value, re-validated the same
@@ -30,6 +33,7 @@ final class UpdateCartItemQuantity
      * @throws RemovedFromCatalogueException
      * @throws InvalidCartQuantityException
      * @throws InsufficientStockException
+     * @throws CartLimitExceededException
      */
     public function handle(CartItem $item, int $quantity): CartItem
     {
@@ -64,6 +68,26 @@ final class UpdateCartItemQuantity
 
         if ($quantity > $available) {
             throw new InsufficientStockException($variation, $quantity, $available);
+        }
+
+        // The cart-wide unit ceiling. No line check here: this Action never
+        // adds a line, only changes one that already exists, so the number
+        // of distinct lines cannot move.
+        $maxUnits = config('cart.max_units');
+
+        if (! is_int($maxUnits) || $maxUnits < 1) {
+            throw new InvalidArgumentException('config(cart.max_units) must be a positive integer.');
+        }
+
+        /** @var Cart $cart */
+        $cart = $item->cart;
+
+        $otherUnits = (int) $cart->cartItems()
+            ->whereKeyNot($item->getKey())
+            ->sum('quantity');
+
+        if ($otherUnits + $quantity > $maxUnits) {
+            throw CartLimitExceededException::tooManyUnits($cart, $maxUnits, $otherUnits + $quantity);
         }
 
         $item->update(['quantity' => $quantity]);

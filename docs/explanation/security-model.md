@@ -221,6 +221,58 @@ an id normally, an expanded object when expansion was requested — so
 reading it as a string only would have silently ignored every dispute
 delivered with an expanded payload.
 
+## Resource exhaustion: abuse through our own logic
+
+Distinct from the authorization material above, and worth its own section
+because none of it involves anyone doing something they are not allowed to
+do. Every mechanism here bounds what a *legitimate* action costs when it is
+issued in a loop.
+
+### The cart
+
+| Bound | Value | What it stops |
+|---|---|---|
+| `cart.max_lines` | 50 | A basket with thousands of distinct lines. Each line is a rendered row on the cart page, the checkout summary and the confirmation email, plus an `order_items` insert and an `inventories` lock inside `CreateOrder`'s transaction |
+| `cart.max_units` | 200 | One session reserving an entire product's inventory. `ReserveStock` holds every unit at checkout, unsellable by anyone else |
+| `addToCart` throttle | 60/min/IP | A script issuing a write plus a stock read per call |
+| `applyCoupon` throttle | 20/min/IP | Coupon-code enumeration, and contention on the `coupons` row lock `RedeemCoupon` takes |
+
+Both throttles are keyed on **IP, never on the submitted value** — keying a
+coupon limit on the code hands a guesser the full allowance per code, which
+is not a limit at all (SEC-010). The coupon throttle runs before the
+unknown-code check, because that is the branch a guesser hits every time.
+
+### The unpaid-order hold
+
+The cart caps bound how much stock one checkout can reserve; ADR-0022
+bounds how *long* it stays reserved. An abandoned card order holds its
+stock for at most `config('orders.unpaid_ttl_minutes')` (10) before
+`orders:expire-unpaid` cancels it and `TransitionOrderStatus` releases
+every line. Before that ADR the hold was unbounded: a customer who reached
+the Stripe payment step and closed the tab held the stock forever, which
+made "add the last unit to a cart and walk away" a denial-of-service
+against a single product with no account and no payment required.
+
+### The lock-contention map
+
+Which rows a public, unauthenticated path can make other people wait on:
+
+| Lock | Taken by | Reachable from | Bounded by |
+|---|---|---|---|
+| `inventories` (per line) | `ReserveStock` | checkout | `cart.max_lines`, `cart.max_units`, the 10-minute TTL |
+| `coupons` (one row) | `RedeemCoupon` | checkout with a coupon | `applyCoupon`'s 20/min throttle; the redemption itself needs a full checkout |
+| `orders` (one row) | `TransitionOrderStatus` | the webhook, the sweep, Cancel | one order per cart (`UNIQUE(orders.cart_id)`) |
+| `payments` (one row) | `CreateStripeIntent`, the webhook | checkout, Stripe | one payment per order, and `CreateStripeIntent` holds it across a Stripe call — see `stripe-payments.md`'s 80-second-timeout note |
+
+### Still open
+
+Courier office/city lookups (an external call on a public form), review
+submission, wishlist toggles, and the catalogue's `LIKE '%term%'` search
+(ADR-0014, known unindexed) have no rate limit yet. An explicit
+per-session limit on `placeOrder` itself is also still worth adding — it is
+bounded indirectly today, by the cart caps and the TTL, rather than
+directly. `misc/todo.md` carries these.
+
 ## Summary table
 
 | Question | Answer | Where |

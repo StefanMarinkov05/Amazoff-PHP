@@ -66,7 +66,16 @@ it('has the order number as its subject', function (): void {
         ->toBe('Your order ORD-TEST-42');
 });
 
-it('tells a card customer the payment is still confirming', function (): void {
+/*
+ * A rendering fact, not a claim about the flow. Since ADR-0022 a card
+ * order's confirmation is only sent once the payment reaches Paid, so the
+ * real flow no longer renders this template against a Pending card payment.
+ * The branch is kept and tested because the mailable re-reads the order when
+ * the queued job runs: a refund or a dispute landing between the transition
+ * and the send can still put a non-Paid status in front of this template,
+ * and it must render something truthful rather than blank.
+ */
+it('renders a non-paid card payment truthfully rather than blank', function (): void {
     $order = placedOrder();
     Payment::factory()->for($order)->create([
         'method' => PaymentMethod::Stripe,

@@ -39,6 +39,17 @@ ePrivacy Art. 13), and this project does not send campaigns.
   confirmation job behind. Same rule anywhere else a mailable follows a
   write.
 
+- **A card order's confirmation waits for the payment (ADR-0022).** The
+  contract a CRD Art. 8(7) confirmation confirms is concluded at placement
+  for cash on delivery, but at *payment* for a card sale. Sending at
+  placement for both — which this page previously described as correct —
+  meant a customer who reached Stripe Elements and closed the tab was told
+  they had bought something. The card path now sends from
+  `App\Listeners\SendOrderPlacedConfirmation`, on `OrderStatusChanged`
+  reaching `Paid`. ADR-0011's rule picks the listener over a call inside
+  the webhook Action: a queued email cannot be rolled back, so it belongs
+  on the after-commit event rather than in the transaction.
+
 - **Markdown templates**, `resources/views/mail/`. Laravel's default mail
   theme (responsive, tested across clients). `resources/views/vendor/mail/`
   is not published — if the shop ever needs branded email, that is where a
@@ -69,16 +80,20 @@ ePrivacy Art. 13), and this project does not send campaigns.
 
 | Mailable | Trigger | Regulation |
 |---|---|---|
-| `App\Mail\OrderPlaced` | `CheckoutPage::placeOrder`, after commit, both payment paths | CRD Art. 8(7); GDPR Art. 6(1)(b) |
+| `App\Mail\OrderPlaced` (COD) | `CheckoutPage::placeOrder`, after commit — cash on delivery only | CRD Art. 8(7); GDPR Art. 6(1)(b) |
+| `App\Mail\OrderPlaced` (card) | `SendOrderPlacedConfirmation`, listening on `OrderStatusChanged` when the order reaches `Paid` (ADR-0022) | CRD Art. 8(7); GDPR Art. 6(1)(b) |
 | `App\Mail\NewsletterConfirmation` | `SubscribeToNewsletter`, when a `Pending` row is created | ePrivacy Art. 13 |
 | `App\Mail\NewsletterUnsubscribed` | the unsubscribe route, after the status flips | GDPR Art. 7(3) acknowledgement |
 
 ## Not done
 
 - Production provider + domain auth (go-live).
-- A "your payment failed / order cancelled" mailable — an order abandoned
-  at the card step is cancelled by `carts:expire` / the payment-failure
-  path; telling the customer is a reasonable follow-up, not a legal
-  obligation.
+- A "your payment failed / order cancelled" mailable. An order abandoned at
+  the card step is cancelled by `orders:expire-unpaid` (ADR-0022), which
+  releases its stock and says nothing to the customer. Telling them is a
+  reasonable follow-up, not a legal obligation, and was deliberately
+  deferred rather than forgotten — ADR-0022's rejected alternatives.
+  (This entry previously credited `carts:expire` with the cancellation; it
+  never did that, and nothing did until ADR-0022.)
 - Localisation. Templates are English only; `laravel-lang/common` is
   installed but the mail strings are not extracted.

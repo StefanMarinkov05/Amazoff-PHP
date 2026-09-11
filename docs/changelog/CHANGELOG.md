@@ -6,7 +6,164 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Fixed
+
+- **The Stripe checkout-abandonment bug — an unpaid order emailed a
+  confirmation and held its stock forever (ADR-0022).** Reaching the Stripe
+  payment step and closing the tab queued `App\Mail\OrderPlaced` ("you
+  bought this") with no payment taken, and left every reserved unit
+  unsellable indefinitely. Reproduced against the running stack before any
+  change: `reserved=2`, `status=new`, no release path.
+
+  Three parts to the fix. **(1)** A card order now moves to
+  `OrderStatus::AwaitingPayment` in `CheckoutPage::placeOrder` as soon as
+  its intent exists. Without this the bug could not even be *found* in the
+  database — `CreateOrder` lands every order at `New`, so an abandoned card
+  checkout was indistinguishable from a cash-on-delivery order waiting for
+  staff, and a sweep written against `AwaitingPayment` (the obvious shape)
+  would have matched nothing but seeded demo rows while passing its own
+  tests. **(2)** New `App\Actions\Order\ExpireUnpaidOrders` and a
+  scheduled `orders:expire-unpaid` (every minute) cancel any
+  `AwaitingPayment` order past `config('orders.unpaid_ttl_minutes')`
+  (default 10, new `config/orders.php`), releasing stock through
+  `TransitionOrderStatus`'s own inventory effect — the sweep composes no
+  `ReleaseStock` call of its own. The age is read from the
+  `AwaitingPayment` `order_status_histories` row via a new
+  `Order::awaitingPaymentSince()`, not from `orders.created_at`, so time
+  spent on the address step does not count against the payment window.
+  **(3)** `HandleStripeWebhookEvent` now propagates a settled intent to the
+  order — `succeeded` → `Paid`, `canceled`/`payment_failed` → `Cancelled` —
+  but **only** from `AwaitingPayment`, so a retryable failure cannot
+  destroy an order staff have already confirmed.
+
+  **The CRD Art. 8(7) confirmation moved for card orders only.** COD still
+  sends at placement (that contract really is concluded then); a card
+  order's confirmation now goes out when the payment arrives, from the new
+  `App\Listeners\SendOrderPlacedConfirmation` on `OrderStatusChanged` —
+  the first listener in the codebase, and the use `OrderStatusChanged` was
+  built for. This supersedes the previously-documented "both paths email at
+  placement" position. `explanation/transactional-email.md` also claimed an
+  abandoned card order was "cancelled by `carts:expire` / the
+  payment-failure path"; that was never true and is now.
+
+  Accepted cost, recorded rather than hidden: 10 minutes is shorter than
+  the slowest genuine 3-D Secure payments, so a late `succeeded` can land
+  against an order the sweep already cancelled. The payment still records
+  as paid and staff see the mismatch in the panel — a refund case, not a
+  silent wrong state. The TTL is config precisely so raising it costs no
+  code change.
+
+  26 new/changed tests (`ExpireUnpaidOrdersTest` ×2,
+  `SendOrderPlacedConfirmationTest`, webhook order-effect cases in
+  `StripePaymentTest`, abandonment cases in `CheckoutTest`). Each mechanism
+  was confirmed red with it removed. The sweep's status filter and its
+  per-order re-check mask each other, so each is pinned by a test that
+  observes it directly rather than through its effect.
+
 ### Added
+
+- **Cart-size caps and rate limits on the public cart writes.** Nothing
+  bounded how large a basket could get, and a cart is not free: every line
+  is a rendered row on three pages, an `order_items` insert and an
+  `inventories` lock inside `CreateOrder`'s transaction, and every unit is
+  stock `ReserveStock` holds out of everyone else's reach until the order
+  is paid or ADR-0022's sweep cancels it. Two limits because those are two
+  different costs — `cart.max_lines` (50) and `cart.max_units` (200), new
+  `CartLimitExceededException`, enforced inside `AddToCart`'s transaction
+  so two concurrent adds cannot both read a just-under count.
+
+  Two details that would have been easy to get wrong and are pinned by
+  tests: the line being written counts **once**, not as both its stored and
+  its new quantity (otherwise the cap fires far below its stated figure),
+  and the line cap does not apply when an existing line merely grows —
+  which would make a full cart permanently uneditable. Lowering a quantity
+  always works, including from a cart already over the cap.
+
+  `ProductDetails::addToCart` (60/min) and `CartPage::applyCoupon` (20/min)
+  are now throttled per IP via `ThrottlesSubmissions`. The coupon throttle
+  runs *before* the unknown-code check, because that is the cheap branch a
+  guesser hits on every wrong attempt — and coupon codes are guessable by
+  construction while `RedeemCoupon` holds a `coupons` row lock, so a loop
+  there is both an enumeration oracle and a lock-contention lever.
+
+  Worth recording: all three storefront catch sites listed their exception
+  types by name, so the new exception fell straight through to an uncaught
+  500 on a public button until they were widened — the same shape as the
+  bare `DeleteAction` incidents. `CartPageTest` now pins the refusal as a
+  form error at the component layer, which is the test that catches it.
+
+- **`PaymentMethod` answers "when is the contract concluded", instead of
+  three call sites guessing.** The confirmation-email branch was written as
+  `!== PaymentMethod::Stripe` in `CheckoutPage` (twice) and as
+  `=== PaymentMethod::CashOnDelivery` in the listener — two spellings of
+  one intent, in opposite directions. They agree while there are two cases
+  and would diverge silently the moment a third arrives (a deposit, a
+  wallet): the negation sweeps it into "email at placement", the equality
+  into "wait for payment", and neither fails to compile. New
+  `PaymentMethod::concludesContractAtPlacement()`, a `match` with no
+  default arm, so adding a case forces an answer. Deliberately separate
+  from the existing `requiresOnlinePayment()` — a deposit would need a
+  gateway *and* plausibly conclude at placement, which one flag cannot
+  express. Every method still sends exactly one confirmation; the enum
+  decides only *when*. New `PaymentMethodTest`; red-checked by inverting
+  the method, which turns five tests across two files red.
+
+- **Checkout verifies the email's domain, not just its syntax.**
+  `email:rfc` accepts `gmial.com` happily, and for a card order that
+  address is the customer's only record of a contract they paid for — the
+  CRD Art. 8(7) confirmation is sent once, when payment lands, with no
+  second chance. New `App\Rules\DeliverableEmailDomain` checks for an MX
+  (or A) record, on checkout only: the same rule on login or the
+  newsletter would put a network call on a surface an attacker can loop.
+  Laravel's built-in `email:dns` was tried first and rejected — it has no
+  seam, and every fixture here is `@example.test`, which never resolves by
+  design (RFC 6761), so it turned 21 unrelated checkout tests red. The rule
+  is gated on `config('mail.verify_email_domain')`, false in both test
+  configs and true everywhere else, with its own test that switches it back
+  on and asserts against a domain that resolves and one that cannot.
+
+- **Multi-tab checkout, answered rather than assumed.** "Open checkout in N
+  tabs — does each tab reserve the stock again?" Measured live at N=4: no.
+  One order, one payment, the stock reserved once, and every losing tab
+  refused with a form error rather than a 500. Two `CheckoutTest` cases pin
+  it. The finding worth keeping is the *mechanism*: the predicted guard
+  (`UNIQUE(orders.cart_id)` → `CartAlreadyCheckedOutException`) is never
+  reached from the storefront — the winner consumes the cart,
+  `ResolveCurrentCart` then treats it as spent, and the losing tabs
+  short-circuit on `CheckoutPage::isEmpty()` before `CreateOrder` is called
+  at all. Recorded in `write-rules/order.md` because relaxing the
+  spent-cart exclusion would silently move the refusal onto the constraint
+  and change which layer fails.
+
+- **Explicit Cancel on both checkout steps (ADR-0022).** The deliberate
+  counterpart to the abandonment sweep: instead of closing the tab and
+  waiting out the unpaid-order TTL, the customer can say so and get an
+  immediate release. Cancel on the address/details step is pure navigation
+  (nothing is written before `placeOrder`). Cancel at the Stripe payment
+  step cancels the order — releasing its reservation through
+  `TransitionOrderStatus` (ADR-0011) — restores the basket, and drops the
+  session claim so the cancelled order's confirmation page stops being
+  reachable. An order whose payment already landed is refused: that is a
+  refund, which is staff work.
+
+  New `App\Actions\Cart\RestoreCartFromOrder`. It does **not** revive the
+  order's original cart — `orders.cart_id` is UNIQUE and
+  `ResolveCurrentCart` deliberately refuses a spent cart (handing one back
+  is what broke checkout permanently for a session in the 2026-09-05
+  incident), so the original keeps its audit link and the lines are
+  restored into the visitor's current unspent cart. Lines whose variation
+  has since been force-deleted (null `product_variation_id` via
+  `nullOnDelete()`) or soft-deleted are skipped; nothing else is
+  re-validated, matching `MergeGuestCart`'s standing.
+
+  Worth recording because a component test caught it and inspection did
+  not: restoring into a *new* cart looked correct and was not. By the time
+  Cancel is pressed the visitor already has an empty cart — `CreateOrder`
+  consumed the original and the next cart-reading render opened a fresh one
+  — so a third row left `ResolveCurrentCart` returning the empty one while
+  the restored lines sat in a row nothing read. The customer saw an empty
+  basket. 16 new tests; the reuse and the `updateOrCreate` were each
+  confirmed red with the mechanism removed.
 
 - **Privacy notice and T&Cs — full structured drafts (GDPR Arts. 12–14, CRD
   Art. 6; ADR-0019).** `/privacy` is now a real-shaped notice: controller

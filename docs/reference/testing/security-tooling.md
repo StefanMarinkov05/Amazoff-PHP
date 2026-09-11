@@ -25,7 +25,7 @@ about the code as it stood then.
 | **`composer audit`** | Composer 2, in the `app` container | Container | Known CVEs in PHP dependencies |
 | **`npm audit`** | npm, on the host | Host | Known CVEs in JS dependencies |
 | **Larastan** | `larastan/larastan ^3.10` | Container | Static types; catches a wrongly-typed security constant at compile time |
-| **Pest** | Pest 4 | Container | The regression tests that pin each fix |
+| **Pest** | Pest 5 | Container | The regression tests that pin each fix |
 
 Two things deliberately **not** installed, so the absence is not mistaken for
 an oversight — the reasoning is in `how-to/pentest-the-system.md`:
@@ -197,7 +197,7 @@ form with reproductions. In short:
 |---|---|---|---|---|
 | SEC-001 | Draft and embargoed articles readable by any visitor | High | Static review | **Fixed**, regression-tested |
 | SEC-002 | Another customer's order serial number disclosed | Medium | Static review | **Fixed**, regression-tested |
-| SEC-003 | `league/commonmark` 2.9.0 — 4 advisories, no reachable path | Low | `composer audit` | Open; patch on next update |
+| SEC-003 | `league/commonmark` 2.9.0 — 4 advisories, no reachable path | Low | `composer audit` | **Fixed**; patch on next update |
 | SEC-004 | No security headers on any response | Low | ZAP baseline | **Fixed** (app); Forge equivalent owed |
 | SEC-005 | Full active scan — no injection vulnerability | — | ZAP full scan | Clean |
 | SEC-006 | No CSP or CORP; a wildcard in the first fix attempt | Low | ZAP + review | **Fixed**, regression-tested |
@@ -329,8 +329,7 @@ verifiable, and an informed reader will find them anyway.
   Production runs on Forge with its own nginx and PHP configuration, so the
   two nginx-level fixes (SEC-004, SEC-007) do **not** reach it — see the
   pre-deploy checklist in `how-to/pentest-the-system.md`.
-- **Courier integration is unbuilt** (§37 #12–15), so its credential handling
-  and SSRF surface are unreviewed — there is nothing there yet to review.
+
 - **No business-logic fuzzing.** A scanner cannot know that an order's total
   should equal its items, or that a coupon should not be redeemable twice.
   Those invariants are covered by the Pest suites (`tests/Concurrency` in

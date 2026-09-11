@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Checkout;
 
+use App\Actions\Cart\RestoreCartFromOrder;
 use App\Actions\Order\CreateOrder;
+use App\Actions\Order\TransitionOrderStatus;
 use App\Actions\Payment\CreateStripeIntent;
 use App\Actions\Payment\RecordPayment;
 use App\Enums\DeliveryType;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
@@ -17,6 +20,7 @@ use App\Models\Carrier;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\User;
+use App\Rules\DeliverableEmailDomain;
 use App\Support\CalculateCartTotals;
 use App\Support\CalculateDeliveryPrice;
 use App\Support\Courier\CourierOffice;
@@ -308,7 +312,25 @@ class CheckoutPage extends Component
     protected function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email:rfc', 'max:100'],
+            // A domain check on top of the syntax one, here and nowhere
+            // else in the app. This is the one form where a wrong address
+            // costs the customer the only record of a contract they paid
+            // for: the card path's CRD Art. 8(7) confirmation is sent once,
+            // when payment lands (ADR-0022), with no second chance to
+            // correct it. Catches the common typo class (`gmial.com`) that
+            // `rfc` alone accepts happily.
+            //
+            // `DeliverableEmailDomain` rather than Laravel's own
+            // `email:rfc,dns`, which does the same lookup with no way to
+            // switch it off: every fixture here is `@example.test`, and
+            // `.test` never resolves by design, so the built-in rule turned
+            // 21 unrelated checkout tests red. See the rule's docblock.
+            //
+            // The cost is a live MX lookup on submit. Accepted here because
+            // checkout is low-volume and high-value; the same rule on login
+            // or the newsletter would put a network call on a surface an
+            // attacker can loop.
+            'email' => ['required', 'string', 'email:rfc', 'max:100', new DeliverableEmailDomain],
             'phone' => ['required', 'string', 'max:30'],
             'first_name' => ['required', 'string', 'min:2', 'max:50'],
             'last_name' => ['required', 'string', 'min:2', 'max:50'],
@@ -563,14 +585,32 @@ class CheckoutPage extends Component
 
                 $payment = app(RecordPayment::class)->handle($order, $method, $actor);
 
-                // COD skips Stripe entirely — CLAUDE.md, "Scope". There is no
-                // intent to create and nothing for the browser to confirm.
-                if ($method !== PaymentMethod::Stripe) {
+                // No online gateway for this method — CLAUDE.md, "Scope".
+                // There is no intent to create and nothing for the browser
+                // to confirm. Asked of the enum so a third method declares
+                // its own answer rather than inheriting one from a negation.
+                if (! $method->requiresOnlinePayment()) {
                     return [$order, null];
                 }
 
                 $createIntent = app(CreateStripeIntent::class);
                 $payment = $createIntent->handle($payment, $actor);
+
+                // The card order now has somewhere to be paid, so it moves
+                // off New. This is what makes "an unpaid card order" a state
+                // the database can be queried for — ExpireUnpaidOrders sweeps
+                // exactly this status, and before this transition existed an
+                // abandoned card checkout was indistinguishable from a COD
+                // order waiting for staff. ADR-0022 decision 1.
+                //
+                // Null actor: the customer holds no order permissions, and
+                // TransitionOrderStatus skips the policy check for a null
+                // actor by design (ADR-0007).
+                $order = app(TransitionOrderStatus::class)->handle(
+                    $order,
+                    OrderStatus::AwaitingPayment,
+                    null,
+                );
 
                 return [$order, $createIntent->clientSecretFor($payment)];
             });
@@ -587,12 +627,25 @@ class CheckoutPage extends Component
 
         // The order-confirmation email — Consumer Rights Directive Art. 8(7),
         // the confirmation of the concluded contract on a durable medium
-        // (ADR-0019). Sent for both paths: the contract is concluded at
-        // placement, not at payment, and the email states the payment
-        // status. Queued, so a slow mail host cannot hold checkout open;
+        // (ADR-0019). Queued, so a slow mail host cannot hold checkout open;
         // after the transaction has committed, so a rolled-back order never
         // triggers one.
-        Mail::to($order->email)->queue(new OrderPlaced($order));
+        //
+        // Sent once for every payment method; what the enum decides is
+        // *when*. A method whose contract concludes at placement (cash on
+        // delivery) is confirmed here; one that concludes when money
+        // arrives (card) is confirmed by SendOrderPlacedConfirmation on
+        // OrderStatusChanged instead. Sending here for a card order was the
+        // abandonment bug — it told a customer who closed the Stripe tab
+        // that they had bought something. ADR-0022 decision 5.
+        //
+        // Asked of the enum rather than written as `!== Stripe`: a third
+        // method (a deposit, a wallet) must state its own answer instead of
+        // being swept into whichever side the negation happens to put it
+        // on. See PaymentMethod::concludesContractAtPlacement().
+        if ($method->concludesContractAtPlacement()) {
+            Mail::to($order->email)->queue(new OrderPlaced($order));
+        }
 
         // Entitles this session — and only this session — to view the
         // confirmation. OrderConfirmation refuses a bare id otherwise, since
@@ -616,6 +669,101 @@ class CheckoutPage extends Component
 
         $this->orderId = $orderKey;
         $this->clientSecret = $clientSecret;
+    }
+
+    /**
+     * "Cancel" on the address/details step — before any order exists.
+     *
+     * Nothing has been written at this point: `placeOrder` is the only
+     * thing that creates an order, and it has not run. So this is purely a
+     * navigation away, and the cart is untouched and still current
+     * (`CreateOrder` has not consumed it).
+     *
+     * A method rather than a plain link so the two Cancels read the same in
+     * the template, and so this one has somewhere to grow if the details
+     * step ever starts writing something of its own.
+     */
+    public function cancelCheckout(): void
+    {
+        $this->redirectRoute('cart', navigate: true);
+    }
+
+    /**
+     * "Cancel" at the Stripe payment step — after the order exists and is
+     * holding stock.
+     *
+     * This is the deliberate version of the abandonment ADR-0022 sweeps up
+     * after: the customer says so instead of closing the tab, and gets an
+     * immediate release rather than waiting out the TTL.
+     *
+     * Three things have to happen, in this order:
+     *
+     * 1. **Cancel the order**, which releases every line's reservation —
+     *    `TransitionOrderStatus` owns that effect (ADR-0011) and this
+     *    composes no `ReleaseStock` call of its own.
+     * 2. **Rebuild the basket.** `CreateOrder` consumed the cart and
+     *    `ResolveCurrentCart` will not return a spent one, so the customer
+     *    would otherwise land on an empty cart having lost everything.
+     *    `RestoreCartFromOrder`'s docblock has the full reasoning for why
+     *    it opens a fresh cart rather than reviving the original.
+     * 3. **Drop the session claim**, so the cancelled order's confirmation
+     *    page is no longer reachable from this session. Nothing sensitive
+     *    leaks if it stays — the visitor placed the order — but a
+     *    confirmation page for an order that no longer stands is a
+     *    misleading thing to leave behind.
+     *
+     * Scoped through `order()`, never a bare `Order::find()`: `$orderId` is
+     * `#[Locked]`, but the entitlement check is what actually stops this
+     * cancelling somebody else's order (SEC-002).
+     */
+    public function cancelPayment(): void
+    {
+        $order = $this->order();
+
+        if ($order === null) {
+            // No order to cancel — a stale page, or a crafted call. Send
+            // them to the cart rather than erroring at them.
+            $this->redirectRoute('cart', navigate: true);
+
+            return;
+        }
+
+        // Only from AwaitingPayment. A paid order (the webhook landed while
+        // the customer was reaching for Cancel) must not be cancelled from
+        // a button — that is a refund, which is staff work.
+        if ($order->status !== OrderStatus::AwaitingPayment) {
+            $this->redirectRoute('checkout.confirmation', ['order' => $order->getKey()], navigate: true);
+
+            return;
+        }
+
+        // Null actor: the customer holds no cancel_order permission, and
+        // cancelling their own unpaid order takes nothing from anybody.
+        // ADR-0007's null-actor path, same as the sweep's.
+        app(TransitionOrderStatus::class)->handle(
+            $order,
+            OrderStatus::Cancelled,
+            null,
+            'Cancelled by the customer at the payment step.',
+        );
+
+        $user = auth()->user();
+        $userKey = $user instanceof User ? $user->getKey() : null;
+
+        app(RestoreCartFromOrder::class)->handle(
+            $order,
+            is_int($userKey) ? $userKey : null,
+            session()->getId(),
+        );
+
+        session()->forget(OrderConfirmation::SESSION_KEY);
+
+        $this->orderId = null;
+        $this->clientSecret = null;
+
+        session()->flash('success', 'Your order was cancelled and your basket restored.');
+
+        $this->redirectRoute('cart', navigate: true);
     }
 
     /**

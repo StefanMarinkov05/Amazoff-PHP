@@ -43,6 +43,64 @@ for `ModelNotFoundException`, not a gap.
 Neither Action authorizes anything — a customer editing their own cart holds
 no permission to check.
 
+## Restoring a basket from a cancelled order
+
+`RestoreCartFromOrder` (ADR-0022) backs the **Cancel** button on checkout's
+payment step. Cancelling releases the order's stock, but `CreateOrder`
+already consumed the cart and `ResolveCurrentCart` refuses to return a spent
+one, so without this the customer lands on an empty basket having lost
+everything they chose.
+
+| Situation | Outcome | Evidence |
+|---|---|---|
+| Ordinary cancel | the visitor's existing unspent cart if they have one, otherwise a new one, holding one line per order line; the original keeps its `orders.cart_id` audit link and stays spent | `RestoreCartFromOrderTest`, "copies the order lines into a new cart", "leaves the original cart spent rather than reviving it" |
+| The visitor already has an empty cart (the usual case — any cart-reading render after `CreateOrder` consumed the original opens one) | the lines land in **that** cart, not a third one. `ResolveCurrentCart` returns the first unspent cart, so a third would leave the customer looking at the empty one while the restored lines sat unread | `CheckoutTest`, "gives the customer their basket back after cancelling the payment" |
+| That reused cart already holds the same variation | `updateOrCreate` — the order's quantity wins, and `UNIQUE(cart_id, product_variation_id)` is never violated | `RestoreCartFromOrderTest`, "overwrites a line the reused cart already held" |
+| Signed-in customer | the new cart is keyed by `user_id` with `session_id` null — a session-keyed row would later match a stranger's guest session | `RestoreCartFromOrderTest`, "keys the restored cart to a signed-in customer rather than the session" |
+| A line's variation force-deleted since the order | skipped — `nullOnDelete()` left `order_items.product_variation_id` null, and a `cart_items` row pointing nowhere violates the foreign key | `RestoreCartFromOrderTest`, "skips a line whose variation was force-deleted" |
+| A line's variation soft-deleted since the order | skipped — a line the customer can neither buy nor fix, the same drop `CalculateCartTotals` already applies to a subtotal | `RestoreCartFromOrderTest`, "skips a line whose variation was soft-deleted since the order" |
+| Some lines dead, some live | the live ones are restored; the dead ones are dropped silently | `RestoreCartFromOrderTest`, "restores the surviving lines when only one of several is dead" |
+| The quantity now exceeds available stock | restored **as it was**, not clamped or refused — revalidated by `UpdateCartItemQuantity` on the next write and by `CreateOrder` at checkout, the same standing `MergeGuestCart` has | `RestoreCartFromOrderTest`, "restores a quantity that now exceeds available stock rather than refusing" |
+| A coupon was redeemed on the order | carried back as a plain `coupon_id`; `RedeemCoupon` re-validates it under a lock at the next checkout | `RestoreCartFromOrderTest`, "carries the coupon back onto the restored cart" |
+
+Nothing here is re-validated beyond the variation still existing. Losing a
+customer's basket to pre-empt a message the cart page already shows them is
+the worse trade.
+
+## Cart-wide caps
+
+Two ceilings from `config/cart.php`, enforced in `AddToCart` and (for units
+only) `UpdateCartItemQuantity`, refusing with `CartLimitExceededException`.
+They bound two different costs, so capping one would leave the other open:
+a **line** is a rendered row on three pages, an `order_items` insert and an
+`inventories` lock inside `CreateOrder`'s transaction; a **unit** is stock
+`ReserveStock` holds out of everyone else's reach until the order is paid
+or the unpaid-order sweep cancels it (ADR-0022). Neither is bounded by
+`min_order_quantity` or available stock, which are per-line checks.
+
+| Rule | Default | Refused when | Evidence |
+|---|---|---|---|
+| `cart.max_lines` | 50 | a write would add a **new** line past the ceiling | `AddToCartTest`, "refuses a line past the distinct-line cap" |
+| | | *not* when an existing line merely grows — no row is added, and counting it would make a full cart permanently uneditable | `AddToCartTest`, "lets an existing line grow even when the cart is at the line cap" |
+| `cart.max_units` | 200 | the cart's total quantity would cross the ceiling, via either Action | `AddToCartTest`, "refuses a quantity that would take the cart past the total-unit cap"; `UpdateCartItemQuantityTest`, same name |
+| | | the line being written is counted **once**, not as both its stored and its new value — otherwise the cap fires far below its stated figure | `AddToCartTest`, "counts a growing line once against the unit cap, not twice"; `UpdateCartItemQuantityTest`, "counts the line being changed once against the unit cap" |
+
+Lowering a quantity is always allowed, including from a cart already over
+the cap — one whose config was tightened underneath it, or which predates
+the caps entirely. Otherwise such a cart could never be brought back into
+range. `UpdateCartItemQuantityTest`, "lets a quantity be lowered even from
+a cart already over the cap".
+
+Both checks run **inside** `AddToCart`'s transaction, so two concurrent
+adds cannot both read a just-under count and both commit.
+
+`CartLimitExceededException` extends `RuntimeException`, and every
+storefront catch site lists it explicitly: `ProductDetails::addToCart` and
+both of `CartPage`'s quantity paths. An unlisted exception type on a public
+button is an uncaught 500, so `CartPageTest` pins the refusal as a *form
+error* at the component layer rather than only as a thrown exception at the
+Action layer.
+
 ## A line after the catalogue changes underneath it
 
 `AddToCart` and `UpdateCartItemQuantity` validate only the line they are

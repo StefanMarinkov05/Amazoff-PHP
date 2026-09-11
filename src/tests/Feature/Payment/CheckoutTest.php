@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Order\TransitionOrderStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -13,6 +14,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
@@ -410,13 +412,44 @@ it('creates a PaymentIntent and hands the browser a client secret for a card ord
         // Stays on the page for the card step rather than redirecting.
         ->assertSet('clientSecret', 'pi_checkout_9_secret_abc');
 
-    $payment = Order::query()->latest('id')->first()->payment;
+    $order = Order::query()->latest('id')->first();
+    $payment = $order->payment;
 
     expect($payment->method)->toBe(PaymentMethod::Stripe)
         ->and($payment->stripe_payment_intent_id)->toBe('pi_checkout_9')
         // Still Pending: only the webhook marks it Paid. A browser redirect
         // is not proof of payment.
-        ->and($payment->status)->toBe(PaymentStatus::Pending);
+        ->and($payment->status)->toBe(PaymentStatus::Pending)
+        // ADR-0022 decision 1: the card order moves off New the moment it
+        // has somewhere to be paid. This is what makes an abandoned
+        // checkout findable by ExpireUnpaidOrders — a COD order stays at
+        // New, so without this the two are indistinguishable.
+        ->and($order->status)->toBe(OrderStatus::AwaitingPayment);
+});
+
+/*
+ * ── ADR-0022: the abandonment bug ───────────────────────────────────────
+ *
+ * Reaching the Stripe payment step is not buying anything. Until ADR-0022
+ * this queued OrderPlaced anyway, so a customer who closed the tab was told
+ * "your order" for goods they never paid for. The card path's confirmation
+ * now waits for payment_intent.succeeded.
+ */
+
+it('queues no confirmation email when a card order only reaches the payment step', function (): void {
+    Mail::fake();
+    fakeStripeIntents();
+    $cart = checkoutCart(quantity: 1, price: '25.00');
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])
+        ->call('placeOrder')
+        ->assertHasNoErrors();
+
+    // The order exists and holds its stock; nothing has been confirmed to
+    // the customer, because nothing has been paid.
+    Mail::assertNotQueued(OrderPlaced::class);
+    expect(Order::query()->latest('id')->first()->status)->toBe(OrderStatus::AwaitingPayment);
 });
 
 it('reserves stock when the order is placed, before payment confirms', function (): void {
@@ -436,6 +469,60 @@ it('reserves stock when the order is placed, before payment confirms', function 
 /*
  * ── Refusals ────────────────────────────────────────────────────────────
  */
+
+/*
+ * ── The email the confirmation is sent to ───────────────────────────────
+ *
+ * `email:rfc` is a syntax check, not a deliverability one. What it does
+ * catch is worth pinning, because for a card order this address is the
+ * customer's only record of a contract they actually paid for — the
+ * confirmation is sent once payment lands (ADR-0022) and there is no
+ * second chance to correct it.
+ *
+ * What it deliberately does **not** check is whether the domain exists or
+ * accepts mail. See "Not done" in `explanation/transactional-email.md`.
+ */
+
+it('refuses a malformed email before any order exists', function (): void {
+    $cart = checkoutCart();
+
+    $component = Livewire::test(CheckoutPage::class);
+
+    fillCheckout($component, ['email' => 'not-an-address'])
+        ->call('placeOrder')
+        ->assertHasErrors('email');
+
+    // Refused at validation, so nothing was written and no stock was held.
+    expect(Order::count())->toBe(0);
+})->with([
+    'no at sign' => 'not-an-address',
+    'no domain' => 'ada@',
+    'no local part' => '@example.test',
+    'spaces' => 'ada lovelace@example.test',
+    'empty' => '',
+]);
+
+it('sends the confirmation to the address on the order, not the account', function (): void {
+    Mail::fake();
+
+    // A signed-in customer who types a different address at checkout: the
+    // order carries what was submitted, and CreateOrder never infers an
+    // actor from a matching email, so the confirmation must follow the
+    // order rather than the account.
+    $user = User::factory()->create(['email' => 'account@example.test']);
+    checkoutCart(owner: $user);
+
+    $component = Livewire::actingAs($user)->test(CheckoutPage::class);
+    fillCheckout($component, ['email' => 'different@example.test'])
+        ->call('placeOrder')
+        ->assertHasNoErrors();
+
+    Mail::assertQueued(
+        OrderPlaced::class,
+        fn (OrderPlaced $mail): bool => $mail->hasTo('different@example.test')
+            && ! $mail->hasTo('account@example.test'),
+    );
+});
 
 it('refuses to place an order from an empty cart', function (): void {
     emptyCheckoutCart();
@@ -646,6 +733,164 @@ it('leaves nothing behind when the order fails', function (): void {
     // payment row reserving nothing.
     expect(Order::count())->toBe(0)
         ->and(Payment::count())->toBe(0);
+});
+
+/*
+ * ── Checkout in N tabs, one session ─────────────────────────────────────
+ *
+ * `ResolveCurrentCart` binds a guest cart to the session, so every tab
+ * shares one cart — but each tab that reaches `placeOrder` runs
+ * `CreateOrder` → `ReserveStock` again. The question this answers is the
+ * blunt one: does opening checkout in N tabs reserve N times the stock?
+ *
+ * It does not, and the mechanism is worth naming precisely, because it is
+ * **not** the one the schema suggests. `UNIQUE(orders.cart_id)` and
+ * `CartAlreadyCheckedOutException` are a real backstop and are never
+ * reached from this path: the winning tab's `CreateOrder` consumes the
+ * cart, `ResolveCurrentCart` then excludes it as spent, and the losing tabs
+ * resolve to a fresh empty cart and short-circuit on `isEmpty()` before
+ * `CreateOrder` is ever called. Measured live at N=4 before being written
+ * down.
+ */
+
+it('reserves stock once however many tabs reach the payment step', function (): void {
+    fakeStripeIntents();
+    $cart = checkoutCart(quantity: 2, price: '10.00', stock: 10);
+    $variation = $cart->cartItems()->first()->productVariation;
+
+    // Four tabs, one session, one cart — four component instances is what
+    // "four tabs" actually is at this layer.
+    $tabs = collect(range(1, 4))->map(fn (): mixed => Livewire::test(CheckoutPage::class));
+
+    $tabs->each(fn (mixed $tab) => fillCheckout($tab, [
+        'payment_method' => PaymentMethod::Stripe->value,
+    ])->call('placeOrder'));
+
+    expect(Order::count())->toBe(1)
+        // 2, not 8. The whole point of the item.
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(2)
+        // One payment and so one Stripe intent — a second would be a second
+        // chargeable card form for one basket.
+        ->and(Payment::count())->toBe(1);
+});
+
+it('refuses the losing tabs with a form error rather than a 500', function (): void {
+    fakeStripeIntents();
+    checkoutCart(quantity: 2, price: '10.00', stock: 10);
+
+    $winner = Livewire::test(CheckoutPage::class);
+    $loser = Livewire::test(CheckoutPage::class);
+
+    fillCheckout($winner, ['payment_method' => PaymentMethod::Stripe->value])->call('placeOrder');
+
+    // The loser's cart is spent and therefore invisible to
+    // ResolveCurrentCart, so it sees an empty basket. Whatever the wording,
+    // the requirement is that it is a message on the form and not an
+    // uncaught exception.
+    fillCheckout($loser, ['payment_method' => PaymentMethod::Stripe->value])
+        ->call('placeOrder')
+        ->assertHasErrors('email');
+
+    expect($loser->get('clientSecret'))->toBeNull()
+        ->and(Order::count())->toBe(1);
+});
+
+/*
+ * ── Cancel, at both checkout sub-states (ADR-0022) ──────────────────────
+ *
+ * The deliberate counterpart to the abandonment sweep: the customer says
+ * they are done instead of closing the tab, and gets an immediate release
+ * plus their basket back rather than waiting out the unpaid-order TTL.
+ */
+
+it('cancels at the details step without having written anything', function (): void {
+    $cart = checkoutCart();
+
+    Livewire::test(CheckoutPage::class)
+        ->call('cancelCheckout')
+        ->assertRedirect(route('cart'));
+
+    // placeOrder is the only thing that creates an order, and it never ran.
+    expect(Order::count())->toBe(0)
+        ->and($cart->fresh()->cartItems()->count())->toBe(1);
+});
+
+it('cancels at the payment step, releasing the stock it was holding', function (): void {
+    fakeStripeIntents();
+    $cart = checkoutCart(quantity: 3, price: '10.00', stock: 10);
+    $variation = $cart->cartItems()->first()->productVariation;
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])->call('placeOrder');
+
+    expect($variation->inventory->fresh()->reserved_quantity)->toBe(3);
+
+    $component->call('cancelPayment')->assertRedirect(route('cart'));
+
+    $order = Order::query()->latest('id')->first();
+
+    expect($order->status)->toBe(OrderStatus::Cancelled)
+        // TransitionOrderStatus owns the release (ADR-0011); cancelPayment
+        // composes no ReleaseStock call of its own.
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(0);
+});
+
+it('gives the customer their basket back after cancelling the payment', function (): void {
+    fakeStripeIntents();
+    $cart = checkoutCart(quantity: 2, price: '25.00');
+    $variationId = $cart->cartItems()->first()->product_variation_id;
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])->call('placeOrder');
+
+    // CreateOrder consumed the cart, so the original is spent and
+    // ResolveCurrentCart will never hand it back.
+    $component->call('cancelPayment');
+
+    $current = ResolveCurrentCart::existing();
+
+    expect($current)->not->toBeNull()
+        ->and($current->is($cart))->toBeFalse()
+        ->and($current->cartItems()->sole()->product_variation_id)->toBe($variationId)
+        ->and($current->cartItems()->sole()->quantity)->toBe(2);
+});
+
+it('drops the session claim on an order it cancelled', function (): void {
+    fakeStripeIntents();
+    checkoutCart();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])->call('placeOrder');
+
+    expect(session(OrderConfirmation::SESSION_KEY))->not->toBeNull();
+
+    $component->call('cancelPayment');
+
+    // A confirmation page for an order that no longer stands is a
+    // misleading thing to leave reachable.
+    expect(session(OrderConfirmation::SESSION_KEY))->toBeNull();
+});
+
+it('refuses to cancel an order whose payment already landed', function (): void {
+    fakeStripeIntents();
+    $cart = checkoutCart(quantity: 2, price: '10.00', stock: 10);
+    $variation = $cart->cartItems()->first()->productVariation;
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])->call('placeOrder');
+
+    $order = Order::query()->latest('id')->first();
+
+    // The webhook landed while the customer was reaching for Cancel.
+    app(TransitionOrderStatus::class)->handle($order, OrderStatus::Paid, null);
+
+    $component->call('cancelPayment')
+        ->assertRedirect(route('checkout.confirmation', ['order' => $order->getKey()]));
+
+    // Cancelling a paid order from a customer button would be a refund,
+    // which is staff work — and would release stock that was sold.
+    expect($order->fresh()->status)->toBe(OrderStatus::Paid)
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(2);
 });
 
 /*

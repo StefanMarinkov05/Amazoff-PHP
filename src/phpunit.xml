@@ -49,6 +49,12 @@
         <env name="DB_DATABASE" value="amazoff_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!--
+            The MX lookup in App\Rules\DeliverableEmailDomain, off. Every
+            fixture address is @example.test, and .test never resolves by
+            design (RFC 6761). The rule's own test turns this back on.
+        -->
+        <env name="MAIL_VERIFY_EMAIL_DOMAIN" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

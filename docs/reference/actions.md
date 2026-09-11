@@ -197,11 +197,23 @@ ever true before the save committed.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `AddToCart` | `cart_items` (insert or increment) | — no non-human caller, no parameter | `RemovedFromCatalogueException`, `InvalidCartQuantityException`, `InsufficientStockException` |
-| `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same three |
+| `AddToCart` | `cart_items` (insert or increment) | — no non-human caller, no parameter | `RemovedFromCatalogueException`, `InvalidCartQuantityException`, `InsufficientStockException`, `CartLimitExceededException` |
+| `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same four (the line cap cannot apply: no line is added) |
 | `MergeGuestCart` | `cart_items`, deletes the guest `carts` row | — no non-human caller, no parameter | — never refuses |
 | `RemoveFromCart` | `cart_items` (hard delete) | — no non-human caller, no parameter | — never refuses |
+| `RestoreCartFromOrder` | `carts` (a **new** row, keyed to the visitor), `cart_items` copied from the order's lines | — no non-human caller, no parameter | — never refuses |
 | `ExpireCarts` | deletes `carts` past `expires_at` (and their `cart_items`, by cascade) | — no actor at all, human or otherwise: invoked by the `carts:expire` schedule | — never refuses |
+
+`RestoreCartFromOrder` backs the **Cancel** button on checkout's payment
+step: cancelling the order releases its stock, but `CreateOrder` already
+consumed the cart and `ResolveCurrentCart` refuses to return a spent one, so
+without this the customer lands on an empty basket. It opens a *fresh* cart
+rather than reviving the original — the original keeps its `orders.cart_id`
+audit link, and handing a spent cart back is what broke checkout permanently
+for a session in the 2026-09-05 incident. Lines whose variation has since
+been force-deleted (a null `product_variation_id`, via `nullOnDelete()`) or
+soft-deleted are skipped; nothing else is re-validated, the same standing
+`MergeGuestCart` has.
 
 None of the first four take an `?User $actor`. A customer editing their own
 cart holds no permission to check, and nothing here has a non-human caller
@@ -260,10 +272,11 @@ a `Coupon` row is single-table with no second writer, decision 10.
 |---|---|---|---|
 | `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon`, `ReserveStock`, and `CalculateDeliveryPrice` (for `shipping_amount`/`carrier_id`, given a carrier) | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
+| `ExpireUnpaidOrders` | nothing directly; composes `TransitionOrderStatus(Cancelled)` for every `AwaitingPayment` order past `config('orders.unpaid_ttl_minutes')`, which releases the stock (ADR-0022) | **none** — the scheduler is the system; a null actor skips the policy check | `RuntimeException` (a non-positive TTL config) |
 | `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
 | `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
 | `CreateStripeIntent` | `payments.stripe_payment_intent_id` | **none** — the customer's own checkout path, where there is no permission to hold | `StripeIntentNotAllowedException` |
-| `HandleStripeWebhookEvent` | `payment_events`; composes `TransitionPaymentStatus` | **none** — Stripe is the actor. The request is authenticated by `VerifyStripeWebhookSignature` middleware, not by a permission | — (refusals are logged and acknowledged, never thrown; see below) |
+| `HandleStripeWebhookEvent` | `payment_events`; composes `TransitionPaymentStatus`, and `TransitionOrderStatus` for an order still at `AwaitingPayment` (`succeeded` → `Paid`, `canceled`/`payment_failed` → `Cancelled`; ADR-0022) | **none** — Stripe is the actor. The request is authenticated by `VerifyStripeWebhookSignature` middleware, not by a permission | — (refusals are logged and acknowledged, never thrown; see below) |
 | `RefundPayment` | `payments.status`, `refunded_amount` via `TransitionPaymentStatus`; calls Stripe | optional, `refund_payment` | `RefundNotAllowedException`, `AuthorizationException` |
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |

@@ -11,6 +11,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | Command | Purpose | Invoked by |
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
+| `orders:expire-unpaid` | Cancels card orders left in `AwaitingPayment` past `config('orders.unpaid_ttl_minutes')` and releases the stock they hold, via `TransitionOrderStatus(Cancelled)` (ADR-0022) | The scheduler, every minute |
 | `orders:purge-anonymised` | Deletes GDPR-anonymised orders past `config('gdpr.order_retention_years')` — the accounting-retention window. Disabled (says so, does nothing) when the config value is `null` (ADR-0019) | The scheduler, weekly |
 | `newsletter:purge-unconfirmed` | Deletes newsletter rows still `Pending` 30 days after submission — an address held without consent (ePrivacy Art. 13, ADR-0019) | The scheduler, daily |
 | `products:snapshot-prices` | Records every product's effective selling price into `product_price_history`, unconditionally, for the Omnibus 30-day prior-price display (ADR-0021). The daily cadence captures a scheduled discount window opening or closing without an admin edit | The scheduler, daily |
@@ -53,6 +54,33 @@ it, because the TTL policy is not built. The intended shape, not yet
 implemented: guest carts expire roughly a month after last touch; a
 registered customer's cart does not expire at all, since the thing that
 expires for a logged-in customer is the checkout stage rather than the cart.
+
+## `orders:expire-unpaid`
+
+```bash
+docker compose exec app php artisan orders:expire-unpaid
+```
+
+Scheduled `->everyMinute()`, and the only command here that is genuinely
+time-sensitive. The abandoned-checkout case (ADR-0022): a customer reaches
+the Stripe payment step, closes the tab, and the units `ReserveStock` held
+are unsellable until something cancels the order. Every minute the sweep
+does not run is a minute a sold-out item stays sold out for nobody.
+
+Selects on `orders.status = awaiting_payment` — **not** `New`. A
+cash-on-delivery order sits at `New` waiting for staff and must never be
+swept; a card order moves to `AwaitingPayment` in `CheckoutPage::placeOrder`
+as soon as its intent exists, which is what makes the two distinguishable
+at all. The age is read from the `order_status_histories` row for the
+`AwaitingPayment` transition, not from `orders.created_at`, so time spent on
+the address step does not count against the payment window.
+
+Cancelling releases the stock because `TransitionOrderStatus` owns that
+effect (ADR-0011); the command composes no inventory call of its own.
+
+**It will sweep a demo database's seeded `AwaitingPayment` orders**, whose
+history rows are backdated. Nothing runs `schedule:run` locally today, so
+this only bites if someone starts a scheduler against demo data.
 
 ## `orders:purge-anonymised`
 

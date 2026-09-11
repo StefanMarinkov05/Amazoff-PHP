@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Cart\AddToCart;
 use App\Actions\Cart\UpdateCartItemQuantity;
 use App\Actions\Inventory\ReserveStock;
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
@@ -259,4 +260,53 @@ it('refuses to update a line whose variation has been deactivated', function ():
         ->toThrow(RemovedFromCatalogueException::class);
 
     expect($item->fresh()->quantity)->toBe(1);
+});
+
+/*
+ * ── The cart-wide unit cap (config/cart.php) ────────────────────────────
+ *
+ * No line-count check here: this Action only changes a line that already
+ * exists, so the number of distinct lines cannot move. Only the total
+ * matters, and the line being changed must be counted once — reading its
+ * stored value *and* its new one would refuse far below the stated cap.
+ */
+
+it('refuses a quantity that would take the cart past the total-unit cap', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    $a = cartVariation(stock: 100);
+    $b = cartVariation(stock: 100);
+    $itemA = $cart->cartItems()->create(['product_variation_id' => $a->getKey(), 'quantity' => 6]);
+    $cart->cartItems()->create(['product_variation_id' => $b->getKey(), 'quantity' => 3]);
+
+    expect(fn () => app(UpdateCartItemQuantity::class)->handle($itemA, 8))
+        ->toThrow(CartLimitExceededException::class);
+
+    expect($itemA->fresh()->quantity)->toBe(6);
+});
+
+it('counts the line being changed once against the unit cap', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    $variation = cartVariation(stock: 100);
+    $item = $cart->cartItems()->create(['product_variation_id' => $variation->getKey(), 'quantity' => 4]);
+
+    // 9 is under the cap of 10. Counting the stored 4 as well would make
+    // this 13 and refuse it.
+    app(UpdateCartItemQuantity::class)->handle($item, 9);
+
+    expect($item->fresh()->quantity)->toBe(9);
+});
+
+it('lets a quantity be lowered even from a cart already over the cap', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    $variation = cartVariation(stock: 100);
+    // Written directly: a cart that predates the cap, or one whose config
+    // was tightened underneath it. Reducing must always be possible.
+    $item = $cart->cartItems()->create(['product_variation_id' => $variation->getKey(), 'quantity' => 40]);
+
+    app(UpdateCartItemQuantity::class)->handle($item, 5);
+
+    expect($item->fresh()->quantity)->toBe(5);
 });

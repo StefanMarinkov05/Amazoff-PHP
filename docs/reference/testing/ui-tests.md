@@ -601,6 +601,30 @@ broker `submit()` validates against, not a stand-in:
 
 ### `CheckoutTest` (`tests/Feature/Payment/`)
 
+**[Added 2026-09-11]** Two multi-tab cases: four component instances in one
+session all reaching `placeOrder` produce one order, one payment and one
+reservation, and the losers refuse with a form error rather than a 500. The
+guard that fires is `isEmpty()` after the winner consumed the cart, not
+`UNIQUE(orders.cart_id)` — see `write-rules/order.md`, "Two actors at once".
+
+**[Added 2026-09-11, ADR-0022]** Five cancel cases, covering both checkout
+sub-states:
+
+- Cancel at the **details** step writes nothing — `placeOrder` is the only
+  thing that creates an order and it never ran, so the cart is untouched.
+- Cancel at the **payment** step cancels the order and releases the stock
+  it was holding, through `TransitionOrderStatus`'s own inventory effect.
+- The customer gets their **basket back**: `CreateOrder` consumed the
+  original cart, so `RestoreCartFromOrder` refills the visitor's current
+  unspent cart. This case is what caught the resolution bug where a third
+  cart row left the customer looking at an empty basket.
+- The **session claim** on the cancelled order is dropped, so its
+  confirmation page is no longer reachable from that session.
+- An order whose **payment already landed** is refused — cancelling a paid
+  order from a customer button would be a refund (staff work) and would
+  release stock that was sold.
+
+
 The full cycle — cart → checkout → order → payment → intent →
 confirmation. §37 criteria 6, 7 and 8. Stripe is faked here; the Action's
 own arithmetic is `StripePaymentTest` and the endpoint is

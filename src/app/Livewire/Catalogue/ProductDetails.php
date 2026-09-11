@@ -7,10 +7,12 @@ namespace App\Livewire\Catalogue;
 use App\Actions\Cart\AddToCart;
 use App\Actions\ProductReview\CreateProductReview;
 use App\Enums\OrderStatus;
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
 use App\Exceptions\ReviewNotAllowedException;
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\Brand;
@@ -62,6 +64,8 @@ use Livewire\Component;
  */
 class ProductDetails extends Component
 {
+    use ThrottlesSubmissions;
+
     public ?int $productId = null;
 
     /**
@@ -525,7 +529,12 @@ class ProductDetails extends Component
      */
     public function addToCart(AddToCart $addToCart): void
     {
-        if ($this->variation === null) {
+        // Captured into a local rather than re-read below: `variation` is a
+        // #[Computed], so every access is a fresh evaluation and the null
+        // check above narrows nothing for the call that follows it.
+        $variation = $this->variation;
+
+        if ($variation === null) {
             $this->addError('cart', 'Choose an option first!');
 
             return;
@@ -541,10 +550,21 @@ class ProductDetails extends Component
             throw new InvalidArgumentException('ProductDetails::$quantity must be a scalar value.');
         }
 
+        // Keyed on IP, not on the variation: keying on the thing being
+        // submitted hands an attacker the full allowance per item, which is
+        // not a limit on volume at all (SEC-010). Every add is a write plus
+        // a stock read, and nothing bounded how many a script could issue.
+        // 60/minute is far above a human clicking through a catalogue and
+        // far below what a loop would manage.
+        //
+        // After the variation guard, so a customer who clicks before
+        // choosing an option does not spend their allowance on a misclick.
+        $this->throttleSubmission('add-to-cart|'.$this->requestIp(), 'cart', maxAttempts: 60, decaySeconds: 60);
+
         try {
             $addToCart->handle(
                 ResolveCurrentCart::forVisitor(),
-                $this->variation,
+                $variation,
                 (int) $quantity
             );
 
@@ -553,7 +573,8 @@ class ProductDetails extends Component
         } catch (
             RemovedFromCatalogueException|
             InvalidCartQuantityException|
-            InsufficientStockException $e
+            InsufficientStockException|
+            CartLimitExceededException $e
         ) {
             $this->addError('cart', $e->getMessage());
         }

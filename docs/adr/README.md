@@ -34,3 +34,6 @@ note) is the one thing that can still be edited in place.
 - **[0021](0021-omnibus-prior-price-display.md)** — Omnibus prior-price
   display (`product_price_history`; daily snapshot + write-triggered; lowest
   price in the 30 days before a reduction)
+- **[0022](0022-unpaid-order-lifecycle.md)** — The unpaid-order lifecycle
+  (card orders reach `AwaitingPayment`; a scheduled sweep releases abandoned
+  reservations; the card path's CRD Art. 8(7) confirmation moves to payment)

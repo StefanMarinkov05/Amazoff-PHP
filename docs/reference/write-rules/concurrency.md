@@ -40,6 +40,7 @@ listed as unverified, because a test that has never failed is not evidence.
 | `product_categories` deleted while a subcategory is created underneath it | delete-vs-insert, asymmetric — one side has no Action to lose through | `lockForUpdate` on the category, backstopped by `parent_id`'s foreign key either way | `DeleteProductCategory` |
 | 2 orders reserving the same variation(s) | row contention across several `inventories` rows in one transaction | `ReserveStock`'s own lock, called once per line, sorted by `product_variation_id` first | `CreateOrder` |
 | `orders.status` | row contention inside one request; idempotency across two identical requests | `lockForUpdate` on `orders`, re-read from the locked row, plus `UNIQUE(order_id, new_status)` as backstop | `TransitionOrderStatus` |
+| an unpaid order racing its own payment — the sweep cancelling while a webhook pays | `TransitionOrderStatus`'s own `orders` lock serialises them; the loser's target is no longer legal from the winner's landing status, plus a pre-transition status re-check in the sweep | `ExpireUnpaidOrders`, `HandleStripeWebhookEvent` |
 | `inventories.reserved_quantity`/`sold_quantity`/`current_quantity` via a status transition | row contention, composed inside `TransitionOrderStatus`'s own `orders` lock | `CompleteSale`/`RestockReturn`'s own `lockForUpdate` on `inventories`, same shape as `ReserveStock`/`ReleaseStock` | `TransitionOrderStatus` |
 
 ### Lock order
@@ -70,6 +71,15 @@ locks each affected line's `inventories` row — sorted by
 locks `orders` and then anything else in the opposite order, so the two
 declared orders (`products`/`coupons`/`inventories`, and now `orders`/
 `inventories`) do not currently interact.
+
+`payments` before `orders` (ADR-0022). `HandleStripeWebhookEvent` holds its
+`payments` lock for the whole event, and then — for an order still at
+`AwaitingPayment` — composes `TransitionOrderStatus`, which takes `orders`
+and then `inventories`. So the webhook's full order is
+`payments` → `orders` → `inventories`. Nothing takes `orders` and then
+reaches for `payments`, so no cycle exists; an Action that did would
+deadlock against the webhook rather than merely wait, which is why the
+direction is declared here rather than left to be inferred.
 
 ## What is tested
 

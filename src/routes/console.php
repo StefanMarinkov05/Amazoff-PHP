@@ -37,3 +37,11 @@ Schedule::command('newsletter:purge-unconfirmed')->daily()->withoutOverlapping()
 // scheduled discount window opening or closing without an admin edit, and
 // makes "the lowest price applied during the 30 days" a direct query.
 Schedule::command('products:snapshot-prices')->daily()->withoutOverlapping();
+
+// ADR-0022 — cancel card orders abandoned at the Stripe payment step and
+// release the stock they are holding. everyMinute() because this one *is*
+// time-sensitive, unlike its housekeeping siblings above: the whole point
+// is that contested stock goes back on sale promptly, and a daily run would
+// hold a sold-out item for a day. The sweep is a no-op on an empty result,
+// so a minute's cadence costs one indexed query.
+Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping();

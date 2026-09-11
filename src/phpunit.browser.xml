@@ -36,6 +36,11 @@
         <env name="DB_DATABASE" value="amazoff_browser"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Same reason as phpunit.xml: the browser fixtures use
+             non-resolving addresses, and the MX lookup in
+             App\Rules\DeliverableEmailDomain must not put the browser
+             suite on the network. -->
+        <env name="MAIL_VERIFY_EMAIL_DOMAIN" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

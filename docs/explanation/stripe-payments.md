@@ -45,14 +45,37 @@ plain-text read:
       │                                                     │               │
       │                                     payment_intent.succeeded ──────►│
       │                                                     │               │
-      │                                          TransitionPaymentStatus ───┘
+      │                                          TransitionPaymentStatus ───┤
       │                                                 payments.status = Paid
+      │                                          TransitionOrderStatus  ────┘
+      │                                                 orders.status = Paid
+      │                                                        │
+      │                                       OrderStatusChanged (after commit)
+      │                                                        │
+      │                                       SendOrderPlacedConfirmation
+      │                                            queues OrderPlaced
 ```
+
+**If the customer never pays**, none of the right-hand column happens, and
+that is the case ADR-0022 exists for. The order sits at `AwaitingPayment`
+holding its stock; `orders:expire-unpaid` cancels it once
+`config('orders.unpaid_ttl_minutes')` has passed, which releases the
+reservation through `TransitionOrderStatus`. A `payment_intent.canceled` or
+`payment_failed` does the same thing sooner, when Stripe bothers to send
+one. No confirmation email is ever sent, because nothing was concluded.
 
 The important asymmetry: **the browser's redirect and the payment's status
 are on different paths.** The customer can close the tab, lose their
 connection, or never see the confirmation page, and the payment still
 completes — because the only writer of `payments.status` is the webhook.
+
+The corollary, which cost this project a real bug: a customer reaching the
+card step proves nothing about whether they will pay. Until ADR-0022 the
+order-confirmation email went out at placement for both payment methods, so
+closing the tab produced a "you bought this" email for an unpaid order whose
+stock stayed reserved forever. The card path's confirmation now waits for
+`payment_intent.succeeded`; cash on delivery still sends at placement,
+because a COD contract really is concluded there.
 
 ## Why the checkout write is one transaction
 
@@ -274,6 +297,13 @@ Recorded rather than silently carried:
   Fine at this volume; not fine at a subscription-renewal-shaped spike.
 - **The 80-second SDK timeout** described above.
 - **Dispute *closing* events are unhandled** — see Disputes.
+- **A 10-minute unpaid TTL can cancel a slow 3-D Secure payment**
+  (ADR-0022). A late `payment_intent.succeeded` then lands against a
+  cancelled order: the payment records as paid, the order stays cancelled,
+  and staff see the mismatch in the panel as a refund case. Accepted
+  deliberately so that one timer governs both the stock hold and the
+  checkout timeout; `config('orders.unpaid_ttl_minutes')` raises it without
+  a code change.
 - **Nothing has been run against the real Stripe API end to end.** Response
   shapes were verified against live test-mode objects; the request shapes
   this application sends have never been accepted by Stripe in anger.

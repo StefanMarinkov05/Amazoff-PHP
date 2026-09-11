@@ -138,6 +138,29 @@ class Order extends Model
         return $row?->created_at;
     }
 
+    /**
+     * When this order entered `AwaitingPayment`, or null if it never has.
+     *
+     * The card path's clock, read by `ExpireUnpaidOrders` (ADR-0022) to
+     * decide whether an unpaid order has outlived
+     * `config('orders.unpaid_ttl_minutes')`. Not `created_at`: the two
+     * differ by however long the customer spent on the address step, and it
+     * is reaching the payment step that starts the timer.
+     *
+     * Same shape and same reasoning as `deliveredAt()` above —
+     * `UNIQUE(order_id, new_status)` guarantees at most one such row, and
+     * `OrderStatus`'s acyclic graph means it cannot be re-entered, so there
+     * is no ambiguity about which visit is meant.
+     */
+    public function awaitingPaymentSince(): ?CarbonInterface
+    {
+        $row = $this->orderStatusHistories()
+            ->where('new_status', OrderStatus::AwaitingPayment)
+            ->first();
+
+        return $row?->created_at;
+    }
+
     /** @return HasOne<Shipment, $this> */
     public function shipment(): HasOne
     {
