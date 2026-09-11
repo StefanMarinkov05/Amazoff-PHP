@@ -432,3 +432,116 @@ flag as part of the normal workflow, verify it against
 `docker compose exec app <command>` specifically — not just `composer
 show`/`--help` output confirming the feature exists. `run-the-tests.md`'s
 TIA/`--dirty` section now says so explicitly and points here.
+
+---
+
+## The `db` container exits 126 on a fresh volume, and Pest then can't reach `amazoff_test`
+
+**Symptom.** On Windows, `docker compose up` after `docker compose down -v`
+fails with `dependency failed to start: container ...-db-1 exited (126)`.
+Every service that depends on `db` never starts. `docker compose logs db`
+ends with:
+
+```
+/docker-entrypoint-initdb.d/01-test-database.sh: /bin/bash^M: bad interpreter: No such file or directory
+```
+
+Skipping the wipe and reusing the old volume hides the crash but produces
+the *other* failure instead — the whole suite failing with `Access denied
+for user 'sail'@'%' to database 'amazoff_test'`, since the script that
+creates that database is exactly the one that never ran.
+
+**Cause.** `src/.gitattributes` normalizes line endings with
+`* text=auto eol=lf`, but its scope is `src/` only.
+`docker/mysql/init/01-test-database.sh` sits at the repo root, outside that
+scope, and there was no root `.gitattributes`. A clone made with Git's
+Windows default `core.autocrlf=true` therefore writes that file with CRLF,
+making the shebang literally `/bin/bash\r` — a path that does not exist.
+MySQL's entrypoint reports it only as exit code 126.
+
+**Fix.** A root [`.gitattributes`](../../../.gitattributes) pins shell
+scripts to LF for the whole repository:
+
+```
+*.sh text eol=lf
+```
+
+An existing checkout keeps its CRLF copy until the file is rewritten, so
+re-take it once, then rebuild the volume so the init script runs:
+
+```bash
+rm docker/mysql/init/01-test-database.sh
+git checkout -- docker/mysql/init/01-test-database.sh
+file docker/mysql/init/01-test-database.sh   # must NOT say "CRLF line terminators"
+docker compose down -v && docker compose up -d
+```
+
+**Why it recurs.** Nothing in the repository fails on a CRLF shell script
+until a Linux container tries to *execute* one, and this repo has exactly
+one such script, reached only when MySQL initializes an empty volume. So it
+is invisible on Linux and macOS, invisible to CI (whose MySQL service needs
+no init script), and invisible on Windows until the day someone runs
+`down -v`. Its two symptoms also look unrelated to each other and to line
+endings: a bare exit code, or a credentials error.
+
+**Prevention.** The root `.gitattributes` covers every `*.sh` added later,
+not just this one. Any executable dropped into `docker/` that is *not*
+named `*.sh` — a bare `entrypoint`, a Python hook — needs its own line
+there, because the extension is what the rule keys on. Note that
+`down -v` also wipes the `vendor` and `node_modules` named volumes, so
+`composer install` has to be re-run afterwards regardless.
+
+## After pulling the `online-store/` → `src/` rename, the editor reports ~9,000 uncommitted changes
+
+**Symptom.** Pulling `main` across the directory rename leaves an editor
+showing thousands of pending changes attributed to you — VS Code's SCM
+badge reads about 9,000 — even though you made none. `git stash list` is
+empty and `git status --short` shows a single line:
+
+```
+?? online-store/
+```
+
+**Cause.** Git moves *tracked* files when a rename lands. It never touches
+untracked or ignored ones, because it does not know they exist. Everything
+ignored inside the old directory — `vendor/`, `node_modules/`,
+`public/css/filament/`, `storage/`, `bootstrap/cache/`, `.env`,
+`database/database.sqlite` — therefore stayed at the old path while the
+tracked files moved to `src/`.
+
+Those leftovers were only invisible because the rules hiding them live in
+`src/.gitignore`, whose patterns are relative to `src/`. At
+`online-store/` nothing matches them any more, so ~9,000 files flip from
+ignored to untracked in one commit. Git collapses that to one `??` line;
+editors count the files underneath it and label them as the user's own
+changes, which is what makes it read like lost work.
+
+**Fix.** Nothing is lost and nothing needs recovering. Rescue the three
+things in there that are not regenerable, then delete the directory:
+
+1. `.env` — `src/.env` does not exist after the rename. Build the new one
+   from `src/.env.example` rather than copying the old file, which is
+   missing keys added since, and correct the two values the rename
+   invalidated: `DB_DATABASE` (now `amazoff`) and `APP_NAME`.
+   [`explanation/secrets-and-env.md`](../../explanation/secrets-and-env.md)
+   governs how that file is handled.
+2. Anything under `storage/app/{public,private}/` — uploaded article and
+   product imagery, named by ULID and referenced by database rows.
+3. Nothing else. `vendor/`, `node_modules/` and `public/` assets come back
+   from `composer install` and `php artisan filament:assets`;
+   `database/database.sqlite` is dead weight, since this project runs
+   MySQL.
+
+Then `rm -rf online-store/`, and re-run the setup sequence in
+[`README.md`](../../../README.md) against `src/`.
+
+**Why it recurs.** Any future move of a directory that contains ignored
+build output reproduces it exactly, and the giveaway is easy to miss:
+`git status --short` printing one line while the editor claims thousands.
+The editor is counting files, not changes, and untracked is not modified.
+
+**Prevention.** Read `git status --short` before believing an editor's
+count, and check `git stash list` before believing the word "stashed" in
+any UI. When a rename like this is planned, saying so in the PR body —
+along with which ignored paths will be stranded — costs one sentence and
+saves everyone pulling it the same investigation.
