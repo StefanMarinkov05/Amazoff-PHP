@@ -18,34 +18,19 @@ use Livewire\Livewire;
  * either. A real route means the full layout renders, including @vite in
  * components/layouts/app.blade.php.
  *
- * use-ci.md's `test` job deliberately has no npm/build step — verified by
- * grep, at the time, that nothing under tests/Unit or tests/Feature called
- * @vite. These cases are the first to break that premise, so rather than
- * reintroducing a build step for four tests, a manifest is faked here: the
- * asserted status codes never depend on any asset actually loading, only on
- * @vite resolving without throwing. Locally this goes unnoticed because the
- * vite dev-server container leaves public/hot behind, which Vite checks
- * before the manifest — CI has neither, so it hits the real failure path.
+ * The manifest that needs is faked once, globally, by a beforeEach in
+ * tests/Pest.php — not duplicated here any more. It used to be: this file
+ * was the original copy, and two more accumulated in other route-level
+ * test files before it became clear that any file which happened to run
+ * *without* one of the three ahead of it in the same shard would still
+ * throw ViteManifestNotFoundException in CI, since Pest 5's time-balanced
+ * sharding (ADR-0018) reassigns which classes land where on every
+ * `--update-shards` refresh. Confirmed live: a shard refresh alone sent
+ * two such files to a shard with no fake ahead of them. See
+ * tests/Pest.php's own comment and
+ * docs/how-to/troubleshooting/auth-and-sessions.md, "A Feature test passes
+ * locally and fails in CI with ViteManifestNotFoundException".
  */
-beforeEach(function (): void {
-    $buildPath = public_path('build');
-
-    if (! File::exists($buildPath.'/manifest.json')) {
-        File::ensureDirectoryExists($buildPath);
-
-        // One entry per @vite() argument in components/layouts/app.blade.php.
-        // 'file' and 'src' are both dereferenced unconditionally by
-        // Vite::__invoke(); 'css'/imports are read with `?? []` and are fine
-        // absent, since nothing here asserts on the rendered HTML — only on
-        // the status code and the redirect target.
-        File::put($buildPath.'/manifest.json', json_encode([
-            'resources/css/app.css' => ['file' => 'assets/app.css', 'src' => 'resources/css/app.css'],
-            'resources/js/app.js' => ['file' => 'assets/app.js', 'src' => 'resources/js/app.js'],
-        ]));
-
-        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($buildPath));
-    }
-});
 
 /*
  * Three rules that all have the same shape: a session outlives the thing it

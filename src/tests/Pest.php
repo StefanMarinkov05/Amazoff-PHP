@@ -29,6 +29,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
@@ -50,6 +51,18 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
+
+// The route-level Vite-manifest fake (a route-level test hits @vite in the
+// full layout; CI has no built manifest) lives in TestCase::setUp() now,
+// not as a beforeEach() here. A bare beforeEach() written in this file is
+// keyed to *this file's own filename* by Pest's BeforeEachRepository —
+// nothing a Feature test file resolves at all, `->in('Feature')` is not a
+// real method on BeforeEachCall, and the silent no-op was only caught by
+// running the two affected tests directly rather than trusting the change
+// synced. TestCase::setUp() is the one already-proven mechanism for
+// something every Feature test needs, which is exactly how
+// LazilyRefreshDatabase above reaches the same tests. See TestCase.php's
+// own comment for the rest of the story.
 
 /*
 | Concurrency tests are the exception, and must not use RefreshDatabase.

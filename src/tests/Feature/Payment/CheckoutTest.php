@@ -34,23 +34,10 @@ use Stripe\StripeClient;
  * failed step leaves nothing half-written.
  */
 
-beforeEach(function (): void {
-    // Route-level tests render the full layout, which calls @vite. CI has
-    // neither a dev server nor a built manifest — see
-    // how-to/troubleshooting/auth-and-sessions.md, "A Feature test passes
-    // locally and fails in CI with ViteManifestNotFoundException".
-    $buildPath = public_path('build');
-
-    if (! File::exists($buildPath.'/manifest.json')) {
-        File::ensureDirectoryExists($buildPath);
-        File::put($buildPath.'/manifest.json', json_encode([
-            'resources/css/app.css' => ['file' => 'assets/app.css', 'src' => 'resources/css/app.css'],
-            'resources/js/app.js' => ['file' => 'assets/app.js', 'src' => 'resources/js/app.js'],
-        ]));
-
-        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($buildPath));
-    }
-});
+// Route-level tests render the full layout, which calls @vite; the fake
+// manifest this needs is a global beforeEach in tests/Pest.php now, not
+// duplicated per file — see its own comment for why that stopped being
+// safe once more than one route-level test file existed.
 
 // FakeCourierGateway, swapFakeCourier() and checkoutCarrier() live in
 // tests/Pest.php — CreateOrderTest and CalculateDeliveryPriceTest need them
