@@ -41,82 +41,23 @@ jobs:
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
   test:
-    name: test (${{ matrix.shard.name }})
+    name: test (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
 
-    # Shards, not one job. ADR-0010 has the timing behind the original
-    # 2-shard split; rebalanced into 4 on 2026-08-29 once tests/Feature/
-    # Filament and tests/Feature/Auth grew enough that shard 2 was carrying
-    # roughly 2x shard 1's measured local time (55s vs 28s) on its own —
-    # exactly the "visibly outruns the others" trigger use-ci.md's own
-    # policy names for a re-balance, not a fixed schedule. tests/Feature/
-    # Actions was the single heaviest concentration and moved out of shard 2
-    # entirely; measured on its own it was still uneven enough (Cart+
-    # Catalogue at 24s, the rest of Actions at 24s, almost by coincidence)
-    # to split into shards 3 and 4 rather than landing as one new dominant
-    # shard replacing the old one. Local measured split:
-    # shard 1 ≈ 28.5s, shard 2 ≈ 18.6s, shard 3 ≈ 24.3s, shard 4 ≈ 24.1s.
-    #
-    # A new tests/Unit or tests/Feature file goes in shard 2 by default,
-    # unless it shares RolePermissionTest's per-test reseeding pattern
-    # (shard 1) or belongs under tests/Feature/Actions — Cart/Catalogue go
-    # in shard 3, every other Actions subdirectory in shard 4. Keeping
-    # Actions off shard 2 is deliberate: that directory is where most of
-    # this codebase's tests live and grows fastest, so leaving it on shard 2
-    # would silently regrow the exact imbalance this rebalance fixed.
+    # Time-balanced sharding (ADR-0018; the ADR's "Verified" addendum has
+    # the full measured numbers). `pest --shard=N/4` reads the committed
+    # tests/.pest/shards.json — real per-class wall-clock time from the
+    # last `--update-shards` run — and bin-packs the heaviest classes into
+    # the lightest shard first. This replaced a hand-partitioned matrix
+    # (ADR-0010's original split, rebalanced by hand at least once already)
+    # that had drifted back out of balance by the time it was measured
+    # against this: 69s max hand-shard vs 39s max time-balanced, on the
+    # same suite, same day. See how-to/use-ci.md, "Adding a new test file"
+    # for the refresh command — there is no shard number to choose by hand
+    # any more.
     strategy:
       matrix:
-        shard:
-          - name: "1"
-            paths: >-
-              tests/Feature/RolePermissionTest.php
-              tests/Feature/RoleResourceTest.php
-              tests/Feature/Actions/Catalogue/ProductImageTest.php
-              tests/Unit/Enums/TransitionMatrixTest.php
-          - name: "2"
-            paths: >-
-              tests/Unit/Enums/EnumCompletenessTest.php
-              tests/Unit/Support/MoneyTest.php
-              tests/Feature/Auth
-              tests/Feature/Console
-              tests/Feature/CookieConsentBannerTest.php
-              tests/Feature/ExampleTest.php
-              tests/Feature/FactoryTest.php
-              tests/Feature/Filament
-              tests/Feature/Http
-              tests/Feature/Livewire
-              tests/Feature/Mail
-              tests/Feature/Models
-              tests/Feature/Payment
-              tests/Feature/Support
-          - name: "3"
-            paths: >-
-              tests/Feature/Actions/Cart
-              tests/Feature/Actions/Catalogue/AddProductVariationTest.php
-              tests/Feature/Actions/Catalogue/ConcurrentProductEditTest.php
-              tests/Feature/Actions/Catalogue/CreateProductTest.php
-              tests/Feature/Actions/Catalogue/DeleteAttributeTest.php
-              tests/Feature/Actions/Catalogue/DeleteBrandTest.php
-              tests/Feature/Actions/Catalogue/DeleteProductCategoryTest.php
-              tests/Feature/Actions/Catalogue/DeleteProductTest.php
-              tests/Feature/Actions/Catalogue/ForceDeleteProductVariationTest.php
-              tests/Feature/Actions/Catalogue/RecordPriceObservationTest.php
-              tests/Feature/Actions/Catalogue/RemoveProductVariationTest.php
-              tests/Feature/Actions/Catalogue/SetProductAttributeValuesTest.php
-              tests/Feature/Actions/Catalogue/SetVariationAttributeValuesTest.php
-              tests/Feature/Actions/Catalogue/SetVariationImagesTest.php
-          - name: "4"
-            paths: >-
-              tests/Feature/Actions/Contact
-              tests/Feature/Actions/Content
-              tests/Feature/Actions/Coupon
-              tests/Feature/Actions/Gdpr
-              tests/Feature/Actions/Inventory
-              tests/Feature/Actions/Order
-              tests/Feature/Actions/Payment
-              tests/Feature/Actions/ProductReview
-              tests/Feature/Actions/Returns
-              tests/Feature/Actions/Shipment
+        shard: [1, 2, 3, 4]
 
     services:
       mysql:
@@ -166,50 +107,30 @@ jobs:
           DB_PASSWORD: password
         run: php artisan migrate --force
 
-      - name: Pest (tests, shard ${{ matrix.shard.name }})
+      - name: Pest (tests, shard ${{ matrix.shard }}/4)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: ./vendor/bin/pest ${{ matrix.shard.paths }}
+        run: ./vendor/bin/pest --testsuite=Feature,Unit --shard=${{ matrix.shard }}/4
 
   test-concurrency:
-    name: test-concurrency (${{ matrix.shard.name }})
+    name: test-concurrency (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
 
-    # Shards, not one job. ADR-0010 has the timing behind the split; adding
-    # a new tests/Concurrency file goes in the lightest shard, or earns its
-    # own once shards drift far enough apart to matter again.
+    # Time-balanced sharding (ADR-0018), same mechanism and same committed
+    # tests/.pest/shards.json as the `test` job above — `--shard` just
+    # narrows by `--testsuite` first, so one file safely backs both.
+    # Real measured delta on this job specifically was smaller (149s max
+    # hand-shard vs 133s time-balanced — the ADR's "Verified" addendum has
+    # the numbers) because the old a/b/c split was closer to even to begin
+    # with, but it is adopted for the same reason as `test`: no shard
+    # number to hand-pick for a new file, and a loud warning instead of
+    # silent drift.
     strategy:
       matrix:
-        shard:
-          - name: a
-            paths: >-
-              tests/Concurrency/AddToCartVsMergeGuestCartConcurrencyTest.php
-              tests/Concurrency/StripeWebhookConcurrencyTest.php
-              tests/Concurrency/RequestReturnConcurrencyTest.php
-              tests/Concurrency/GdprErasureConcurrencyTest.php
-          - name: b
-            paths: >-
-              tests/Concurrency/AddToCartConcurrencyTest.php
-              tests/Concurrency/MergeGuestCartConcurrencyTest.php
-              tests/Concurrency/ReleaseStockConcurrencyTest.php
-              tests/Concurrency/ReserveStockConcurrencyTest.php
-              tests/Concurrency/RedeemCouponConcurrencyTest.php
-              tests/Concurrency/TransitionOrderStatusConcurrencyTest.php
-              tests/Concurrency/SetVariationImagesConcurrencyTest.php
-              tests/Concurrency/CreateShipmentConcurrencyTest.php
-              tests/Concurrency/RecordPaymentConcurrencyTest.php
-          - name: c
-            paths: >-
-              tests/Concurrency/ForceDeleteProductVariationConcurrencyTest.php
-              tests/Concurrency/MainProductImageConcurrencyTest.php
-              tests/Concurrency/PublishProductConcurrencyTest.php
-              tests/Concurrency/CreateOrderConcurrencyTest.php
-              tests/Concurrency/DeleteProductCategoryConcurrencyTest.php
-              tests/Concurrency/CreateProductReviewConcurrencyTest.php
-              tests/Concurrency/SetVariationAttributeValuesConcurrencyTest.php
+        shard: [1, 2, 3]
 
     services:
       mysql:
@@ -259,13 +180,13 @@ jobs:
           DB_PASSWORD: password
         run: php artisan migrate --force
 
-      - name: Pest (concurrency tests, shard ${{ matrix.shard.name }})
+      - name: Pest (concurrency tests, shard ${{ matrix.shard }}/3)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: ./vendor/bin/pest ${{ matrix.shard.paths }}
+        run: ./vendor/bin/pest --testsuite=Concurrency --shard=${{ matrix.shard }}/3
 
   test-browser:
     name: test-browser

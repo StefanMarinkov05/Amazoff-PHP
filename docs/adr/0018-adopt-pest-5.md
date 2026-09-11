@@ -77,6 +77,58 @@ lane — not bolted onto the hand-sharded matrix in the same change. The
 sharding in ADR-0010 stays as-is until a follow-up measures Pest 5's
 time-balanced sharding against it on this suite's real numbers.
 
+### Verified (2026-09-11): time-balanced sharding adopted, measured
+
+The measurement this section deferred. `pest --update-shards` across
+`--testsuite=Feature,Unit,Concurrency` in one run (must be one invocation —
+it rewrites `tests/.pest/shards.json` scoped to whatever tests it saw,
+not merged with a prior run covering a different suite): 1350 tests
+passed, 549.59s sequential, real per-class timing for 146 classes.
+
+Compared against `ci.yml`'s then-current hand-partitioned matrix — which
+had already drifted since ADR-0010's original measurement, exactly the
+"one shard visibly outruns the others" trigger `use-ci.md` names for a
+re-balance, found by measuring rather than by someone noticing a slow CI
+run:
+
+| Job | Hand-sharded max (critical path) | Time-balanced max | Improvement |
+|---|---|---|---|
+| `test` (Feature+Unit, 4 shards) | 69.07s (shard 2 had grown to 76 of 126 classes) | 39.32s | **43.1%** |
+| `test-concurrency` (3 shards) | 149.40s | 132.79s | **11.1%** |
+
+`test`'s drift was the more dramatic finding: the "add to shard 2 by
+default" rule `use-ci.md` used to state was, by construction, guaranteed
+to regrow exactly the imbalance it was meant to avoid, and had — shard 2
+carried 76 of 126 classes by the time this was measured. `test-concurrency`
+was closer to balanced already, so the win is real but smaller.
+
+**Adopted for both jobs.** `ci.yml`'s `test` and `test-concurrency` now run
+`pest --shard=<N>/<total>` against a committed `tests/.pest/shards.json`,
+replacing the hand-listed file-path matrices. Verified locally before
+trusting it in CI: `--shard=1/4` and `--shard=4/4` each ran their expected
+~30-file slice and passed; `--shard=2/3` on `tests/Concurrency` likewise.
+No shard-assignment rule to maintain any more — a new test file round-robins
+until the next `--update-shards`, and Pest itself prints `WARN  The
+[tests/.pest/shards.json] file is out of date` in the job log when one
+exists, rather than requiring a human to notice a slow shard. `how-to/use-ci.md`
+has the refresh command and the full mechanism.
+
+**TIA's local loop is not adopted yet — blocked, not deferred by choice.**
+Both `--dirty` and `--tia` need `git`, and every `docker-compose.yml`
+service mounts only `src/`, never the repository root's `.git` one level
+up — verified by trying, not assumed: `git -C /var/www/html status` inside
+the `app` container reports `not a git repository ... Stopping at
+filesystem boundary`.
+`how-to/troubleshooting/infra-and-environment.md` has the full symptom and
+the fix (mount `.git` read-only into the affected services), not yet
+applied — it needs its own verification once a stable window exists, not a
+same-session change made blind on top of an already-unstable local
+environment. `run-the-tests.md` is corrected to say so rather than
+repeating the previously-unverified "`--dirty` is the fast local loop"
+claim. TIA's cross-machine baseline sync (`--tia --baselined` /
+`--refetch`, needing a git remote) is a separate, still-unmeasured step
+beyond that fix, per the "each step measured" discipline below.
+
 ## Consequences
 
 - `composer.json` dev requirements: `pestphp/pest ^5.1`,
@@ -87,8 +139,14 @@ time-balanced sharding against it on this suite's real numbers.
   `pest-plugin-browser` 5.0.1 requires `playwright` 1.62.1 (was 1.59.1 on
   the 4.3.x line). Pinned in `package.json` and `docker/php/Dockerfile`.
 - CI's PHP setup installs from `composer.lock`, so the matrix picks the new
-  versions up with no workflow change. A TIA lane and any move to
-  time-balanced sharding are separate, measured changes.
+  versions up with no workflow change. Time-balanced sharding is adopted
+  and measured (see the addendum above); a TIA lane is still a separate,
+  unmeasured next step.
+- `src/tests/.pest/shards.json` is committed — `ci.yml`'s `test` and
+  `test-concurrency` jobs read it via `--shard`. Refresh it with
+  `--update-shards` (one invocation covering every sharded testsuite; see
+  `how-to/use-ci.md`) whenever a job's log shows the drift warning, or
+  after a batch of new test files.
 - `src/CLAUDE.md` / `.ai/guidelines` note the Pest major version where they
   describe the test commands.
 - Reverting means pinning the whole list back to the 4.x / 12.x line in one

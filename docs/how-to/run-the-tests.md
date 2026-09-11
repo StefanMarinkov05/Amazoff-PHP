@@ -57,9 +57,21 @@ individual cases from a dataset.
 `--parallel` is the one to be careful with — see "Running in parallel" below
 for what it actually requires and where it must not be pointed.
 
-The stack is Pest 5 / PHPUnit 13 (ADR-0018). Pest 5's TIA (test impact
-analysis) is not wired into the default run yet — it needs coverage data,
-which ADR-0009 keeps opt-in — so `--dirty` is still the fast local loop.
+The stack is Pest 5 / PHPUnit 13 (ADR-0018). **`--dirty` and `--tia` do not
+currently work inside `docker compose exec app` at all** — both need git,
+and the container only mounts `src/`, never the repository root's `.git`
+one level up. `how-to/troubleshooting/infra-and-environment.md` has the
+symptom and the (not-yet-applied) fix. Until that mount is added, the fast
+local loop is a `--filter`/path argument by hand.
+
+Once fixed, TIA's own local loop needs no further coverage wiring beyond
+what's already installed (PCOV) — `pest --tia --fresh` once, to build the
+dependency graph, then `pest --dirty --tia` day to day, replaying
+unaffected tests from cache. That graph lives per-machine at
+`~/.pest/tia/<hash>` (`pest --baseline` prints the exact path) — it is
+**not** committed and **not** shared with CI; `--tia --baselined` /
+`--refetch` do that via a git remote and are a separate, unmeasured next
+step, not adopted here.
 
 ## The browser suite
 

@@ -17,9 +17,12 @@ untested. A formatting failure reached `main` that way.
 ## Where to see it
 
 On a PR, in the checks section near the bottom, listed as "CI / lint",
-four "CI / test (1–4)" shards, three "CI / test-concurrency (a/b/c)"
-shards, and "CI / test-browser" — nine jobs, running in parallel. The
-repo's **Actions** tab has the full run history.
+four "CI / test (1/4)"–"(4/4)" shards, three "CI / test-concurrency
+(1/3)"–"(3/3)" shards, and "CI / test-browser" — nine jobs, running in
+parallel. The repo's **Actions** tab has the full run history. Shard
+counts are `strategy.matrix.shard` in `ci.yml`, changed in one place if the
+number of shards itself is ever revisited — see "Adding a new test file"
+below for what does and does not need touching day to day.
 
 ## What it does, in order
 
@@ -36,7 +39,8 @@ parallel rather than one after another.
 4. Runs `pint --test`.
 5. Runs `phpstan analyse` (Larastan).
 
-**`test`** — a 4-shard matrix over `tests/Unit` and `tests/Feature`:
+**`test`** — a 4-shard, time-balanced matrix over `tests/Unit` and
+`tests/Feature`:
 
 1. Checks out the code.
 2. Installs PHP 8.4 with the extensions the app needs
@@ -46,10 +50,12 @@ parallel rather than one after another.
    `mix()`, verified by grep before removing the step).
 4. Copies `.env.example` to `.env`, generates an app key.
 5. Runs `php artisan migrate --force`.
-6. Runs `pest` against that shard's file list.
+6. Runs `pest --testsuite=Feature,Unit --shard=<N>/4` — the committed
+   `tests/.pest/shards.json` decides which classes land in shard `N`
+   (ADR-0018; "Adding a new test file" below).
 
-**`test-concurrency`** — a 3-shard matrix, each shard running a fixed
-subset of `tests/Concurrency`:
+**`test-concurrency`** — a 3-shard, time-balanced matrix over
+`tests/Concurrency`:
 
 1. Checks out the code.
 2. Installs PHP 8.4 with the same extensions, no coverage driver.
@@ -57,7 +63,8 @@ subset of `tests/Concurrency`:
    directly, no HTTP or Livewire rendering involved).
 4. Copies `.env.example` to `.env`, generates an app key.
 5. Runs `php artisan migrate --force`.
-6. Runs `pest` against that shard's file list.
+6. Runs `pest --testsuite=Concurrency --shard=<N>/3`, from the same
+   committed `shards.json`.
 
 **`test-browser`** — the Pest 5 real-browser suite (`tests/Browser/`,
 ADR-0017), one job, not sharded (~7 tests, ~2 min, dominated by per-test
@@ -98,40 +105,53 @@ about as long as the other ~30 test files combined. Running them in a
 parallel job instead of after the fast suite doesn't reduce that time, but
 takes it off the same critical path.
 
-Within each suite, time is not evenly spread, and the two suites are
-uneven for different reasons — ADR-0010 has the full measured numbers and
-the false leads ruled out along the way:
+Within each suite, time is not evenly spread — ADR-0010 has the original
+measured numbers and the false leads ruled out finding them (a PASS line's
+timestamp belongs to the file that just finished, not the one about to
+start; a phantom "Docker Desktop schema-load cost" that was actually one
+file's expensive `beforeEach`).
 
-- In `tests/Concurrency`, one file (the only one using `->repeat(6)`) is
-  over half the suite's own wall-clock time on its own — a fixed cost of
-  the synchronization mechanism itself, paid per repeat.
-- In `tests/Unit`+`tests/Feature`, one file —
-  `tests/Feature/RolePermissionTest.php` — is over a third of the suite's
-  time on its own, for an unrelated reason: its `beforeEach` reseeds
-  `PermissionSeeder`, `RoleSeeder`, and `UserSeeder` before *every* test
-  rather than once per file (deliberate — the permission registrar caches
-  for 24h, and without forgetting it between tests the second test
-  resolves against the first test's already-truncated rows).
+### Adding a new test file: nothing to decide
 
-Both suites' shards are hand-partitioned against these measurements, not
-split evenly by file count — an even split would still strand the one
-dominant file alone in whatever shard it landed in.
+**Time-balanced sharding (ADR-0018), not hand-partitioning.** Both `test`
+and `test-concurrency` run `pest --shard=<N>/<total>`, which reads the
+committed `tests/.pest/shards.json` — real per-class wall-clock time from
+the last `--update-shards` run — and bin-packs the heaviest classes into
+the lightest shard first (`Pest\Plugins\Shard::partitionByTime()`; greedy,
+by descending duration). A new test file has no timing entry yet, so it
+round-robins across shards by list order until the next refresh — never
+concentrated in one shard, and Pest itself prints a loud
+`WARN  The [tests/.pest/shards.json] file is out of date. Run
+[--update-shards] to update it.` in the job log the moment a run sees a
+class the file doesn't know about, which is the re-balance trigger: no
+"does this file look slow" judgment call, no fixed shard-count target,
+just refresh when the warning appears (or on a normal cadence — see
+below).
 
-**Adding a new test file**: for `tests/Concurrency`, add it to shard b or
-c (the two lighter shards) unless you already know it will be slow — a
-`->repeat()` call, several assertions per test, or a workload closer to
-`AddToCartVsMergeGuestCartConcurrencyTest` than a single race. For
-`tests/Unit`/`tests/Feature`, add it to shard 2 by default; shard 1 if it
-shares `RolePermissionTest`'s per-test reseeding pattern; shard 3 if it is
-under `tests/Feature/Actions/Cart` or `tests/Feature/Actions/Catalogue`;
-shard 4 for any other `tests/Feature/Actions` subdirectory. `Actions` is
-kept off shard 2 deliberately — it is where most of this codebase's tests
-live and grows fastest, so leaving it there would silently regrow the
-imbalance the 2026-08-29 rebalance (2 shards → 4) fixed. Re-balance again
-(or give a file its own shard) once one shard's `gh run view <id> --log`
-time visibly outruns the others by more than its fair share — this is
-optimizing a number nobody watches per-commit, not something to re-measure
-on every PR.
+**Refreshing the timings:**
+
+```bash
+docker compose exec app ./vendor/bin/pest --testsuite=Feature,Unit,Concurrency --update-shards
+git -C .. add src/tests/.pest/shards.json
+```
+
+One invocation across all three testsuites, not one per suite —
+`--update-shards` rewrites the file scoped to whatever `--testsuite`/path
+filter it was given, so a second run scoped to a different suite would
+silently drop the first run's classes rather than merge with them. Commit
+the refreshed file in the same PR as whatever test changes prompted it (a
+new file, a materially slower one, several deletions) — it costs one
+sequential run of the whole suite (~feature/unit plus concurrency
+together, since `tests/Concurrency` must never run under `--parallel` —
+CLAUDE.md), so it is a deliberate refresh, not a per-commit CI step.
+
+This replaced a hand-partitioned matrix (4 shards for `test`, 3 for
+`test-concurrency`, each file's path listed by name in `ci.yml`) that had
+already drifted out of balance again by the time it was measured against
+Pest 5's own mechanism — see ADR-0018's "Verified" addendum for the real
+before/after numbers. The old scheme needed a person to notice a shard
+"visibly outrunning the others" and re-derive the split by hand each time;
+this one self-reports drift and rebuilds the split from a single command.
 
 No job in this workflow collects coverage. It was dropped from CI
 entirely rather than merged across shards or kept on one shard only — see
@@ -168,11 +188,19 @@ docker compose exec app ./vendor/bin/pest
 ```
 
 `pest` with no path runs everything, every shard of `test` and
-`test-concurrency` combined. To reproduce one shard, use its file list
-from `.github/workflows/ci.yml`'s `strategy.matrix.shard`; `pest
-tests/Unit tests/Feature` alone reproduces all four `test` shards
+`test-concurrency` combined. To reproduce one shard exactly, pass the same
+`--shard` argument the job uses (`matrix.shard` and the total are both in
+`ci.yml`):
+
+```bash
+docker compose exec app ./vendor/bin/pest --testsuite=Feature,Unit --shard=2/4
+docker compose exec app ./vendor/bin/pest --testsuite=Concurrency --shard=1/3
+```
+
+`pest tests/Unit tests/Feature` alone reproduces all four `test` shards
 together, and `pest tests/Concurrency` alone reproduces all three
-`test-concurrency` shards together.
+`test-concurrency` shards together — no `--shard` needed for that, since
+skipping it just runs everything in the path given.
 
 `pint --test` only checks formatting and reports violations — it does not
 fix them. Run `./vendor/bin/pint` (no `--test`) to actually apply the fixes,
