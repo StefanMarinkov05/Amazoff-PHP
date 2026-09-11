@@ -287,8 +287,9 @@ jobs:
     #     compiled-CSS precondition fails loudly (which is the point of it).
     #
     # ThreeDSecureTest skips itself here — use-ci.md is categorical that no
-    # Stripe/Econt/Speedy secret goes in CI, and that test needs a real
-    # Stripe test key plus a live `stripe listen`. It is a local runbook.
+    # Stripe/Econt/Speedy secret goes in CI, and that test creates a real
+    # Stripe test-mode PaymentIntent (no `stripe listen` needed — it builds
+    # and signs the webhook itself, see stripe-testing.md). Local runbook.
 
     services:
       mysql:

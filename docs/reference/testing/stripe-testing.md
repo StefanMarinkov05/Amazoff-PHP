@@ -266,11 +266,64 @@ number. No test holds a lock for 80 seconds to prove the consequence —
 that would be an 80-second test asserting something already visible in one
 constant.
 
-### 3D Secure is not exercised
+### 3D Secure — automated local runbook
 
-`confirmPayment` handles the redirect-based SCA flow, and card
-`4000 0025 0000 3155` triggers it. That path is browser-side and needs a
-real Stripe session; the suite has no browser driver. Manual only.
+`tests/Browser/ThreeDSecureTest.php` (ADR-0017's Pest browser suite) now
+drives the manual 2026-09-04 run above end to end: real checkout, real
+Stripe Elements, card `4000 0025 0000 3155`, the real hosted 3DS2 challenge,
+**Complete authentication** clicked in a real browser.
+
+**Not `stripe listen`.** The plan this was scoped from
+(`~/.claude/plans/zippy-growing-pike.md`) assumed a pre-started
+`stripe listen --forward-to localhost:8080/...`, which does not fit
+`pest-plugin-browser`'s actual model: the suite boots the app **in-process**
+on a Playwright-assigned ephemeral port and rewrites `config('app.url')` to
+match, so there is no fixed address for an externally-started listener to
+target. Instead, once the browser has confirmed the real PaymentIntent
+genuinely reached `succeeded`, the test builds the exact
+`payment_intent.succeeded` payload Stripe would have sent — same shape as
+`StripeWebhookSecurityTest`'s `succeededEventPayload()` — signs it with the
+real `STRIPE_WEBHOOK_SECRET`, and POSTs it to `/stripe/webhook` itself. The
+webhook code path (`VerifyStripeWebhookSignature` →
+`StripeWebhookController` → `HandleStripeWebhookEvent`) runs exactly as it
+would for a live forward; only the transport is local. Also asserts the
+idempotency half: redelivering the same constructed event keeps
+`payment_events` at 1.
+
+**Running it:**
+
+```bash
+docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml tests/Browser/ThreeDSecureTest.php
+```
+
+**Preconditions**, checked by the test itself (`->markTestSkipped()` with a
+message naming which failed, never a false pass):
+
+- `STRIPE_SECRET` is a real `sk_test_...` key — the test creates a genuine
+  Stripe test-mode PaymentIntent.
+- `STRIPE_WEBHOOK_SECRET` is a real `whsec_...` value, matching what
+  `VerifyStripeWebhookSignature` checks against.
+- No `stripe listen` process needed or used — see above.
+
+**Not run in CI.** Real Stripe test-mode calls, never CI secrets
+(`how-to/use-ci.md`). The `test-browser` CI job runs the rest of
+`tests/Browser/`; this file is excluded there and is a local-only check
+before a release.
+
+**Two selectors are asserted, not merely assumed** — Stripe.js's iframe
+naming is not part of its stability contract, so both are called out in the
+test's own comments with the one-liner (`$page->script(...)`) to re-derive
+them from the live DOM if Stripe changes either:
+
+- The Payment Element mount (`#stripe-payment-element`) contains one iframe,
+  conventionally `title="Secure payment input frame"`, with fields
+  addressable by label (`Card number`, `Expiration`, `CVC`, `ZIP`).
+- The 3DS2 challenge itself is conventionally `iframe[name="stripe-challenge-frame"]`,
+  with a **Complete authentication** test button (**Fail authentication**
+  is the sibling test option, unused here).
+
+If a run fails inside either `withinFrame()` call, that drift — not a real
+regression — is the first thing to check.
 
 ### `Money::percentageOf()` truncation is asserted, not fixed
 
