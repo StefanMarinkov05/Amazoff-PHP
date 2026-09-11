@@ -222,7 +222,7 @@ rather than writing a `width` per frame.
 ### The trap that has cost the most time
 
 **Tailwind 4 anchors source detection at the git root**, `.git` is one level
-above `online-store/`, and the container mounts only `online-store/`. So
+above `src/`, and the container mounts only `src/`. So
 detection finds nothing and only the explicit `@source` globs in
 `resources/css/app.css` apply.
 
@@ -242,7 +242,7 @@ curl -s http://localhost:5173/resources/css/app.css | grep -c 'md...grid-cols-2'
 Note the escaping: `md:grid-cols-2` appears as `md\\:grid-cols-2`, so match
 the colon with `...` rather than a literal `:`.
 
-`how-to/troubleshooting.md` has the full entry.
+`how-to/troubleshooting/assets-vite-frontend.md` has the full entry.
 
 ### Version syntax
 

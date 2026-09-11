@@ -63,8 +63,9 @@ the fix; `changelog/CHANGELOG.md` has the finding in full.
 
 `User` also implements `Filament\Models\Contracts\HasName`
 (`getFilamentName()`), required because `FilamentManager` falls back to a
-`name` attribute this schema doesn't have — see `troubleshooting.md` for
-the crash this produced before it was added.
+`name` attribute this schema doesn't have — see
+`how-to/troubleshooting/filament-admin-panel.md` for the crash this
+produced before it was added.
 
 Roles come from `spatie/laravel-permission`. `User` uses the `HasRoles`
 trait; `canAccessPanel()` checks `hasAnyRole(User::STAFF_ROLES)`. Verified
@@ -130,7 +131,7 @@ Actions. `reference/permissions.md` lists the catalogue;
 `how-to/edit-a-role.md` covers the panel and seeder paths and why they are
 not equivalent.
 
-Blueprint generated the schema from `online-store/draft.yaml`: 32 models, 32
+Blueprint generated the schema from `src/draft.yaml`: 32 models, 32
 factories. Migrations now number 51 — the generated set plus hand-written
 ones added since (check constraints, composite pivot keys, the `contact_
 messages` handling columns, dropping `coupons.times_used`, the

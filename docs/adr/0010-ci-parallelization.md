@@ -38,12 +38,12 @@ isn't repeated:
    ~30s gap was chased as a `RefreshDatabase` schema-load cost specific to
    local Docker Desktop — plausible on its own (a real `mysql <
    mysql-schema.sql` load measured ~20-37s locally) and briefly written up
-   as such in `troubleshooting.md`, but wrong: it doesn't explain why the
-   cost followed a specific file (`RolePermissionTest`) rather than
-   "whichever test runs first," and CI's own log showed its first test at
-   0.02s, not ~30s. `troubleshooting.md`'s entry was corrected once (2) was
-   found; the local schema-load timing was real but unrelated to this
-   question.
+   as such in `how-to/troubleshooting/database-and-migrations.md`, but
+   wrong: it doesn't explain why the cost followed a specific file
+   (`RolePermissionTest`) rather than "whichever test runs first," and CI's
+   own log showed its first test at 0.02s, not ~30s. That entry was
+   corrected once (2) was found; the local schema-load timing was real but
+   unrelated to this question.
 
 **What `RolePermissionTest` is actually doing**, once correctly isolated:
 its `beforeEach` calls `forgetCachedPermissions()` and reseeds
@@ -111,11 +111,11 @@ whichever shard is slowest plus fixed per-job overhead.
 Coverage (`--coverage --coverage-clover`) is dropped from CI entirely,
 rather than merged across `test`'s two shards or kept on one shard only.
 Once `test` is sharded, no single shard's report is the number
-`reference/coverage.md` and ADR-0009 describe — a merge step
+`reference/testing/coverage.md` and ADR-0009 describe — a merge step
 (`phpcov merge` or similar) is real infrastructure to add and maintain for
 a number that was already reported-not-gated (ADR-0009) and had no
 regular reader of the CI artifact. Generate coverage locally
-(`docs/reference/coverage.md` has the command) instead.
+(`docs/reference/testing/coverage.md` has the command) instead.
 
 ### Both suites are 2–3-shard matrices, hand-partitioned by measured time
 

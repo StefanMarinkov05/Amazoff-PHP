@@ -1,13 +1,28 @@
 # Database schema
 
-Generated from `online-store/draft.yaml` by Blueprint. That file is the source
-of truth for the shape; the migrations in `online-store/database/migrations/`
-are the source of truth for what is applied. `erd-diagram.pdf` in this folder
-is the visual form.
+Generated from [`src/draft.yaml`](../../../src/draft.yaml) by Blueprint.
+That file is the source of truth for the shape; the migrations in
+[`src/database/migrations/`](../../../src/database/migrations/) are the
+source of truth for what is applied.
+
+The visual form — every table, every column, every foreign key, generated
+from the live schema rather than from `draft.yaml`, so it reflects what
+migrations actually applied rather than what was originally planned:
+[view source](../diagrams/entity-relationship/entity-relationship.puml) ·
+[view PDF](../diagrams/entity-relationship/entity-relationship.pdf) ·
+[view SVG](../diagrams/entity-relationship/entity-relationship.svg).
+A second, tool-generated cross-check (SchemaSpy, straight off
+`information_schema`, includes framework tables and live row counts the
+hand-authored version deliberately omits):
+[view PDF](../diagrams/entity-relationship/schemaspy/erd-schemaspy.pdf) ·
+[view SVG](../diagrams/entity-relationship/schemaspy/erd-schemaspy.svg).
+[`erd-diagram.pdf`](erd-diagram.pdf) in this folder is the earlier
+Blueprint-generated original, kept as historical reference but no longer
+maintained.
 
 Migrations are append-only after the schema freeze — a change is a new
 migration, never an edit to a merged one. Regeneration procedure:
-`how-to/regenerate-with-blueprint.md`.
+[`how-to/regenerate-with-blueprint.md`](../../how-to/regenerate-with-blueprint.md).
 
 Design rationale is not here. ADR-0002 argues the catalogue shape, ADR-0004 the
 state transitions, and `explanation/db-schema-design.md` describes how the

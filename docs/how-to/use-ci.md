@@ -111,12 +111,12 @@ on every PR.
 No job in this workflow collects coverage. It was dropped from CI
 entirely rather than merged across shards or kept on one shard only — see
 ADR-0009 and ADR-0010 for why. Generate it locally with `pest --coverage`
-(`docs/reference/coverage.md` has the commands) when the numbers are
+(`docs/reference/testing/coverage.md` has the commands) when the numbers are
 actually needed.
 
 ## Why Pest runs against the MySQL service
 
-`online-store/phpunit.xml` sets `DB_CONNECTION=mysql` and
+`src/phpunit.xml` sets `DB_CONNECTION=mysql` and
 `DB_DATABASE=online_shop_test`. Host, port, and credentials come from the
 environment, so the same file works in CI and in Docker locally, and only the
 database name is overridden — a test run cannot touch development data.
@@ -129,7 +129,7 @@ run. A factory writing past a `varchar(60)` passed every time.
 
 The cost that normally argues for SQLite — a slow `migrate:fresh` — turned out
 to be the database container's durability settings rather than MySQL itself.
-See the entry in `troubleshooting.md`.
+See the entry in `how-to/troubleshooting/database-and-migrations.md`.
 
 ## Reproducing a CI failure locally
 

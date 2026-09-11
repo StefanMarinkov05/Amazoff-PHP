@@ -181,7 +181,7 @@ product's own category, or any of its ancestors —
 allow-list an admin opts an attribute into (`AttributeForm`'s "Allowed
 categories" field); an attribute with no rows there is unrestricted, not
 "allowed nowhere", so this cannot fire for any of the attributes that
-existed before the table did. `App\Support\ResolveAllowedAttributes` is the
+existed before the table did. `App\Support\Resolvers\ResolveAllowedAttributes` is the
 pure function both Actions call — a category's own allow-list, unioned with
 every ancestor's, unioned with every unrestricted attribute.
 `UpdateProduct` checks this **after** `save()`, using whichever category the
@@ -264,6 +264,8 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
 | `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
+| `ApproveProductReview` | `product_reviews.approved` (`true`) | optional, `approve_product_review` | `AuthorizationException` |
+| `UnapproveProductReview` | `product_reviews.approved` (`false`) | optional, `approve_product_review` — the same ability the other direction, §24; there is no separate `unapprove_product_review` permission | `AuthorizationException` |
 
 `reference/write-rules/order.md` is the outcomes page.
 
@@ -641,6 +643,7 @@ covers both, plus that a non-domain exception of either base class and a
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
+| `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
 criterion 1 is met for the panel. The Cart, Coupon, and Order Actions have
@@ -673,5 +676,8 @@ cart, and last-live-variation refusals.
 `reference/write-rules/concurrency.md` records which specific test covers each.
 
 The two failure modes that make a guard test pass while proving nothing — an
-exception raised by a nested Action, and fault injection on the connection
-holding the lock — are written up in `how-to/troubleshooting.md`.
+exception raised by a nested Action, written up in
+`how-to/troubleshooting/ide-and-static-analysis.md`, and fault injection on
+the connection holding the lock, in
+`how-to/troubleshooting/concurrency-and-testing-races.md` — are written up
+in the troubleshooting tree.

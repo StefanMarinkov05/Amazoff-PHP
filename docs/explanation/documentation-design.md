@@ -31,6 +31,24 @@ and whether they need *practical steps* or *theory*.
 The rule that keeps it working: **one document does one job.** A how-to that
 starts explaining rationale should link to the explanation instead.
 
+## Two readers
+
+Everything here is read by people and by Claude, and the two fail
+differently. A person who cannot find a document asks someone. An agent
+that cannot find a document proceeds without it — confidently, and with a
+plausible answer built on a wrong premise. That asymmetry is why knowledge
+that is merely *available* is not enough: it has to be reachable from the
+place where it is needed, which is what drives the router structure in
+`CLAUDE.md` and the loading-behaviour table in `how-to/write-docs-and-comments.md`.
+
+It also means folder membership matters less here than it would for a
+documentation site a human browses top to bottom. An agent reaches a
+document by a named path from `CLAUDE.md`, not by wandering `docs/`, so a
+document filed under a slightly wrong quadrant costs little as long as
+something links to it — see "Why there is no `tutorials/`" below for the
+sharpest case of this: a document shaped for sequential human reading is
+actively worse for an agent, not merely miscategorized.
+
 ## The two additions
 
 **`adr/`** — architecture decision records. Diátaxis has no home for these
@@ -71,6 +89,50 @@ The cost is that superseding one part means superseding a document that
 covers many. That cost is accepted for now and revisited once decisions
 start being made individually — a schema decision made in week six belongs
 in its own ADR, not appended to the kickoff one.
+
+## Why there is no `tutorials/`
+
+Diátaxis names four quadrants, but does not require all four to be filled.
+Its own guidance on adopting the framework is explicit: "it certainly does
+not mean that you should create empty structures for tutorials/howto
+guides/reference/explanation with nothing in them. Don't do that. It's
+horrible." An empty quadrant is a legitimate state, not an oversight —
+`docs/README.md` linked to a `tutorials/` folder that was never created,
+which was exactly that anti-pattern, and the link has been removed rather
+than filled.
+
+A tutorial, in Diátaxis's own definition, is a guided, sequential
+experience — a newcomer follows a chosen path, in order, and builds
+confidence by producing a working result along the way. That definition
+assumes a reader who arrives once, reads start to end, and has no goal of
+their own yet. Neither reader this project actually has fits that:
+
+- **There is no second human developer.** This is a small internship team;
+  everyone on it already built the system they'd be tutorialized through.
+  A tutorial written for a reader who doesn't exist goes stale silently,
+  because nobody ever runs it end to end to notice.
+- **An AI agent is not a sequential reader.** An agent retrieves the
+  chunk that matches its current task; it does not follow a guided path
+  in order and gains nothing from the narrative scaffolding a tutorial is
+  built from. Feeding tutorial-shaped prose to an agent (including as a
+  retrieval source) produces the worst kind of context for it — heavy on
+  transitional narrative, light on the facts-per-token that `reference/`
+  and `explanation/` are already optimized to deliver. What an agent needs
+  on arrival is orientation, not guided practice, and that need is served
+  by `CLAUDE.md` and `how-to/start-a-session.md` — which point at what to
+  read and in what order, without pretending to be a learning exercise.
+
+None of this is a case against tutorials in general — it's that this
+project's two actual readers both fail the "guided newcomer" precondition
+a tutorial is written for.
+
+**Revisit this if**: a second human developer joins the team. That's the
+condition that would introduce a reader tutorials are actually for.
+`how-to/onboard-a-developer.md` covers the orientation half of that need
+ahead of the trigger — it's a how-to (a specific job: get one named person
+running), not a tutorial, so writing it now doesn't undercut the reasoning
+above; it's the piece of onboarding that was never gated on a guided
+learning exercise existing.
 
 ## Status markers
 

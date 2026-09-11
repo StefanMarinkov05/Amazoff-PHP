@@ -382,17 +382,17 @@ file declaring `root = true` stops the cascade, so nothing beneath it sees the
 outer config.
 
 That is exactly what happened before — a second `.editorconfig` in
-`online-store/` shadowed the root for the entire application, and the two
+`src/` shadowed the root for the entire application, and the two
 disagreed about compose indentation (2 versus 4) and about JavaScript, which the
 inner file did not mention at all. Since every JavaScript file lives under
-`online-store/`, all of them were indenting at 4 against the root's stated
+`src/`, all of them were indenting at 4 against the root's stated
 intent. Merged into the root file and the nested one deleted.
 
 ### Frontend
 
 | # | Requirement | Status |
 |---|---|---|
-| 4 | Replace Laravel's default welcome page with a real home page | **Not met** — `routes/web.php` still returns `view('welcome')`, and `welcome.blade.php` is the only view in the project |
+| 4 | Replace Laravel's default welcome page with a real home page | **Not met** — but no longer for the reason once recorded here. `/` is `Route::redirect('/', '/catalogue')`, and `welcome.blade.php` is now dead: unrouted, and referenced nowhere in `app/`, `routes/` or any view (checked 2026-09-04). What is outstanding is the §4 home page itself — banner, featured/discounted/new/popular products, latest articles, administrator-controlled content — not the removal of the default page |
 | 5 | At most one or two core CSS and JavaScript technologies; no unnecessary mixing | Met by decision — Livewire and Alpine, argued in ADR-0001. Nothing built yet to violate it |
 | 6 | Per-view CSS and JavaScript files where genuinely needed | Pending |
 | 7 | Where the task calls for Livewire, use Livewire components rather than plain forms that reload the page | Met by decision — ADR-0001. Enforced in review |

@@ -18,16 +18,17 @@ backslash is a shell escape character.
 | Seeder | Class | Runs where | Contents |
 |---|---|---|---|
 | `DatabaseSeeder` | *(root — `php artisan db:seed`, no `--class`)* | CI, local, production | Permissions, roles, carriers, staff accounts |
+| `DemoDatabaseSeeder` | `Database\Seeders\Demo\DemoDatabaseSeeder` | Local, deployed demo | **The whole demo set, in order** — calls every `Demo*` seeder below. `php artisan demo:seed` is the front door |
 | `DemoSeeder` | `Database\Seeders\Demo\DemoSeeder` | Local, deployed demo | Committed catalogue fixtures |
 | `DemoArticleSeeder` | `Database\Seeders\Demo\DemoArticleSeeder` | Local, deployed demo | Committed article fixtures |
 | `DemoCustomerSeeder` | `Database\Seeders\Demo\DemoCustomerSeeder` | Local, deployed demo | 100 factory customers, no role |
 | `DemoAddressSeeder` | `Database\Seeders\Demo\DemoAddressSeeder` | Local, deployed demo | 78 saved addresses across 60 of 100 customers |
-| `DemoEngagementSeeder` | `Database\Seeders\Demo\DemoEngagementSeeder` | Local, deployed demo | 80 newsletter subscribers, 25 contact messages |
+| `DemoEngagementSeeder` | `Database\Seeders\Demo\DemoEngagementSeeder` | Local, deployed demo | 80 newsletter subscribers, 32 contact messages drawn from `fixtures/reference/contact-messages.json` |
 | `DemoCartSeeder` | `Database\Seeders\Demo\DemoCartSeeder` | Local, deployed demo | Carts for ~35% of customers plus a few guest carts |
 | `DemoCouponSeeder` | `Database\Seeders\Demo\DemoCouponSeeder` | Local, deployed demo | 6 coupons, one per required state |
 | `DemoWishlistSeeder` | `Database\Seeders\Demo\DemoWishlistSeeder` | Local, deployed demo | Wishlists for ~20% of customers |
-| `DemoOrderSeeder` | `Database\Seeders\Demo\DemoOrderSeeder` | Local, deployed demo | 140 orders, checked out through real carts and walked through `TransitionOrderStatus`, on a fixed status/payment/shipment distribution |
-| `DemoReviewSeeder` | `Database\Seeders\Demo\DemoReviewSeeder` | Local, deployed demo | 90 reviews drawn from `DemoOrderSeeder`'s delivered orders |
+| `DemoOrderSeeder` | `Database\Seeders\Demo\DemoOrderSeeder` | Local, deployed demo | 158 orders, checked out through real carts and walked through `TransitionOrderStatus`, on a fixed status/payment/shipment distribution. 18 of them are pinned to the two named demo accounts — `customer@example.com` holds **all eleven** `OrderStatus` cases by itself |
+| `DemoReviewSeeder` | `Database\Seeders\Demo\DemoReviewSeeder` | Local, deployed demo | ~125 reviews drawn from `DemoOrderSeeder`'s delivered orders; bodies from `fixtures/reference/review-bodies.json`. The count adapts to the eligible pool — see below |
 | `DemoShowcaseOrderSeeder` | `Database\Seeders\Demo\DemoShowcaseOrderSeeder` | Local, deployed demo | Labels 13 real products for the staff-only "Demo order" catalogue sort — `docs/reference/demo-showcase-order.md`. Must run after `DemoSeeder` and `DemoReviewSeeder` (case 6 needs real reviews already attached) |
 | `CatalogueReferenceSeeder` | `Database\Seeders\Demo\CatalogueReferenceSeeder` | Local, deployed demo | Catalogue lookup rows — categories, brands, attributes |
 | `ContentReferenceSeeder` | `Database\Seeders\Demo\ContentReferenceSeeder` | Local, deployed demo | Article lookup rows — categories, tags |
@@ -116,7 +117,7 @@ panel, never seeded, and these rows are catalogue content rather than the
 reference data the application cannot boot without.
 
 Its vocabulary lives in
-**`online-store/database/fixtures/reference/catalogue.json`**, not in the
+**`src/database/fixtures/reference/catalogue.json`**, not in the
 seeder. That file is the single source of truth for every slug a product
 fixture may reference, and the seeder is only the loader for it. Categories
 nest to **arbitrary depth** — the seeder recurses, so
@@ -155,6 +156,50 @@ through `TransitionOrderStatus`, `RecordPayment`,
 those delivered orders' own line items. There is no JSON shape for either
 on purpose.
 
+### Content that lives in JSON rather than in a seeder
+
+Three files under `database/fixtures/reference/` are **vocabulary, not
+fixtures** — no document shape, no validator, no loader beyond the one
+seeder that reads each:
+
+| File | Read by | Holds |
+|---|---|---|
+| `catalogue.json` | `CatalogueReferenceSeeder` | Every category, brand, and attribute slug a product fixture may reference |
+| `review-bodies.json` | `DemoReviewSeeder` | Review body text, keyed by star rating |
+| `contact-messages.json` | `DemoEngagementSeeder` | Contact message subject/body pairs |
+
+The last two were PHP consts inside their seeders until they grew past the
+point where the sampling code was readable around them. The reasoning is
+`catalogue.json`'s, applied one layer down: this is content rather than
+logic, so a wording change should be a data edit, the pool can grow without
+the seeder changing, and the part most likely to be regenerated in bulk
+cannot introduce a PHP syntax error into `database/`.
+
+Both loaders fail loudly rather than degrading: a missing file, a malformed
+document, a rating with no bodies, or a contact-message pool smaller than the
+count the seeder writes all throw. The alternative is worse than a crash —
+`array_slice` on a short pool silently returns fewer rows, and a missing
+rating key writes blank review bodies, both of which report as a successful
+seed.
+
+### Why the review count is not a fixed number
+
+`DemoReviewSeeder`'s `TOTAL_REVIEWS` is an upper bound, not a target.
+`CreateProductReview` enforces §24's verified-purchase rule itself — one
+review per reviewer per product, and only from a delivered order they
+actually placed — so the real ceiling is the number of *unique*
+(reviewer, product) pairs across delivered orders. That figure moves
+substantially between runs: 137, 123, 107 and 149 on four consecutive seeds,
+because which orders reach `Delivered` and how many distinct products they
+carry is shuffled.
+
+A fixed constant is therefore wrong on nearly every run — set high it warns
+and under-delivers, set low it wastes an eligible pool. The seeder takes
+`POOL_UTILISATION` (85%) of whatever is available, capped at
+`TOTAL_REVIEWS`, and scales `RATING_DISTRIBUTION`'s weights to match. The
+15% left unreviewed is deliberate: a demo where every delivered line item
+already has a review has nothing to point at for the "write a review" path.
+
 `App\Support\ProtectedSkus`
 (`database/fixtures/reference/protected-skus.json`) is consulted by both
 `DemoOrderSeeder` and `StressSeeder` before any line is added to a cart —
@@ -164,6 +209,24 @@ silently drain exactly those states. See that file's own comment for the
 full mechanism.
 
 ## Local, the full demo
+
+One command, which resets the database and loads everything in the order
+below:
+
+```bash
+docker compose exec app php artisan demo:seed --fresh
+```
+
+`--fresh` runs `migrate:fresh --seed` first — that is what puts permissions,
+roles, carriers, and the four staff accounts in place, all of which the demo
+seeders assume exist. Without it, `demo:seed` loads onto whatever is already
+there, which is right for topping up and wrong after a previous demo run
+(products are created, not upserted, so `DemoSeeder` fails on the first
+duplicate SKU).
+
+`Database\Seeders\Demo\DemoDatabaseSeeder` is what it calls, and that class
+is where the ordering constraints are written down next to the calls they
+constrain. The explicit form, if a single step needs running on its own:
 
 ```bash
 docker compose exec app php artisan migrate:fresh --seed
@@ -317,6 +380,52 @@ This command is **not** part of the seed chain — it is not wired into any
 `Demo*` seeder and never should be, since it makes a real network call and
 depends on an API key nobody else's environment has. Run it once, by hand,
 after the catalogue exists.
+
+## Real Stripe intents
+
+Every `stripe_payment_intent_id` in a freshly seeded database is null.
+`DemoOrderSeeder` produces payment rows through `RecordPayment` and walks
+their statuses through `TransitionPaymentStatus` — real Actions, real state
+machine, no Stripe object anywhere. That is the correct default: ADR-0003
+makes seeding offline and deterministic, and `migrate:fresh --seed` has to
+hold for anyone with no Stripe key, in CI, and offline.
+
+`demo:stripe-payments` is the opt-in step that opens real test
+PaymentIntents against already-seeded orders, for end-to-end payment
+simulation:
+
+```bash
+docker compose exec app php artisan demo:stripe-payments --dry-run
+docker compose exec app php artisan demo:stripe-payments --limit=10
+```
+
+Like `demo:fetch-images`, it is **not** part of the seed chain and never
+should be — it makes network calls and needs a key nobody else's environment
+has. It refuses to run without a `sk_test_` key, so a live key cannot open
+real intents against demo orders by accident.
+
+It goes through `CreateStripeIntent` rather than the Stripe SDK directly, so
+the run exercises the real checkout path: the amount read off the payment row
+(never the caller), the `lockForUpdate` re-read, the idempotency key, and the
+`metadata` the webhook matches back against.
+
+It deliberately **does not confirm** the intents. An intent reaches
+`succeeded` when a card is confirmed against it, and the app's own status
+only moves when the resulting webhook arrives — both are the things an
+end-to-end run exists to exercise.
+
+**Re-seeding within 24 hours will skip some payments.** `CreateStripeIntent`
+keys idempotency on `payment-intent-{id}`, payment ids restart at 1 on every
+`migrate:fresh`, and Stripe remembers a key account-wide for 24 hours — so
+low ids collide with the previous seed's payments, which had different
+amounts. The command reports these as skips rather than failures, because
+neither the Action nor the run is wrong. Do not "fix" this by weakening that
+key: it is what stops a reloaded checkout charging a customer twice.
+
+Before driving an intent to a webhook, check the CLI/app account pair —
+`how-to/troubleshooting/payments-and-security-tooling.md`, "Stripe says a
+payment succeeded and the app still shows it pending". A `stripe listen`
+authenticated to a different account prints `Ready!` and forwards nothing.
 
 ## Article images
 

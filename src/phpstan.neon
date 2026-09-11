@@ -1,0 +1,33 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database/seeders
+
+    # Raised to 9 on 2026-09-06 after a full sweep eliminated all 564
+    # findings at that level across app/, database/seeders, and
+    # database/factories. See the CHANGELOG entry under that date for what
+    # the sweep found and the two fix patterns it settled on.
+    level: 9
+
+    excludePaths:
+        - app/Providers/*
+
+    checkModelProperties: true
+
+    ignoreErrors:
+        # Illuminate\Database\Seeder declares `protected $command` typed
+        # `@var \Illuminate\Console\Command` (non-nullable), but the
+        # property is never initialized until `setCommand()` runs — the
+        # framework's own `run()` guards every use with `isset($this->command)`
+        # for exactly that reason. Larastan trusts the docblock literally and
+        # flags every `$this->command?->` in every seeder as a redundant
+        # nullsafe call; it is not redundant, it is the correct defensive
+        # form given the framework's actual runtime behaviour. Scoped to
+        # database/seeders only — a stub inaccuracy in one base class, not a
+        # blanket "trust me" on nullsafe operators elsewhere.
+        -
+            message: '#Using nullsafe method call on non-nullable type Illuminate\\Console\\Command#'
+            path: database/seeders/*

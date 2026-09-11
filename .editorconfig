@@ -1,6 +1,6 @@
-# One config for the whole repository, including online-store/.
+# One config for the whole repository, including src/.
 #
-# Do not add a second .editorconfig under online-store/. A nested file
+# Do not add a second .editorconfig under src/. A nested file
 # declaring `root = true` stops the cascade, so nothing beneath it ever sees
 # this one — which is how the two files previously disagreed about JavaScript
 # and compose indentation without anyone noticing.

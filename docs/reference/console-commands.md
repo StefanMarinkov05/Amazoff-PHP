@@ -15,6 +15,8 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
 | `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |
 | `demo:fetch-images` | Downloads real Pexels photos for `product_images` rows still pointing at a placeholder path that does not exist on disk. One search per product; the whole catalogue finishes in a single run (25,000 requests/hour free tier), still resumable if interrupted. `how-to/seed-the-database.md`, "Product images" | A human, once, after the catalogue is seeded — already run; the 182 result files are committed |
+| `demo:seed` | Loads the whole demo dataset in dependency order (`Demo\DemoDatabaseSeeder`); `--fresh` resets the database first. `how-to/seed-the-database.md`, "Local, the full demo" | A human, whenever a demo database is wanted |
+| `demo:stripe-payments` | Opens real Stripe **test** PaymentIntents against already-seeded orders, through `CreateStripeIntent`, for end-to-end payment simulation. Refuses a non-`sk_test_` key. Creates but never confirms — confirmation and the webhook are what an end-to-end run exercises. `how-to/seed-the-database.md`, "Real Stripe intents" | A human, opt-in, after `demo:seed` |
 | `demo:fetch-article-images` | The article sibling of `demo:fetch-images` — downloads a real Pexels photo for every article whose `main_image_path` is empty or missing on disk, and writes the path onto the row. `components/journal/cover.blade.php` prefers it once it exists; falls back to generated art until then. `how-to/seed-the-database.md`, "Article images" | A human, once, after the article fixtures are loaded |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
@@ -89,6 +91,55 @@ printed anything extra would break every race test at once.
 
 `explanation/concurrency-and-locking.md`, "How this is tested", has why races
 need two processes, a barrier, and sometimes a rendezvous at all.
+
+## `demo:seed`
+
+The composed path through `database/seeders/Demo/DemoDatabaseSeeder`, which
+is where the run-order constraints live next to the calls they constrain.
+Five of them are load-bearing — customers before the state that hangs off
+them, addresses and coupons before orders, orders before reviews (enforced by
+`CreateProductReview` itself, not merely by seed order), reviews before the
+showcase labels, and content reference rows before articles.
+
+`--fresh` composes `migrate:fresh --seed` with the load, because the two-step
+form is easy to half-run and a demo set loaded onto a previous run's orders
+is the state the command exists to stop being normal. It aborts rather than
+seeding if the reset fails.
+
+Refuses to run in production before touching anything. Every individual
+`Demo*` seeder already carries that guard, but a command that resets the
+database should not rely on a guard living one call deeper.
+
+Deliberately not wired into `migrate:fresh --seed`: CI wants the smallest
+fixture that exercises the code, and this set is neither small nor fast.
+
+## `demo:stripe-payments`
+
+Opt-in, network-calling, and not part of any seeder — the same shape as
+`demo:fetch-images`, and for the same reason: seeding is offline and
+deterministic per ADR-0003, so anything needing an API key nobody else's
+environment has stays outside the chain.
+
+| Option | Meaning |
+|---|---|
+| `--limit=` | How many payments to open an intent for (default 10) |
+| `--dry-run` | Report what would be done without calling Stripe |
+
+Eligible payments are `method = stripe`, status in (`pending`, `processing`),
+and no intent yet — mirroring `CreateStripeIntent`'s own guard rather than
+trusting it to refuse, so a run is not a wall of caught refusals.
+
+It calls the Action rather than `StripeClient`, so the amount still comes off
+the payment row, the row is still locked and re-read, and the `metadata` the
+webhook matches on is still set by the application. A second intent-creation
+path would prove nothing about the first.
+
+**Re-seeding within 24 hours produces skips, not failures.** The Action keys
+idempotency on `payment-intent-{id}`; payment ids restart at 1 on every
+`migrate:fresh` while Stripe remembers a key account-wide for 24 hours, so
+low ids collide with a previous seed's payments at different amounts. The
+command detects `idempotency_key_in_use` and reports it as a skip. That key
+is a double-charge defence — do not weaken it to make a demo tidier.
 
 ## The scheduler does not run locally
 

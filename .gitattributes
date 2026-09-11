@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux containers. A CRLF checkout makes the
+# shebang `/bin/bash^M`, which MySQL's init reports only as exit 126.
+# src/.gitattributes covers src/ only; this covers the repo root.
+*.sh text eol=lf

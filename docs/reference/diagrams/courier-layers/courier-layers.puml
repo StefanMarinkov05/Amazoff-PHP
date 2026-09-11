@@ -1,0 +1,66 @@
+@startuml courier-layers
+
+' Replaces the ASCII "shape of it" diagram in explanation/couriers.md.
+' Verified against App\Facades\Courier, App\Support\Courier\CourierManager,
+' App\Support\Courier\CachedCourierGateway, App\Contracts\CourierGateway,
+' App\Http\Integrations\{Econt,Speedy} on 2026-09-07.
+
+title The courier layer, end to end (explanation/couriers.md)
+
+skinparam component {
+  BackgroundColor<<facade>> #E8F0FF
+  BackgroundColor<<decorator>> #FFF5E0
+  BackgroundColor<<contract>> #E0F5E0
+  BackgroundColor<<vendor>> #FFE0E0
+}
+
+package "Callers" {
+  [CheckoutPage /\nCalculateDeliveryPrice] as Checkout
+  [Actions\\Order\\CreateOrder] as CreateOrder
+}
+
+component "App\\Facades\\Courier" as Facade <<facade>>
+component "App\\Support\\Courier\\CourierManager" as Manager <<facade>>
+note bottom of Manager
+  Resolves a driver by carriers.code,
+  wraps it in CachedCourierGateway
+end note
+
+component "App\\Support\\Courier\\CachedCourierGateway\n(decorator)" as Cache <<decorator>>
+note bottom of Cache
+  Caches cities()/offices()/quote();
+  createShipment()/label()/track()
+  always pass through uncached —
+  see troubleshooting/infra-and-environment.md
+  for why caching the DTOs directly
+  is the wrong move here
+end note
+
+component "App\\Contracts\\CourierGateway\n(§37 #14 — one interface, two vendors)" as Contract <<contract>>
+component "EcontGateway" as Econt <<contract>>
+component "SpeedyGateway" as Speedy <<contract>>
+note bottom of Contract
+  Maps vendor JSON → App\\Support\\Courier
+  DTOs, never the reverse
+end note
+
+component "App\\Http\\Integrations\\Econt\n(Saloon connector + requests)" as EcontHttp <<vendor>>
+component "App\\Http\\Integrations\\Speedy\n(Saloon connector + requests)" as SpeedyHttp <<vendor>>
+note bottom of EcontHttp
+  Vendor HTTP, auth, and the
+  per-vendor "200 with an error
+  body" trap
+end note
+
+Checkout --> Facade : Courier::for($carrier)\n->offices($city) / ->quote(...)
+CreateOrder --> Manager : CourierManager (injected)\n->for($carrier)->quote(...)
+
+Facade --> Manager
+Manager --> Cache
+Cache --> Contract
+Contract <|.. Econt
+Contract <|.. Speedy
+Econt --> EcontHttp
+Speedy --> SpeedyHttp
+
+@enduml

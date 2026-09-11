@@ -1,0 +1,66 @@
+@startuml deployment
+
+' Two topologies for the same app. Verified against docker-compose.yml and
+' how-to/deploy-and-host.md on 2026-09-07. The gap between them is the whole
+' point of deploy-and-host.md's checklist — anything fixed only in
+' docker/nginx/*.conf never reaches the right side of this picture.
+
+title Local Docker vs. production (Forge) — two different topologies
+
+package "Local development — docker-compose.yml" {
+  node "webserver\nnginx:1.27-alpine" as LocalNginx
+  node "app\n(PHP-FPM, built from\ndocker/php/Dockerfile)" as LocalApp
+  node "db\nmysql:8.0\n(durability RELAXED —\nlocal only, see\ntroubleshooting/database-and-migrations.md)" as LocalDB
+  node "vite\nnode:22-alpine\n(HMR dev server)" as LocalVite
+  node "mailpit\n(catches outbound mail,\nweb UI on :8025)" as LocalMail
+
+  LocalNginx --> LocalApp : fastcgi :9000
+  LocalApp --> LocalDB : :3306
+  LocalApp --> LocalMail : SMTP :1025
+  LocalNginx ..> LocalVite : dev asset\nproxy (HMR)
+
+  note bottom of LocalDB
+    innodb_flush_log_at_trx_commit=2,
+    sync_binlog=0, --skip-log-bin.
+    Traded for speed — see the
+    "Migrations and tests are
+    unbearably slow" troubleshooting
+    entry for why this exists.
+  end note
+}
+
+package "Production — Laravel Forge (ADR-0001)" {
+  node "VPS" {
+    node "nginx\n(Forge-provisioned,\nNOT this repo's\ndocker/nginx/*.conf)" as ProdNginx
+    node "PHP-FPM\n(Forge-provisioned)" as ProdApp
+  }
+  database "MySQL\n(Forge-provisioned,\nDEFAULT durability —\nnothing relaxed)" as ProdDB
+
+  ProdNginx --> ProdApp : fastcgi
+  ProdApp --> ProdDB
+
+  note bottom of ProdNginx
+    No containers here at all.
+    Owed independently, per
+    how-to/deploy-and-host.md:
+    * X-Content-Type-Options header (SEC-007)
+    * server_tokens off / expose_php Off (SEC-004)
+    * Stripe webhook IP allowlist
+    * SESSION_SECURE_COOKIE=true
+  end note
+}
+
+LocalNginx -[hidden]right-> ProdNginx
+
+note as Gap
+  <b>The gap between these two boxes is why deploy-and-host.md exists.</b>
+  Anything fixed only in this repo's docker/nginx/*.conf, or
+  only in the local .env, is invisible to the
+  right-hand side — it has to be set again,
+  deliberately, on the real host.
+end note
+
+Gap .. LocalNginx
+Gap .. ProdNginx
+
+@enduml

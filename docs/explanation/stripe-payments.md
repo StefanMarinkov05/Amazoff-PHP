@@ -12,6 +12,13 @@ to set any of this up locally, `how-to/set-up-stripe.md`.
 
 ## The shape of it
 
+Rendered as a proper sequence diagram:
+[view source](../reference/diagrams/stripe-payment-sequence/stripe-payment-sequence.puml) ·
+[view PDF](../reference/diagrams/stripe-payment-sequence/stripe-payment-sequence.pdf) —
+includes the cash-on-delivery alt path this ASCII version doesn't show, and
+is the maintained version if the two ever disagree. Kept here too for a
+plain-text read:
+
 ```
   Cart page                 CheckoutPage                 Stripe          Webhook
       │                          │                          │               │
@@ -144,6 +151,13 @@ reachable from itself precisely for this, and an early "nothing to do when
 target equals current" return silently dropped every refund after the first
 until a test caught it.
 
+All 8 states and every transition between them, including this self-loop and
+the `Failed` retry loop back into the live region, are drawn in full:
+[view source](../reference/diagrams/payment-status-states/payment-status-states.puml) ·
+[view PDF](../reference/diagrams/payment-status-states/payment-status-states.pdf) —
+the diagram shows the parts a table hides, and is the maintained version if
+the two ever disagree.
+
 Full versus partial is decided by comparing amounts, never by trusting
 `charge.refunded` — a real charge object carries that boolean as `false`
 while partially refunded, so it would misclassify.
@@ -186,7 +200,7 @@ the matrix, which is the right answer for an out-of-order delivery.
 returns to `Paid`, one lost ends at `Refunded`, since the funds are taken
 back either way.
 
-Two details worth knowing:
+Three details worth knowing:
 
 - **The amount guard does not apply.** Stripe documents a dispute's amount
   as *"usually the amount of the charge, but it can differ"*, so a partial
@@ -196,9 +210,29 @@ Two details worth knowing:
   `null|PaymentIntent|string`. Reading it as a string only returned null on
   an expanded payload and silently ignored the dispute — `intentIdFrom()`
   now accepts both shapes.
+- **The amount guard is scoped by event type, not by target status —
+  found while wiring the closing event below.** `charge.dispute.closed`
+  with `status: won` also resolves to a `Paid` target, but a Stripe Dispute
+  object carries no `amount_received` field at all — only `amount`, the
+  disputed sum. Gating the guard on `$target === Paid` alone (its original
+  form) meant `$received` was always `null` for a won dispute, always read
+  as a mismatch, and the payment silently stayed `Disputed` regardless of
+  the real outcome. The guard now also checks `$event->type ===
+  'payment_intent.succeeded'`, the one event type that genuinely carries
+  the field it reads. Caught by the regression test for the won-dispute
+  path, not by inspection — the bug produced no error, just a payment that
+  never moved.
 
-The closing events (`charge.dispute.closed`) are **not** handled, so moving
-a payment back out of `Disputed` is currently a manual panel action.
+**Closing events are now handled.** `charge.dispute.closed` resolves to
+`PaymentStatus::Paid` when `status: won` and `PaymentStatus::Refunded` when
+`status: lost`, mirroring `charge.refunded`'s pattern of a payload-dependent
+target resolved in `statusFor()` rather than a flat `STATUS_BY_EVENT_TYPE`
+entry — the event type alone does not say which way the dispute went.
+`charge.dispute.closed` also fires for `warning_closed` (an inquiry that
+never became a formal dispute) and other non-terminal statuses; only `won`
+and `lost` are decisions this application acts on, and anything else is
+acknowledged without a status change, the same treatment an unlisted event
+type gets.
 
 ## Signing-secret rotation
 
@@ -243,5 +277,5 @@ Recorded rather than silently carried:
 - **Nothing has been run against the real Stripe API end to end.** Response
   shapes were verified against live test-mode objects; the request shapes
   this application sends have never been accepted by Stripe in anger.
-  `reference/stripe-testing.md` is explicit about what that does and does
+  `reference/testing/stripe-testing.md` is explicit about what that does and does
   not leave open.

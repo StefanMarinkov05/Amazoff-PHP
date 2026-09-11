@@ -1,0 +1,99 @@
+@startuml order-status-states
+
+' Source of truth: App\Enums\OrderStatus::allowedTransitions() for legality,
+' App\Actions\Order\TransitionOrderStatus::applyInventoryEffect() for the
+' side effects on edges. Governed by ADR-0004 (legality) and ADR-0011
+' (side effects live in the transition, not in wrapper Actions).
+' Verified against both files on 2026-09-07.
+'
+' TransitionOrderStatus is the ONLY writer of orders.status and of
+' order_status_histories. Never assign ->status directly.
+
+title OrderStatus — legal transitions and their inventory effects (§18)
+
+skinparam state {
+  BackgroundColor<<terminal>> #FFE0E0
+  BackgroundColor<<fulfil>> #E8F0FF
+  BackgroundColor<<paid>> #E0F5E0
+}
+
+[*] --> New : CreateOrder\n(every order lands here,\nregardless of payment method)
+
+state "New" as New
+state "AwaitingPayment" as Awaiting
+Awaiting : Stripe orders only
+state "Paid" as Paid <<paid>>
+state "Confirmed" as Confirmed <<paid>>
+state "Preparing" as Preparing <<fulfil>>
+state "ReadyForShipment" as Ready <<fulfil>>
+state "Shipped" as Shipped <<fulfil>>
+state "Delivered" as Delivered <<fulfil>>
+state "Cancelled" as Cancelled
+state "Returned" as Returned
+state "Refunded" as Refunded <<terminal>>
+
+' --- the two entry legs: card vs cash on delivery ---
+New --> Awaiting : card payment
+New --> Confirmed : **cash on delivery**\n(skips the payment leg entirely)
+New --> Cancelled : **ReleaseStock**
+
+Awaiting --> Paid : webhook confirms
+Awaiting --> Cancelled : **ReleaseStock**
+
+Paid --> Confirmed
+Paid --> Cancelled : **ReleaseStock**
+Paid --> Refunded
+
+Confirmed --> Preparing
+Confirmed --> Cancelled : **ReleaseStock**
+Confirmed --> Refunded
+
+Preparing --> Ready
+Preparing --> Cancelled : **ReleaseStock**
+
+Ready --> Shipped : **CompleteSale**
+Ready --> Cancelled : **ReleaseStock**
+
+Shipped --> Delivered
+Shipped --> Returned : **RestockReturn**
+
+Delivered --> Returned : **RestockReturn**
+
+Cancelled --> Refunded
+Returned --> Refunded
+
+Refunded --> [*]
+
+note right of New
+  Two entry legs, and this is the
+  detail a table hides: COD goes
+  New --> Confirmed directly, never
+  touching AwaitingPayment or Paid.
+  Roughly half of orders take it.
+end note
+
+note as EffectsNote
+  **Inventory effects live on the edge, not in a wrapper.**
+  Only three target statuses carry one
+  (TransitionOrderStatus::applyInventoryEffect):
+
+  * --> Cancelled   ReleaseStock    (frees the reservation)
+  * --> Shipped     CompleteSale    (reservation becomes a sale)
+  * --> Returned    RestockReturn   (stock comes back)
+
+  Every other transition has no inventory effect.
+  ADR-0011: putting them here means a caller that
+  reaches Cancelled cannot skip releasing stock by
+  forgetting a wrapper Action.
+end note
+
+note bottom of Refunded
+  Refunded is the single terminal state
+  (allowedTransitions() returns []).
+  The graph is acyclic — proven by
+  tests/Unit/Enums/TransitionMatrixTest.php —
+  which is what makes a repeated transition
+  a safe no-op rather than a race.
+end note
+
+@enduml
