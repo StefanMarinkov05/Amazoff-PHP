@@ -38,7 +38,14 @@
         </div>
 
         <div>
-            <label for="password" class="block text-sm font-medium text-ink-800">Password</label>
+            <div class="flex items-center justify-between">
+                <label for="password" class="block text-sm font-medium text-ink-800">Password</label>
+                <a href="/password/reset" wire:navigate
+                   class="text-xs font-medium text-marine-700 underline-offset-4 hover:underline
+                          focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20">
+                    Forgot your password?
+                </a>
+            </div>
             <input
                 wire:model="password"
                 id="password" type="password" name="password"

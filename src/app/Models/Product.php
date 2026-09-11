@@ -108,6 +108,17 @@ class Product extends Model
         return $this->hasMany(ProductReview::class);
     }
 
+    /**
+     * Effective-price observations, for the Omnibus prior-price display
+     * (ADR-0021). Append-only; `RecordPriceObservation` writes it.
+     *
+     * @return HasMany<ProductPriceHistory, $this>
+     */
+    public function priceHistory(): HasMany
+    {
+        return $this->hasMany(ProductPriceHistory::class);
+    }
+
     /** @return HasMany<WishlistItem, $this> */
     public function wishlistItems(): HasMany
     {

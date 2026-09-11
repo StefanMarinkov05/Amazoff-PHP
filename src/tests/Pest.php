@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Contracts\CourierGateway;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
 use App\Models\Carrier;
@@ -11,6 +12,7 @@ use App\Models\Cart;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -19,8 +21,17 @@ use App\Support\Courier\CourierTrackingEvent;
 use App\Support\Courier\DeliveryQuote;
 use App\Support\Courier\ShipmentRequest;
 use App\Support\Courier\ShipmentResult;
+use Carbon\CarbonInterface;
+use Database\Seeders\System\CarrierSeeder;
+use Database\Seeders\System\PermissionSeeder;
+use Database\Seeders\System\RoleSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
 /*
@@ -41,6 +52,18 @@ pest()->extend(TestCase::class)
     ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
 
+// The route-level Vite-manifest fake (a route-level test hits @vite in the
+// full layout; CI has no built manifest) lives in TestCase::setUp() now,
+// not as a beforeEach() here. A bare beforeEach() written in this file is
+// keyed to *this file's own filename* by Pest's BeforeEachRepository —
+// nothing a Feature test file resolves at all, `->in('Feature')` is not a
+// real method on BeforeEachCall, and the silent no-op was only caught by
+// running the two affected tests directly rather than trusting the change
+// synced. TestCase::setUp() is the one already-proven mechanism for
+// something every Feature test needs, which is exactly how
+// LazilyRefreshDatabase above reaches the same tests. See TestCase.php's
+// own comment for the rest of the story.
+
 /*
 | Concurrency tests are the exception, and must not use RefreshDatabase.
 |
@@ -54,6 +77,66 @@ pest()->extend(TestCase::class)
 */
 pest()->extend(TestCase::class)
     ->in('Concurrency');
+
+/*
+| Browser tests (tests/Browser, ADR-0017) are the other exception. Pest only
+| loads this root Pest.php — a Pest.php inside tests/Browser is never read —
+| so the browser suite's binding lives here.
+|
+| pest-plugin-browser boots the application in-process and drives a real
+| Chromium against it. A page load is a committed round-trip, so the suite
+| uses no refresh trait: it runs against its own database (amazoff_browser,
+| set in phpunit.browser.xml), which is migrated once, then has every data
+| table truncated and the system reference data reseeded before each test —
+| the tests/Concurrency model. Catalogue data is the documented "no real
+| creation event" exception and is built with factories inside each spec;
+| everything with a real creation path goes through the app's own Actions.
+|
+| This block is inert for the Feature/Unit/Concurrency runs — tests/Browser
+| is not in their testsuites.
+*/
+pest()->extend(TestCase::class)
+    ->beforeEach(function (): void {
+        // Force `@vite` to resolve against the built manifest, never the dev
+        // server. pest-plugin-browser's in-process server has no route to
+        // Vite on :5173, and if the `vite` compose service is running,
+        // `public/hot` exists on the shared mount — `@vite` would then serve
+        // raw `resources/css/app.css` (an `@import "tailwindcss"` with no
+        // compiled utilities) and every page would render unstyled, making
+        // every ResponsiveTest overflow check a false pass. Pointing the hot
+        // file at a path that does not exist is env-scoped and touches
+        // nothing on disk. `public/build/` must be current — the CI browser
+        // job runs `npm run build` first; locally, run it if the styles
+        // assertion in ResponsiveTest fails.
+        Vite::useHotFile(base_path('storage/framework/testing/vite-no-hot'));
+
+        if (! Schema::hasTable('sessions')) {
+            Artisan::call('migrate', ['--force' => true]);
+        }
+
+        Schema::disableForeignKeyConstraints();
+
+        // getTableListing() returns schema-qualified names ("amazoff_browser.x")
+        // on this MySQL/Laravel 13 combination; DB::table() wants the bare name.
+        foreach (Schema::getTableListing() as $qualified) {
+            $table = str_contains($qualified, '.') ? explode('.', $qualified, 2)[1] : $qualified;
+
+            if ($table === 'migrations') {
+                continue;
+            }
+
+            DB::table($table)->truncate();
+        }
+
+        Schema::enableForeignKeyConstraints();
+
+        // Seeders run in-process here — Artisan::call() would reboot the
+        // console kernel three times, ~1s per test.
+        foreach ([PermissionSeeder::class, RoleSeeder::class, CarrierSeeder::class] as $seeder) {
+            test()->seed($seeder);
+        }
+    })
+    ->in('Browser');
 
 /*
 |--------------------------------------------------------------------------
@@ -240,6 +323,73 @@ function orderWithVariationLine(ProductVariation $variation, OrderStatus $status
     ]);
 
     return $order->fresh();
+}
+
+/*
+ * Shared by the returns Action tests (RequestReturn / ReviewReturn /
+ * RefundReturn) and RefundReturnConcurrencyTest — Feature and Concurrency are
+ * separate suites, so the helper lives here.
+ */
+
+/**
+ * A delivered order eligible for a return: one line per `$lines`, each against
+ * its own variation whose `inventories.sold_quantity` is `$quantity` (so
+ * `RestockReturn` has stock to credit back), a `Delivered`
+ * `order_status_histories` row stamped `$deliveredAt` (so `Order::deliveredAt()`
+ * and the 14-day window resolve), and `anonymized_at` explicitly null (the
+ * `OrderFactory` gotcha — its default makes an order look pre-erased).
+ */
+function deliveredOrderForReturn(
+    ?User $customer = null,
+    int $quantity = 2,
+    int $lines = 1,
+    ?CarbonInterface $deliveredAt = null,
+    PaymentMethod $paymentMethod = PaymentMethod::Stripe,
+    string $unitPrice = '25.00',
+): Order {
+    $order = Order::factory()->create([
+        'user_id' => $customer?->getKey() ?? User::factory(),
+        'status' => OrderStatus::Delivered,
+        'payment_method' => $paymentMethod,
+        'currency' => 'EUR',
+        'anonymized_at' => null,
+    ]);
+
+    $history = OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'previous_status' => OrderStatus::Shipped,
+        'new_status' => OrderStatus::Delivered,
+        'user_id' => null,
+    ]);
+    $history->forceFill(['created_at' => $deliveredAt ?? now()])->save();
+
+    for ($i = 0; $i < $lines; $i++) {
+        $variation = ProductVariation::factory()->create([
+            'price' => $unitPrice,
+            'discount_price' => null,
+        ]);
+
+        Inventory::factory()->create([
+            'product_variation_id' => $variation->getKey(),
+            'current_quantity' => 0,
+            'reserved_quantity' => 0,
+            'sold_quantity' => $quantity,
+            'returned_quantity' => 0,
+            'damaged_quantity' => 0,
+        ]);
+
+        OrderItem::factory()->create([
+            'order_id' => $order->getKey(),
+            'product_id' => $variation->product_id,
+            'product_variation_id' => $variation->getKey(),
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'line_total' => bcmul($unitPrice, (string) $quantity, 2),
+            'discount_amount' => 0,
+        ]);
+    }
+
+    return $order->fresh(['orderItems']);
 }
 
 /*

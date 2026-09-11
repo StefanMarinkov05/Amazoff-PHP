@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Attributes\Tables;
 
+use App\Actions\Catalogue\DeleteAttribute;
+use App\Filament\Actions\DomainDeleteBulkAction;
+use App\Models\Attribute;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -46,7 +49,14 @@ class AttributesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DomainDeleteBulkAction::make(
+                        fn (Attribute $record, ?User $actor) => app(DeleteAttribute::class)->handle($record, $actor),
+                        'attribute',
+                    ),
+                    DomainDeleteBulkAction::makeAtomic(
+                        fn (Attribute $record, ?User $actor) => app(DeleteAttribute::class)->handle($record, $actor),
+                        'attribute',
+                    ),
                 ]),
             ]);
     }

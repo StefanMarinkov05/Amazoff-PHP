@@ -101,6 +101,9 @@ final readonly class Money implements Stringable
      *
      * The intermediate runs at double scale and rounds once at the end —
      * rounding each step compounds the error across a multi-line cart.
+     * That final rounding is half-up (20% of 100.00 is 16.67, not 16.66):
+     * customers reading a VAT breakdown expect ordinary commercial
+     * rounding, not the truncation `bcadd($x, '0', SCALE)` alone performs.
      */
     public function percentageOf(string $rate): self
     {
@@ -114,7 +117,7 @@ final readonly class Money implements Stringable
             self::SCALE * 2,
         );
 
-        return new self(bcadd($precise, '0', self::SCALE));
+        return new self(self::roundHalfUp($precise));
     }
 
     /**
@@ -128,6 +131,10 @@ final readonly class Money implements Stringable
      *
      * Returns zero when the total is zero rather than dividing by it, which
      * is the empty-cart case rather than an error.
+     *
+     * Rounds half-up at the end, same as `percentageOf()` and for the same
+     * reason — a customer reading a per-line discount split expects
+     * ordinary commercial rounding, not truncation.
      */
     public function shareOf(self $pool, self $total): self
     {
@@ -141,7 +148,30 @@ final readonly class Money implements Stringable
             self::SCALE * 2,
         );
 
-        return new self(bcadd($precise, '0', self::SCALE));
+        return new self(self::roundHalfUp($precise));
+    }
+
+    /**
+     * Rounds a `SCALE * 2`-precision bcmath string to `SCALE` digits,
+     * half away from zero — bcmath has no native rounding mode, and
+     * `bcadd($x, '0', SCALE)` alone truncates rather than rounds.
+     *
+     * Nudges by half a unit at the target scale before truncating: adding
+     * (or, for a negative amount, subtracting) `0.005` before cutting to 2
+     * decimal places is the standard bcmath half-up technique, and works
+     * identically on PHP 8.3 and 8.4 — `bcround()` is 8.4-only and this
+     * project's `composer.json` still declares `^8.3`.
+     *
+     * @param  numeric-string  $amount
+     * @return numeric-string
+     */
+    private static function roundHalfUp(string $amount): string
+    {
+        $half = bcdiv('5', bcpow('10', (string) (self::SCALE + 1)), self::SCALE + 1);
+
+        return str_starts_with($amount, '-')
+            ? bcsub($amount, $half, self::SCALE)
+            : bcadd($amount, $half, self::SCALE);
     }
 
     public function isGreaterThan(self $other): bool

@@ -51,13 +51,31 @@ Six more followed that shape: `/delivery`, `/payment-information`, `/faq`,
 `resources/views/pages/`. They share `<x-site.prose-page>`, which owns the
 heading, the optional standfirst and "last updated" line, the body
 typography, and the back-link — so the six carry content and nothing else.
+`docs/reference/components.md` is the full list of shared Blade components
+and what each one is for.
 `/about` deliberately does *not* use it: it has its own hero and layout, and
 folding it in would mean parameterising the component for one caller.
 
-The two order pages went the other way, because both hold state. `/orders/track`
+The order pages went the other way, because they hold state. `/orders/track`
 is a `TrackOrder` component (a form, a lookup, a rate limiter, a found-order
-id) and `/account/orders` is `OrderHistory` (a paginated, user-scoped
-query).
+id), `/account/orders` is `OrderHistory` (a paginated, user-scoped query
+split into "in progress" and "completed"), and `/account/orders/{order}` is
+`OrderDetails` — one order in full, scoped the same way `OrderHistory` is
+(`auth()->user()->orders()->find()`, then `abort_if(null, 404)`). Route-model
+binding resolves the `{order}` segment; the component keeps only the id and
+re-scopes on every render, so a stranger's id is a 404 rather than a
+disclosed row.
+
+`/account/orders/{order}/return` is `RequestReturn` (ADR-0020) — the 14-day
+right of withdrawal, scoped identically. It renders the order's returnable
+lines (ordered quantity minus what earlier non-denied returns hold) and a
+reason field only while `windowOpen()` is true; the enforcement itself is
+`App\Actions\Returns\RequestReturn`'s guard, and an
+`ReturnNotAllowedException` from it becomes a form error, never a 500. The
+order-details page shows a "Request a return" button inside the window and
+lists each return's status. Staff then approve / deny / refund in
+`admin/returns` (`ReturnResource`) — a fully-refunded return never changes
+`orders.status`, which stays `Delivered`.
 
 The component and its view are paired by name, not by configuration.
 `App\Livewire\Catalogue\ProductList` renders
@@ -120,9 +138,17 @@ customer as "no results".
 
 **Eager load whatever the card touches.** The component is responsible for its
 own N+1 protection — nothing warns. `ProductList` loads `productImages`,
-`brand`, and `productVariations.inventory` because the card reads all three.
-A template change that reaches a fourth relation silently issues a query per
-row.
+`brand`, `productVariations.inventory`, and a 40-day slice of `priceHistory`
+(for the Omnibus prior-price line, ADR-0021 — `ResolvePriorPrice` reads the
+loaded relation rather than querying per card). A template change that reaches
+a fifth relation silently issues a query per row.
+
+**Omnibus prior-price line.** When a card or the product page shows a reduced
+price, it also shows "Lowest price in the last 30 days: €X"
+(`ResolvePriorPrice::forProduct()`, from `product_price_history`). Product
+page, catalogue grid, and the home discounted-products section all carry it;
+the resolver returns `null` — and the line is hidden — when the product is
+not on sale or has under 30 days of history. ADR-0021.
 
 **Writes still go through Actions.** Reading is the component's own business;
 the moment a page changes state it calls an Action, exactly as a Filament

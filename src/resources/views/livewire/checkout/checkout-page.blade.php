@@ -53,6 +53,24 @@
                      The order is the authoritative figure once it exists. --}}
                 Pay {{ $this->order?->total_amount ?? $this->totals['total'] }}
             </button>
+
+            {{-- The deliberate version of the abandonment ADR-0022 sweeps up
+                 after. Cancelling here releases the reserved stock straight
+                 away and puts the basket back, instead of the customer
+                 closing the tab and waiting out the unpaid-order TTL. --}}
+            <button type="button" wire:click="cancelPayment"
+                    wire:loading.attr="disabled" wire:target="cancelPayment"
+                    class="mt-3 w-full rounded-control px-4 py-2 text-sm font-medium text-ink-500
+                           underline-offset-4 hover:text-ink-800 hover:underline focus:outline-none
+                           focus-visible:ring-4 focus-visible:ring-marine-600/20
+                           disabled:cursor-not-allowed disabled:opacity-60">
+                <span wire:loading.remove wire:target="cancelPayment">Cancel and return to basket</span>
+                <span wire:loading wire:target="cancelPayment">Cancelling…</span>
+            </button>
+
+            <p class="mt-2 text-center text-[0.7rem] text-ink-400">
+                Cancelling releases the items back into stock.
+            </p>
         </div>
 
         {{-- @assets runs once per page and survives Livewire navigation.
@@ -154,6 +172,40 @@
 
                 <section>
                     <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-500">Delivery</h2>
+
+                    @if ($this->savedAddresses->isNotEmpty())
+                        <fieldset class="mt-4">
+                            <legend class="text-sm font-medium text-ink-700">Use a saved address</legend>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                @foreach ($this->savedAddresses as $address)
+                                    <label @class([
+                                        'flex cursor-pointer items-start gap-2.5 rounded-control border px-3 py-2.5 text-sm transition-colors',
+                                        'border-marine-600 bg-marine-50 text-ink-900' => $selected_address_id === $address->id,
+                                        'border-ink-200 text-ink-700 hover:border-ink-300' => $selected_address_id !== $address->id,
+                                    ])>
+                                        <input type="radio" wire:model.live="selected_address_id" value="{{ $address->id }}"
+                                               class="mt-0.5 h-4 w-4 border-ink-300 text-marine-700 focus:ring-4 focus:ring-marine-600/20">
+                                        <span class="min-w-0">
+                                            <span class="block font-medium">{{ $address->label ?: $address->city }}</span>
+                                            <span class="block truncate text-ink-500">
+                                                {{ $address->street }}, {{ $address->postcode }} {{ $address->city }}, {{ $address->country }}
+                                            </span>
+                                        </span>
+                                    </label>
+                                @endforeach
+
+                                <label @class([
+                                    'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2.5 text-sm transition-colors',
+                                    'border-marine-600 bg-marine-50 text-ink-900' => $selected_address_id === null,
+                                    'border-ink-200 text-ink-700 hover:border-ink-300' => $selected_address_id !== null,
+                                ])>
+                                    <input type="radio" wire:model.live="selected_address_id" value=""
+                                           class="h-4 w-4 border-ink-300 text-marine-700 focus:ring-4 focus:ring-marine-600/20">
+                                    Enter a new address
+                                </label>
+                            </div>
+                        </fieldset>
+                    @endif
 
                     <div class="mt-4 flex gap-4">
                         @foreach (\App\Enums\DeliveryType::cases() as $type)
@@ -323,8 +375,22 @@
                         class="mt-5 w-full rounded-control bg-marine-700 px-4 py-2.5 text-sm font-medium text-white
                                hover:bg-marine-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20"
                         wire:loading.attr="disabled" wire:target="placeOrder">
-                    <span wire:loading.remove wire:target="placeOrder">Place order</span>
-                    <span wire:loading wire:target="placeOrder">Placing…</span>
+                    {{-- Consumer Rights Directive Art. 8(2): the button that
+                         concludes a paid contract must say so unambiguously. --}}
+                    <span wire:loading.remove wire:target="placeOrder">Order with obligation to pay</span>
+                    <span wire:loading wire:target="placeOrder">Placing your order…</span>
+                </button>
+
+                {{-- Nothing has been written yet at this step — placeOrder
+                     is what creates the order — so this is only navigation,
+                     and the basket is untouched. --}}
+                <button type="button" wire:click="cancelCheckout"
+                        wire:loading.attr="disabled" wire:target="cancelCheckout, placeOrder"
+                        class="mt-3 w-full rounded-control px-4 py-2 text-sm font-medium text-ink-500
+                               underline-offset-4 hover:text-ink-800 hover:underline focus:outline-none
+                               focus-visible:ring-4 focus-visible:ring-marine-600/20
+                               disabled:cursor-not-allowed disabled:opacity-60">
+                    Cancel and return to basket
                 </button>
 
                 <p class="mt-3 text-center text-[0.7rem] text-ink-400">

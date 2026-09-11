@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Actions\Cart\AddToCart;
 use App\Actions\Inventory\ReserveStock;
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
@@ -317,4 +318,109 @@ it('leaves an existing line alone once its product is deactivated', function ():
 
     expect($item->fresh()->quantity)->toBe(2)
         ->and(CartItem::count())->toBe(1);
+});
+
+/*
+ * ── Cart-wide caps (config/cart.php) ────────────────────────────────────
+ *
+ * Distinct lines and total units are bounded separately because they are
+ * two different costs: a line is a rendered row, an `order_items` insert
+ * and an `inventories` lock at checkout; a unit is stock `ReserveStock`
+ * holds out of everyone else's reach until the order is paid or the
+ * unpaid-order sweep cancels it (ADR-0022). The per-line checks that
+ * already existed — `min_order_quantity`, available stock — bound neither.
+ */
+
+it('refuses a line past the distinct-line cap', function (): void {
+    config(['cart.max_lines' => 3]);
+    $cart = emptyCart();
+
+    foreach (range(1, 3) as $i) {
+        app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 1);
+    }
+
+    expect(fn () => app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 1))
+        ->toThrow(CartLimitExceededException::class);
+
+    expect($cart->cartItems()->count())->toBe(3);
+});
+
+it('accepts exactly the distinct-line cap', function (): void {
+    config(['cart.max_lines' => 3]);
+    $cart = emptyCart();
+
+    foreach (range(1, 3) as $i) {
+        app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 1);
+    }
+
+    expect($cart->cartItems()->count())->toBe(3);
+});
+
+/*
+ * The line cap must not fire when the line already exists — raising a
+ * quantity adds no row, and counting it as one would make a full cart
+ * permanently uneditable.
+ */
+it('lets an existing line grow even when the cart is at the line cap', function (): void {
+    config(['cart.max_lines' => 2]);
+    $cart = emptyCart();
+    $first = cartVariation(stock: 10);
+    app(AddToCart::class)->handle($cart, $first, 1);
+    app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 1);
+
+    $item = app(AddToCart::class)->handle($cart, $first, 4);
+
+    expect($item->quantity)->toBe(5)
+        ->and($cart->cartItems()->count())->toBe(2);
+});
+
+it('refuses a quantity that would take the cart past the total-unit cap', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(stock: 100), 8);
+
+    expect(fn () => app(AddToCart::class)->handle($cart, cartVariation(stock: 100), 3))
+        ->toThrow(CartLimitExceededException::class);
+
+    expect((int) $cart->cartItems()->sum('quantity'))->toBe(8);
+});
+
+it('accepts a quantity that lands exactly on the total-unit cap', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    app(AddToCart::class)->handle($cart, cartVariation(stock: 100), 8);
+
+    app(AddToCart::class)->handle($cart, cartVariation(stock: 100), 2);
+
+    expect((int) $cart->cartItems()->sum('quantity'))->toBe(10);
+});
+
+/*
+ * Counts the line being written once, not twice. Adding 3 to an existing 5
+ * asks whether 8 is under the cap — reading the stored 5 *and* the new 8
+ * would refuse at 13 and make the cap fire far below its stated value.
+ */
+it('counts a growing line once against the unit cap, not twice', function (): void {
+    config(['cart.max_units' => 10]);
+    $cart = emptyCart();
+    $variation = cartVariation(stock: 100);
+    app(AddToCart::class)->handle($cart, $variation, 5);
+
+    $item = app(AddToCart::class)->handle($cart, $variation, 3);
+
+    expect($item->quantity)->toBe(8);
+});
+
+it('leaves an ordinary basket well clear of both caps', function (): void {
+    // The defaults are deliberately generous; a normal basket must never
+    // meet them. Guards against someone tightening the config into the
+    // range of real use.
+    $cart = emptyCart();
+
+    foreach (range(1, 3) as $i) {
+        app(AddToCart::class)->handle($cart, cartVariation(stock: 10), 2);
+    }
+
+    expect($cart->cartItems()->count())->toBe(3)
+        ->and((int) $cart->cartItems()->sum('quantity'))->toBe(6);
 });

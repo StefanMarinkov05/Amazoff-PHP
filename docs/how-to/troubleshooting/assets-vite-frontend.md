@@ -104,6 +104,74 @@ curl -s http://localhost:8080/catalogue | grep -o 'src="http://[^"]*5173[^"]*"'
 
 ---
 
+## `app.js` fails to load with a CORS error, and no Livewire component responds to a click
+
+**Symptom.** The page loads and looks fully styled — Tailwind CSS still
+applies fine — but nothing interactive works: a colour/size picker, an
+"Add to cart" button, a `wire:click` on any component silently does
+nothing. The browser console shows
+
+```
+Access to script at 'http://localhost:5173/resources/js/app.js' from origin
+'http://localhost:8080' has been blocked by CORS policy: the
+'Access-Control-Allow-Origin' header has a value 'http://localhost:5173'
+that is not equal to the supplied origin.
+```
+
+`public/hot` is correct (`http://localhost:5173`, not `0.0.0.0`, so this is
+not the previous entry's bug), and `curl http://localhost:5173/resources/js/app.js`
+from either the host or the container succeeds with a 200 — so nothing
+here says the file is unreachable, the way the previous entry's symptom
+does. The distinguishing tell is in the response *headers*, not the status
+code: the `Access-Control-Allow-Origin` header Vite's dev server sends back
+echoes its own origin (`http://localhost:5173`) rather than the page's
+origin (`http://localhost:8080`) that actually made the request — a real
+cross-origin request (app served from `:8080`, assets from `:5173`, two
+different ports), and the browser correctly refuses it.
+
+**Cause.** Vite's dev-server CORS default only allows a request whose
+`Origin` header matches the server's *own* configured origin. This project
+deliberately serves the app and the asset dev server from different ports
+(nginx on `:8080`, Vite on `:5173`), so every asset request the browser
+makes is genuinely cross-origin — and `vite.config.js` had no `cors` option
+set, leaving Vite at that same-origin-only default.
+
+**Fix.** Allow the cross-origin request explicitly — `src/vite.config.js`:
+
+```js
+server: {
+    host: '0.0.0.0',
+    origin: 'http://localhost:5173',
+    cors: true,   // the app (:8080) and Vite (:5173) are different origins
+    hmr: { host: 'localhost' },
+},
+```
+
+Restart the Vite container after the change — it does not hot-reload its
+own config: `docker compose restart vite`.
+
+**Why it recurs.** The page still renders and still looks correctly
+styled, since CSS loads through a `<link>` tag the browser does not
+CORS-gate the same way — only the JS `<script type="module">` fetch is
+blocked. That makes this look like "the interactive parts are just buggy"
+rather than "the asset never arrived," and the previous entry's fix
+(`origin` in `public/hot`) does not touch this at all — a correct `origin`
+and a missing `cors` setting are two different failure modes that happen
+to share a symptom (broken JS, working CSS) at first glance.
+
+**Prevention.** Check the response headers, not just the status code, when
+JS assets fail silently:
+
+```bash
+curl -sI -H "Origin: http://localhost:8080" http://localhost:5173/resources/js/app.js \
+  | grep -i access-control-allow-origin
+```
+
+Should read `*` or `http://localhost:8080` — reading back
+`http://localhost:5173` (Vite's own address) is this bug.
+
+---
+
 ## The webfont never loads, and every heading falls back to the system font
 
 **Symptom.** Type looks generic and slightly wrong — weights are close but

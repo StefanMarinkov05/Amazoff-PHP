@@ -163,6 +163,27 @@ it.
 contested state; see "Two actors at once" above for why `ApplyCoupon`'s
 blind overwrite needs none.
 
+## Rate limiting
+
+`CartPage::applyCoupon` is throttled at 20 attempts per minute per IP
+(`ThrottlesSubmissions`, SEC-010). Two reasons, and the second is the one
+specific to coupons:
+
+- Codes are guessable by construction — short, human-typed, often
+  patterned — so an unthrottled form is an enumeration oracle that tells an
+  attacker which codes exist and what they are worth.
+- `RedeemCoupon` takes a `lockForUpdate()` on the `coupons` row. A hot
+  coupon is therefore a lock-contention point, and a loop against one code
+  is a cheap way to serialise every genuine checkout using it.
+
+Keyed on the **IP, never on the submitted code**: keying on the value being
+guessed would hand an attacker the full allowance per code, which is not a
+limit on volume at all. The throttle runs *before* the unknown-code check,
+because that check is the cheap branch a guesser hits on every wrong
+attempt — throttling after it would leave the enumeration path unlimited.
+Verified by `CartPageTest`, "throttles repeated coupon attempts rather than
+letting them run".
+
 ## Known gaps
 
 **1. Mixed-VAT-rate apportionment is notional, not stored.** A

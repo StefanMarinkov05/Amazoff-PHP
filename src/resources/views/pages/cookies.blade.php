@@ -6,9 +6,15 @@
     <p>
         This site sets a small number of cookies, all of them necessary for it to
         work. <strong>There is no advertising cookie, no analytics cookie, and no
-        third-party tracker.</strong> That is why you are not asked to accept
-        anything — there is nothing here to opt out of that would leave the site
-        functioning.
+        third-party tracker.</strong>
+    </p>
+    <p>
+        Because only strictly-necessary cookies are used, none of this needs
+        your consent under the ePrivacy rules. You are still shown a short
+        notice on your first visit and can decline non-essential cookies —
+        that choice is remembered in a <code>cookie_consent</code> cookie and
+        would gate any analytics or marketing script the shop added later.
+        Clear that cookie to see the notice again.
     </p>
 
     <h2>What is set</h2>

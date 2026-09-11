@@ -27,7 +27,7 @@
             </div>
             <div class="flex justify-between border-t border-ink-200 pt-3 text-base font-semibold">
                 <dt class="text-ink-900">Total</dt>
-                <dd class="text-ink-900">{{ $order->total_amount }}</dd>
+                <dd class="text-ink-900"><x-money :amount="$order->total_amount" :currency="$order->currency" /></dd>
             </div>
         </dl>
 
@@ -48,7 +48,7 @@
                     {{ $item->product_name }}
                     <span class="text-ink-400">× {{ $item->quantity }}</span>
                 </span>
-                <span class="shrink-0 text-ink-700">{{ $item->line_total }}</span>
+                <span class="shrink-0 text-ink-700"><x-money :amount="$item->line_total" :currency="$order->currency" /></span>
             </li>
         @endforeach
     </ul>

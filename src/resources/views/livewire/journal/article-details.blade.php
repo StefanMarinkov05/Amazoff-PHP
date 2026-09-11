@@ -30,12 +30,12 @@
         <div class="mx-auto max-w-6xl px-4 pt-10 pb-8">
             <nav aria-label="Breadcrumb" class="mb-8 text-[0.65rem] uppercase tracking-[0.2em] text-ink-400">
                 <ol class="flex flex-wrap items-center gap-2">
-                    <li><a href="/journal" class="transition-colors hover:text-ember-600">Journal</a></li>
+                    <li><a href="/journal" class="-my-1 inline-block py-1 transition-colors hover:text-ember-600">Journal</a></li>
                     @if ($article->articleCategory)
                         <li aria-hidden="true">—</li>
                         <li>
                             <a href="/journal?categoryId={{ $article->articleCategory->id }}"
-                               class="text-ember-600 transition-colors hover:text-ink-950">
+                               class="-my-1 inline-block py-1 text-ember-600 transition-colors hover:text-ink-950">
                                 {{ $article->articleCategory->name }}
                             </a>
                         </li>

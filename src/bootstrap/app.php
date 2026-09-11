@@ -6,6 +6,7 @@ use App\Http\Controllers\Payment\StripeWebhookController;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\SetSecurityHeaders;
 use App\Http\Middleware\VerifyStripeWebhookSignature;
+use App\Support\CookieConsent;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -60,6 +61,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             AuthenticateSession::class,
             EnsureAccountIsActive::class,
+        ]);
+
+        /*
+         * The cookie-consent banner writes `cookie_consent` from JavaScript
+         * (ePrivacy Art. 5(3), ADR-0019), so it is a plaintext value the
+         * `EncryptCookies` middleware must not try to decrypt — it would
+         * discard it as tampered and the banner would reappear on every
+         * page. It carries no security weight: the only values it holds are
+         * `accepted` / `rejected`, and `App\Support\CookieConsent` treats
+         * anything else as "not granted".
+         */
+        $middleware->encryptCookies(except: [
+            CookieConsent::COOKIE,
         ]);
 
         // Global, not web-only: AdminPanelProvider builds its own

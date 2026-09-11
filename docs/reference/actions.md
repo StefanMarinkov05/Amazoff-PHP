@@ -6,7 +6,9 @@ two of them run at once is `reference/write-rules/product.md`,
 `reference/write-rules/cart.md`, `reference/write-rules/coupon.md`, and
 `reference/write-rules/order.md`.
 
-Forty-three Actions across ten areas, twenty-six domain exceptions in `app/Exceptions`.
+Fifty-plus Actions across twelve areas (Gdpr joined the ten in ADR-0019,
+Returns in ADR-0020),
+twenty-six domain exceptions in `app/Exceptions`.
 
 The Exceptions table below lists twenty-one of them. Five raised only by the Payment, Shipment, and ProductReview Actions — `IllegalPaymentStatusTransitionException`, `IllegalShipmentStatusTransitionException`, `PaymentAlreadyRecordedException`, `ReviewNotAllowedException`, `ShipmentNotAllowedException` — are documented in their own Action sections and have never been added here. Noted rather than left as a silent discrepancy between the count and the table.
 
@@ -82,8 +84,8 @@ race-condition backstop, not the primary guard.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `CreateProduct` | `products`, `attribute_product`, `product_variations`, `inventories`, `inventory_movements` | optional, checked against `create_product` | `ProductRequiresVariationException`, `AttributeNotAllowedForCategoryException` |
-| `UpdateProduct` | `products`, `attribute_product` (only when the caller supplies the key) | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException` |
+| `CreateProduct` | `products`, `attribute_product`, `product_variations`, `inventories`, `inventory_movements`, `product_price_history` (the first price observation, ADR-0021) | optional, checked against `create_product` | `ProductRequiresVariationException`, `AttributeNotAllowedForCategoryException` |
+| `UpdateProduct` | `products`, `attribute_product` (only when the caller supplies the key); `product_price_history` via `RecordPriceObservation` when a price field changed (ADR-0021) | optional, checked against `update_product` | `ProductRequiresVariationException`, `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException` |
 | `DeleteProduct` | `products` (soft delete, cascaded to its variations) | optional, `delete_product` | — never refuses |
 | `ForceDeleteProduct` | `products`, `product_variations`, `inventories`, `product_images`, `product_specifications` (all erased) | optional, `delete_product` | `ProductCannotBeErasedException`, plus whatever `ForceDeleteProductVariation` raises |
 | `AddProductVariation` | `product_variations`, `inventories`, `inventory_movements`, `attribute_value_product_variation` (only when the caller supplies `attribute_value_ids`) | optional, checked against `create_product_variation` | `InvalidArgumentException` |
@@ -96,6 +98,8 @@ race-condition backstop, not the primary guard.
 | `SetProductAttributeValues` | `attribute_value_product` (the whole set for 1 product) | optional, `update_product` | `RemovedFromCatalogueException`, `AttributeNotAllowedForCategoryException`, `AttributeValueIsAVariationAxisException` |
 | `SetVariationAttributeValues` | `attribute_value_product_variation` (the whole set for 1 variation) | optional, `update_product_variation` | `RemovedFromCatalogueException`, `AttributeValueNotOnProductException`, `DuplicateVariationAttributeException`, `DuplicateVariationCombinationException` |
 | `SetDefaultVariation` | `product_variations` | optional, `update_product_variation` | — |
+| `RecordPriceObservation` | `product_price_history` (one row — the product's effective selling price); no-ops when the price is unchanged unless `force` | **none** — it observes, it does not mutate the product, and its callers are already gated | — |
+| `RecordProductPrices` | `product_price_history` (one `force` row per product) | **none** — the `products:snapshot-prices` schedule | — |
 | `DeleteProductCategory` | `product_categories` | optional, `delete_product_category` | `ProductCategoryCannotBeDeletedException` |
 | `UpdateProductCategory` | `product_categories` | optional, `update_product_category` | `CategoryCycleException` |
 
@@ -193,11 +197,23 @@ ever true before the save committed.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `AddToCart` | `cart_items` (insert or increment) | — no non-human caller, no parameter | `RemovedFromCatalogueException`, `InvalidCartQuantityException`, `InsufficientStockException` |
-| `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same three |
+| `AddToCart` | `cart_items` (insert or increment) | — no non-human caller, no parameter | `RemovedFromCatalogueException`, `InvalidCartQuantityException`, `InsufficientStockException`, `CartLimitExceededException` |
+| `UpdateCartItemQuantity` | `cart_items.quantity` | — no non-human caller, no parameter | same four (the line cap cannot apply: no line is added) |
 | `MergeGuestCart` | `cart_items`, deletes the guest `carts` row | — no non-human caller, no parameter | — never refuses |
 | `RemoveFromCart` | `cart_items` (hard delete) | — no non-human caller, no parameter | — never refuses |
+| `RestoreCartFromOrder` | `carts` (a **new** row, keyed to the visitor), `cart_items` copied from the order's lines | — no non-human caller, no parameter | — never refuses |
 | `ExpireCarts` | deletes `carts` past `expires_at` (and their `cart_items`, by cascade) | — no actor at all, human or otherwise: invoked by the `carts:expire` schedule | — never refuses |
+
+`RestoreCartFromOrder` backs the **Cancel** button on checkout's payment
+step: cancelling the order releases its stock, but `CreateOrder` already
+consumed the cart and `ResolveCurrentCart` refuses to return a spent one, so
+without this the customer lands on an empty basket. It opens a *fresh* cart
+rather than reviving the original — the original keeps its `orders.cart_id`
+audit link, and handing a spent cart back is what broke checkout permanently
+for a session in the 2026-09-05 incident. Lines whose variation has since
+been force-deleted (a null `product_variation_id`, via `nullOnDelete()`) or
+soft-deleted are skipped; nothing else is re-validated, the same standing
+`MergeGuestCart` has.
 
 None of the first four take an `?User $actor`. A customer editing their own
 cart holds no permission to check, and nothing here has a non-human caller
@@ -256,10 +272,11 @@ a `Coupon` row is single-table with no second writer, decision 10.
 |---|---|---|---|
 | `CreateOrder` | `orders`, `order_items`, `order_addresses`; composes `RedeemCoupon`, `ReserveStock`, and `CalculateDeliveryPrice` (for `shipping_amount`/`carrier_id`, given a carrier) | optional, recorded as `orders.user_id` — never inferred from a matching email | `EmptyCartException`, `CouponNotApplicableException`, `InsufficientStockException`, `CartAlreadyCheckedOutException`, `CheckoutActorRemovedException` |
 | `TransitionOrderStatus` | `orders.status`, `order_status_histories`; composes `ReleaseStock`/`CompleteSale`/`RestockReturn` by target status | optional, routed by `OrderPolicy::updateStatus()` on the target status (ADR-0011) | `IllegalOrderStatusTransitionException` |
+| `ExpireUnpaidOrders` | nothing directly; composes `TransitionOrderStatus(Cancelled)` for every `AwaitingPayment` order past `config('orders.unpaid_ttl_minutes')`, which releases the stock (ADR-0022) | **none** — the scheduler is the system; a null actor skips the policy check | `RuntimeException` (a non-positive TTL config) |
 | `RecordPayment` | `payments` | optional and **unauthorized by design** — `PaymentPolicy::create()` returns false outright; a payment exists because a customer checked out, never because someone pressed a button | `PaymentAlreadyRecordedException` |
 | `TransitionPaymentStatus` | `payments.status`, `paid_at`, `refunded_amount` | optional, `update_payment` — except a refund, routed to `refund_payment` | `IllegalPaymentStatusTransitionException`, `InvalidArgumentException` |
 | `CreateStripeIntent` | `payments.stripe_payment_intent_id` | **none** — the customer's own checkout path, where there is no permission to hold | `StripeIntentNotAllowedException` |
-| `HandleStripeWebhookEvent` | `payment_events`; composes `TransitionPaymentStatus` | **none** — Stripe is the actor. The request is authenticated by `VerifyStripeWebhookSignature` middleware, not by a permission | — (refusals are logged and acknowledged, never thrown; see below) |
+| `HandleStripeWebhookEvent` | `payment_events`; composes `TransitionPaymentStatus`, and `TransitionOrderStatus` for an order still at `AwaitingPayment` (`succeeded` → `Paid`, `canceled`/`payment_failed` → `Cancelled`; ADR-0022) | **none** — Stripe is the actor. The request is authenticated by `VerifyStripeWebhookSignature` middleware, not by a permission | — (refusals are logged and acknowledged, never thrown; see below) |
 | `RefundPayment` | `payments.status`, `refunded_amount` via `TransitionPaymentStatus`; calls Stripe | optional, `refund_payment` | `RefundNotAllowedException`, `AuthorizationException` |
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
@@ -268,6 +285,21 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `UnapproveProductReview` | `product_reviews.approved` (`false`) | optional, `approve_product_review` — the same ability the other direction, §24; there is no separate `unapprove_product_review` permission | `AuthorizationException` |
 
 `reference/write-rules/order.md` is the outcomes page.
+
+## Returns
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `RequestReturn` | `returns`, `return_items` | the **customer**, optional (ownership is the order being theirs, not a permission — the `CreateProductReview` shape) | `ReturnNotAllowedException` (`orderNotDelivered`, `windowExpired`, `nothingSelected`, `lineNotOnOrder`, `quantityExceedsRemaining`) |
+| `ReviewReturn` | `returns.status`, `resolution_note`, `resolved_at` | optional, `update_return` | `IllegalReturnStatusTransitionException`, `AuthorizationException` |
+| `RefundReturn` | `returns.status` (`Refunded`), `refunded_amount`, `resolution_note`, `resolved_at`; composes `RefundPayment` (Stripe path only) and `RestockReturn` per line | optional, `refund_return`; the actor is passed to `RefundPayment`, so `refund_payment` is also required on the card path | `ReturnNotAllowedException::notApproved`, `RefundNotAllowedException` (from `RefundPayment`), `AuthorizationException` |
+
+The `OrderReturn` aggregate (ADR-0020) — the 14-day right of withdrawal. Runs
+**beside** `orders.status`, never through `TransitionOrderStatus`: a granular
+return that also transitioned the order would double-restock against
+`OrderStatus::Returned`'s whole-order effect. COD orders are marked `Refunded`
+with an offline-cash note and still restocked. `reference/write-rules/returns.md`
+is the outcomes page.
 
 The shipment Actions are the *domain* half of slice 8, deliberately split
 from its connector: every courier column is nullable, so a shipment can be
@@ -403,26 +435,52 @@ to decide anything.
 
 | Action | Writes | Actor | Throws |
 |---|---|---|---|
-| `SubscribeToNewsletter` | `newsletter_subscribers.status`, `.subscribed_at`, `.user_id` | optional — a guest subscribes with `null` | — |
+| `SubscribeToNewsletter` | `newsletter_subscribers` — creates/updates to `Pending` with a fresh `confirmation_token`; claims `user_id`; queues `NewsletterConfirmation` | optional — a guest subscribes with `null` | — |
+| `ConfirmNewsletterSubscription` | `newsletter_subscribers.status` → `Subscribed`, `.confirmed_at` | — no actor: the token in the email link is the input | — returns `null` on a bad/used token |
+| `UnsubscribeFromNewsletter` | `newsletter_subscribers.status` → `Unsubscribed`; queues `NewsletterUnsubscribed` | — no actor: token | — returns `null` on a bad token |
+| `PurgeUnconfirmedSubscribers` | deletes `newsletter_subscribers` rows `Pending` past a 30-day grace | — the `newsletter:purge-unconfirmed` schedule | — |
 
-Below ADR-0007's bar on the write itself — one row, one table — and built
-anyway because `NewsletterSubscriberForm` also sets `status`. Two writers
-decide it, and only this one knows that subscribing again reverses an
-unsubscribe rather than failing. That second writer is the whole reason the
-ADR's "no second writer" carve-out does not apply.
+Double opt-in (ePrivacy Art. 13, ADR-0019). Submitting the footer form does
+**not** subscribe — `SubscribeToNewsletter` creates a `Pending` row and
+emails a confirmation link; nothing is ever sent to a `Pending` row.
+`ConfirmNewsletterSubscription` (the link) moves it to `Subscribed`;
+`UnsubscribeFromNewsletter` (a link in every send) to `Unsubscribed`. All
+three match on `confirmation_token`, a UNIQUE 64-char column — possessing it
+is the authorisation.
 
-Idempotent through the UNIQUE index on `email` plus a caught violation, per
-CLAUDE.md — never `exists()` then insert, which two simultaneous submissions
-of one address both pass. The update on that path skips null values, so a
-guest re-subscribing cannot blank a `user_id` an account already owns, while
-a signed-in user claims a row they created as a guest. Without that, a
-subscription made before registering stays unlinked and an erasure request
-scanning by user never finds it — `explanation/gdpr.md` lists the table as
-personal data.
+`SubscribeToNewsletter` is still an Action for ADR-0007's reason
+(`NewsletterSubscriberForm` is a second writer of `status`) and now also
+because the consent state machine only lives in one place if it lives here.
+Idempotent through the UNIQUE index on `email` plus a caught violation. It
+claims `user_id` for a subscriber who registered after subscribing as a
+guest — otherwise an erasure request scanning by user never finds the row
+(`explanation/gdpr.md` lists the table as personal data); the erasure
+routine also matches by email, which covers the pre-registration case
+regardless.
 
 Contact messages deliberately have no Action. One insert, one table, no
 second writer: `ContactForm` calls `ContactMessage::create()` directly, which
 is the same test that keeps the lookup tables on Filament's default CRUD.
+
+## GDPR
+
+| Action | Writes | Actor | Throws |
+|---|---|---|---|
+| `EraseCustomer` | `orders` + `order_addresses` (identity columns overwritten, `orders.anonymized_at` set); `returns.reason`/`resolution_note` scrubbed (status and `refunded_amount` kept — ADR-0020); `product_reviews.author_name`; deletes `newsletter_subscribers`, `contact_messages` (by id or email), and — via cascade FKs — `addresses`, `carts`, `cart_items`, `wishlist_items`; `users` (`forceDelete`) | optional — the self-service path (`DeleteAccount`) passes none; the Filament path passes an actor and is authorized `erase` on the `User` | `AuthorizationException` (Filament path only) |
+| `ExportCustomerData` | nothing — read-only (includes the customer's orders, reviews, addresses, newsletter/contact rows, and their **returns**) | required (the `User` to export) | — |
+| `PurgeAnonymisedOrders` | deletes `orders` (and every child, by cascade FK) where `anonymized_at` is older than `config('gdpr.order_retention_years')` | — no actor: the `orders:purge-anonymised` schedule | `RuntimeException` if the config value is set but not a positive integer |
+
+GDPR Art. 17 erasure (ADR-0019). Crosses aggregates on purpose — one request
+touches the user and everything that snapshotted their identity — so it sits
+in its own `App\Actions\Gdpr\` area rather than under any one of them. One
+transaction, user row and orders `lockForUpdate()`. Anonymises what
+accounting law forces the shop to keep (the order, as an invoice) and
+hard-deletes the rest; `coupon_redemptions` is left untouched because its
+`email_hash` is peppered pseudonymisation with its own retention basis
+(`explanation/gdpr.md`). Idempotent: only orders with
+`anonymized_at IS NULL` are rewritten, and a re-run after the user row is
+gone is a no-op. `reference/write-rules/gdpr.md` has the per-table
+behaviour.
 
 ## Transactions
 
@@ -454,7 +512,16 @@ is the same test that keeps the lookup tables on Filament's default CRUD.
 | `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
 | `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
-| `SubscribeToNewsletter` | no - one row either way, and the UNIQUE index is what serialises it |
+| `SubscribeToNewsletter` | no - one row either way, the UNIQUE index serialises it |
+| `ConfirmNewsletterSubscription` / `UnsubscribeFromNewsletter` / `PurgeUnconfirmedSubscribers` | no |
+| `EraseCustomer` | yes — the user row and its orders are locked and rewritten as one atomic erasure |
+| `ExportCustomerData` | no — read-only |
+| `PurgeAnonymisedOrders` | yes — the matched orders are locked and deleted together |
+| `RecordPriceObservation` | no — one insert, and its Action callers already hold a transaction |
+| `RecordProductPrices` | no — a per-product insert loop, no cross-row invariant |
+| `RequestReturn` | yes — `orders` locked while the per-line remaining quantity is read and the `returns` rows written |
+| `ReviewReturn` | yes — the `returns` row is locked and its status re-read before the write |
+| `RefundReturn` | yes — wraps the `returns` lock, the composed `RefundPayment` (`payments` lock) and every `RestockReturn` (`inventories` lock) |
 
 Nesting is by savepoint, so the outermost boundary commits.
 `RecordInventoryMovement` is the exception: it writes one row and is never the
@@ -515,6 +582,15 @@ is **`orders` before `inventories`**: the composed inventory Action, if any,
 locks its lines only after the `orders` lock is already held. No Action
 today takes both in the opposite order.
 
+The returns Actions (ADR-0020) take `lockForUpdate()` on the row whose
+invariant they guard: `RequestReturn` on `orders` (the per-line remaining
+returnable quantity is a check-then-act read across the order's non-denied
+returns — `RequestReturnConcurrencyTest` proves it by deletion), `ReviewReturn`
+and `RefundReturn` on the `returns` row, re-reading `status` from the locked
+row the same way `TransitionOrderStatus` does. `RefundReturn`'s lock order is
+`returns` → `payments` (via `RefundPayment`) → `inventories` (via
+`RestockReturn`); no Action takes those in the opposite order.
+
 `UpdateProduct`, `RemoveProductVariation`, and `ForceDeleteProductVariation`
 take `lockForUpdate()` on the `products` row — the aggregate root — rather
 than on the rows they write.
@@ -545,6 +621,16 @@ already sorted by `product_variation_id` for this query shape on the
 current MySQL version, so removing the explicit sort does not turn any
 test red. Kept anyway rather than relying on that unstated access path.
 `reference/write-rules/order.md`, "Known gaps" has the full reasoning.
+
+`EraseCustomer` (GDPR Art. 17) takes `lockForUpdate()` on the `users` row and
+then on that customer's non-anonymised `orders`, all inside one transaction —
+lock order `users` before `orders`, and no Action takes those in the opposite
+order (`TransitionOrderStatus` locks `orders` only). `PurgeAnonymisedOrders`
+locks each matched `orders` row, so it serialises against a concurrent write
+to an about-to-be-deleted order's child rows rather than colliding with it.
+Both are proven by deletion in `tests/Concurrency/GdprErasureConcurrencyTest.php`
+(two erasures, erasure vs. a status transition, purge vs. a refund) —
+`reference/write-rules/gdpr.md` has the outcomes.
 
 Duplicate SKUs and slugs are safe by the `UNIQUE` constraints from ADR-0005
 rather than by anything in the Actions. A losing insert raises
@@ -582,6 +668,8 @@ Measured and pinned, including the wrong behaviour, in
 | `CartAlreadyCheckedOutException` | `CreateOrder` | the cart |
 | `CheckoutActorRemovedException` | `CreateOrder` | the actor |
 | `IllegalOrderStatusTransitionException` | `TransitionOrderStatus` | the order, the `from` status, the `to` status |
+| `ReturnNotAllowedException` | `RequestReturn`, `RefundReturn` | five named constructors — `orderNotDelivered`, `windowExpired`, `nothingSelected`, `lineNotOnOrder`, `quantityExceedsRemaining` for the request; `notApproved` for the refund |
+| `IllegalReturnStatusTransitionException` | `ReviewReturn` | the return, the `from` status, the `to` status |
 | `ProductCategoryCannotBeDeletedException` | `DeleteProductCategory` | the category; two named constructors, `hasChildren()` and `hasProducts()` |
 | `ArticleTransitionNotAllowedException` | `PublishArticle` | the `from` and `to` statuses, as `ArticleStatus` instances rather than strings |
 
@@ -601,7 +689,7 @@ message without parsing one. Where several named constructors raise one class,
 tests assert the payload rather than the class alone — asserting the class
 passes when the wrong branch fires.
 
-Twenty of the twenty-one listed extend `RuntimeException`. `InvalidCartQuantityException`
+Twenty-two of the twenty-three listed extend `RuntimeException`. `InvalidCartQuantityException`
 extends `InvalidArgumentException` instead — deliberately, per its own
 docblock: a bad cart quantity is "the caller passed a bad argument," not "a
 domain rule a legal argument happened to violate." The same reasoning is why
@@ -620,12 +708,32 @@ class a domain exception uses. `tests/Feature/Filament/ReportsDomainFailuresTest
 covers both, plus that a non-domain exception of either base class and a
 `QueryException` still pass through uncaught.
 
+### Bulk delete composes with the per-record Action
+
+`DeleteBulkAction` is a second, independent call site Filament wires up by
+default, and it calls `$record->delete()` directly — so routing a resource's
+*single* delete through an Action does nothing for its bulk path. On a
+soft-deleting model (`Product`) the bulk delete even succeeds silently,
+skipping the Action's cascade with no error at all.
+
+`App\Filament\Actions\DomainDeleteBulkAction` closes this. It replaces the
+process closure (Filament v4's `DeleteBulkAction::using()` seam) with a loop
+that calls the per-record delete Action for each selected row, catching only
+`App\Exceptions\*` refusals — the same namespace filter
+`ReportsDomainFailures` uses. Two entries land in the resource's
+`BulkActionGroup`: `make()` (partial — delete what can be deleted, summarise
+the rest) and `makeAtomic()` (all-or-nothing — one transaction, rolled back
+if any row is refused). Applied to `Products`, `ProductCategories`, `Brands`,
+`Attributes`, `ArticleCategories`, `Coupons`, `Carriers`; the ruleless
+lookup-table resources keep the plain `DeleteBulkAction`. Regression coverage:
+`tests/Feature/Filament/DomainDeleteBulkActionTest.php`.
+
 ## Callers
 
 | Action | Called from |
 |---|---|
 | `CreateProduct`, `UpdateProduct` | `CreateProduct` / `EditProduct` pages, tests |
-| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions, tests |
+| `DeleteProduct`, `ForceDeleteProduct` | `EditProduct` header actions; `DeleteProduct` also from `ProductsTable`'s bulk delete via `DomainDeleteBulkAction`; tests |
 | `AddProductVariation`, `RemoveProductVariation`, `ForceDeleteProductVariation` | `ProductVariationsRelationManager`, tests |
 | `SetVariationAttributeValues` | composed by `AddProductVariation`; also called directly by `ProductVariationsRelationManager`'s edit action, tests |
 | `ReserveStock`, `ReleaseStock`, `RecordInventoryMovement` | composed by the above, tests |
@@ -634,15 +742,25 @@ covers both, plus that a non-domain exception of either base class and a
 | `ApplyCoupon`, `RemoveCoupon` | tests only |
 | `RedeemCoupon` | composed by `CreateOrder`, tests |
 | `CreateOrder` | tests only |
-| `TransitionOrderStatus` | tests only — no `OrderResource` panel surface exists yet (slice 6b) |
-| `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus`, tests |
+| `TransitionOrderStatus` | `ViewOrder`'s "Change status" menu; tests |
+| `CompleteSale`, `RestockReturn` | composed by `TransitionOrderStatus` and (`RestockReturn`) by `RefundReturn`, tests |
+| `RecordPriceObservation` | composed by `CreateProduct` and `UpdateProduct` (post-save); `RecordProductPrices`; tests |
+| `RecordProductPrices` | `products:snapshot-prices` (scheduled daily); tests |
+| `RequestReturn` | `Account\RequestReturn` (`/account/orders/{order}/return`); `RaceWorker` (`request-return`); tests |
+| `ReviewReturn`, `RefundReturn` | `ViewReturn`'s Approve / Deny / Refund header actions (`ReturnResource`); tests |
 | `RecordDamage` | `ViewInventory`'s "Record damage" header action, tests |
 | `AdjustStock` | `ProductVariationsRelationManager`'s "Adjust stock" row action, tests |
-| `DeleteProductCategory` | `EditProductCategory` header action, tests |
+| `DeleteProductCategory` | `EditProductCategory` header action; `ProductCategoriesTable` bulk delete via `DomainDeleteBulkAction`; tests |
 | `UpdateProductCategory` | `EditProductCategory`, tests |
+| `DeleteBrand`, `DeleteAttribute`, `DeleteArticleCategory`, `DeleteCoupon`, `DeleteCarrier` | their `Edit*` page header action, and their resource table's bulk delete via `DomainDeleteBulkAction`; tests |
 | `SetProductAttributeValues` | `CreateProduct` / `EditProduct` pages, tests |
 | `PublishArticle` | generated status-change menu on `ArticlesTable`, tests |
 | `SubscribeToNewsletter` | `Contact\NewsletterSignup` (footer), tests |
+| `ConfirmNewsletterSubscription` / `UnsubscribeFromNewsletter` | `NewsletterController` (`/newsletter/confirm/{token}`, `/newsletter/unsubscribe/{token}`), tests |
+| `PurgeUnconfirmedSubscribers` | `newsletter:purge-unconfirmed` (scheduled daily), tests |
+| `EraseCustomer` | `Account\DeleteAccount` (self-service, `/account/delete`); `ViewUser` header action `erase` (Filament, for an emailed request); `RaceWorker` (`erase-customer`); tests |
+| `ExportCustomerData` | `Account\DownloadData` (`/account/data`); tests |
+| `PurgeAnonymisedOrders` | `orders:purge-anonymised` console command (`routes/console.php`, scheduled weekly); `RaceWorker` (`purge-anonymised-orders`); tests |
 | `ApproveProductReview`, `UnapproveProductReview` | `ProductReviewsTable`'s row actions and bulk "approve" action, tests — untested until 2026-09-06 despite the live panel surface |
 
 `ProductResource` routes every write through its Action, per ADR-0007. §37
@@ -674,6 +792,17 @@ two quantity guards, the `products` lock shared by `UpdateProduct` and
 cart, and last-live-variation refusals.
 
 `reference/write-rules/concurrency.md` records which specific test covers each.
+
+The returns Actions (ADR-0020) follow the same discipline: each of
+`RequestReturn`'s five refusals has a test with a "writes nothing" partner
+assertion (`RequestReturnTest`); `ReviewReturn`'s legality, authorization and
+no-op are proven by deletion (`ReviewReturnTest`); `RefundReturn`'s
+not-approved guard, `refund_return` authorization, the Stripe amount, the COD
+branch, the per-line restock, and the multi-return accumulation are covered
+(`RefundReturnTest`); the `orders` lock in `RequestReturn` is proven
+load-bearing by `RequestReturnConcurrencyTest` (removing it lets a line be
+over-returned); and the panel path runs each header action through the real
+Action against a control row (`ReturnResourceTest`).
 
 The two failure modes that make a guard test pass while proving nothing — an
 exception raised by a nested Action, written up in

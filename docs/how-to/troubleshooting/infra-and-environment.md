@@ -381,6 +381,60 @@ cache and what to bypass, never the *serialization* of what gets cached,
 because the `array` store makes that half of the class permanently
 untestable from within this suite.
 
+---
+
+## `pest --dirty` / `--tia` fail with "The [Filter by dirty files] feature requires [git]"
+
+**Symptom.** Inside the `app` container, `git --version` works fine
+(`/usr/bin/git`, present on the image), but `pest --dirty` and `pest --tia`
+both fail immediately with `Pest\Exceptions\MissingDependency: The [Filter
+by dirty files] feature requires [git]. Please install it and try again.` —
+a message that reads like git is missing, when it plainly is not.
+
+**Cause.** `git -C /var/www/html status` fails with `fatal: not a git
+repository (or any parent up to mount point /var/www) — Stopping at
+filesystem boundary`. Every service in `docker-compose.yml` mounts
+`./src:/var/www/html` — only `src/`. The actual `.git` directory lives at
+the **repository root**, one level above `src/` (`CLAUDE.md`: "The app
+lives in `src/`, not at repo root"), so it is never mounted into any
+container at all. From inside `/var/www/html`, there is no `.git` to find
+walking up, because the bind mount's boundary *is* the filesystem boundary
+Git stops at — `GIT_DISCOVERY_ACROSS_FILESYSTEM` would not even help, since
+the parent directory holding `.git` is not present in the container's
+filesystem under any path. Pest's own git dependency check (used by both
+`--dirty` and TIA, which needs git to diff against the default branch) then
+reports "requires git" — technically true (no *usable* git repository is
+reachable), but easy to misread as "the binary is missing" when it isn't.
+
+**Fix — not applied, needs its own verified change.** Mount the real `.git`
+directory into the container at the path git expects relative to
+`/var/www/html`, e.g. adding `- ./.git:/var/www/.git:ro` (repo root is one
+level above `src/`, i.e. one level above the existing `./src` mount) to
+every service that runs `pest` — `app` at minimum, `playwright` if TIA/
+`--dirty` are ever wanted there too. Read-only is enough; nothing inside the
+container needs to write to `.git`. This has **not** been added yet — it
+touches `docker-compose.yml` for every affected service and needs
+verifying that `git status`/`git diff` resolve correctly from
+`/var/www/html` afterward (worktree at `/var/www/html`, `.git` one level
+up at `/var/www/.git`) before anyone relies on it.
+
+**Why it recurs.** Any Pest 5 feature that shells out to `git` — `--dirty`,
+`--tia` (both plain and `--baselined`) — hits this the same way, and will
+keep doing so until the mount is added, regardless of how the feature is
+invoked or which service runs it. `run-the-tests.md` listed `--dirty` as
+"the fast local loop" before this was actually verified against a running
+container — it was not; ADR-0018's incremental-TIA-adoption section is
+correctly hedged ("not wired into the default run yet") but for a different
+reason (coverage being opt-in) than the one actually blocking it here.
+
+**Prevention.** Before documenting or relying on any git-dependent Pest
+flag as part of the normal workflow, verify it against
+`docker compose exec app <command>` specifically — not just `composer
+show`/`--help` output confirming the feature exists. `run-the-tests.md`'s
+TIA/`--dirty` section now says so explicitly and points here.
+
+---
+
 ## The `db` container exits 126 on a fresh volume, and Pest then can't reach `amazoff_test`
 
 **Symptom.** On Windows, `docker compose up` after `docker compose down -v`

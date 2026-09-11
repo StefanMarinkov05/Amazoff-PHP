@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\ArticleStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\ReturnStatus;
 use App\Enums\ShipmentStatus;
 
 /*
@@ -13,10 +14,10 @@ use App\Enums\ShipmentStatus;
  * read as a table of legal and illegal pairs." Nothing collected that until
  * now, so an accepted ADR claimed a property no test held it to.
  *
- * Four of the twelve enums have a matrix. The other eight classify rather than
- * change — an inventory movement type labels a ledger row, it does not become
- * a different type later — except NewsletterStatus, whose every move is legal,
- * so a matrix would permit everything and assert nothing.
+ * Five of the thirteen enums have a matrix. The other eight classify rather
+ * than change — an inventory movement type labels a ledger row, it does not
+ * become a different type later — except NewsletterStatus, whose every move is
+ * legal, so a matrix would permit everything and assert nothing.
  *
  * ## Why the illegal pairs carry the information
  *
@@ -134,6 +135,26 @@ it('governs the shipment lifecycle', function (ShipmentStatus $from, array $lega
     'returned' => [ShipmentStatus::Returned, []],
     'cancelled' => [ShipmentStatus::Cancelled, []],
 ]);
+
+/*
+ * ADR-0020 — the customer return / withdrawal aggregate, independent of the
+ * order lifecycle above. Requested is reviewed either way; only an approved
+ * return is refundable; Denied and Refunded are both terminal.
+ */
+it('governs the return lifecycle', function (ReturnStatus $from, array $legal): void {
+    assertTransitions($from, $legal);
+})->with([
+    'requested' => [ReturnStatus::Requested, [ReturnStatus::Approved, ReturnStatus::Denied]],
+    'approved' => [ReturnStatus::Approved, [ReturnStatus::Refunded]],
+    'denied' => [ReturnStatus::Denied, []],
+    'refunded' => [ReturnStatus::Refunded, []],
+]);
+
+it('never refunds a return that was denied or never approved', function (): void {
+    expect(ReturnStatus::Denied->canTransitionTo(ReturnStatus::Refunded))->toBeFalse()
+        ->and(ReturnStatus::Requested->canTransitionTo(ReturnStatus::Refunded))->toBeFalse()
+        ->and(ReturnStatus::Refunded->canTransitionTo(ReturnStatus::Approved))->toBeFalse();
+});
 
 /*
  * §22 — deliberately permissive. A content editor picking wrong is visible

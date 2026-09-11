@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Cart;
 
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
@@ -14,6 +15,7 @@ use App\Models\Product;
 use App\Models\ProductVariation;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Adds a variation to a cart, or increases the line's quantity if one
@@ -40,6 +42,7 @@ final class AddToCart
      * @throws RemovedFromCatalogueException
      * @throws InvalidCartQuantityException
      * @throws InsufficientStockException
+     * @throws CartLimitExceededException
      */
     public function handle(Cart $cart, ProductVariation $variation, int $quantity): CartItem
     {
@@ -94,6 +97,8 @@ final class AddToCart
                 throw new InsufficientStockException($live, $wanted, $available);
             }
 
+            $this->enforceCartLimits($cart, $live, $wanted, $existing !== null);
+
             if ($existing !== null) {
                 $existing->update(['quantity' => $wanted]);
 
@@ -108,5 +113,45 @@ final class AddToCart
 
             return $item;
         });
+    }
+
+    /**
+     * The cart-wide ceilings, checked inside the same transaction as the
+     * write so two concurrent adds cannot both read a just-under count and
+     * both commit.
+     *
+     * Counted from the database rather than from a passed-in figure, and
+     * excluding the line being written when it already exists — otherwise
+     * raising an existing line's quantity would count its old value and its
+     * new one together.
+     *
+     * @throws CartLimitExceededException
+     */
+    private function enforceCartLimits(Cart $cart, ProductVariation $live, int $wanted, bool $lineExists): void
+    {
+        $maxLines = config('cart.max_lines');
+        $maxUnits = config('cart.max_units');
+
+        if (! is_int($maxLines) || ! is_int($maxUnits) || $maxLines < 1 || $maxUnits < 1) {
+            throw new InvalidArgumentException(
+                'config(cart.max_lines) and config(cart.max_units) must both be positive integers.'
+            );
+        }
+
+        if (! $lineExists) {
+            $lines = $cart->cartItems()->count() + 1;
+
+            if ($lines > $maxLines) {
+                throw CartLimitExceededException::tooManyLines($cart, $maxLines, $lines);
+            }
+        }
+
+        $otherUnits = (int) $cart->cartItems()
+            ->where('product_variation_id', '!=', $live->getKey())
+            ->sum('quantity');
+
+        if ($otherUnits + $wanted > $maxUnits) {
+            throw CartLimitExceededException::tooManyUnits($cart, $maxUnits, $otherUnits + $wanted);
+        }
     }
 }

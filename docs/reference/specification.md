@@ -392,7 +392,7 @@ intent. Merged into the root file and the nested one deleted.
 
 | # | Requirement | Status |
 |---|---|---|
-| 4 | Replace Laravel's default welcome page with a real home page | **Not met** — but no longer for the reason once recorded here. `/` is `Route::redirect('/', '/catalogue')`, and `welcome.blade.php` is now dead: unrouted, and referenced nowhere in `app/`, `routes/` or any view (checked 2026-09-04). What is outstanding is the §4 home page itself — banner, featured/discounted/new/popular products, latest articles, administrator-controlled content — not the removal of the default page |
+| 4 | Replace Laravel's default welcome page with a real home page | **Met**, 2026-09-08. `/` is `App\Livewire\Home` — banner, featured products (`Product::is_featured`, already editable in `ProductForm`, now finally read on the storefront), on-sale products, new arrivals, popular (by approved-review count) products, and the latest visible articles. `welcome.blade.php` remains dead and unrouted, referenced nowhere. `reference/testing/ui-tests.md`'s `HomeTest` entry has what each section actually proves |
 | 5 | At most one or two core CSS and JavaScript technologies; no unnecessary mixing | Met by decision — Livewire and Alpine, argued in ADR-0001. Nothing built yet to violate it |
 | 6 | Per-view CSS and JavaScript files where genuinely needed | Pending |
 | 7 | Where the task calls for Livewire, use Livewire components rather than plain forms that reload the page | Met by decision — ADR-0001. Enforced in review |

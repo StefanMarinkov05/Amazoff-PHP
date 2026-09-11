@@ -138,6 +138,21 @@ checked in two places — where the sort button renders, and where
   component state — the gate is on the viewer, not just on the sort being
   active.
 
+### `ProductPriorPriceDisplayTest`
+
+The Omnibus / ЗЗП чл. 6б prior-price line (ADR-0021), shown wherever a reduced
+price is announced.
+
+- **Product page** shows "Lowest price in the last 30 days: €X" for a
+  discounted product with price history — X is the lowest observation in the
+  30 days before `discount_starts_at`.
+- **Not shown** for a product that is not on sale, even when history exists.
+- **Catalogue card** shows "Lowest in 30 days: €X" for a discounted product.
+
+The Action / resolver logic — which price gets recorded, how the window and
+the fallback resolve — is `RecordPriceObservationTest`, `ResolvePriorPriceTest`
+and `SnapshotProductPricesTest`; this file covers only the rendered line.
+
 ### `ProductDetailsQuantityTest`
 
 `$quantity` reaching the component is user input in the same sense
@@ -177,6 +192,33 @@ assumed from the type alone.
 - A non-numeric variation id does not crash.
 - An id that matches nothing real falls back to the default variation
   rather than erroring.
+
+### `ProductDetailsReviewSubmissionTest`
+
+`CreateProductReview` (§24, verified-purchase reviews) existed and was
+tested at the Action layer, but nothing on the storefront called it — this
+is that missing wiring. `canReview()` is a read-only mirror of the Action's
+own eligibility checks (delivered order for the product, not already
+reviewed), so the form can hide itself instead of only failing on submit;
+these tests cover both that gate and the real submission path through the
+Action, not a duplicate of the Action's own coverage.
+
+- The form is hidden from a guest.
+- The form is hidden from a signed-in customer with no delivered order for
+  the product.
+- The form shows for a customer with a delivered order.
+- The form is hidden again once that customer has already reviewed it.
+- A submission reaches `CreateProductReview` for real (not a modal that
+  only renders): the resulting row's `user_id`, `order_item_id`, `rating`,
+  and `approved` (always `false` on creation) are asserted, not just a
+  success message.
+- A review body under the minimum length is refused by Livewire validation
+  before the Action is even called.
+- If eligibility changes between this render and the click — a second
+  review lands in between — `canReview()`'s read-only check cannot catch
+  that race, only the Action's own `UNIQUE`-constraint check can; asserted
+  by seeding a second review after the component mounts and confirming the
+  submission is refused rather than silently succeeding.
 
 ### `CartPageTest`
 
@@ -295,6 +337,60 @@ wrong-email refusal, and the disclosure case, which starts leaking once a
 wrong email succeeds. The other 7 correctly held, since they do not depend
 on that half.
 
+**Prefill (4 cases).** `mount()` fills fields as a convenience, never
+bypassing `track()`'s single-query check:
+
+- A signed-in customer's own email is prefilled (retyping the address they
+  are logged in with is friction with no security value — their session,
+  not the email, is the secret for them).
+- Arriving from `?order=<serial>` on **one of the customer's own orders**
+  prefills both fields.
+- `?order=<serial>` for an order the visitor does **not** own prefills only
+  the serial (their own URL input, reflected) — the email stays their own,
+  never the order owner's, so this is not an enumeration oracle.
+- A guest gets the serial from the URL and nothing identifying.
+
+### `OrderDetailsTest`
+
+Six cases over `/account/orders/{order}` (`OrderDetails`) — one order in
+full. Like `OrderHistory`, a scoped read, so the scoping is most of what
+matters, plus that the page shows what the earlier "link goes to the
+confirmation page" gap was missing.
+
+- Shows the customer's own order with a **product link** (`/products/{slug}`)
+  and **currency** (`€42.00`) — the control, and the two things
+  `checkout.confirmation` did not carry.
+- **404 for another customer's order**, and **404 for a guest order** —
+  `order()` starts from `auth()->user()->orders()` and `abort_if(null, 404)`,
+  so an id that is not the customer's is indistinguishable from one that
+  does not exist (SEC-002, the same non-disclosure `OrderHistory` keeps).
+- The route requires authentication.
+- The **delivery address** renders; with no shipment row, a "not shipped
+  yet" line rather than a blank panel.
+- With a shipment row but **no tracking number** (the open courier slice —
+  `CreateShipment` does not call the courier), a placeholder line says a
+  number appears once the parcel is collected, rather than showing nothing.
+
+Verified live: the page renders with product links resolving, another
+customer's id 404s in the browser, and the `?order=` prefill from the
+"Open the tracking page" link fills both fields for an owned order.
+
+### `Account/RequestReturnTest`
+
+Four cases over `/account/orders/{order}/return` (`RequestReturn`, ADR-0020) —
+the 14-day right of withdrawal, scoped exactly like `OrderDetails`.
+
+- The owner of a **delivered, in-window** order submits a line + reason and a
+  `returns` row (status `Requested`) plus its `return_items` are written; the
+  page shows "received".
+- **404 for another customer's order** — `order()` starts from
+  `auth()->user()->orders()`.
+- An order **outside the window** (delivered 30 days ago) renders the "not
+  eligible" message, not the form.
+- An Action refusal (`ReturnNotAllowedException`, forced by the order flipping
+  status between render and submit) surfaces as a **form error, not a 500**,
+  and writes nothing.
+
 ### `OrderHistoryTest`
 
 Five cases over `/account/orders`. The component is a scoped read, so the
@@ -307,12 +403,227 @@ scoping is the whole of what is worth testing:
   proves scoping rather than an empty table.
 - The route requires authentication.
 
+The list groups the current page into "In progress" and "Completed" via
+`OrderStatus::isConcluded()` (Delivered/Cancelled/Returned/Refunded), and
+each row links to `account.orders.show` (`OrderDetails`), not
+`checkout.confirmation`. Row markup is `<x-account.order-row>`, shared with
+nothing else yet but written as a component so the two groups cannot
+diverge.
+
 Verified by replacing `$user->orders()` with `Order::query()`: **3 of 5
 failed.** The 2 that held are the success control and the auth redirect,
 neither of which touches the scoping — which is what shows each case targets
 what it claims.
 
+### `EditProfileTest`
+
+`/account/profile` — the missing piece against §4–5's account pages. No
+Action: one UPDATE with no invariant the schema cannot express, same test
+`Register`/`ContactForm` already pass.
+
+- Redirects a guest to `/login`.
+- Prefills every field from the signed-in user.
+- Saves a name, email, and phone change.
+- Clearing the phone field nulls it rather than rejecting an empty string —
+  `phone` is nullable in the schema.
+- An email already used by another account is refused (`Rule::unique`).
+- Saving *without* changing the email does not trip on the row's own
+  address — `->ignore($user->getKey())` is what this proves; without it,
+  every save of an unrelated field would falsely fail on "email taken."
+- A first name under the minimum length is refused.
+
+### `ManageAddressesTest`
+
+`/account/addresses` — the customer's saved-address book, closing another
+piece of §4–5's missing account pages. **Deliberately not wired into
+checkout** — `CheckoutPage` still collects address fields inline on every
+order; this page has no consumer yet, and giving it one is a separate
+change (see the class's own docblock).
+
+- The route requires authentication.
+- Lists only the signed-in customer's own addresses — scoping, same
+  reasoning `OrderHistoryTest` gives for testing it explicitly.
+- Adds a new address, scoped to the signed-in customer via
+  `$user->addresses()->create()`.
+- An incomplete submission is refused and writes nothing.
+- Edits an existing address.
+- **Cannot edit or delete another customer's address by guessing its id** —
+  both `startEditing()` and `delete()` scope through
+  `$user->addresses()->findOrFail()`, never `Address::findOrFail()`;
+  asserted by confirming the scoped lookup throws
+  `ModelNotFoundException` for a real address that belongs to someone
+  else, not by trusting the method name.
+- Marking a new address as the default billing address clears the
+  previous default — "at most one default per kind" is enforced in
+  application code (`clearOtherDefaults()`), not a schema constraint.
+- Confirms billing and shipping defaults are independent: setting a new
+  default billing address does not touch an existing default *shipping*
+  address.
+
+### `WishlistTest`, `ProductDetailsWishlistToggleTest`, `ProductListWishlistToggleTest`
+
+`/wishlist` and the add/remove toggle on both `ProductDetails` and
+`ProductList` — closing §38's missing wishlist UI. `WishlistItem` (the
+model) already existed with a full schema and was already load-bearing
+(`ForceDeleteProduct` already refuses to erase a wishlisted product) but
+had zero readers or writers before this.
+
+`WishlistTest` (`/wishlist`, the listing page):
+
+- The route requires authentication.
+- Lists only the signed-in customer's own wishlist — scoping, same
+  reasoning `OrderHistoryTest`/`ManageAddressesTest` give for testing it
+  explicitly.
+- Removes an item.
+- **Cannot remove another customer's wishlist item by guessing its id** —
+  `remove()` scopes through `$user->wishlistItems()->findOrFail()`, never
+  `WishlistItem::findOrFail()`; asserted the same way
+  `ManageAddressesTest` asserts its own cross-customer refusal, by
+  confirming the scoped lookup throws rather than trusting the method
+  name.
+
+`ProductDetailsWishlistToggleTest` and `ProductListWishlistToggleTest`
+(the two add/remove entry points):
+
+- A guest sees "not wishlisted" rather than a crash.
+- The first toggle adds the product; a second toggle on the same product
+  removes it — proven against the real `wishlist_items` row, not just the
+  component's own boolean/array state.
+- A guest attempting to toggle is redirected to `/login` rather than
+  crashing or silently writing a guest-owned row — `WishlistItem` has no
+  guest path, same reasoning `CreateProductReview`'s own docblock gives
+  for requiring a real user.
+- Idempotency is a caught `UNIQUE(user_id, product_id)` violation, not a
+  check-then-act read, matching `CreateProductReview`'s own discipline —
+  though unlike that Action's duplicate-review case, a concurrent
+  duplicate wishlist click resolves silently (nothing to report to the
+  customer) rather than as a refusal, since "already wishlisted" is not a
+  meaningful error the way "already reviewed" is.
+
+The heart's *optimistic flip* (Alpine, client-side, before the round-trip)
+is not covered by these — it is presentation with no server state behind
+it, and `write-a-storefront-page.md`'s rule is that Blade/Alpine glue is
+tested only where it proves something ours. What is ours here is the
+server toggle, which these cover; the flip was verified live (measured
+~8ms to fill, `wire:key` re-sync confirmed on both entry points, no
+console errors).
+
+Deliberately **not wired into checkout** or discount logic — a wishlist is
+purely a saved-for-later list here, same "give it a page, not a feature
+that doesn't exist yet" scoping `ManageAddresses` uses for its own
+checkout non-integration.
+
+### `HomeTest`
+
+`/` — §4's home page, replacing the old `Route::redirect('/', '/catalogue')`.
+Five independent sections, each its own `#[Computed]` property with its own
+query and its own test — proving each section's *filter*, not
+`ResolveProductPrice`'s or `ArticleStatus`'s own logic, which have their
+own coverage elsewhere.
+
+- **Featured** shows only `is_featured` products that are also
+  `is_available` — the administrator-controlled content §4 asks for.
+  `is_featured` already existed on `Product`, already editable in
+  `ProductForm`'s `Toggle::make`, already rendered in the admin table and
+  infolist — nothing on the storefront ever read it before this page.
+- **On sale** shows only products whose discount window is actually
+  active right now (not merely `discount_price` set) — same
+  `whereNotNull`/`discount_starts_at`/`discount_ends_at` check
+  `ProductList`'s own "On sale" filter uses, tested here independently
+  since it is a second, separate query.
+- **New arrivals** excludes an unavailable product.
+- **Popular** shows only a product with at least one *approved* review
+  (not a pending one, not zero), ordered by approved-review count
+  descending — "popular" here is review volume, not a sales figure
+  nothing in this schema tracks per product directly.
+- **Latest articles** reuses `Article::visible()`, the same scope
+  `ArticleList` uses — a home page must not leak a draft or a
+  future-dated article any earlier than the journal listing itself would.
+- Renders with nothing in any section, without crashing — the empty-state
+  case every section's own `@if ($section->isNotEmpty())` guard exists
+  for.
+
+Each product-filter test asserts against the section's own computed
+property directly, not `assertSee()`/`assertDontSee()` on the rendered
+page — the page renders all five sections in one response, so a control
+product correctly excluded from one section can still legitimately appear
+in another, and a page-wide text assertion cannot tell those two things
+apart.
+
+### `RequestPasswordResetTest`, `ConfirmPasswordResetTest`
+
+`/password/reset` and `/password/reset/{token}` — the last of §4–5's
+missing account pages, and the most security-sensitive: no existing model
+to wire up, unlike the other four. Both delegate entirely to Laravel's own
+`Password` broker (`password_reset_tokens`, in the schema from the starter
+kit, never previously used) rather than hand-rolled token logic.
+
+`RequestPasswordResetTest` (step one — request a link):
+
+- **Sends a real notification for a known email** — `Notification::fake()`
+  plus `assertSentTo($user, ResetPassword::class)`, proving the actual
+  broker call, not a stand-in.
+- **Shows the identical success state for an email with no account, and
+  sends nothing** — the account-enumeration rule `Login`'s own docblock
+  states (one message for wrong-email vs. wrong-password) applies here
+  too: the response can't tell a visitor whether an email exists.
+- A malformed email is refused by validation before the broker is ever
+  called.
+- Throttled per-IP after repeated requests — keyed on IP, not the
+  submitted email, same reasoning `Register`'s own throttle uses (keying
+  an enumeration defence on the value being enumerated gives an attacker N
+  attempts *each*).
+
+`ConfirmPasswordResetTest` (step two — set a new password), tokens
+generated via `Password::createToken()` — a real token through the same
+broker `submit()` validates against, not a stand-in:
+
+- A valid token sets the new password, **signs the visitor in**
+  (`Auth::login()`, since there is no existing session to already be
+  in), and **consumes the token** — a second attempt with the same token
+  is proven refused via `Password::tokenExists()`.
+- An invalid token is refused and changes nothing.
+- A valid token submitted against the *wrong* email is refused — the
+  broker matches token to email together, not the token alone.
+- A mismatched password confirmation is refused by validation before ever
+  reaching the broker, and **does not consume the token** — proven via
+  `Password::tokenExists()` still being `true` after the refusal, since a
+  validation failure must not burn the one-time link.
+- **Every other session for the account is invalidated** once the reset
+  succeeds — `Auth::logoutOtherDevices()`, the same response
+  `ChangePassword` gives to "someone else may know the old password,"
+  reached from a signed-out state instead of a signed-in one.
+- The email is pre-filled from the reset link's own query string — tested
+  via a real `$this->get()` route hit rather than `Livewire::test()`
+  directly, since `mount()` reads `request()->query()` and
+  `Livewire::test()` does not route the component through the actual
+  HTTP query-string cycle a real visited URL goes through.
+
 ### `CheckoutTest` (`tests/Feature/Payment/`)
+
+**[Added 2026-09-11]** Two multi-tab cases: four component instances in one
+session all reaching `placeOrder` produce one order, one payment and one
+reservation, and the losers refuse with a form error rather than a 500. The
+guard that fires is `isEmpty()` after the winner consumed the cart, not
+`UNIQUE(orders.cart_id)` — see `write-rules/order.md`, "Two actors at once".
+
+**[Added 2026-09-11, ADR-0022]** Five cancel cases, covering both checkout
+sub-states:
+
+- Cancel at the **details** step writes nothing — `placeOrder` is the only
+  thing that creates an order and it never ran, so the cart is untouched.
+- Cancel at the **payment** step cancels the order and releases the stock
+  it was holding, through `TransitionOrderStatus`'s own inventory effect.
+- The customer gets their **basket back**: `CreateOrder` consumed the
+  original cart, so `RestoreCartFromOrder` refills the visitor's current
+  unspent cart. This case is what caught the resolution bug where a third
+  cart row left the customer looking at an empty basket.
+- The **session claim** on the cancelled order is dropped, so its
+  confirmation page is no longer reachable from that session.
+- An order whose **payment already landed** is refused — cancelling a paid
+  order from a customer button would be a refund (staff work) and would
+  release stock that was sold.
+
 
 The full cycle — cart → checkout → order → payment → intent →
 confirmation. §37 criteria 6, 7 and 8. Stripe is faked here; the Action's
@@ -518,6 +829,35 @@ other domain exception.
 - A `QueryException` is not caught — a database-level failure is not a
   domain refusal and must not be presented to staff as if it were one.
 
+### `DomainDeleteBulkActionTest`
+
+`App\Filament\Actions\DomainDeleteBulkAction` routes a resource's bulk
+delete through its per-record delete Action instead of Filament's default
+per-record `$record->delete()`. Wired into `Products`, `ProductCategories`,
+`Brands`, `Attributes`, `ArticleCategories`, `Coupons`, `Carriers` as two
+`BulkActionGroup` entries — `delete` (partial) and `deleteAtomic`
+(all-or-nothing). Each test goes red if the resource is reverted to a plain
+`DeleteBulkAction::make()`.
+
+- **Bulk-deleting `Product`s cascades to their variations.** The default
+  bulk path soft-deletes only the `products` row; the variations stay
+  un-trashed and reservable, because `ReserveStock` checks the variation.
+  This is the silent case — no error, just a skipped guard.
+- **An in-use `Brand` is refused with a notification that names the
+  dependency** ("Brand Acme has 1 product(s) and cannot be deleted"), from
+  `BrandCannotBeDeletedException` via `DeleteBrand` — not Filament's generic
+  "could not be deleted." Partial mode: the free brand in the same selection
+  is still deleted.
+- **All-or-nothing mode deletes nothing when one record is refused.** The
+  whole selection runs in one transaction that is rolled back on the first
+  refusal; both the in-use and the free brand remain.
+
+Verified live in the panel before the automated coverage: both entries
+render in the bulk-actions menu, the atomic modal carries its
+"if any … cannot be deleted, none of them will be" description, and running
+it against an in-use brand left every row intact with a
+"No brand deleted — 1 in the selection blocked it" notification.
+
 ### `OrderStatusActionTest`
 
 §37 criterion 16 ("an employee can update order statuses") had no panel
@@ -571,6 +911,26 @@ no panel surface at all — the same shape the inventory gap had.
 every case pins what it asserts against — the trap
 `how-to/troubleshooting/data-and-factories.md` documents for the product
 factories applies here too.
+
+### `ReturnResourceTest`
+
+The panel side of the 14-day right of withdrawal (`ReturnResource`,
+`admin/returns`, ADR-0020).
+
+- Reachable by `administrator`; **forbidden to `content_editor` and
+  `warehouse_employee`** (`return` is administrator-only for now).
+- **Approve** and **Deny** on a `Requested` return reach `ReviewReturn` and
+  move it to `Approved` / `Denied`.
+- **Refund** on an `Approved` return reaches `RefundReturn` — the Stripe
+  refund is faked (the `getService('refunds')` mock, `StripePaymentTest`'s
+  approach), and the return lands at `Refunded`.
+- The three actions are offered only for the status that makes them legal —
+  `Requested` shows Approve/Deny not Refund; `Refunded` shows none.
+
+`deliveredOrderForReturn()` (in `tests/Pest.php`) builds the fixture: a
+delivered order with a `Delivered` status-history row (for
+`Order::deliveredAt()`), one line per variation with `inventories.sold_quantity`
+set so `RestockReturn` has stock to credit back.
 
 ### `UserResourceTest`
 
@@ -654,5 +1014,6 @@ found none, despite both having a live panel row action and a bulk action on
   `ApproveProductReview` once per selected record rather than writing
   `approved = true` directly, so authorization and the Action's own logic
   both still apply per record. Confirmed correct, not a bug — worth
-  recording precisely because the same-shaped bug exists on other
-  resources and this one could easily have repeated it.
+  recording precisely because the same-shaped bug existed on other
+  resources and this one could easily have repeated it. Those other
+  resources are now fixed too — see `DomainDeleteBulkActionTest` above.

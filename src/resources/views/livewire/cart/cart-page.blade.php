@@ -45,6 +45,22 @@
             </span>
         </div>
 
+        {{-- Written by CheckoutPage::cancelPayment() after a customer
+             cancels at the card step: the order is cancelled, its stock
+             released, and the basket below is the one rebuilt from it. The
+             page renders no other flash, so without this the message would
+             be set and silently dropped. --}}
+        @if (session('success'))
+            <div class="mb-5 flex items-center gap-2 rounded-control border border-emerald-200
+                        bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                     stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+                {{ session('success') }}
+            </div>
+        @endif
+
         @if ($items->isEmpty())
             {{-- ── Empty ──────────────────────────────────────────────── --}}
             <div class="border border-dashed border-ink-300 bg-white px-6 py-24 text-center">

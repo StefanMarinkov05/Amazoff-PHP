@@ -6,7 +6,357 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Fixed
+
+- **The Stripe checkout-abandonment bug — an unpaid order emailed a
+  confirmation and held its stock forever (ADR-0022).** Reaching the Stripe
+  payment step and closing the tab queued `App\Mail\OrderPlaced` ("you
+  bought this") with no payment taken, and left every reserved unit
+  unsellable indefinitely. Reproduced against the running stack before any
+  change: `reserved=2`, `status=new`, no release path.
+
+  Three parts to the fix. **(1)** A card order now moves to
+  `OrderStatus::AwaitingPayment` in `CheckoutPage::placeOrder` as soon as
+  its intent exists. Without this the bug could not even be *found* in the
+  database — `CreateOrder` lands every order at `New`, so an abandoned card
+  checkout was indistinguishable from a cash-on-delivery order waiting for
+  staff, and a sweep written against `AwaitingPayment` (the obvious shape)
+  would have matched nothing but seeded demo rows while passing its own
+  tests. **(2)** New `App\Actions\Order\ExpireUnpaidOrders` and a
+  scheduled `orders:expire-unpaid` (every minute) cancel any
+  `AwaitingPayment` order past `config('orders.unpaid_ttl_minutes')`
+  (default 10, new `config/orders.php`), releasing stock through
+  `TransitionOrderStatus`'s own inventory effect — the sweep composes no
+  `ReleaseStock` call of its own. The age is read from the
+  `AwaitingPayment` `order_status_histories` row via a new
+  `Order::awaitingPaymentSince()`, not from `orders.created_at`, so time
+  spent on the address step does not count against the payment window.
+  **(3)** `HandleStripeWebhookEvent` now propagates a settled intent to the
+  order — `succeeded` → `Paid`, `canceled`/`payment_failed` → `Cancelled` —
+  but **only** from `AwaitingPayment`, so a retryable failure cannot
+  destroy an order staff have already confirmed.
+
+  **The CRD Art. 8(7) confirmation moved for card orders only.** COD still
+  sends at placement (that contract really is concluded then); a card
+  order's confirmation now goes out when the payment arrives, from the new
+  `App\Listeners\SendOrderPlacedConfirmation` on `OrderStatusChanged` —
+  the first listener in the codebase, and the use `OrderStatusChanged` was
+  built for. This supersedes the previously-documented "both paths email at
+  placement" position. `explanation/transactional-email.md` also claimed an
+  abandoned card order was "cancelled by `carts:expire` / the
+  payment-failure path"; that was never true and is now.
+
+  Accepted cost, recorded rather than hidden: 10 minutes is shorter than
+  the slowest genuine 3-D Secure payments, so a late `succeeded` can land
+  against an order the sweep already cancelled. The payment still records
+  as paid and staff see the mismatch in the panel — a refund case, not a
+  silent wrong state. The TTL is config precisely so raising it costs no
+  code change.
+
+  26 new/changed tests (`ExpireUnpaidOrdersTest` ×2,
+  `SendOrderPlacedConfirmationTest`, webhook order-effect cases in
+  `StripePaymentTest`, abandonment cases in `CheckoutTest`). Each mechanism
+  was confirmed red with it removed. The sweep's status filter and its
+  per-order re-check mask each other, so each is pinned by a test that
+  observes it directly rather than through its effect.
+
 ### Added
+
+- **Cart-size caps and rate limits on the public cart writes.** Nothing
+  bounded how large a basket could get, and a cart is not free: every line
+  is a rendered row on three pages, an `order_items` insert and an
+  `inventories` lock inside `CreateOrder`'s transaction, and every unit is
+  stock `ReserveStock` holds out of everyone else's reach until the order
+  is paid or ADR-0022's sweep cancels it. Two limits because those are two
+  different costs — `cart.max_lines` (50) and `cart.max_units` (200), new
+  `CartLimitExceededException`, enforced inside `AddToCart`'s transaction
+  so two concurrent adds cannot both read a just-under count.
+
+  Two details that would have been easy to get wrong and are pinned by
+  tests: the line being written counts **once**, not as both its stored and
+  its new quantity (otherwise the cap fires far below its stated figure),
+  and the line cap does not apply when an existing line merely grows —
+  which would make a full cart permanently uneditable. Lowering a quantity
+  always works, including from a cart already over the cap.
+
+  `ProductDetails::addToCart` (60/min) and `CartPage::applyCoupon` (20/min)
+  are now throttled per IP via `ThrottlesSubmissions`. The coupon throttle
+  runs *before* the unknown-code check, because that is the cheap branch a
+  guesser hits on every wrong attempt — and coupon codes are guessable by
+  construction while `RedeemCoupon` holds a `coupons` row lock, so a loop
+  there is both an enumeration oracle and a lock-contention lever.
+
+  Worth recording: all three storefront catch sites listed their exception
+  types by name, so the new exception fell straight through to an uncaught
+  500 on a public button until they were widened — the same shape as the
+  bare `DeleteAction` incidents. `CartPageTest` now pins the refusal as a
+  form error at the component layer, which is the test that catches it.
+
+- **`PaymentMethod` answers "when is the contract concluded", instead of
+  three call sites guessing.** The confirmation-email branch was written as
+  `!== PaymentMethod::Stripe` in `CheckoutPage` (twice) and as
+  `=== PaymentMethod::CashOnDelivery` in the listener — two spellings of
+  one intent, in opposite directions. They agree while there are two cases
+  and would diverge silently the moment a third arrives (a deposit, a
+  wallet): the negation sweeps it into "email at placement", the equality
+  into "wait for payment", and neither fails to compile. New
+  `PaymentMethod::concludesContractAtPlacement()`, a `match` with no
+  default arm, so adding a case forces an answer. Deliberately separate
+  from the existing `requiresOnlinePayment()` — a deposit would need a
+  gateway *and* plausibly conclude at placement, which one flag cannot
+  express. Every method still sends exactly one confirmation; the enum
+  decides only *when*. New `PaymentMethodTest`; red-checked by inverting
+  the method, which turns five tests across two files red.
+
+- **Checkout verifies the email's domain, not just its syntax.**
+  `email:rfc` accepts `gmial.com` happily, and for a card order that
+  address is the customer's only record of a contract they paid for — the
+  CRD Art. 8(7) confirmation is sent once, when payment lands, with no
+  second chance. New `App\Rules\DeliverableEmailDomain` checks for an MX
+  (or A) record, on checkout only: the same rule on login or the
+  newsletter would put a network call on a surface an attacker can loop.
+  Laravel's built-in `email:dns` was tried first and rejected — it has no
+  seam, and every fixture here is `@example.test`, which never resolves by
+  design (RFC 6761), so it turned 21 unrelated checkout tests red. The rule
+  is gated on `config('mail.verify_email_domain')`, false in both test
+  configs and true everywhere else, with its own test that switches it back
+  on and asserts against a domain that resolves and one that cannot.
+
+- **Multi-tab checkout, answered rather than assumed.** "Open checkout in N
+  tabs — does each tab reserve the stock again?" Measured live at N=4: no.
+  One order, one payment, the stock reserved once, and every losing tab
+  refused with a form error rather than a 500. Two `CheckoutTest` cases pin
+  it. The finding worth keeping is the *mechanism*: the predicted guard
+  (`UNIQUE(orders.cart_id)` → `CartAlreadyCheckedOutException`) is never
+  reached from the storefront — the winner consumes the cart,
+  `ResolveCurrentCart` then treats it as spent, and the losing tabs
+  short-circuit on `CheckoutPage::isEmpty()` before `CreateOrder` is called
+  at all. Recorded in `write-rules/order.md` because relaxing the
+  spent-cart exclusion would silently move the refusal onto the constraint
+  and change which layer fails.
+
+- **Explicit Cancel on both checkout steps (ADR-0022).** The deliberate
+  counterpart to the abandonment sweep: instead of closing the tab and
+  waiting out the unpaid-order TTL, the customer can say so and get an
+  immediate release. Cancel on the address/details step is pure navigation
+  (nothing is written before `placeOrder`). Cancel at the Stripe payment
+  step cancels the order — releasing its reservation through
+  `TransitionOrderStatus` (ADR-0011) — restores the basket, and drops the
+  session claim so the cancelled order's confirmation page stops being
+  reachable. An order whose payment already landed is refused: that is a
+  refund, which is staff work.
+
+  New `App\Actions\Cart\RestoreCartFromOrder`. It does **not** revive the
+  order's original cart — `orders.cart_id` is UNIQUE and
+  `ResolveCurrentCart` deliberately refuses a spent cart (handing one back
+  is what broke checkout permanently for a session in the 2026-09-05
+  incident), so the original keeps its audit link and the lines are
+  restored into the visitor's current unspent cart. Lines whose variation
+  has since been force-deleted (null `product_variation_id` via
+  `nullOnDelete()`) or soft-deleted are skipped; nothing else is
+  re-validated, matching `MergeGuestCart`'s standing.
+
+  Worth recording because a component test caught it and inspection did
+  not: restoring into a *new* cart looked correct and was not. By the time
+  Cancel is pressed the visitor already has an empty cart — `CreateOrder`
+  consumed the original and the next cart-reading render opened a fresh one
+  — so a third row left `ResolveCurrentCart` returning the empty one while
+  the restored lines sat in a row nothing read. The customer saw an empty
+  basket. 16 new tests; the reuse and the `updateOrCreate` were each
+  confirmed red with the mechanism removed.
+
+- **Privacy notice and T&Cs — full structured drafts (GDPR Arts. 12–14, CRD
+  Art. 6; ADR-0019).** `/privacy` is now a real-shaped notice: controller
+  identity, a per-purpose table of data / purpose / Art. 6 legal basis,
+  retention periods, the data-subject rights wired to the self-service routes
+  (`/account/data`, `/account/delete`, `/account/profile`), the processors
+  (Stripe incl. the US transfer under SCCs, Econt/Speedy, mail and hosting
+  providers), and the КЗЛД supervisory authority. `/terms` covers order
+  formation and the durable-medium confirmation, the "Order with obligation
+  to pay" button, payment, delivery and risk, the 14-day right of withdrawal
+  (linking the returns request and the model form), faulty-goods rights,
+  complaints (КЗП + EU ODR) and governing law. Both carry a visible
+  **"Draft — not legal advice yet"** banner (a `draft` prop on
+  `<x-site.prose-page>`) and mark company-specific details `[like this]`.
+  `LegalPagesTest` pins the shape. Counsel review and the real registration
+  details are the remaining go-live step.
+
+- **Omnibus 30-day prior-price display (Directive (EU) 2019/2161 / ЗЗП чл.
+  6б, ADR-0021).** New `product_price_history` table recording each product's
+  *effective* selling price. `App\Actions\Catalogue\RecordPriceObservation`
+  writes a row from `CreateProduct` / `UpdateProduct` when a price field
+  moves; a new daily `products:snapshot-prices` command
+  (`App\Actions\Catalogue\RecordProductPrices`) records one per product
+  unconditionally, so a scheduled discount window opening or closing with no
+  admin edit is still captured. `App\Support\Resolvers\ResolvePriorPrice`
+  computes the lowest price in the 30 days before the reduction; the
+  storefront shows "Lowest price in the last 30 days: €X" on the product
+  page, catalogue cards, and the home discounted-products section whenever a
+  reduced price is announced. The migration backfills a two-point starting
+  timeline for existing products. 16 new tests. Known gap: per-variation
+  price overrides are not tracked, and the exact ЗЗП wording is for counsel.
+
+- **The 14-day right of withdrawal — a customer returns flow (CRD Arts.
+  9–15, ADR-0020).** New `OrderReturn` aggregate (`returns` / `return_items`
+  tables, `ReturnStatus` enum). `App\Actions\Returns\RequestReturn` enforces
+  the 14-day window as an Action guard — measured from the `Delivered`
+  `order_status_histories` row via `Order::deliveredAt()`, configurable
+  through `config('returns.withdrawal_days')` — and the per-line remaining
+  returnable quantity under an `orders` lock. `ReviewReturn` (approve / deny)
+  and `RefundReturn` (composes `RefundPayment` for a card order, marks a COD
+  order refunded with an offline-cash note, and runs `RestockReturn` per
+  line either way). Customer surface: `/account/orders/{order}/return` and a
+  "Request a return" button on the order-details page inside the window.
+  Staff surface: `ReturnResource` (`admin/returns`), administrator-only,
+  Approve / Deny / Refund as header actions. New permissions `viewAny_return`
+  / `view_return` / `update_return` / `delete_return` / `refund_return`
+  (through `PermissionCatalogue`, no seeder edit). **Deliberately independent
+  of `orders.status`** — a fully-refunded return leaves the order at
+  `Delivered`, because `OrderStatus::Returned` already carries a whole-order
+  restock and driving it too would double-count. GDPR: `EraseCustomer`
+  scrubs a return's `reason` / `resolution_note` (keeping the refund record);
+  `ExportCustomerData` includes returns. 40+ new tests across Feature,
+  Filament, Livewire, and a `RequestReturnConcurrencyTest`. Known gap:
+  delivery-cost reimbursement on a full withdrawal (Art. 13) is not yet
+  computed — flagged for counsel.
+
+- **`/password/reset` and `/password/reset/{token}` — the last of §4–5's
+  missing account pages, and the only one with no existing model to wire
+  up.** Delegates entirely to Laravel's own `Password` broker
+  (`password_reset_tokens`, in the schema since the starter kit, never
+  previously used) rather than hand-rolled tokens. Extends `Login`'s
+  account-enumeration defence: identical success state whether or not the
+  submitted email has an account, verified with `Notification::fake()`
+  proving nothing is sent for an unknown email, not just a matching UI
+  string. A successful reset signs the visitor in and invalidates every
+  other session for the account (`logoutOtherDevices()`), the same
+  response `ChangePassword` gives to "someone else may know the old
+  password." Deliberately not gated to guests — a signed-in customer who
+  no longer knows their current password still needs to recover it,
+  linked from both `/login` and `/account/password`. Both request and
+  confirm steps throttled, per-IP and per-email respectively. Verified
+  live before writing tests: a real Mailpit-delivered email, the real
+  link, the password genuinely changed in the database. 18 new tests.
+
+- **`/account/profile` and `/account/addresses`.** `EditProfile` (name,
+  email, phone — no Action, one UPDATE with no invariant the schema can't
+  express) and `ManageAddresses` (a saved-address CRUD; `Address` already
+  existed with a full schema but had zero readers or writers anywhere,
+  deliberately not wired into checkout yet). Both added to the header's
+  account dropdown, closing a navigation gap that predated this — the
+  routes existed with no menu entry. 17 new tests.
+
+- **`/wishlist` and an add/remove toggle on `ProductDetails` and
+  `ProductList`'s grid cards.** `WishlistItem` had the same shape as
+  `Address` — schema already existed, already load-bearing
+  (`ForceDeleteProduct` already refuses to erase a wishlisted product),
+  zero UI. Idempotency via a caught `UNIQUE(user_id, product_id)`
+  violation. Also wires `CreateProductReview` — tested at the Action
+  layer, but nothing on the storefront called it — into `ProductDetails`
+  via a `canReview()` eligibility check and a review form. Fixed a real
+  Vite CORS bug found while browser-verifying: no Livewire interactivity
+  worked in a real browser at all, not just this feature — `vite.config.js`
+  now sets `cors: true`. 31 new tests.
+
+- **§4's home page — `/` is `App\Livewire\Home`, replacing
+  `Route::redirect('/', '/catalogue')`.** Banner, featured products,
+  on-sale products, new arrivals, popular (by approved-review count)
+  products, and the latest visible articles. "Administrator-controlled
+  content" is `Product::is_featured` — a column and a `ProductForm`
+  toggle that already existed and was already editable, just never read
+  by the storefront. `specification.md` §4 moved from Not met to Met.
+  8 new tests.
+
+- **Newsletter double opt-in.** The footer signup no longer subscribes on
+  submit (ePrivacy Art. 13, ADR-0019). `SubscribeToNewsletter` creates a
+  `NewsletterStatus::Pending` row with a random `confirmation_token` and
+  queues `App\Mail\NewsletterConfirmation`; nothing is ever mailed to a
+  `Pending` row. Clicking the link (`/newsletter/confirm/{token}` →
+  `ConfirmNewsletterSubscription`) moves it to `Subscribed`. Every
+  confirmation email — and the plan is every send — carries a one-click
+  unsubscribe link (`/newsletter/unsubscribe/{token}` →
+  `UnsubscribeFromNewsletter`, GDPR Art. 7(3)) that flips the row to
+  `Unsubscribed` and sends an acknowledgement. `newsletter:purge-unconfirmed`
+  (scheduled daily) drops rows still `Pending` after 30 days — an address
+  held without consent. Migration widens the `status` enum and adds
+  `confirmation_token` + `confirmed_at`; existing `subscribed` rows are
+  grandfathered as confirmed. The signup form now says "check your inbox".
+  The Action still claims `user_id` for a subscriber who registered after
+  subscribing as a guest, and the erasure routine already matched by email
+  too. 24 tests.
+
+- **Local queue worker.** New `queue` service in `docker-compose.yml`
+  running `php artisan queue:work` — `QUEUE_CONNECTION=database` meant every
+  queued email (order confirmation, newsletter, password reset) sat in the
+  `jobs` table with nothing to run it. Mirrors how `vite` is its own
+  service; production runs the worker via a supervisor, not this file.
+
+- **Cookie-consent banner and consent gate.** `<x-site.cookie-consent>`
+  (rendered once by the app layout, ePrivacy Art. 5(3), ADR-0019) shows a
+  short notice on the first visit and lets the visitor decline non-essential
+  cookies. The choice is stored in a first-party `cookie_consent` cookie
+  (excluded from `EncryptCookies` since it is written from Alpine), and
+  `App\Support\CookieConsent::granted()` is the read side any future
+  analytics or marketing script must pass — undecided counts as not
+  granted. Nothing is gated today: only the session and CSRF cookies are
+  set, both strictly necessary. `/cookies` updated. 5 tests.
+
+- **GDPR data export, retention purge, and Omnibus / accessibility fixes.**
+  Continuing ADR-0019's compliance pass:
+  - **Art. 15 / 20 data export.** `App\Actions\Gdpr\ExportCustomerData` (the
+    read-only mirror of `EraseCustomer`) builds a structured document of
+    everything held about a customer — profile, addresses, orders, reviews,
+    wishlist, newsletter status, contact messages — matched by email as well
+    as `user_id`, with anonymised orders flagged and the coupon `email_hash`
+    withheld. `/account/data` streams it as JSON.
+  - **Art. 5(1)(e) retention purge.** `App\Actions\Gdpr\PurgeAnonymisedOrders`
+    + `orders:purge-anonymised` (scheduled weekly) delete anonymised orders
+    once `config('gdpr.order_retention_years')` has passed — an `.env` value
+    (`GDPR_ORDER_RETENTION_YEARS`, default 11) that a human sets from
+    Bulgarian accounting law; `null` disables the purge and the command says
+    so rather than guessing.
+  - **Omnibus review authenticity.** A sentence under the reviews heading
+    states that only customers with a delivered order for the product can
+    review it — the enforcement (`ProductDetails::canReview()`) was already
+    there.
+  - **Accessibility (EAA / WCAG 2.5.8).** Footer links and breadcrumbs are
+    now 24px-minimum tap targets (`-my-1 py-1`, no visual change).
+  8 new tests. `Order` and `NewsletterSubscriber` gain `@property` docblocks
+  for enum/date casts Larastan reads through nested relations.
+
+- **Order-confirmation email — the first transactional email.**
+  `App\Mail\OrderPlaced`, queued from `CheckoutPage::placeOrder` after the
+  order transaction commits, both payment paths. The full order as
+  concluded — line items with variation, product image, unit and line
+  price, quantity; totals with VAT; delivery address or courier office;
+  billing address when it differs; payment method label; order number and
+  tracking link; and the 14-day withdrawal information with a link to the
+  new `/returns/withdrawal-form` (the CRD model form, Annex I(B)). **No card
+  or payment-token data** — asserted directly. CRD Art. 8(7) (durable
+  medium) and GDPR Art. 6(1)(b). The checkout submit button now reads
+  **"Order with obligation to pay"** (CRD Art. 8(2)). New
+  `docs/explanation/transactional-email.md` records the pattern (queued,
+  Markdown templates, `SerializesModels` so the view re-reads the order,
+  mailpit locally, provider unconfigured for production). 6 tests.
+
+- **GDPR Art. 17 erasure — `/account/delete` and a panel action.**
+  `App\Actions\Gdpr\EraseCustomer` (ADR-0019) anonymises what accounting law
+  forces the shop to keep — the order and its addresses, identity columns
+  overwritten and `anonymized_at` set, every amount and invoice field left
+  intact — and hard-deletes the rest: the `users` row (`forceDelete`),
+  newsletter and contact rows (matched by id *or* email, so a
+  pre-registration guest row is caught), and — by the existing cascade FKs
+  — addresses, cart and wishlist. Reviews stay as `Anonymous`;
+  `coupon_redemptions` is untouched (its `email_hash` is peppered
+  pseudonymisation with its own retention basis). Idempotent on
+  `anonymized_at IS NULL`. Customers reach it at `/account/delete` (current
+  password + a typed `DELETE`, then the session is flushed); staff reach it
+  from `ViewUser` for a request emailed to the shop, gated on the new
+  `erase_user` permission and blocked for your own account. 18 tests, the
+  authorization and confirmation guards each proven red by removing the
+  mechanism. New `docs/reference/regulatory-compliance.md` maps GDPR /
+  ePrivacy / Consumer-Rights / DSA / accessibility / tax obligations to the
+  code or gap that answers each.
 
 - **Docs restructuring: split `troubleshooting.md` and `security-testing.md`
   by area, extracted `coding-conventions.md`, added diagrams.**
@@ -203,7 +553,60 @@ when the work happened, not when it was committed — nothing in
   double-charge defence and was deliberately not weakened to make the demo
   tidier.
 
+### Fixed
+
+- **`Money::percentageOf()`/`shareOf()` now round half-up instead of
+  truncating.** 20% VAT on a 100.00 gross line was `16.66`, not the
+  correct `16.67` — the double-scale intermediate was narrowed with a
+  scale-less `bcadd`, which truncates. Every VAT and coupon-discount VAT
+  figure was therefore up to a cent low, systematically in the same
+  direction. Implemented as a portable bcmath half-up nudge, not PHP
+  8.4's `bcround()`, to stay compatible with `composer.json`'s declared
+  PHP constraint. Corrected every existing test assertion that depended
+  on the old truncating value, found via a full test-suite run rather
+  than only the files that seemed related.
+
+- **Bare `DeleteAction` on `Brand`, `Attribute`, `ArticleCategory`,
+  `Carrier`, and `Coupon` now guards against a blocking dependency**,
+  matching `Product`/`ProductCategory`'s existing pattern. The default
+  Filament action called `$record->delete()` directly, surfacing a
+  foreign-key violation as an uncaught `QueryException` instead of a
+  message naming the dependency. New `DeleteX` Actions + domain
+  exceptions per resource. Confirmed the other originally-suspected
+  resources (`AttributeValue`, `Article`, `Tag`, `ContactMessage`,
+  `NewsletterSubscriber`) don't need this — their only dependents
+  cascade-delete or there's no blocking foreign key at all.
+
 ### Changed
+
+- **Test stack upgraded to Pest 5 / PHPUnit 13** (ADR-0018). `pestphp/pest`
+  `^4.7 → ^5.1`, `phpunit/phpunit` `^12.5 → ^13.3`, all Pest plugins and
+  `brianium/paratest` to their 5.x / 7.24 lines. Adopted for TIA (test
+  impact analysis) and time-balanced sharding — the two features that
+  directly address ADR-0010's documented CI-time cost — and so the new
+  browser plugin is not stranded on a frozen 4.x line. PHPUnit 13's
+  backward-compatibility breaks were grepped against the suite first (zero
+  hits); the full suite (1194 Feature/Unit, Concurrency, Pint, Larastan)
+  passes unchanged, no test file modified.
+
+- **Real-browser testsuite (`tests/Browser/`, ADR-0017).**
+  `pestphp/pest-plugin-browser` (Pest 5) drives a real Chromium against the
+  application booted in-process. New opt-in `playwright` Docker Compose
+  service (a `browser` image target carrying Node + Chromium — the default
+  stack is untouched), its own `phpunit.browser.xml` and `amazoff_browser`
+  database, no refresh trait (the `tests/Concurrency` model). Three specs:
+  `SmokeTest` (every public route, the account pages and the admin dashboard
+  load with no server error and no JS console error); `ResponsiveTest`
+  (§37 #19 — no horizontal overflow at 375 / 768 / 1440 px on ten storefront
+  pages, each gated on a compiled-Tailwind precondition so an unstyled page
+  fails loudly rather than passing empty); and `CheckoutLifecycleTest` — the
+  system-simulation E2E, one guest order walked catalogue → product → cart →
+  checkout → COD → confirmation → tracked in one browser session, every
+  write through the real Livewire button / form / Action and the database
+  asserted between steps. A local-runbook `ThreeDSecureTest` still follows.
+  Runs in CI as a new `test-browser` job (Node + Chromium + `npm run build`,
+  no app server — the plugin runs the HTTP kernel in-process). Full docs in
+  `docs/reference/testing/browser-testing.md`.
 
 - **Review and contact-message text moved out of PHP and into JSON.**
   `DemoReviewSeeder` carried a ~40-line `BODIES` const and

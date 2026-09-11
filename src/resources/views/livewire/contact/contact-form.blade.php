@@ -3,7 +3,7 @@
 
         <nav aria-label="Breadcrumb" class="mb-8 text-xs text-ink-400">
             <ol class="flex items-center gap-1.5">
-                <li><a href="/" class="transition-colors hover:text-marine-700">Home</a></li>
+                <li><a href="/" class="-my-1 inline-block py-1 transition-colors hover:text-marine-700">Home</a></li>
                 <li aria-hidden="true" class="text-ink-300">/</li>
                 <li class="font-medium text-ink-600" aria-current="page">Contact</li>
             </ol>

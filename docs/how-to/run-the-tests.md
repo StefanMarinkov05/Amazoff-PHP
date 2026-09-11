@@ -57,6 +57,36 @@ individual cases from a dataset.
 `--parallel` is the one to be careful with — see "Running in parallel" below
 for what it actually requires and where it must not be pointed.
 
+The stack is Pest 5 / PHPUnit 13 (ADR-0018). **`--dirty` and `--tia` do not
+currently work inside `docker compose exec app` at all** — both need git,
+and the container only mounts `src/`, never the repository root's `.git`
+one level up. `how-to/troubleshooting/infra-and-environment.md` has the
+symptom and the (not-yet-applied) fix. Until that mount is added, the fast
+local loop is a `--filter`/path argument by hand.
+
+Once fixed, TIA's own local loop needs no further coverage wiring beyond
+what's already installed (PCOV) — `pest --tia --fresh` once, to build the
+dependency graph, then `pest --dirty --tia` day to day, replaying
+unaffected tests from cache. That graph lives per-machine at
+`~/.pest/tia/<hash>` (`pest --baseline` prints the exact path) — it is
+**not** committed and **not** shared with CI; `--tia --baselined` /
+`--refetch` do that via a git remote and are a separate, unmeasured next
+step, not adopted here.
+
+## The browser suite
+
+`tests/Browser/` (ADR-0017) drives a real Chromium and is **not** part of
+the command above. It has its own config and database and runs through the
+opt-in `playwright` Compose service:
+
+```bash
+docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml
+```
+
+First run builds the `browser` image target (Node + Chromium, ~500 MB) and
+downloads the browser once. The default `docker compose up` never starts
+this service. See `docs/reference/testing/browser-testing.md`.
+
 ## Running in parallel
 
 Requires `brianium/paratest` as a dev dependency:
@@ -78,7 +108,7 @@ produces 21 failures out of 33 tests, all `ModelNotFoundException` or
 `QueryException` from a race worker reading rows another process had already
 deleted. This is not flakiness to retry away.
 
-Laravel's automatic per-process test database (`online_shop_test_test_1`,
+Laravel's automatic per-process test database (`amazoff_test_test_1`,
 `_2`, …) is wired up in `Illuminate\Testing\Concerns\TestDatabases`, and it
 only fires for a test case using `RefreshDatabase`, `DatabaseMigrations`,
 `DatabaseTransactions`, or `DatabaseTruncation` — checked via
@@ -88,7 +118,7 @@ trait; it `use`s `RefreshDatabase` internally) still qualifies.
 see the comment there: those tests need a second real connection to see
 rows the first one committed, which a wrapping transaction would hide. That
 same exclusion is what leaves every parallel worker pointed at the one
-un-suffixed `online_shop_test` database when a Concurrency test runs, so two
+un-suffixed `amazoff_test` database when a Concurrency test runs, so two
 workers' fixtures collide in the same physical rows. `Feature` tests survive
 this same mechanism failing open only because their trait already isolates
 them by transaction; `Concurrency` tests have no such isolation by design,
@@ -127,7 +157,7 @@ A fresh Docker volume needs one extra grant before any of this works — see
 
 ## Which database the tests use
 
-`phpunit.xml` forces `DB_CONNECTION=mysql` and `DB_DATABASE=online_shop_test`,
+`phpunit.xml` forces `DB_CONNECTION=mysql` and `DB_DATABASE=amazoff_test`,
 so a test run cannot touch development data no matter what `.env` says. Host,
 port, and credentials still come from the environment.
 
@@ -137,7 +167,7 @@ migration that adds the 45 `CHECK` constraints — the guarantees from ADR-0005
 would be absent for the entire suite while it stayed green. ADR-0005 and
 `use-ci.md` record the full reasoning.
 
-If `pest` fails with `Access denied ... to database 'online_shop_test'`, the
+If `pest` fails with `Access denied ... to database 'amazoff_test'`, the
 database was never created locally. The fix and why it only affects older
 Docker volumes are in `how-to/troubleshooting/database-and-migrations.md`.
 

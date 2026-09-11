@@ -1,5 +1,9 @@
 *.log
 .DS_Store
+
+# pest-plugin-browser dumps a PNG here on a failed browser assertion
+/tests/Browser/Screenshots
+
 .env
 .env.backup
 .env.production

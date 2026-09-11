@@ -157,10 +157,11 @@ it('apportions the discount across mixed VAT rates without storing it per line',
 
     $result = CalculateCouponDiscount::forLines($coupon, $lines, '200.00');
 
-    // Line 1: (100-20) * 20/120 = 13.33. Line 2: (100-20) * 9/109 = 6.60
-    // (bcdiv truncates, not rounds, at scale 2).
+    // Line 1: (100-20) * 20/120 = 13.3333..., rounds to 13.33. Line 2:
+    // (100-20) * 9/109 = 6.6055..., half-up rounds to 6.61 (not 6.60 — VAT
+    // extraction rounds half-up, not truncates). 13.33 + 6.61 = 19.94.
     expect($result['discount'])->toBe('40.00')
-        ->and($result['vat'])->toBe('19.93');
+        ->and($result['vat'])->toBe('19.94');
 });
 
 it('refuses an inactive coupon', function (): void {
@@ -282,11 +283,12 @@ it('discounts only the matching lines for a product-scoped coupon', function ():
     $result = CalculateCouponDiscount::forLines($coupon, $lines, '200.00');
 
     // 10% of only the matched 100, not the full 200.
-    // vat: matched line (100-10 discount) * 20/120 = 15.00, plus the
-    // unmatched line's untouched 100 * 20/120 = 16.66 — both matter, not
-    // only the matched line's, which is what regressed before this test.
+    // vat: matched line (100-10 discount) * 20/120 = 15.00 exact, plus the
+    // unmatched line's untouched 100 * 20/120 = 16.6666..., half-up rounded
+    // to 16.67 — both matter, not only the matched line's, which is what
+    // regressed before this test. 15.00 + 16.67 = 31.67.
     expect($result['discount'])->toBe('10.00')
-        ->and($result['vat'])->toBe('31.66');
+        ->and($result['vat'])->toBe('31.67');
 });
 
 it('discounts only the matching lines for a category-scoped coupon', function (): void {
@@ -310,10 +312,11 @@ it('discounts only the matching lines for a category-scoped coupon', function ()
 
     $result = CalculateCouponDiscount::forLines($coupon, $lines, '200.00');
 
-    // vat: matched line (100-5) * 20/120 = 15.83, plus the unmatched line's
-    // untouched 100 * 20/120 = 16.66.
+    // vat: matched line (100-5) * 20/120 = 15.8333..., rounds to 15.83,
+    // plus the unmatched line's untouched 100 * 20/120 = 16.6666..., half-up
+    // rounded to 16.67. 15.83 + 16.67 = 32.50.
     expect($result['discount'])->toBe('5.00')
-        ->and($result['vat'])->toBe('32.49');
+        ->and($result['vat'])->toBe('32.50');
 });
 
 it('applies an entire-order coupon to every line regardless of pivots', function (): void {

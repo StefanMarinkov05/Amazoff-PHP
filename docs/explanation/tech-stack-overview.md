@@ -185,9 +185,7 @@ hasn't been tested against real code yet.
 
 ## Open
 
-Content translation storage shape and audit log shape are undecided. PHP
-version (`^8.3` declared, `8.4` actually required by the lockfile) is
-unresolved.
+Content translation storage shape and audit log shape are undecided.
 
 Nothing calls `schedule:run` locally — no cron, no supervisor loop, in
 `docker-compose.yml` or the `app` image. `routes/console.php`'s `Schedule::`

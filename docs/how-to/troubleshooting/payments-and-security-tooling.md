@@ -270,3 +270,63 @@ running, run detached and inspect after it exits) for where in the rule
 sequence it actually died — `DomXssScanRule` starting is the known
 reproducible trigger on this project as of 2026-09-06, confirmed by
 `docker inspect`'s `OOMKilled` field, not by inference from symptoms alone.
+
+## `ThreeDSecureTest` passes once, then fails every later run with a card form that never appears
+
+**Symptom.** The first run of
+`docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml
+tests/Browser/ThreeDSecureTest.php` passes. Every run after it fails with:
+
+```
+Stripe never swapped its 2px placeholder for the real card form.
+```
+
+Instrumenting the mount shows one iframe of height `2` on the first poll and
+then **zero iframes** for the rest of the run — the Payment Element appears
+and is then torn back out of the DOM. `#stripe-payment-element` and its
+`wire:key` wrapper both survive throughout, so this looks like a Livewire
+re-render wiping Stripe's mount, or a wait that is too short, or CSP
+blocking the frame. It is none of those.
+
+**Cause.** Stripe's idempotency key collides with a truncated test database.
+`CreateStripeIntent` keys `paymentIntents->create` on
+`'payment-intent-'.$payment->id`, deliberately — so a retry after a timeout
+returns the first intent instead of charging the customer twice. Correct in
+production, where ids never repeat. But the browser suite truncates every
+table before each test (`tests/Pest.php`'s `->in('Browser')` block), so
+`payments.id` restarts at `1` on every run. The second run therefore sends
+idempotency key `payment-intent-1` again, and Stripe faithfully replays the
+intent the *first* run already drove to `succeeded`. Elements refuses to
+initialise against a terminal intent and removes its own iframe.
+
+The real message is never printed by the test — it is delivered to the
+Element's `loaderror` handler:
+
+> This PaymentIntent is in a terminal state and cannot be used to initialize
+> Elements. Avoid rendering Elements in this state, or create a new
+> PaymentIntent if intending to collect new payment details.
+
+**Fix.** `resetStripeIdempotencyScope()` in the test moves `payments`
+AUTO_INCREMENT past every id the database has already issued, so each run
+produces an idempotency key Stripe has never seen. It seeds from the clock:
+truncation resets AUTO_INCREMENT, so seeding from the table's own rows would
+not work — the offset must come from something monotonic and independent of
+the database.
+
+**Why it recurs.** The failure surfaces three layers away from its cause.
+Nothing in the message mentions Stripe, intents, or idempotency; the visible
+fact is a missing card field, which points at the wait, the selector, or
+CSP — and all three are plausible here, because the Element genuinely does
+mount a 2px placeholder before the real form, the iframe naming genuinely is
+undocumented, and the blade genuinely does depend on `frame-src` (SEC-009).
+The state also lives at Stripe, not locally, so `migrate:fresh` and dropping
+the database change nothing. Worst of all, the **first run passes**, so the
+test looks correct when written and only breaks for the next person.
+
+**Prevention.** When a browser test that touches a real external API passes
+once and then fails, suspect state held at the *provider*, keyed on
+something the test resets, before suspecting the test. For anything driving
+Stripe Elements, read the `loaderror` payload first — mount a console
+collector and serialise the error object (`JSON.stringify`, not
+`String(e)`, which yields a useless `[object Object]`). And never accept a
+single green run of this test as proof: run it at least twice.

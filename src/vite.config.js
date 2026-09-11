@@ -34,6 +34,17 @@ export default defineConfig({
         // address the browser cannot resolve — every asset 404s silently and
         // the page renders unstyled with no console error worth noticing.
         origin: 'http://localhost:5173',
+        // The app is served from :8080, assets from :5173 — a real
+        // cross-origin request, not same-origin the way a bare `vite dev`
+        // on one port would be. Vite's dev-server CORS default echoes the
+        // *request's own* Origin header back only when it matches the
+        // server's own configured origin, so a page loaded from :8080
+        // asking :5173 for app.js gets an Access-Control-Allow-Origin of
+        // ":5173" — which the browser rejects, since it doesn't match the
+        // page's own origin. `cors: true` tells Vite to allow any request
+        // origin, which is safe here: this only runs in local dev, behind
+        // Docker's own port mapping, never reachable outside the host.
+        cors: true,
         hmr: {
             host: 'localhost',
         },

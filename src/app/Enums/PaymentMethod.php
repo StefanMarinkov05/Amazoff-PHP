@@ -46,4 +46,38 @@ enum PaymentMethod: string implements HasColor, HasLabel
     {
         return $this === self::Stripe;
     }
+
+    /**
+     * Whether the sale is a concluded contract the moment the order is
+     * placed, or only once money actually arrives.
+     *
+     * This is what decides when the Consumer Rights Directive Art. 8(7)
+     * durable-medium confirmation is sent (ADR-0022): cash on delivery
+     * concludes at placement — there is no payment step that can fail, and
+     * the customer has genuinely bought something — while a card sale
+     * concludes at `payment_intent.succeeded`, so sending at placement told
+     * customers who closed the Stripe tab that they had bought goods they
+     * never paid for.
+     *
+     * **Deliberately not the same question as `requiresOnlinePayment()`,
+     * and deliberately not spelled `=== self::Stripe` at the call sites.**
+     * The two coincide today with two cases and would diverge the moment a
+     * third arrives: a deposit or a digital wallet needs an online gateway
+     * *and* may well conclude at placement. A negated `!== Stripe` check
+     * would silently sweep such a method into "email immediately", and an
+     * `=== CashOnDelivery` check would silently sweep it into "wait for
+     * payment" — two spellings of the same intent that break in opposite
+     * directions, which is exactly what putting the rule on the enum
+     * prevents. Adding a case here forces this `match` to be answered.
+     *
+     * Every method sends the confirmation exactly once. What differs is
+     * only *when*.
+     */
+    public function concludesContractAtPlacement(): bool
+    {
+        return match ($this) {
+            self::CashOnDelivery => true,
+            self::Stripe => false,
+        };
+    }
 }

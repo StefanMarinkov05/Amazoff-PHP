@@ -266,6 +266,34 @@ No Action, deliberately. One table, no invariant, no second writer — ADR-0007'
 threshold is not met and CLAUDE.md's rule applies: wrapping a single-table save
 in an Action buys no consistency and costs a class. Default Filament CRUD.
 
+## Price history (Omnibus prior-price display, ADR-0021)
+
+`product_price_history` records the product's **effective** selling price
+(`ResolveProductPrice::current()->current` — the discounted price while the
+window is open, the regular price otherwise) so the storefront can show "the
+lowest price in the 30 days before a reduction".
+
+| Trigger | What gets written |
+|---|---|
+| `CreateProduct` | one row — the product's initial effective price |
+| `UpdateProduct` | one row **only when** `regular_price` / `discount_price` / `discount_starts_at` / `discount_ends_at` changed **and** the resulting effective price differs from the most recent observation |
+| `products:snapshot-prices` (daily) | one row per product, unconditionally — so a discount window opening or closing on schedule, with no admin edit, still produces a data point |
+
+`RecordPriceObservation` is the per-product writer; `RecordProductPrices` is
+the daily sweep. Neither authorizes anything — they observe, they do not
+mutate the product, and their callers are already gated. The table is
+append-only; the only deletion is the `product_id` cascade on
+`ForceDeleteProduct`.
+
+`ResolvePriorPrice::forProduct()` reads it: `MIN(price)` over the 30 days
+before `discount_starts_at` (or now), with a fallback to the last row before
+that window. Returns `null` when the product is not on sale or has no usable
+history — a product cannot honestly claim a prior price it never had.
+
+**Not tracked:** per-variation price overrides. The prior price is
+product-level (ADR-0021 decision 4). Delivery-cost reimbursement and the
+exact ЗЗП чл. 6б wording are counsel gaps.
+
 ## Lock order
 
 `products` before `inventories`, always. `ReserveStock` and `ReleaseStock`

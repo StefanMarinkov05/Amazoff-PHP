@@ -80,7 +80,8 @@ final class PermissionCatalogue
      *
      * A payment row is written by Stripe's webhook (§13), a review by a
      * customer who bought the product (§24), a contact message and a
-     * newsletter subscription by a public form (§26).
+     * newsletter subscription by a public form (§26), a return by a customer
+     * withdrawing from a delivered order (ADR-0020).
      *
      * @var list<string>
      */
@@ -89,6 +90,7 @@ final class PermissionCatalogue
         'product_review',
         'contact_message',
         'newsletter_subscriber',
+        'return',
     ];
 
     /**
@@ -120,7 +122,11 @@ final class PermissionCatalogue
         'article' => ['publish'],
         'product_review' => ['approve'],
         'payment' => ['refund'],
-        'user' => ['assignRole'],
+        // `update_return` gates ReviewReturn (approve/deny); `refund_return`
+        // gates RefundReturn and is administrator-only — moving money, not
+        // editing a row (ADR-0011 / ADR-0020).
+        'return' => ['refund'],
+        'user' => ['assignRole', 'erase'],
     ];
 
     /**
@@ -198,6 +204,7 @@ final class PermissionCatalogue
 
         $groups['Catalogue'][] = 'product_review';
         $groups['Operations'][] = 'payment';
+        $groups['Operations'][] = 'return';
         $groups['Administration'][] = 'contact_message';
         $groups['Administration'][] = 'newsletter_subscriber';
 

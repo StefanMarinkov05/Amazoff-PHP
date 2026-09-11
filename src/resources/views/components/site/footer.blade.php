@@ -79,12 +79,15 @@
             @foreach ($columns as $heading => $items)
                 <nav aria-label="{{ $heading }}">
                     <h2 class="text-xs font-semibold uppercase tracking-[0.15em] text-white">{{ $heading }}</h2>
-                    <ul class="mt-4 space-y-2.5">
+                    {{-- WCAG 2.5.8 / EAA: each link is a 24px-minimum target.
+                         `-my-1 py-1` grows the hit area without moving the text. --}}
+                    <ul class="mt-3 space-y-0.5">
                         @foreach ($items as [$label, $href])
                             <li>
                                 <a
                                     href="{{ $href }}"
-                                    class="group inline-flex text-sm text-ink-400 transition-colors duration-200
+                                    class="group -my-1 inline-flex min-h-[24px] items-center py-1 text-sm
+                                           text-ink-400 transition-colors duration-200
                                            hover:text-white focus:outline-none focus-visible:ring-4
                                            focus-visible:ring-marine-600/30 rounded-sm"
                                 >

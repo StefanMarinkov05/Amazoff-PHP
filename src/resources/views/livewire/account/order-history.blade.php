@@ -14,41 +14,27 @@
             </a>
         </p>
     @else
-        <ul class="mt-8 divide-y divide-ink-200 rounded-control border border-ink-200 bg-white">
-            @foreach ($orders as $order)
-                <li class="flex flex-wrap items-center justify-between gap-4 px-4 py-4">
-                    <div class="min-w-0">
-                        <a
-                            href="{{ route('checkout.confirmation', ['order' => $order->id]) }}"
-                            wire:navigate
-                            class="text-sm font-medium text-marine-700 underline-offset-4 hover:underline
-                                   focus:outline-none focus-visible:ring-4 focus-visible:ring-marine-600/20 rounded-sm"
-                        >
-                            {{ $order->serial_number }}
-                        </a>
-                        <p class="mt-1 text-xs text-ink-500">
-                            {{ $order->created_at?->format('j M Y') }}
-                            · {{ $order->orderItems->count() }}
-                            {{ Str::plural('item', $order->orderItems->count()) }}
-                        </p>
-                    </div>
+        @if ($activeOrders->isNotEmpty())
+            <h2 class="mt-8 text-sm font-semibold uppercase tracking-wide text-ink-500">In progress</h2>
+            <ul class="mt-3 divide-y divide-ink-200 rounded-control border border-ink-200 bg-white">
+                @foreach ($activeOrders as $order)
+                    <x-account.order-row :$order wire:key="order-{{ $order->id }}" />
+                @endforeach
+            </ul>
+        @endif
 
-                    <div class="flex items-center gap-4">
-                        <span class="rounded-full border border-ink-300 px-2.5 py-1 text-xs font-medium text-ink-700">
-                            {{ $order->status->getLabel() }}
-                        </span>
-
-                        @if ($order->payment !== null)
-                            <span class="hidden text-xs text-ink-500 sm:inline">
-                                {{ $order->payment->status->getLabel() }}
-                            </span>
-                        @endif
-
-                        <span class="text-sm font-semibold text-ink-900">{{ $order->total_amount }}</span>
-                    </div>
-                </li>
-            @endforeach
-        </ul>
+        @if ($concludedOrders->isNotEmpty())
+            <h2 @class([
+                'text-sm font-semibold uppercase tracking-wide text-ink-500',
+                'mt-10' => $activeOrders->isNotEmpty(),
+                'mt-8' => $activeOrders->isEmpty(),
+            ])>Completed</h2>
+            <ul class="mt-3 divide-y divide-ink-200 rounded-control border border-ink-200 bg-white">
+                @foreach ($concludedOrders as $order)
+                    <x-account.order-row :$order wire:key="order-{{ $order->id }}" />
+                @endforeach
+            </ul>
+        @endif
 
         <div class="mt-6">
             {{ $orders->links() }}

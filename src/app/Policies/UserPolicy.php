@@ -53,6 +53,19 @@ class UserPolicy
     }
 
     /**
+     * GDPR Art. 17 erasure through the admin panel (ADR-0019), for handling a
+     * request emailed to the shop. `$model->id !== $user->id` for the same
+     * reason `delete()` has it — an admin erasing their own account through
+     * the admin tool loses panel access mid-transaction; self-service at
+     * `/account/delete` is the path for that, and it does not run this
+     * policy (a customer erasing themselves needs no permission).
+     */
+    public function erase(User $user, User $model): bool
+    {
+        return $user->can('erase_user') && $model->id !== $user->id;
+    }
+
+    /**
      * Granting a role is how an account gains panel access, so it is gated
      * separately from update_user rather than by it — see this class's own
      * docblock.

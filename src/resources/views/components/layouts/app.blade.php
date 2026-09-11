@@ -33,5 +33,7 @@
         </main>
 
         <x-site.footer />
+
+        <x-site.cookie-consent />
     </body>
 </html>

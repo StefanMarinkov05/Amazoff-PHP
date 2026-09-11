@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Actions\Payment\CreateStripeIntent;
 use App\Actions\Payment\HandleStripeWebhookEvent;
 use App\Actions\Payment\RefundPayment;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Exceptions\RefundNotAllowedException;
 use App\Exceptions\StripeIntentNotAllowedException;
+use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
@@ -278,6 +280,111 @@ it('marks a payment fully refunded when the cumulative total reaches the amount'
 /*
  * ── Idempotency (§37 #11) at the Action layer ───────────────────────────
  */
+
+/*
+ * ── ADR-0022 decision 4: the order-side effect ──────────────────────────
+ *
+ * The webhook moved only `payments.status` until ADR-0022, so a cancelled
+ * or failed card attempt left its order sitting in AwaitingPayment holding
+ * stock until the sweep caught it. These prove the propagation, and — just
+ * as importantly — that it refuses to fire from any other order status.
+ */
+
+/** A Stripe payment whose order is at `$status` and holds `$quantity` reserved. */
+function webhookOrderPayment(OrderStatus $status, int $quantity = 2): Payment
+{
+    $variation = variationWithStock(current: 10, reserved: $quantity);
+    $order = orderWithVariationLine($variation, $status, $quantity);
+    $order->update(['payment_method' => PaymentMethod::Stripe, 'anonymized_at' => null]);
+
+    return Payment::factory()->create([
+        'order_id' => $order->getKey(),
+        'method' => PaymentMethod::Stripe,
+        'status' => PaymentStatus::Pending,
+        'currency' => 'EUR',
+        'amount' => '100.00',
+        'refunded_amount' => '0.00',
+        'stripe_payment_intent_id' => 'pi_order_effect',
+        'paid_at' => null,
+    ]);
+}
+
+function reservedForPayment(Payment $payment): int
+{
+    $variation = $payment->order->orderItems()->first()->productVariation;
+
+    return Inventory::where('product_variation_id', $variation->getKey())->sole()->reserved_quantity;
+}
+
+it('cancels an awaiting-payment order and releases its stock on payment_intent.canceled', function (): void {
+    $payment = webhookOrderPayment(OrderStatus::AwaitingPayment);
+
+    app(HandleStripeWebhookEvent::class)->handle(stripeEvent('payment_intent.canceled', [
+        'id' => 'pi_order_effect',
+        'object' => 'payment_intent',
+        'status' => 'canceled',
+    ], 'evt_cancel_1'));
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Cancelled)
+        ->and($payment->order->fresh()->status)->toBe(OrderStatus::Cancelled)
+        // Released without waiting out ExpireUnpaidOrders' TTL.
+        ->and(reservedForPayment($payment))->toBe(0);
+});
+
+it('cancels an awaiting-payment order on payment_intent.payment_failed', function (): void {
+    $payment = webhookOrderPayment(OrderStatus::AwaitingPayment);
+
+    app(HandleStripeWebhookEvent::class)->handle(stripeEvent('payment_intent.payment_failed', [
+        'id' => 'pi_order_effect',
+        'object' => 'payment_intent',
+        'status' => 'requires_payment_method',
+    ], 'evt_fail_1'));
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Failed)
+        ->and($payment->order->fresh()->status)->toBe(OrderStatus::Cancelled)
+        ->and(reservedForPayment($payment))->toBe(0);
+});
+
+it('advances an awaiting-payment order to Paid on payment_intent.succeeded', function (): void {
+    $payment = webhookOrderPayment(OrderStatus::AwaitingPayment);
+
+    app(HandleStripeWebhookEvent::class)->handle(stripeEvent('payment_intent.succeeded', [
+        'id' => 'pi_order_effect',
+        'object' => 'payment_intent',
+        'status' => 'succeeded',
+        'amount_received' => 10000,
+        'currency' => 'eur',
+    ], 'evt_paid_1'));
+
+    // Reaching Paid is what lets SendOrderPlacedConfirmation finally send
+    // the CRD Art. 8(7) confirmation the card path withholds at placement.
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Paid)
+        ->and($payment->order->fresh()->status)->toBe(OrderStatus::Paid)
+        // Still reserved: stock moves to sold at Shipped, not at payment.
+        ->and(reservedForPayment($payment))->toBe(2);
+});
+
+/*
+ * The guard that stops a retryable failure destroying a live order.
+ * payment_intent.payment_failed is not terminal — PaymentStatus has
+ * Failed => Paid for the second attempt — so cancelling from anything but
+ * AwaitingPayment would kill an order the customer is about to pay for, or
+ * one staff have already confirmed and started picking.
+ */
+it('leaves an order that is not awaiting payment untouched by a failed intent', function (): void {
+    $payment = webhookOrderPayment(OrderStatus::Confirmed);
+
+    app(HandleStripeWebhookEvent::class)->handle(stripeEvent('payment_intent.payment_failed', [
+        'id' => 'pi_order_effect',
+        'object' => 'payment_intent',
+        'status' => 'requires_payment_method',
+    ], 'evt_fail_2'));
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Failed)
+        // The payment records the failure; the order carries on.
+        ->and($payment->order->fresh()->status)->toBe(OrderStatus::Confirmed)
+        ->and(reservedForPayment($payment))->toBe(2);
+});
 
 it('applies the same event id only once', function (): void {
     $payment = stripePayment(['stripe_payment_intent_id' => 'pi_dupe']);
