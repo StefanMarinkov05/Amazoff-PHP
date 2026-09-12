@@ -216,6 +216,37 @@ RUN { \
 # production is owed it independently — this is that.
 RUN echo 'expose_php = Off' > /usr/local/etc/php/conf.d/security.ini
 
+# Let the `mysql` CLI talk to a managed database that presents a self-signed
+# certificate. Railway's MySQL does, and MariaDB's client (which is what
+# Alpine's mysql-client is) verifies the chain by default since 11.x, so the
+# schema load fails with:
+#
+#   ERROR 2026 (HY000): TLS/SSL error: self-signed certificate in certificate chain
+#
+# This cannot be fixed at the call site: `php artisan migrate` builds the
+# command itself (MySqlSchemaState) as `mysql --user --password --host --port
+# --database < file` and passes no SSL options, so there is nowhere to add a
+# flag. The client's own config file is the only seam.
+#
+# ssl-verify-server-cert=0 keeps the connection encrypted and stops *verifying*
+# the certificate — it does not disable TLS. That is the right trade here and
+# the reason is specific, not lazy: the traffic never leaves Railway's private
+# network (DB_HOST is the internal RAILWAY_PRIVATE_DOMAIN, not a public host),
+# and the alternative is pinning a CA certificate that Railway rotates without
+# notice. A managed provider that publishes a stable CA bundle should use that
+# instead of this.
+#
+# Scope is the CLI only. PDO connections from the application are unaffected —
+# they use config/database.php, which sets no SSL options and therefore does not
+# verify either.
+# Written to /etc/my.cnf, NOT /etc/my.cnf.d/. Alpine's client build has no
+# include-directory: `mysql --help` reports it reads only
+# "/etc/my.cnf /etc/mysql/my.cnf ~/.my.cnf". A drop-in under /etc/my.cnf.d/ is
+# created successfully, never read, and leaves the TLS error identical — a fix
+# that looks applied and does nothing. Verified with `mysql --print-defaults`,
+# which echoes the options actually in effect.
+RUN printf '%s\n' '[client]' 'ssl-verify-server-cert=0' > /etc/my.cnf
+
 # php-fpm listens on loopback for nginx in the same container, and logs to
 # stderr so Railway captures it. clear_env=no lets the pool see the
 # container's environment variables — without it every Railway-injected
