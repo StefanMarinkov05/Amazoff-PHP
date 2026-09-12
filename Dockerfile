@@ -253,11 +253,24 @@ RUN mkdir -p \
 #
 # composer itself is copied in, used, and deleted in the same layer — a
 # dependency resolver on a running web host is attack surface with no purpose,
-# and leaving it in a later `RUN rm` would keep it in the earlier layer anyway.
-RUN --mount=from=composer:2,source=/usr/bin/composer,target=/usr/bin/composer \
-    composer dump-autoload --no-dev --optimize --no-interaction \
+# and a separate later `RUN rm` would leave it in the earlier layer anyway.
+#
+# Deliberately NOT `RUN --mount=from=composer:2,...`, which expresses exactly
+# this more tidily and builds fine under local BuildKit. Railway's Metal builder
+# rejects it outright: "flag '--mount=...' is missing a type=cache argument
+# (other mount types are not supported)". Only type=cache mounts exist there, so
+# a bind mount from another image is unavailable.
+#
+# Worth knowing for its own sake: `docker build` on a developer machine CANNOT
+# catch this. The local builder is the more permissive of the two, so a
+# Dockerfile can be locally green and rejected by the platform in six seconds,
+# before a single layer runs. Verifying a build locally is necessary and not
+# sufficient.
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN composer dump-autoload --no-dev --optimize --no-interaction \
     && php artisan package:discover --ansi \
-    && php artisan filament:upgrade
+    && php artisan filament:upgrade \
+    && rm -f /usr/local/bin/composer
 
 # nginx.conf is a template: ${PORT} is substituted at start time, not here.
 COPY docker/production/nginx.conf /etc/nginx/http.d/default.conf.template
