@@ -141,6 +141,24 @@ FROM php:8.4-fpm-alpine AS runtime
 # PHP extensions and are removed in the same layer so they never reach the
 # final image.
 #
+# `mysql-client` is NOT optional and NOT a test-harness leftover, which is what
+# it was first mistaken for when this image was written. `database/schema/
+# mysql-schema.sql` is committed, so `php artisan migrate` does not replay
+# migrations — it loads that squashed dump by shelling out to the `mysql`
+# binary. Without the client the deploy dies at "Loading stored database
+# schemas ... FAIL / sh: mysql: not found" (exit 127) *after* connecting to the
+# database successfully, which makes it read like a credentials problem rather
+# than a missing package.
+#
+# Alpine's `mysql-client` is MariaDB's client, and docker/php/Dockerfile goes to
+# real trouble to install Oracle's instead. That reasoning does not transfer:
+# it is about `schema:dump`, where MariaDB's `mysqldump` rejects the MySQL-only
+# flags Laravel passes (--column-statistics=0, --set-gtid-purged=OFF). This
+# image only ever *loads* a schema — plain `mysql --user --password --host
+# --port --database < file`, no MySQL-only flags — so the MariaDB client is
+# sufficient here. Do not "fix" this by porting the Oracle repository setup
+# over; it would add an apt/gpg dance to an Alpine image for no gain.
+#
 # Extension set mirrors docker/php/Dockerfile's MINUS the test-only ones:
 # no pcov (coverage), no sockets (pest-plugin-browser talks to Playwright
 # over one — there is no browser suite here). bcmath is NOT optional: every
@@ -151,6 +169,7 @@ RUN apk add --no-cache \
         nginx \
         supervisor \
         gettext \
+        mysql-client \
         libpng \
         libjpeg-turbo \
         freetype \
