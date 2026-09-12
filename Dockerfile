@@ -141,23 +141,21 @@ FROM php:8.4-fpm-alpine AS runtime
 # PHP extensions and are removed in the same layer so they never reach the
 # final image.
 #
-# `mysql-client` is NOT optional and NOT a test-harness leftover, which is what
-# it was first mistaken for when this image was written. `database/schema/
-# mysql-schema.sql` is committed, so `php artisan migrate` does not replay
-# migrations — it loads that squashed dump by shelling out to the `mysql`
-# binary. Without the client the deploy dies at "Loading stored database
-# schemas ... FAIL / sh: mysql: not found" (exit 127) *after* connecting to the
-# database successfully, which makes it read like a credentials problem rather
-# than a missing package.
+# `mysql-client` is a CONVENIENCE here, not a dependency — and that correction
+# matters, because two earlier versions of this comment claimed the opposite.
 #
-# Alpine's `mysql-client` is MariaDB's client, and docker/php/Dockerfile goes to
-# real trouble to install Oracle's instead. That reasoning does not transfer:
-# it is about `schema:dump`, where MariaDB's `mysqldump` rejects the MySQL-only
-# flags Laravel passes (--column-statistics=0, --set-gtid-purged=OFF). This
-# image only ever *loads* a schema — plain `mysql --user --password --host
-# --port --database < file`, no MySQL-only flags — so the MariaDB client is
-# sufficient here. Do not "fix" this by porting the Oracle repository setup
-# over; it would add an apt/gpg dance to an Alpine image for no gain.
+# Nothing in the deployed image invokes the `mysql` binary any more.
+# `.dockerignore` excludes `database/schema/`, so `php artisan migrate` replays
+# the 68 migrations through PDO rather than loading the squashed dump by
+# shelling out to a client. The full reasoning, and the three separate failures
+# that forced it, are recorded in .dockerignore next to that exclusion.
+#
+# It stays installed only so `railway run php artisan db` and manual debugging
+# work. Be aware of its limit before relying on it: Alpine's `mysql-client` is
+# MariaDB's, which cannot authenticate to MySQL 8 at all — its client has no
+# `caching_sha2_password` plugin, which is MySQL 8's default. A client that can
+# actually connect means Oracle's, as docker/php/Dockerfile installs.
+# Removing this package entirely would also be defensible.
 #
 # Extension set mirrors docker/php/Dockerfile's MINUS the test-only ones:
 # no pcov (coverage), no sockets (pest-plugin-browser talks to Playwright
@@ -216,29 +214,21 @@ RUN { \
 # production is owed it independently — this is that.
 RUN echo 'expose_php = Off' > /usr/local/etc/php/conf.d/security.ini
 
-# Let the `mysql` CLI talk to a managed database that presents a self-signed
-# certificate. Railway's MySQL does, and MariaDB's client (which is what
-# Alpine's mysql-client is) verifies the chain by default since 11.x, so the
-# schema load fails with:
+# Client-side TLS setting, kept for the convenience client described above.
+# It is no longer on the deploy's critical path — migrations run through PDO —
+# but it remains correct for any manual `mysql` use against a managed database
+# that presents a self-signed certificate, which Railway's does.
 #
-#   ERROR 2026 (HY000): TLS/SSL error: self-signed certificate in certificate chain
+# MariaDB's client verifies the chain by default since 11.x and fails with
+# "ERROR 2026 (HY000): TLS/SSL error: self-signed certificate in certificate
+# chain". ssl-verify-server-cert=0 stops it *verifying* the certificate; it
+# does not disable TLS, and the connection stays encrypted. Acceptable here
+# specifically because DB_HOST is Railway's internal RAILWAY_PRIVATE_DOMAIN, so
+# the traffic never leaves the private network, and the alternative is pinning
+# a CA bundle the provider rotates without notice.
 #
-# This cannot be fixed at the call site: `php artisan migrate` builds the
-# command itself (MySqlSchemaState) as `mysql --user --password --host --port
-# --database < file` and passes no SSL options, so there is nowhere to add a
-# flag. The client's own config file is the only seam.
-#
-# ssl-verify-server-cert=0 keeps the connection encrypted and stops *verifying*
-# the certificate — it does not disable TLS. That is the right trade here and
-# the reason is specific, not lazy: the traffic never leaves Railway's private
-# network (DB_HOST is the internal RAILWAY_PRIVATE_DOMAIN, not a public host),
-# and the alternative is pinning a CA certificate that Railway rotates without
-# notice. A managed provider that publishes a stable CA bundle should use that
-# instead of this.
-#
-# Scope is the CLI only. PDO connections from the application are unaffected —
-# they use config/database.php, which sets no SSL options and therefore does not
-# verify either.
+# Scope is the CLI only. PDO connections read config/database.php, which sets
+# no SSL options and does not verify either.
 # Written to /etc/my.cnf, NOT /etc/my.cnf.d/. Alpine's client build has no
 # include-directory: `mysql --help` reports it reads only
 # "/etc/my.cnf /etc/mysql/my.cnf ~/.my.cnf". A drop-in under /etc/my.cnf.d/ is
