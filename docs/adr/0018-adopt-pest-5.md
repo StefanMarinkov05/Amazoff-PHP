@@ -113,21 +113,46 @@ until the next `--update-shards`, and Pest itself prints `WARN  The
 exists, rather than requiring a human to notice a slow shard. `how-to/use-ci.md`
 has the refresh command and the full mechanism.
 
-**TIA's local loop is not adopted yet — blocked, not deferred by choice.**
-Both `--dirty` and `--tia` need `git`, and every `docker-compose.yml`
-service mounts only `src/`, never the repository root's `.git` one level
-up — verified by trying, not assumed: `git -C /var/www/html status` inside
-the `app` container reports `not a git repository ... Stopping at
-filesystem boundary`.
-`how-to/troubleshooting/infra-and-environment.md` has the full symptom and
-the fix (mount `.git` read-only into the affected services), not yet
-applied — it needs its own verification once a stable window exists, not a
-same-session change made blind on top of an already-unstable local
-environment. `run-the-tests.md` is corrected to say so rather than
-repeating the previously-unverified "`--dirty` is the fast local loop"
-claim. TIA's cross-machine baseline sync (`--tia --baselined` /
-`--refetch`, needing a git remote) is a separate, still-unmeasured step
-beyond that fix, per the "each step measured" discipline below.
+**[Resolved 2026-09-12] `--dirty` works; TIA's local loop does not, and
+cannot for this repo's layout.** Both needed `git`, and every
+`docker-compose.yml` service mounted only `src/`, never the repository
+root's `.git` one level up. The fix that actually closes the gap for
+`--dirty` is not the one first assumed (mounting `.git` alone, with a
+`GIT_WORK_TREE` override) — that resolves *a* repository but the wrong
+worktree shape, since Pest's own dirty-filter computes paths relative to
+wherever it was invoked from, independent of any `GIT_WORK_TREE` set
+around it. What works: mounting the whole repo root at a sibling path
+(`/var/www/repo`, `vendor`/`node_modules` mirrored there too) and running
+`pest --dirty` from inside that mirror, so git's own worktree and Pest's
+own project root are the same directory. Verified live, both directions —
+a real dirty file narrows correctly, a clean tree reports none.
+
+TIA is a different matter, and the first version of this note got its
+*reason* wrong even though the conclusion holds. `pest --tia` throws
+`Pest\Exceptions\TiaRequiresRepositoryRoot` out of the box, and this note
+originally called that wall unconditional. It is not: the guard only
+requires `git rev-parse --show-prefix` to be empty at Pest's project root,
+which `GIT_DIR`/`GIT_WORK_TREE` can arrange, and TIA's other prerequisites
+(a commit, a remote, a resolvable default branch) all pass in this
+repository.
+
+TIA still should not be used here, for a better reason. The index holds
+`src/`-prefixed paths; any worktree override that satisfies the guard makes
+TIA's own `git diff --name-only` emit paths it then resolves as
+`<project root>/src/app/...`, which do not exist. No graph edge matches,
+nothing narrows, and the run reports success while selecting the wrong
+tests — a silently mis-selecting filter, which is worse than no filter.
+Making TIA sound would mean giving `src/` its own repository, contradicting
+the layout this project chose deliberately; that is an ADR-level trade, not
+a configuration change, and nobody has argued for it.
+
+`--dirty --tia` together silently falls back to plain `--dirty` rather than
+erroring, which is worth knowing before assuming the pair was tested
+together. `how-to/troubleshooting/infra-and-environment.md` has the
+measured evidence for both halves, and `run-the-tests.md` states the final
+split. TIA's cross-machine baseline sync (`--tia --baselined` /
+`--refetch`) is moot for this repo unless that structural trade is ever
+made.
 
 ## Consequences
 
