@@ -6,6 +6,66 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Added
+
+- **A deployable container image and Railway as the beta target
+  (ADR-0023).** The app had never run anywhere but local Docker:
+  ADR-0001 named Forge in one line, no host was ever provisioned, and
+  `how-to/deploy-and-host.md` said so itself. The client-facing beta now
+  deploys to Railway from a root `Dockerfile` this repository owns —
+  three stages (Node builds Vite's bundles, Composer resolves `--no-dev`,
+  an Alpine `php:8.4-fpm` runtime receives only the results), plus
+  `docker/production/nginx.conf` and `supervisord.conf`. Four services:
+  web (nginx + php-fpm under supervisord), worker, scheduler, and
+  Railway's managed MySQL. The worker and scheduler are deliberately
+  *not* under that supervisord — a queue-worker crash must not fail the
+  site's health check, and the scheduler's cadence must not reset when
+  the web process restarts.
+
+  `docker/php/Dockerfile` is **not** reused. Its own header says "for
+  local development. Not used in production," and it carries pcov,
+  Playwright/Chromium, and mysql-client — a coverage profiler and a
+  browser engine have no business on a public host.
+
+  **One application-code change, and it is the one that would have looked
+  like a seeding bug:** `bootstrap/app.php` now calls
+  `trustProxies(at: '*')` for the four `X-Forwarded-*` headers. Railway
+  terminates TLS at its edge and forwards over plain HTTP, so without it
+  `$request->isSecure()` is false on every request — `url()` emits
+  `http://` links, and `config('filesystems.disks.public.url')` (built
+  from `APP_URL`) resolves every product and article image against the
+  wrong scheme. A catalogue of broken images reads as "the seed failed,"
+  three layers from the cause.
+
+  **`APP_ENV=demo`, never `production`, and that is deliberate.**
+  `app()->isProduction()` matches the literal string `production`, and
+  three guards refuse to run when it does: `UserSeeder` (every account
+  has a known password), `SeedDemo`, and every `Demo*` seeder. Those
+  guards are correct; a box whose entire content is demo data is not what
+  they were written to protect. `APP_ENV=production` there yields an empty
+  shop with nobody able to log in, discovered at seed time — which is to
+  say, while presenting. `APP_DEBUG=false` is set independently.
+
+  Two things found by checking rather than assuming, both now fixed in
+  the committed config: a new `.dockerignore` was **required**, not
+  tidiness — `COPY src/ ./` would have baked the host's gitignored-but-
+  present `src/.env` into the image at `/var/www/html/.env`, silently
+  overriding every variable Railway injects (a deploy pointed at the
+  compose hostname `db`, with the local `APP_KEY` and `APP_DEBUG=true`);
+  and `src/public/storage` turned out *not* to be committed, so
+  `storage:link` runs in the entrypoint rather than relying on a symlink
+  the image does not contain.
+
+  Recorded as accepted, not hidden: uploads are ephemeral (the 182
+  committed demo images survive by being *in* the image; an
+  admin-uploaded one does not), the seeded admin accounts keep their
+  known passwords on a public URL, HSTS is still set nowhere, and the
+  Stripe webhook IP allow-list cannot be carried over as written —
+  it matches `$remote_addr`, which behind Railway's edge is the proxy,
+  so enabling it unchanged would reject every genuine event while looking
+  exactly like a signature failure. Each carries its own "revisit when"
+  in ADR-0023.
+
 ### Fixed
 
 - **The Stripe checkout-abandonment bug — an unpaid order emailed a
