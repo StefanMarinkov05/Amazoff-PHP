@@ -1,11 +1,17 @@
 @startuml deployment
 
-' Two topologies for the same app. Verified against docker-compose.yml and
-' how-to/deploy-and-host.md on 2026-09-07. The gap between them is the whole
-' point of deploy-and-host.md's checklist — anything fixed only in
-' docker/nginx/*.conf never reaches the right side of this picture.
+' Three topologies for the same app. Verified against docker-compose.yml,
+' the root Dockerfile, docker/production/, and how-to/deploy-and-host.md.
+' Local + Forge verified 2026-09-07; Railway added 2026-09-12 (ADR-0023).
+' The gap between them is the whole point of deploy-and-host.md's checklist —
+' anything fixed only in docker/nginx/*.conf reaches NEITHER deployed box.
+'
+' NOTE: the .svg/.pdf beside this file were rendered before the Railway
+' package was added and are therefore STALE. Regenerate with the commands in
+' docs/reference/diagrams/README.md — there is no render script in this repo
+' and nothing regenerates them automatically.
 
-title Local Docker vs. production (Forge) — two different topologies
+title Local Docker vs. Railway (beta, actual) vs. Forge (ADR-0001, never built)
 
 package "Local development — docker-compose.yml" {
   node "webserver\nnginx:1.27-alpine" as LocalNginx
@@ -29,7 +35,50 @@ package "Local development — docker-compose.yml" {
   end note
 }
 
-package "Production — Laravel Forge (ADR-0001)" {
+package "Beta — Railway (ADR-0023), what actually runs" {
+  node "web service\n(one container, supervisord)" as RailwayWeb {
+    node "nginx\ndocker/production/nginx.conf\nlisten ${PORT}" as RailwayNginx
+    node "php-fpm\n127.0.0.1:9000" as RailwayFpm
+  }
+  node "worker service\nqueue:work\n(same image)" as RailwayWorker
+  node "scheduler service\nschedule:run loop\n(same image)" as RailwayCron
+  database "MySQL\n(Railway-managed)" as RailwayDB
+
+  cloud "Railway edge\nTLS terminates HERE" as RailwayEdge
+
+  RailwayEdge --> RailwayNginx : plain HTTP\n+ X-Forwarded-*
+  RailwayNginx --> RailwayFpm : fastcgi (loopback,\nNOT a second container)
+  RailwayFpm --> RailwayDB
+  RailwayWorker --> RailwayDB
+  RailwayCron --> RailwayDB
+
+  note bottom of RailwayEdge
+    <b>trustProxies(at: '*') in bootstrap/app.php</b>
+    is what makes isSecure() true past this point.
+    Without it: http:// links, broken image URLs
+    (the public disk builds them from APP_URL),
+    and a Secure cookie the framework thinks
+    it cannot send. ADR-0023.
+  end note
+
+  note bottom of RailwayCron
+    orders:expire-unpaid runs here, every minute.
+    ADR-0022's stock release depends on it, and
+    Railway's cron reliability is UNVERIFIED —
+    check on the box, do not assume.
+  end note
+
+  note bottom of RailwayWeb
+    Ephemeral filesystem: anything written at
+    runtime is lost on redeploy. The 182 demo
+    images survive by being IN the image.
+    An admin-uploaded image does not.
+    APP_ENV=demo, never production — three
+    seeders refuse when it is 'production'.
+  end note
+}
+
+package "Production — Laravel Forge (ADR-0001, never provisioned)" {
   node "VPS" {
     node "nginx\n(Forge-provisioned,\nNOT this repo's\ndocker/nginx/*.conf)" as ProdNginx
     node "PHP-FPM\n(Forge-provisioned)" as ProdApp
@@ -50,17 +99,22 @@ package "Production — Laravel Forge (ADR-0001)" {
   end note
 }
 
-LocalNginx -[hidden]right-> ProdNginx
+LocalNginx -[hidden]right-> RailwayNginx
+RailwayNginx -[hidden]right-> ProdNginx
 
 note as Gap
-  <b>The gap between these two boxes is why deploy-and-host.md exists.</b>
+  <b>The gap between these boxes is why deploy-and-host.md exists.</b>
   Anything fixed only in this repo's docker/nginx/*.conf, or
-  only in the local .env, is invisible to the
-  right-hand side — it has to be set again,
-  deliberately, on the real host.
+  only in the local .env, is invisible to both
+  deployed topologies — it has to be set again,
+  deliberately, per host.
+
+  Railway is the only one of the three that has
+  actually run. Forge remains a checklist, not a box.
 end note
 
 Gap .. LocalNginx
+Gap .. RailwayNginx
 Gap .. ProdNginx
 
 @enduml

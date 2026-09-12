@@ -57,21 +57,44 @@ individual cases from a dataset.
 `--parallel` is the one to be careful with — see "Running in parallel" below
 for what it actually requires and where it must not be pointed.
 
-The stack is Pest 5 / PHPUnit 13 (ADR-0018). **`--dirty` and `--tia` do not
-currently work inside `docker compose exec app` at all** — both need git,
-and the container only mounts `src/`, never the repository root's `.git`
-one level up. `how-to/troubleshooting/infra-and-environment.md` has the
-symptom and the (not-yet-applied) fix. Until that mount is added, the fast
-local loop is a `--filter`/path argument by hand.
+The stack is Pest 5 / PHPUnit 13 (ADR-0018). **`--dirty` works, `--tia`
+does not and cannot for this repo's layout** — verified live, not assumed.
 
-Once fixed, TIA's own local loop needs no further coverage wiring beyond
-what's already installed (PCOV) — `pest --tia --fresh` once, to build the
-dependency graph, then `pest --dirty --tia` day to day, replaying
-unaffected tests from cache. That graph lives per-machine at
-`~/.pest/tia/<hash>` (`pest --baseline` prints the exact path) — it is
-**not** committed and **not** shared with CI; `--tia --baselined` /
-`--refetch` do that via a git remote and are a separate, unmeasured next
-step, not adopted here.
+`--dirty` needs its own working directory: `docker compose exec app`
+mounts the whole repo root read-only at `/var/www/repo` (a sibling of the
+regular `./src` mount at `/var/www/html`, plus `vendor`/`node_modules`
+mirrored there too), so `.git` and `src/` sit next to each other inside the
+container exactly as they do on the host. Run it from *inside* that
+mirror, not from the usual `/var/www/html`:
+
+```bash
+docker compose exec app sh -c "cd /var/www/repo/src && ./vendor/bin/pest --dirty"
+```
+
+`how-to/troubleshooting/infra-and-environment.md` has the full story of why
+mounting only `.git` (the first thing tried) was not enough, and why the
+fix needs a mirrored worktree rather than a `GIT_WORK_TREE` override.
+
+**`--tia` is not usable here, though not because it refuses to start.**
+Out of the box it throws `TiaRequiresRepositoryRoot` ("this project sits in
+the subdirectory `[src]` of a larger repository"). That guard *is*
+satisfiable — it only checks that `git rev-parse --show-prefix` is empty at
+Pest's project root, which `GIT_DIR`/`GIT_WORK_TREE` can arrange, and TIA's
+other prerequisites (a commit, a remote, a resolvable default branch) all
+pass here. The reason not to do it is what happens next: the index holds
+`src/`-prefixed paths, so TIA's own `git diff --name-only` returns paths it
+then resolves as `<project root>/src/app/...`, which do not exist. Nothing
+matches, nothing narrows, and the run looks fast and green while selecting
+the wrong tests. **A silently mis-selecting test filter is worse than
+none.** `how-to/troubleshooting/infra-and-environment.md` has the measured
+evidence for both halves.
+
+Making TIA sound here means giving `src/` its own repository — a real
+structural decision that contradicts the current layout, and an ADR's
+business rather than a config tweak. `--dirty --tia` together silently
+falls back to plain `--dirty` (Pest's own message: "TIA does not apply to
+partial runs"), which makes the combination look like it works when only
+`--dirty`'s half does.
 
 ## The browser suite
 

@@ -37,3 +37,7 @@ note) is the one thing that can still be edited in place.
 - **[0022](0022-unpaid-order-lifecycle.md)** — The unpaid-order lifecycle
   (card orders reach `AwaitingPayment`; a scheduled sweep releases abandoned
   reservations; the card path's CRD Art. 8(7) confirmation moves to payment)
+- **[0023](0023-railway-beta-deploy-target.md)** — Railway as the beta deploy
+  target, from a container image this repo owns (supersedes ADR-0001's
+  hosting line only; `APP_ENV=demo` rather than `production`, and why;
+  trusted proxies; three services from one image)

@@ -1,7 +1,17 @@
 # ADR-0010: CI split into parallel, hand-sharded jobs; coverage dropped from CI
 
-Status: Accepted
+Status: Accepted, hand-sharding half superseded by [ADR-0018](0018-adopt-pest-5.md)
 Date: 2026-08-17 · Deciders: Stefan Marinkov
+
+**[Superseded 2026-09-11]** The three-job split (`test` / `test-concurrency`
+/ separate coverage handling) and the "no coverage in CI" decision below
+both still stand. What ADR-0018 replaced is narrower: the *hand-partitioned*
+shard assignment this ADR designed — measuring each file's wall-clock time
+by hand and writing the resulting groups directly into `ci.yml`'s matrix —
+is gone, in favour of Pest 5's own `--shard=N/M` reading a committed,
+auto-refreshed `tests/.pest/shards.json`. The reasoning below for *why*
+sharding by measured time beats sharding by directory is unchanged and is
+what ADR-0018 built on, not what it argued against.
 
 ## Context
 

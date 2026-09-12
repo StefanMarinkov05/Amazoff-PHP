@@ -25,6 +25,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+# Lets `pest --dirty` / `--tia` (Pest 5, ADR-0018) actually find a git
+# repository, system-wide and surviving every container recreate — unlike
+# `git config --global`, which writes to $HOME and is wiped whenever the
+# container is rebuilt. Two settings, both needed:
+#   - safe.directory: a bind-mounted directory is owned by the host user's
+#     uid, which this image's root user does not recognise as "its own,"
+#     and git refuses to operate in a repository it does not trust by
+#     default (CVE-2022-24765's fix). `*` trusts every directory rather
+#     than naming /var/www/repo specifically, because the exact mount
+#     path is a compose-file detail this Dockerfile should not have to
+#     track — the container has no untrusted multi-tenant use where that
+#     matters.
+#   - GIT_DISCOVERY_ACROSS_FILESYSTEM: a bind mount can present as a
+#     different filesystem (different st_dev) than its parent directory
+#     even though both live under the same host path, and git's default
+#     "stop at the first filesystem boundary" walk-up refuses to cross
+#     that even when .git is right there. See docker-compose.yml's own
+#     comment on the /var/www/repo mount for the full reasoning; both
+#     settings together are what makes `cd /var/www/repo/src && pest
+#     --dirty` work at all.
+RUN git config --system --add safe.directory '*'
+ENV GIT_DISCOVERY_ACROSS_FILESYSTEM=1
+
 # Oracle's mysql-client, not Debian's `default-mysql-client` — on Debian that
 # package is MariaDB's client, which rejects the MySQL-only flags Laravel passes
 # to mysqldump (--column-statistics=0, --set-gtid-purged=OFF). `schema:dump`

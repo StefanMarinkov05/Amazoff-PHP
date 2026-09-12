@@ -84,6 +84,47 @@ return Application::configure(basePath: dirname(__DIR__))
         // own docblock and
         // reference/testing/security-testing/sec-001-to-004.md, SEC-004.
         $middleware->append(SetSecurityHeaders::class);
+
+        /*
+         * Required by any host that terminates TLS at an edge proxy and
+         * forwards the request onward over plain HTTP — Railway (ADR-0023),
+         * and equally a load balancer or CDN in front of a Forge VPS.
+         *
+         * Without this, `$request->isSecure()` is false for every request on
+         * such a host, and three things break at once, none of them loudly:
+         *
+         * 1. `url()`/`route()` generate `http://` links on an HTTPS site, so
+         *    browsers block them as mixed content.
+         * 2. `config('filesystems.disks.public.url')` is built from
+         *    `APP_URL`, so product and article images resolve against the
+         *    wrong scheme — the catalogue renders with broken images, which
+         *    on a demo box looks like the seed failed rather than like a
+         *    proxy-trust problem.
+         * 3. `SESSION_SECURE_COOKIE=true` (deploy-and-host.md requires it)
+         *    tells Laravel to mark the cookie `Secure`, but a framework that
+         *    believes the connection is plaintext is the half of that pair
+         *    most likely to surprise someone reading only the env file.
+         *
+         * `at: '*'` trusts whatever proxy fronts the app rather than naming
+         * an address. On Railway the edge's address is neither stable nor
+         * documented, so an allow-list would be a value to maintain with no
+         * way to verify it; the platform is the only route to the container,
+         * which is what makes the wildcard sound here rather than lazy. A
+         * self-managed host with a known, fixed proxy address should name it
+         * instead.
+         *
+         * AWS_ELB is deliberately absent from the header set: `Forwarded`
+         * plus the four `X-Forwarded-*` headers is what Railway's proxy
+         * actually sends, and trusting a header nothing sets is surface for
+         * no benefit.
+         */
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
