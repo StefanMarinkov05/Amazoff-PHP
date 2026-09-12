@@ -42,19 +42,89 @@ RUN npm run build
 
 # ---------------------------------------------------------------------------
 # Stage 2 — PHP dependencies
+#
+# Built FROM the same base as the runtime stage, with the same extensions,
+# rather than FROM composer:2 — and that is the fix for a real build failure,
+# not a preference.
+#
+# `composer:2`'s own PHP has no `intl`, and `ext-intl` is a production
+# requirement of filament/support. Composer therefore aborts the whole install
+# on a platform requirement before fetching a single package. Railway's build
+# diagnosis named that cause correctly and suggested `--ignore-platform-reqs`,
+# which is the wrong half of the fix: that flag suppresses *every* platform
+# check, including ext-zip, ext-xmlreader, ext-fileinfo and ext-curl, all
+# genuinely required in production. An install that ignores them succeeds here
+# and fails at runtime instead — a build error traded for a 500.
+#
+# The second reason, which no ignore-flag would have fixed: `composer:2` ships
+# PHP 8.5, while composer.json requires ^8.4 and the runtime below is 8.4.
+# Resolving against 8.5 lets the solver pick a version that needs 8.5 and then
+# run on 8.4. Nothing in the current lockfile does (every 8.5 match is a range
+# that includes 8.4), so it was latent rather than active — but resolving on
+# the real target removes the class of bug, not just today's instance.
+#
+# Cost of this shape: the extension build runs twice, once here and once in
+# stage 3. Slower image build, and the two lists must stay in step — which is
+# why both name the same set in the same order.
 # ---------------------------------------------------------------------------
-FROM composer:2 AS vendor
+FROM php:8.4-fpm-alpine AS vendor
+
+# The same extension set stage 3 installs, and — critically — the same
+# *runtime* shared libraries alongside it.
+#
+# The `-dev` packages below are build-time only and get removed again, but each
+# one wraps a runtime library the compiled .so then links against at load time:
+# icu-dev/icu-libs, libzip-dev/libzip, and so on. Installing only the -dev set
+# and then running `apk del .build-deps` produces extensions that compile
+# cleanly, write their .ini files, and cannot load — so Composer reports
+# "ext-intl ... is missing from your system" while listing
+# docker-php-ext-intl.ini among its own loaded config files, one line apart.
+# That self-contradicting error is the signature of a stripped runtime library,
+# not of a missing extension, and it cost a build to find.
+RUN apk add --no-cache \
+        libpng \
+        libjpeg-turbo \
+        freetype \
+        libzip \
+        icu-libs \
+        oniguruma \
+    && apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        libpng-dev \
+        libjpeg-turbo-dev \
+        freetype-dev \
+        libzip-dev \
+        icu-dev \
+        oniguruma-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        pdo_mysql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        intl \
+        opcache \
+    && apk del .build-deps \
+    && php -m | grep -q '^intl$' \
+    && php -m | grep -q '^zip$'
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
 COPY src/composer.json src/composer.lock ./
 
-# --no-dev drops Pest, Larastan, Pint, Blueprint and the Faker stack.
+# --no-dev drops Pest, Larastan, Pint, Blueprint and the Faker stack. That is
+# also why no --ignore-platform-req is needed for ext-pcov: the only package
+# requiring it is brianium/paratest, which lives in require-dev and is never
+# installed here.
+#
 # --no-scripts because post-autoload-dump runs `artisan package:discover` and
 # `filament:upgrade`, and artisan cannot boot before the application code is
 # copied in. The runtime stage runs them once everything is in place.
-# --ignore-platform-req=ext-pcov: pcov is a dev-only extension this image
-# deliberately omits, and composer.lock records it as present in dev.
 RUN composer install \
         --no-dev \
         --no-scripts \
@@ -150,8 +220,42 @@ COPY src/ ./
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=assets /app/public/build ./public/build
 
-# The composer scripts skipped in stage 2, now that artisan can boot.
-RUN composer dump-autoload --no-dev --optimize \
+# Laravel's runtime scratch directories, which must exist and must be empty.
+#
+# MUST run before anything below boots the framework. `package:discover` and
+# `filament:upgrade` both boot it, and the view compiler refuses to start
+# without storage/framework/views — the error is "Please provide a valid cache
+# path" (Compiler.php), which names neither the directory nor the reason.
+#
+# The repository preserves these as empty directories via a committed
+# .gitignore inside each one (storage/framework/{cache,cache/data,sessions,
+# views}, bootstrap/cache). .dockerignore deliberately excludes those paths so
+# the host's cached views, sessions and compiled config never ship — but that
+# exclusion removes the keeper files too, and therefore the directories
+# themselves. Recreating them here keeps both properties: present in the image,
+# empty of anything the host happened to have.
+RUN mkdir -p \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/framework/testing \
+        storage/logs \
+        storage/app/private \
+        bootstrap/cache
+
+# The composer scripts stage 2 skipped, now that artisan can boot.
+#
+# `dump-autoload` is NOT redundant with stage 2's --optimize-autoloader, and
+# deleting it is the tempting wrong fix: stage 2's build context holds only
+# composer.json and composer.lock, so the classmap it optimised contains every
+# vendor class and not one application class. src/app/ first exists here, which
+# is the only place the real classmap can be generated.
+#
+# composer itself is copied in, used, and deleted in the same layer — a
+# dependency resolver on a running web host is attack surface with no purpose,
+# and leaving it in a later `RUN rm` would keep it in the earlier layer anyway.
+RUN --mount=from=composer:2,source=/usr/bin/composer,target=/usr/bin/composer \
+    composer dump-autoload --no-dev --optimize --no-interaction \
     && php artisan package:discover --ansi \
     && php artisan filament:upgrade
 
