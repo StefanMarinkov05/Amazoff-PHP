@@ -32,7 +32,7 @@ with an actor, authorized `erase` on the `User`).
 | `return_items` | yes | nothing — no personal data, and it belongs to the retained order |
 | `coupon_redemptions` | yes | nothing but `user_id` (nulled by the FK). `email_hash` stays — peppered pseudonymisation, own retention basis |
 | `newsletter_subscribers` | no | deleted where `user_id` matches **or** `email` matches (a pre-registration guest row has `user_id = null`) |
-| `contact_messages` | no | deleted, same id-or-email match |
+| `contact_messages` | no | deleted, same id-or-email match. The copy `ContactMessageReceived` emailed to the shop inbox is not reached — see "Known gaps" |
 | `addresses` | no | `cascadeOnDelete` when the user row goes |
 | `carts`, `cart_items` | no | `cascadeOnDelete` |
 | `wishlist_items` | no | `cascadeOnDelete` |
@@ -100,6 +100,11 @@ about what is held, not what was once held. Each order also carries its
 - **`activity_log` is not scanned.** `spatie/laravel-activitylog` records
   nothing customer-facing yet. When it does, its `causer` and `properties`
   rows join this routine.
+- **Contact-message emails outlive the row.** Since 2026-09-13 every
+  contact message is also emailed to `MAIL_CONTACT_NOTIFICATION_ADDRESS`
+  (name, address, text). `EraseCustomer` deletes the `contact_messages` row
+  and cannot reach a mailbox, so an Art. 17 request also means deleting
+  those emails by hand. `explanation/gdpr.md`, "Open".
 - **Concurrency coverage:** `GdprErasureConcurrencyTest` (`race:worker`
   subprocess pattern) proves the locks, not just the guards — two erasures,
   erasure vs. `TransitionOrderStatus`, and `PurgeAnonymisedOrders` vs. a

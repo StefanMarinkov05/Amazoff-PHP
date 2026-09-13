@@ -243,6 +243,19 @@ coupon limit on the code hands a guesser the full allowance per code, which
 is not a limit at all (SEC-010). The coupon throttle runs before the
 unknown-code check, because that is the branch a guesser hits every time.
 
+### The contact form
+
+Each accepted submission queues `ContactMessageReceived` to the shop inbox
+(since 2026-09-13), so flooding the form now floods a person's mailbox as
+well as a table. The recipient is fixed — never an address the submitter
+chooses — so the form cannot be used to mail third parties, and the
+per-IP `ThrottlesSubmissions` limit (5 / 60s, checked after the honeypot)
+caps the volume. The sender's text is placed inside a Markdown code fence
+longer than any backtick run in it, so a message cannot deliver a working
+link to staff from the shop's own domain.
+`reference/testing/security-testing/sec-008-to-010.md` has the SEC-010
+addendum.
+
 ### The unpaid-order hold
 
 The cart caps bound how much stock one checkout can reserve; ADR-0022
