@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Policies\RolePolicy;
 use App\Support\Courier\CourierManager;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -129,5 +130,15 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Role::class, RolePolicy::class);
 
         Table::configureUsing(fn (Table $table): Table => $table->defaultCurrency('eur'));
+
+        // The same override, one layer over: Table and Schema each carry
+        // their own copy of HasDefaultDataFormattingSettings, so a table's
+        // ->money() column reading 'eur' here said nothing about an
+        // infolist's ->money() entry on a *ViewRecord* page — every
+        // *Infolist class (Order, Shipment, Return, Payment, Product,
+        // Coupon) was silently falling back to Filament's own USD default,
+        // showing $ on every euro amount. Table::configureUsing() alone
+        // never covered this; Schema needs its own registration.
+        Schema::configureUsing(fn (Schema $schema): Schema => $schema->defaultCurrency('eur'));
     }
 }
