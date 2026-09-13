@@ -18,10 +18,12 @@ class AttributeForm
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50),
                 TextInput::make('slug')
                     ->required()
-                    ->unique(ignoreRecord: true),
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(60),
                 Select::make('input_type')
                     ->options(AttributeInputType::class)
                     ->required(),

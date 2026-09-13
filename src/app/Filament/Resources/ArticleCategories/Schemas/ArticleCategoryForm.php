@@ -14,11 +14,14 @@ class ArticleCategoryForm
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50),
                 TextInput::make('slug')
                     ->required()
-                    ->unique(ignoreRecord: true),
-                TextInput::make('description'),
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(100),
+                TextInput::make('description')
+                    ->maxLength(255),
             ]);
     }
 }
