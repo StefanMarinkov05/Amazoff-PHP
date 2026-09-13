@@ -7,6 +7,7 @@ use App\Livewire\Catalogue\ProductDetails;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
@@ -46,6 +47,11 @@ function deliveredPurchase(Product $product, User $buyer): OrderItem
     $order = Order::factory()->create([
         'user_id' => $buyer->getKey(),
         'status' => OrderStatus::Delivered,
+    ]);
+
+    OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'new_status' => OrderStatus::Delivered,
     ]);
 
     return OrderItem::factory()->create([

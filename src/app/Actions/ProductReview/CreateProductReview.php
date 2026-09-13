@@ -8,6 +8,7 @@ use App\Enums\OrderStatus;
 use App\Exceptions\ReviewNotAllowedException;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
@@ -28,9 +29,15 @@ use Illuminate\Support\Facades\DB;
  * ## Verified purchase, concretely
  *
  * "Bought it" means an `order_items` row for one of this product's variations
- * on an order belonging to this user that reached `Delivered`. Delivered
- * rather than merely paid: §24 is about reviewing a product you have, and a
- * paid-but-unshipped order has not produced an opinion worth trusting yet.
+ * on an order that has ever reached `Delivered` — checked via
+ * `order_status_histories`, same as `Order::deliveredAt()`, not the order's
+ * current `status`. Delivered rather than merely paid: §24 is about
+ * reviewing a product you have, and a paid-but-unshipped order has not
+ * produced an opinion worth trusting yet. Checking history rather than the
+ * live column means a return or a staff-side `Returned`/`Refunded`
+ * transition afterward does not retract eligibility — the customer still
+ * received and used the thing (ADR-0020, returns are independent of
+ * `orders.status`).
  *
  * The matching `order_item_id` is stored, which is what lets the storefront
  * render "verified purchase" and which variation was bought without a second
@@ -114,7 +121,10 @@ final class CreateProductReview
                 /** @var Builder<Order> $query */
                 return $query
                     ->where('user_id', $reviewer->getKey())
-                    ->where('status', OrderStatus::Delivered);
+                    ->whereHas('orderStatusHistories', function (Builder $query): Builder {
+                        /** @var Builder<OrderStatusHistory> $query */
+                        return $query->where('new_status', OrderStatus::Delivered);
+                    });
             })
             ->whereHas('productVariation', function (Builder $query) use ($product): Builder {
                 /** @var Builder<ProductVariation> $query */

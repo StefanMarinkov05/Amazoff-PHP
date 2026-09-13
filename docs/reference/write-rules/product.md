@@ -294,6 +294,16 @@ history — a product cannot honestly claim a prior price it never had.
 product-level (ADR-0021 decision 4). Delivery-cost reimbursement and the
 exact ЗЗП чл. 6б wording are counsel gaps.
 
+## Review eligibility (§24)
+
+`CreateProductReview` and `ProductDetails::canReview()` both check
+`order_status_histories` for a `Delivered` row on one of the reviewer's
+orders, not the order's current `status`. A later whole-order
+`Returned`/`Refunded` staff move, or a customer return through
+`RequestReturn` (which never touches `orders.status` — see
+`write-rules/returns.md`), does not retract that the product was actually
+delivered and does not revoke eligibility.
+
 ## Lock order
 
 `products` before `inventories`, always. `ReserveStock` and `ReleaseStock`
