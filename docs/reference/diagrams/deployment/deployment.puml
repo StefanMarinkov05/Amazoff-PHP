@@ -1,15 +1,18 @@
 @startuml deployment
 
-' Three topologies for the same app. Verified against docker-compose.yml,
-' the root Dockerfile, docker/production/, and how-to/deploy-and-host.md.
-' Local + Forge verified 2026-09-07; Railway added 2026-09-12 (ADR-0023).
-' The gap between them is the whole point of deploy-and-host.md's checklist —
-' anything fixed only in docker/nginx/*.conf reaches NEITHER deployed box.
+' Three topologies for the same app. Verified against docker-compose.yml and
+' how-to/deploy-and-host.md. Local + Forge verified 2026-09-07; the Railway
+' package redrawn 2026-09-12 for ADR-0024 (Railpack, not the custom Dockerfile
+' ADR-0023 first described — that image failed eleven straight deploys, see
+' troubleshooting/infra-and-environment.md).
+' The gap between Local and Forge is the whole point of deploy-and-host.md's
+' checklist — anything fixed only in docker/nginx/*.conf reaches neither
+' deployed box. Railway has no such gap: Railpack builds its own image, so
+' this repo's docker/nginx/*.conf was never relevant to it in the first place.
 '
-' NOTE: the .svg/.pdf beside this file were rendered before the Railway
-' package was added and are therefore STALE. Regenerate with the commands in
-' docs/reference/diagrams/README.md — there is no render script in this repo
-' and nothing regenerates them automatically.
+' NOTE: the .svg/.pdf beside this file are STALE relative to this source.
+' Regenerate with the commands in docs/reference/diagrams/README.md — there
+' is no render script in this repo and nothing regenerates them automatically.
 
 title Local Docker vs. Railway (beta, actual) vs. Forge (ADR-0001, never built)
 
@@ -35,20 +38,16 @@ package "Local development — docker-compose.yml" {
   end note
 }
 
-package "Beta — Railway (ADR-0023), what actually runs" {
-  node "web service\n(one container, supervisord)" as RailwayWeb {
-    node "nginx\ndocker/production/nginx.conf\nlisten ${PORT}" as RailwayNginx
-    node "php-fpm\n127.0.0.1:9000" as RailwayFpm
-  }
-  node "worker service\nqueue:work\n(same image)" as RailwayWorker
-  node "scheduler service\nschedule:run loop\n(same image)" as RailwayCron
+package "Beta — Railway (ADR-0023 platform, ADR-0024 build)" {
+  node "web service\nRailpack: FrankenPHP + Caddy\nRoot Directory: src" as RailwayWeb
+  node "worker service\nqueue:work\n(same repo, same Root Dir)" as RailwayWorker
+  node "scheduler service\nschedule:work\n(same repo, same Root Dir)" as RailwayCron
   database "MySQL\n(Railway-managed)" as RailwayDB
 
-  cloud "Railway edge\nTLS terminates HERE" as RailwayEdge
+  cloud "Railway edge + proxy\nTLS terminates HERE\nreaches the container over IPv6" as RailwayEdge
 
-  RailwayEdge --> RailwayNginx : plain HTTP\n+ X-Forwarded-*
-  RailwayNginx --> RailwayFpm : fastcgi (loopback,\nNOT a second container)
-  RailwayFpm --> RailwayDB
+  RailwayEdge --> RailwayWeb : plain HTTP\n+ X-Forwarded-*\nCaddy binds $PORT on\nall interfaces itself
+  RailwayWeb --> RailwayDB
   RailwayWorker --> RailwayDB
   RailwayCron --> RailwayDB
 
@@ -62,17 +61,25 @@ package "Beta — Railway (ADR-0023), what actually runs" {
   end note
 
   note bottom of RailwayCron
-    orders:expire-unpaid runs here, every minute.
-    ADR-0022's stock release depends on it, and
-    Railway's cron reliability is UNVERIFIED —
-    check on the box, do not assume.
+    orders:expire-unpaid runs here, every minute,
+    via schedule:work. ADR-0022's stock release
+    depends on it, and reliability here is
+    UNVERIFIED — check on the box, do not assume.
   end note
 
   note bottom of RailwayWeb
-    Ephemeral filesystem: anything written at
-    runtime is lost on redeploy. The 182 demo
-    images survive by being IN the image.
-    An admin-uploaded image does not.
+    No Dockerfile: Railpack detects Laravel from
+    artisan and builds FrankenPHP/Caddy itself.
+    RAILPACK_SKIP_MIGRATIONS=true — migrate runs
+    in preDeployCommand instead, with
+    --schema-path=/nonexistent (no mysql client
+    in this image; migrations replay over PDO).
+    Seed via `railway ssh`, never `railway run`
+    (which executes on the operator's own
+    machine and cannot reach *.railway.internal).
+    Ephemeral filesystem: the 182 demo images
+    survive redeploys by being IN the repo; an
+    admin-uploaded image does not.
     APP_ENV=demo, never production — three
     seeders refuse when it is 'production'.
   end note
@@ -99,22 +106,26 @@ package "Production — Laravel Forge (ADR-0001, never provisioned)" {
   end note
 }
 
-LocalNginx -[hidden]right-> RailwayNginx
-RailwayNginx -[hidden]right-> ProdNginx
+LocalNginx -[hidden]right-> RailwayWeb
+RailwayWeb -[hidden]right-> ProdNginx
 
 note as Gap
-  <b>The gap between these boxes is why deploy-and-host.md exists.</b>
-  Anything fixed only in this repo's docker/nginx/*.conf, or
-  only in the local .env, is invisible to both
-  deployed topologies — it has to be set again,
-  deliberately, per host.
+  <b>The Local/Forge gap is why deploy-and-host.md's checklist exists</b>
+  for THAT pairing — anything fixed only in this repo's
+  docker/nginx/*.conf, or only in the local .env, is invisible
+  to a Forge VPS and has to be set again, deliberately, there.
 
-  Railway is the only one of the three that has
-  actually run. Forge remains a checklist, not a box.
+  Railway has no equivalent gap: Railpack builds its own image,
+  so docker/nginx/*.conf was never relevant to it — a different
+  reason the same file cannot be assumed to cover Railway too.
+
+  As of this diagram, Railway deploys have not yet succeeded;
+  Forge has never been provisioned at all. Local is the only
+  topology actually verified running end to end.
 end note
 
 Gap .. LocalNginx
-Gap .. RailwayNginx
+Gap .. RailwayWeb
 Gap .. ProdNginx
 
 @enduml

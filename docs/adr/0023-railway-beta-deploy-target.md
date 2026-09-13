@@ -1,7 +1,17 @@
 # ADR-0023: Railway as the beta deploy target, in a container image this repo owns
 
-Status: Accepted
+Status: Accepted, the container-image half superseded by [ADR-0024](0024-railpack-over-custom-image.md)
 Date: 2026-09-12 · Deciders: Stefan Marinkov
+
+**[Superseded 2026-09-12]** The custom Dockerfile this ADR describes never
+reached a working deploy — eleven attempts, documented in
+`troubleshooting/infra-and-environment.md`'s "Railway deploy: eleven
+failures, one Dockerfile" entry. ADR-0024 replaces the image with Railway's
+own Railpack builder. Everything else here stands: Railway as the platform,
+`APP_ENV=demo` and why, `trustProxies`, manual seeding via SSH rather than a
+start-command step, and the accepted trades (ephemeral uploads, known
+seeded-account passwords, no HSTS). Read this ADR for those; read ADR-0024
+for how the image is actually built now.
 
 Where the client-facing beta runs, and what that costs in settings nothing
 in local development ever needed. Supersedes the hosting half of
@@ -154,8 +164,14 @@ fails at the first cart total rather than at boot.
 
 ### Seeding is a manual, one-off step
 
-`railway run php artisan demo:seed`, by hand, once, after the first deploy.
-Not in the entrypoint and not in the start command.
+`railway ssh -- php artisan demo:seed`, by hand, once, after the first
+deploy — not `railway run`, which executes on the operator's own machine
+with the service's variables injected rather than inside the deployed
+container, and so cannot reach `DB_HOST`'s private-network hostname at all.
+Not in the entrypoint and not in the start command. (This ADR originally
+described a custom Dockerfile with its own entrypoint; ADR-0024 replaces
+that image with Railway's own Railpack builder, but the reasoning for manual,
+one-off seeding here is unchanged.)
 
 `demo:seed` builds its 140 orders by running the real Actions
 (`CreateOrder` → `ReserveStock` → `TransitionOrderStatus` →
@@ -238,7 +254,7 @@ diff them.
 time-sensitive — ADR-0022's stock release depends on it. **This is
 unverified on Railway and must be checked on the box, not assumed.** If it
 proves unreliable, the sweep is also reachable manually
-(`railway run php artisan orders:expire-unpaid`) which is adequate for a
+(`railway ssh -- php artisan orders:expire-unpaid`) which is adequate for a
 presentation and not for anything more.
 
 **−** The Stripe webhook IP allow-list

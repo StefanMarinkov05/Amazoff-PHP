@@ -31,7 +31,21 @@ listen` is forwarding faithfully — just some other account's events; the MCP
 connector is reading/writing faithfully — just against some other account's
 data. Confirmed 2026-09-04 (CLI): the tool sat on `acct_1UAbacHSYCrSsH7T`
 while `STRIPE_SECRET` belonged to `acct_1U9BTmEinvfvnBsb`. Confirmed again
-2026-09-06 (MCP), same two account ids.
+2026-09-06 (MCP), same two account ids. **Confirmed a third time, 2026-09-13
+(MCP):** `list_available_accounts_or_orgs` offered only `acct_1UAbacHSYCrSsH7T`
+in that session, with no way to reach `acct_1U9BTm...` from it —
+`GetWebhookEndpoints` against that account correctly returned empty, which
+was briefly (and wrongly) read as "this app has no webhook configured."
+The fix used this time was the one this file already recommends below
+("verify without touching either tool"): the app's own `StripeClient` inside
+the container confirmed the canonical account directly
+(`accounts->retrieve()->id`), and the actual endpoint was created by hand in
+the dashboard at the account-scoped URL
+(`dashboard.stripe.com/acct_1U9BTmEinvfvnBsb/...`), not through the
+connector. Three occurrences over a week, same two ids, is no longer a
+one-off — treat any MCP-reported "no webhook/no data" result on this project
+as unverified until the account id is checked against
+`acct_1U9BTmEinvfvnBsb` specifically.
 
 **Likely root cause, on a team project: an individual auth, not a shared
 one.** Both the CLI and the MCP connector authenticate *per developer*, not

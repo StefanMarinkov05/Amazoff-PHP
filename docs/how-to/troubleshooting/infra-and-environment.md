@@ -670,3 +670,162 @@ count, and check `git stash list` before believing the word "stashed" in
 any UI. When a rename like this is planned, saying so in the PR body —
 along with which ignored paths will be stranded — costs one sentence and
 saves everyone pulling it the same investigation.
+
+---
+
+## Railway deploy: eleven failures, one Dockerfile
+
+**Symptom.** A custom root `Dockerfile` (Node assets → Composer → Alpine
+`php:8.4-fpm` runtime, nginx and php-fpm under supervisord) for deploying to
+Railway ([ADR-0023](../../adr/0023-railway-beta-deploy-target.md)) failed
+eleven consecutive deploys. Every fix addressed a real, verified defect;
+every fix was followed by a new failure one layer further in. Ended by
+abandoning the custom image entirely for Railway's own Railpack builder
+([ADR-0024](../../adr/0024-railpack-over-custom-image.md)).
+
+**Cause, in the order found — each a distinct bug, not a retry of the same
+one:**
+
+1. **`composer install` in the vendor stage used the bare `composer:2`
+   image**, whose PHP has no `intl` — a production requirement of
+   `filament/support`. Composer aborted before installing a single package:
+   `requires ext-intl * -> it is missing from your system`. Fixed by
+   building the vendor stage `FROM php:8.4-fpm-alpine` (the same base as the
+   runtime) with the same extensions installed, so Composer resolves against
+   the platform that will actually run the code. This incidentally fixed a
+   second latent bug: `composer:2` ships PHP 8.5 while `composer.json`
+   requires `^8.4`, so dependencies were being resolved against the wrong
+   PHP entirely.
+
+2. **`RUN --mount=from=composer:2,source=...,target=...` to copy the
+   composer binary in** built fine under local BuildKit and failed on
+   Railway's builder in six seconds, before a single layer ran:
+   `dockerfile invalid: flag '--mount=...' is missing a type=cache argument
+   (other mount types are not supported)`. Railway's Metal builder supports
+   only `type=cache` mounts; a bind mount from another image is
+   unavailable there. Fixed with `COPY --from=composer:2 ... && rm` in one
+   layer instead. **This is the one to remember: a Dockerfile can be
+   locally green and rejected by the platform's builder outright, before
+   any code in it runs.** Local BuildKit is the more permissive of the two.
+
+3. **`apk add --virtual .build-deps ... && apk del .build-deps` in the
+   vendor stage installed only the `-dev` packages**, not the runtime
+   shared libraries they wrap (`icu-libs`, `libzip`, ...). The extensions
+   compiled successfully, wrote their `.ini` files, and could not load —
+   Composer reported `ext-intl ... is missing from your system` while
+   listing `docker-php-ext-intl.ini` among its own loaded config files, one
+   line apart. **That self-contradiction — "missing" and "loaded" in the
+   same error block — is the signature of a stripped runtime library, not
+   of a missing extension**, and is worth grepping for specifically before
+   trusting Composer's platform-requirement wording at face value. Fixed by
+   installing the runtime libraries (not just `-dev`) before the build-deps,
+   verified with a build-time assertion (`php -m | grep -q '^intl$'`) so it
+   cannot regress silently.
+
+4. **The runtime stage's start command ran `composer dump-autoload` without
+   composer installed there**, and separately booted Laravel before
+   `storage/framework/views` and sibling scratch directories existed.
+   `.dockerignore` excluded those directories (correctly, to keep host
+   cache out of the image) but that also removed the committed `.gitignore`
+   keeper files that are how the repository normally preserves them as
+   empty — so the directories didn't exist at all. Laravel's error for the
+   second half, `Please provide a valid cache path`, names neither the
+   missing directory nor the reason. Fixed by copying composer in
+   temporarily (`COPY --from=composer:2 ... /usr/local/bin/composer`,
+   removed in the same layer after use) and recreating the scratch
+   directory tree explicitly before anything boots the framework.
+
+5. **The committed schema dump made `migrate` shell out to a `mysql`
+   client binary the runtime image didn't have.**
+   `database/schema/mysql-schema.sql` is committed for local speed —
+   `migrate` loads it in one shot instead of replaying 68 migrations — but
+   Laravel's `MySqlSchemaState` does that by invoking the `mysql` CLI
+   directly. The runtime image had no such client (dismissed early as a
+   "test-harness concern," which was wrong for the deployed image).
+   Symptom: `Loading stored database schemas ... FAIL`, `sh: mysql: not
+   found`, exit 127 — arriving *after* `Creating migration table ...
+   DONE`, so it reads like a working connection that then broke, not a
+   missing binary. Installing `mysql-client` (see #6) fixed this specific
+   symptom, and #7 explains why the client route was abandoned anyway.
+
+6. **Alpine's `mysql-client` is MariaDB's, and it verifies TLS certificates
+   by default since 11.x.** Railway's managed MySQL presents a self-signed
+   certificate, so the client refused it: `ERROR 2026 (HY000): TLS/SSL
+   error: self-signed certificate in certificate chain`. The fix —
+   `ssl-verify-server-cert=0` in a client config file — has its own trap
+   worth flagging on its own: **the first attempt wrote it to
+   `/etc/my.cnf.d/99-skip-ssl-verify.cnf`, the conventional drop-in path,
+   and Alpine's client build has no include-directory.** `mysql --help`
+   reports it reads only `/etc/my.cnf /etc/mysql/my.cnf ~/.my.cnf`. The
+   drop-in would have built successfully, been silently ignored, and left
+   the TLS error byte-identical — a fix that looks applied and does
+   nothing. Caught by checking which files the client actually reads
+   (`mysql --help`) and confirming with `mysql --print-defaults`, which
+   echoes the options actually in effect, rather than inferring success
+   from the absence of a new error.
+
+7. **MariaDB's client cannot authenticate to MySQL 8 at all.** With TLS
+   verification off, the very next attempt failed differently: `ERROR 1045
+   (28000): Plugin caching_sha2_password could not be loaded:
+   /usr/lib/mariadb/plugin/caching_sha2_password.so: No such file or
+   directory`. MySQL 8 authenticates with `caching_sha2_password` by
+   default; MariaDB's client has no such plugin, and Alpine ships only
+   MariaDB's. **This is structural, not configurable — no flag or config
+   file closes it.** This is what ended the patch-one-symptom-at-a-time
+   approach to the `mysql`-client route: fixed by excluding
+   `database/schema/` from the build context entirely
+   (`.dockerignore`), so `migrate` replays all 68 migrations through PDO
+   (`pdo_mysql`, compiled into the image, speaks the MySQL 8 protocol
+   natively) and never shells out to any client. Verified by confirming
+   `database/schema/` is absent from the built image and that all 68
+   migrations are still present to replay.
+
+8. **The healthcheck then failed for reasons that resisted five further
+   fix attempts — `PORT` as a service variable, the domain's `targetPort`,
+   removing the healthcheck outright, and binding nginx on IPv6 as well as
+   IPv4 — none of which were the actual cause,** though each closed a real
+   gap (IPv6 binding in particular: Railway's proxy reaches containers over
+   IPv6, and Alpine nginx with a bare `listen ${PORT};` binds IPv4 only,
+   which is worth fixing regardless of whether it was this failure's
+   cause). The container built, migrated, and created successfully every
+   time; only the healthcheck ever failed, with `service unavailable` on
+   every attempt. **The likely proximate cause, never fully confirmed:**
+   Railway documents that a Dockerfile-based service's start command runs
+   in **exec form, not through a shell** — `a && b && c` is invalid there,
+   even though the equivalent `docker run --entrypoint sh -c "a && b && c"`
+   used in every local reproduction wrapped it in a shell and never
+   exercised that failure path. By the time this was found, the decision
+   had already been made to stop debugging the image and switch to
+   Railway's own Railpack builder instead — see below.
+
+**Why it recurs, and the pattern worth keeping even though the custom image
+is gone:** a local `docker build` and `docker run` are more permissive than
+Railway's specific builder and runtime in ways invisible from the local
+side — mount syntax, apk runtime-library stripping, exec-vs-shell start
+commands, IPv4-only binding. **A build or container that is green locally
+proves the image is internally consistent. It does not prove the platform
+will accept or run it.** Any future Dockerfile-based deploy — to Railway or
+anywhere else — should expect this class of gap and verify against the
+actual target rather than trusting local reproduction, however thorough.
+
+**Fix, ultimately.** Not another Dockerfile iteration.
+[ADR-0024](../../adr/0024-railpack-over-custom-image.md) drops the custom
+image and lets Railway's Railpack builder detect and build the Laravel app
+directly — no nginx, no supervisord, no manual `$PORT` handling. Every one
+of the eight failure classes above lived in code that approach deletes.
+Two Railpack-specific traps found while switching, both from reading
+Railpack's own provider source rather than assuming: it runs
+`composer install --no-scripts`, so `post-autoload-dump` (and therefore
+`filament:upgrade`) never runs during build; and it collects PHP extensions
+from `composer.json`'s `require` section plus an env var, never from
+`composer.lock` — this project's `composer.json` declares no `ext-*`
+requirements at all, so the extension list has to be set explicitly via
+`RAILPACK_PHP_EXTENSIONS` rather than relying on auto-detection.
+
+**Prevention.** For any Dockerfile aimed at a platform you don't control:
+budget for the build and the runtime to differ from your local Docker in
+ways that only surface on the platform, verify each fix against the actual
+target rather than a local reproduction, and if failures keep surfacing one
+layer deeper after each fix — as opposed to the same failure recurring —
+that pattern is itself information: it says the approach is the problem,
+not the current line.
