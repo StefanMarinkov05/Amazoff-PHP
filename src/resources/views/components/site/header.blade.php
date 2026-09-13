@@ -17,9 +17,6 @@
 >
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
 
-        {{-- Logo. Wordmark echoes public/images/logo.png's own two-tone split
-             ("Amaz" dark, "off" in the sampled brand orange) plus its curled
-             underline — this is the one place --color-brand-orange is used. --}}
         <a
             href="/"
             class="group flex shrink-0 items-center gap-2.5 rounded-control
@@ -31,23 +28,7 @@
                 alt=""
                 class="h-9 w-9 rounded-card object-cover"
             >
-            <span class="relative text-[1.05rem] font-extrabold italic tracking-tight text-ink-900">
-                Amaz<span class="text-brand-orange not-italic">off</span>
-                <svg
-                    class="pointer-events-none absolute -bottom-1.5 left-[0.2em] h-2 w-[4.4em]"
-                    viewBox="0 0 100 18" fill="none" aria-hidden="true"
-                >
-                    <path
-                        d="M2 4c22 14 68 14 92 4"
-                        stroke="var(--color-brand-orange)" stroke-width="4" stroke-linecap="round"
-                    />
-                    <path
-                        d="M84 3.5 96 8l-9 8"
-                        stroke="var(--color-brand-orange)" stroke-width="4"
-                        stroke-linecap="round" stroke-linejoin="round"
-                    />
-                </svg>
-            </span>
+            <x-site.wordmark />
         </a>
 
         {{-- Desktop nav --}}

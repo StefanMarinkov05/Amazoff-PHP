@@ -32,25 +32,7 @@
                         alt=""
                         class="h-9 w-9 rounded-card object-cover"
                     >
-                    {{-- Same two-tone wordmark as the header, white instead of
-                         ink-900 for the dark footer background. --}}
-                    <span class="relative text-[1.05rem] font-extrabold italic tracking-tight text-white">
-                        Amaz<span class="text-brand-orange not-italic">off</span>
-                        <svg
-                            class="pointer-events-none absolute -bottom-1.5 left-[0.2em] h-2 w-[4.4em]"
-                            viewBox="0 0 100 18" fill="none" aria-hidden="true"
-                        >
-                            <path
-                                d="M2 4c22 14 68 14 92 4"
-                                stroke="var(--color-brand-orange)" stroke-width="4" stroke-linecap="round"
-                            />
-                            <path
-                                d="M84 3.5 96 8l-9 8"
-                                stroke="var(--color-brand-orange)" stroke-width="4"
-                                stroke-linecap="round" stroke-linejoin="round"
-                            />
-                        </svg>
-                    </span>
+                    <x-site.wordmark tone="light" />
                 </div>
 
                 <p class="mt-4 max-w-xs text-sm leading-relaxed text-ink-400">
