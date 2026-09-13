@@ -135,6 +135,7 @@ is quiet rather than loud.
 | `MAIL_CONTACT_NOTIFICATION_ADDRESS` | the inbox staff actually read | Where each contact-form message is emailed. Unset, it falls back to `MAIL_FROM_ADDRESS` — usually a `noreply@` nobody reads, so messages pile up in the panel with no one told. |
 | `STRIPE_KEY` / `STRIPE_SECRET` | test keys | `pk_test_` / `sk_test_`. `demo:stripe-payments` refuses a non-`sk_test_` secret. |
 | `STRIPE_WEBHOOK_SECRET` | from the dashboard endpoint | **Not** from `stripe listen`. Create an endpoint at `https://<domain>/stripe/webhook` and copy its signing secret. **Done, 2026-09-13** — endpoint created on `acct_1U9BTmEinvfvnBsb` (the canonical account; see the account-mismatch trap below), 7 events (`payment_intent.succeeded`/`.payment_failed`/`.canceled`/`.processing`, `charge.refunded`, `charge.dispute.created`/`.closed` — the exact set `HandleStripeWebhookEvent` handles). Verified by a real Stripe-signed test event in the Railway HTTP logs: `POST /stripe/webhook`, UA `Stripe/1.0`, genuine `Stripe-Signature` header, **200**. Not verified by a curl 400/405, which only proves the middleware rejects garbage — that was mistaken for "done" once this session before the real endpoint existed. |
+| `STRIPE_WEBHOOK_ALLOWED_IPS` | current list from `https://stripe.com/files/ips/ips_webhooks.txt` | Comma-separated, no edge config needed — `RestrictStripeWebhookIps` checks it in PHP. Re-fetch on a schedule; a stale copy fails open (logged), it does not start rejecting real webhooks. |
 | `RAILPACK_SKIP_MIGRATIONS` | `true` | See above. |
 | `RAILPACK_PHP_EXTENSIONS`, `PHP_EXTENSIONS` | `intl,zip,bcmath,gd,exif,pcntl,sockets` | See above. `pdo_mysql` and `mbstring` are **not** in this list as of `6967966` ("declare the PHP extensions this app has always required") — they arrive instead via `composer.json`'s `require` block, which Railpack reads independently of this env var. Confirmed live: `php -m` on the deployed container lists `pdo_mysql` despite its absence here. ADR-0024's text still says `composer.json` declares no `ext-*` requirements; that was true when written and is stale now — the nine `ext-*` entries postdate it. |
 | `RAILPACK_NODE_VERSION` | `22` | See above. |
@@ -220,8 +221,6 @@ Each of these is recorded with a "revisit when" in ADR-0023 or ADR-0024:
   three `ShouldQueue` mailables (`OrderPlaced`, `NewsletterConfirmation`,
   `NewsletterUnsubscribed`) queue and never send until a worker service is
   added.
-- **No HSTS.** The one security header `SetSecurityHeaders` does not set, and
-  it belongs at an edge this repository does not configure.
 - **Static asset headers under Caddy are not configured.** The nginx config
   the previous Dockerfile approach used to set `X-Content-Type-Options` on
   static files (SEC-007) has no Railpack/Caddy equivalent here. Recorded as a
@@ -247,13 +246,33 @@ Each of these is recorded with a "revisit when" in ADR-0023 or ADR-0024:
 suppression — both of which the abandoned nginx config used to set
 explicitly. Neither has a configured Caddy equivalent yet.
 
-**The Stripe webhook IP allow-list was never enabled here and stays that
-way.** It matches `$remote_addr`, which behind any reverse proxy — Railway's
-included — is the proxy rather than Stripe, so enabling it unchanged rejects
-every genuine event while looking exactly like a signature failure.
-Signature verification (`VerifyStripeWebhookSignature`, unconditional) is
-what actually authenticates the endpoint; the allow-list was always meant as
-a second layer for a self-managed nginx.
+**The Stripe webhook IP allow-list runs at the application layer, not
+nginx.** `docker/nginx/stripe-ip-allowlist.conf.example`'s edge-level form
+was never enabled here and stays that way — it matches `$remote_addr`,
+which behind any reverse proxy is the proxy rather than Stripe, and Caddy
+under Railpack has no committed config file to add it to regardless
+(ADR-0024). `App\Http\Middleware\RestrictStripeWebhookIps` does the same
+job in PHP instead, checking `$request->ip()` — already the real client
+address here, since `trustProxies(at: '*')` resolves it out of
+`X-Forwarded-For` before this middleware runs — against
+`STRIPE_WEBHOOK_ALLOWED_IPS` (comma-separated IPs/CIDRs, refreshed from
+`https://stripe.com/files/ips/ips_webhooks.txt`). Unset or stale, it fails
+open with a logged warning rather than silently dropping real webhooks —
+signature verification (`VerifyStripeWebhookSignature`, unconditional) is
+what actually authenticates the endpoint either way. Set
+`STRIPE_WEBHOOK_ALLOWED_IPS` in Railway's variables once the current list is
+fetched; leave it unset locally, the same reason the nginx form was never
+enabled in dev — `stripe listen --forward-to` delivers from a Docker bridge
+address, never from Stripe's own ranges.
+
+**HSTS is set.** `SetSecurityHeaders` sends
+`Strict-Transport-Security: max-age=31536000; includeSubDomains` whenever
+`$request->isSecure()` is true — true on Railway once `trustProxies`
+resolves the connection, false in local Docker Compose, so the header
+appears exactly where the HTTPS guarantee behind it is real. No `preload`:
+committing this exact host to the browser preload list is a slow-to-reverse
+decision this repo has not made, and `*.up.railway.app` is shared with every
+other Railpack deploy on the platform.
 
 ---
 

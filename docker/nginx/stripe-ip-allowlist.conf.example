@@ -1,5 +1,13 @@
 # Stripe webhook IP allowlist — PRODUCTION ONLY, not enabled by default.
 #
+# This is the edge/nginx shape of the control, for a self-managed host
+# (Forge or similar) that has an nginx config to add it to. The currently
+# deployed target (Railway/Railpack/Caddy, ADR-0024) has no such file, so it
+# uses App\Http\Middleware\RestrictStripeWebhookIps instead — same check,
+# same source list, done in PHP against $request->ip() once trustProxies
+# has resolved it. Read that class's docblock before assuming this file is
+# the only way to get this protection.
+#
 # Stripe's guidance is to use BOTH protections, not either:
 #
 #   "IP allowlisting: Stripe sends webhook events from a set list of IP
