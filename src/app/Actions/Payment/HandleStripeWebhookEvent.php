@@ -486,7 +486,7 @@ final class HandleStripeWebhookEvent
             return null;
         }
 
-        return bcdiv((string) $minor, '100', Money::SCALE);
+        return (string) Money::fromMinorUnits($minor);
     }
 
     /**
