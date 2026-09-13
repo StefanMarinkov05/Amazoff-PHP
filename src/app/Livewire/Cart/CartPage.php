@@ -220,6 +220,21 @@ class CartPage extends Component
         $this->refreshCart();
     }
 
+    /**
+     * `couponCode` had no rule at all before this — the only property in
+     * `CartPage` that reached a database query (`Coupon::where('code', ...)`,
+     * then `ApplyCoupon`'s own lookup) unvalidated end-to-end. Group B2's
+     * free-text sweep. 50 matches `coupons.code`'s own column width.
+     *
+     * @return array<string, string>
+     */
+    protected function rules(): array
+    {
+        return [
+            'couponCode' => 'required|string|max:50',
+        ];
+    }
+
     public function applyCoupon(ApplyCoupon $applyCoupon): void
     {
         $code = trim($this->couponCode);
@@ -227,6 +242,8 @@ class CartPage extends Component
         if ($code === '') {
             return;
         }
+
+        $this->validate();
 
         // Keyed on IP rather than on the code: keying on the submitted
         // value would give a guesser the full allowance *per code*, which

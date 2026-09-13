@@ -231,6 +231,28 @@ class ProductList extends Component
         unset($this->wishlistedProductIds);
     }
 
+    /**
+     * `search` is `#[Url]`-bound, so it is reachable by a crafted query
+     * string as well as by typing, and has no `rules()` of its own to bound
+     * it — it feeds a `LIKE '%...%'` on every keystroke and is rendered
+     * back verbatim as a filter chip. Truncated on both paths: `mount()`
+     * for the query-string-hydrated value Livewire assigns before any
+     * component code runs, `updatedSearch()` for every later change —
+     * `#[Url]` hydration does not itself go through `updated()`. Group B2's
+     * free-text sweep; 100 is generous for a real search term and still
+     * short of anything that would make the `LIKE` scan or the rendered
+     * chip label a real cost.
+     */
+    public function mount(): void
+    {
+        $this->search = mb_substr($this->search, 0, 100);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->search = mb_substr($this->search, 0, 100);
+    }
+
     public function updated(string $property): void
     {
         if ($property !== 'page') {

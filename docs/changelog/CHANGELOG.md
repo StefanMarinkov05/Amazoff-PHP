@@ -44,6 +44,28 @@ when the work happened, not when it was committed — nothing in
   never asserted the confirmation mail actually queues off of it: this now
   does, proven red first (against an inverted guard).
 
+- **Free-text input sweep, closed (Group B2, 2026-09-14).** Stopping
+  criterion decided: every public string property actually validated (in
+  `rules()` or an inline `$this->validate()`) needs a `max:` bound. Audited
+  all 16 Livewire components with string properties; found two genuine
+  gaps. `CartPage::$couponCode` had no validation at all — the only
+  property in that component reaching a database query
+  (`Coupon::where('code', ...)`) unvalidated end-to-end — now
+  `required|string|max:50`, matching `coupons.code`'s own column width.
+  The four Auth password fields (`Register`, `ChangePassword`,
+  `ConfirmPasswordReset`, `Login`) had `Password::defaults()`'s minimum but
+  no upper bound; added `max:100` to each — bcrypt still processes the
+  whole string up to its own 72-byte truncation, so an unbounded password
+  is a cheap hashing-cost lever on an unauthenticated endpoint.
+  `ProductList::$search` has no `rules()` at all, so it fell outside the
+  strict criterion, but is `#[Url]`-bound (reachable via a crafted query
+  string, not just typing) and feeds both a `LIKE` scan and a rendered
+  filter chip — fixed anyway with a `mount()`/`updatedSearch()`
+  truncation to 100 characters, since `#[Url]` hydration does not itself
+  run through `updated()`. Six new tests across `CartPageTest`,
+  `ProductListSearchTest`, `AuthenticationTest`, and
+  `ConfirmPasswordResetTest`, each proven red before the fix.
+
 - **Chaos/failure-injection and accessibility testing — four induced
   failures, two real bugs found and one fixed (2026-09-14).**
   `docs/reference/testing/chaos-testing.md`: Stripe unreachable

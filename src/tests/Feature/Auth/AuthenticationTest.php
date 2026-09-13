@@ -60,6 +60,18 @@ it('reports a wrong password against the email field, naming neither half', func
     expect(auth()->check())->toBeFalse();
 });
 
+it('refuses an oversized login attempt rather than hashing it against the real password unbounded', function (): void {
+    $user = User::factory()->create(['is_active' => true]);
+
+    Livewire::test(Login::class)
+        ->set('email', $user->email)
+        ->set('password', str_repeat('a', 101))
+        ->call('login')
+        ->assertHasErrors('password');
+
+    expect(auth()->check())->toBeFalse();
+});
+
 it('registers a customer holding no role, who cannot reach the panel', function (): void {
     $this->seed(PermissionSeeder::class);
     $this->seed(RoleSeeder::class);
@@ -110,6 +122,26 @@ it('refuses a duplicate registration email', function (): void {
         ->assertHasErrors('email');
 });
 
+it('refuses an oversized registration password rather than hashing it unbounded', function (): void {
+    // Password::defaults() enforces a minimum length but nothing in
+    // Laravel caps the maximum; bcrypt still processes the whole string up
+    // to its own 72-byte truncation, so an unbounded password is a cheap
+    // hashing-cost lever on an unauthenticated endpoint. Group B2's
+    // free-text sweep.
+    $password = str_repeat('a', 101).'1A!';
+
+    Livewire::test(Register::class)
+        ->set('first_name', 'Too')
+        ->set('last_name', 'Long')
+        ->set('email', 'too.long@example.test')
+        ->set('password', $password)
+        ->set('password_confirmation', $password)
+        ->call('register')
+        ->assertHasErrors('password');
+
+    expect(User::where('email', 'too.long@example.test')->exists())->toBeFalse();
+});
+
 it('refuses a password change without the current password', function (): void {
     $user = User::factory()->create(['is_active' => true]);
 
@@ -135,6 +167,20 @@ it('changes the password when the current one is given', function (): void {
         ->assertSet('saved', true);
 
     expect(Hash::check('An0ther!Passw0rd', $user->fresh()->password))->toBeTrue();
+});
+
+it('refuses an oversized new password on a change rather than hashing it unbounded', function (): void {
+    $user = User::factory()->create(['is_active' => true]);
+    $password = str_repeat('a', 101).'1A!';
+
+    Livewire::actingAs($user)->test(ChangePassword::class)
+        ->set('current_password', 'password')
+        ->set('password', $password)
+        ->set('password_confirmation', $password)
+        ->call('updatePassword')
+        ->assertHasErrors('password');
+
+    expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
 });
 
 it('gates the panel by role, not by being signed in', function (): void {

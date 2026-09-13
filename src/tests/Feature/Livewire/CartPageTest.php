@@ -222,6 +222,22 @@ it('adds a coupon error for an unrecognised code without touching the cart', fun
     expect($cart->fresh()->coupon_id)->toBeNull();
 });
 
+it('refuses a coupon code longer than the column it is checked against', function (): void {
+    // couponCode had no rule at all before this — the only CartPage
+    // property that reached a database query (Coupon::where('code', ...))
+    // unvalidated end-to-end. 50 matches coupons.code's own column width.
+    // Group B2's free-text sweep.
+    $cart = visitorCart();
+    cartLine($cart, cartVariation(product: ['regular_price' => '100.00']), 1);
+
+    Livewire::test(CartPage::class)
+        ->set('couponCode', str_repeat('a', 51))
+        ->call('applyCoupon')
+        ->assertHasErrors('couponCode');
+
+    expect($cart->fresh()->coupon_id)->toBeNull();
+});
+
 it('adds a coupon error when the Action itself refuses the code', function (): void {
     $cart = visitorCart();
     cartLine($cart, cartVariation(product: ['regular_price' => '30.00']), 1);

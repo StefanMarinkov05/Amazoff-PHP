@@ -94,3 +94,22 @@ it('does not match a product carrying an unrelated attribute value', function ()
 
     expect($ids)->not->toContain($product->id);
 });
+
+/*
+ * `search` is #[Url]-bound and has no rules() of its own — reachable by a
+ * crafted query string, not just by typing, and fed straight into a LIKE
+ * scan plus rendered back as a filter chip. Group B2's free-text sweep.
+ */
+it('truncates an oversized search term hydrated from the query string', function (): void {
+    $component = Livewire::withQueryParams(['search' => str_repeat('a', 500)])
+        ->test(ProductList::class);
+
+    expect(mb_strlen($component->get('search')))->toBe(100);
+});
+
+it('truncates an oversized search term typed after mount', function (): void {
+    $component = Livewire::test(ProductList::class)
+        ->set('search', str_repeat('a', 500));
+
+    expect(mb_strlen($component->get('search')))->toBe(100);
+});

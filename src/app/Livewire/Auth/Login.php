@@ -67,7 +67,7 @@ class Login extends Component
     {
         return [
             'email' => 'required|string|email:rfc|max:100',
-            'password' => 'required|string',
+            'password' => 'required|string|max:100',
         ];
     }
 

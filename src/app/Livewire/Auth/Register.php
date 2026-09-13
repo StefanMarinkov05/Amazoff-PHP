@@ -53,7 +53,14 @@ class Register extends Component
             // Uniqueness is enforced by the users.email unique index too; this
             // rule is the readable half, the index is the binding one.
             'email' => ['required', 'string', 'email:rfc', 'max:100', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+            // `Password::defaults()` enforces a minimum; nothing in Laravel
+            // caps the maximum, and bcrypt still has to process the whole
+            // string before its own 72-byte truncation — a multi-megabyte
+            // value submitted repeatedly is a cheap hashing-cost amplifier
+            // on an unauthenticated endpoint. Group B2's free-text sweep;
+            // same `max:100` added to ChangePassword, ConfirmPasswordReset,
+            // and Login for the same reason.
+            'password' => ['required', 'string', 'max:100', 'confirmed', Password::defaults()],
         ];
     }
 
