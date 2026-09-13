@@ -41,8 +41,8 @@ genuinely doesn't fit any existing area) rather than appending here.
   MySQL vs. SQLite divergence, connection/database setup, migration
   performance, and the Spatie permission cache.
 - **[assets-vite-frontend.md](troubleshooting/assets-vite-frontend.md)** —
-  Vite, Tailwind, and webfonts: a page that renders but the asset pipeline
-  didn't do what it looks like it did.
+  Vite, Tailwind, webfonts, and Alpine: a page that renders but the asset
+  pipeline or its JavaScript didn't do what it looks like it did.
 - **[infra-and-environment.md](troubleshooting/infra-and-environment.md)** —
   the container/host boundary: file ownership, Docker networking, a stray
   background process, a shell rewriting a path before Docker sees it.

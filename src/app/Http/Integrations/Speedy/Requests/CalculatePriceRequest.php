@@ -32,9 +32,17 @@ class CalculatePriceRequest extends Request implements HasBody
         return [
             ...$this->credentials(),
             'recipient' => SpeedyShipmentPayload::recipient($this->shipment),
-            'service' => ['serviceId' => 505], // standard door-to-door/office, per Speedy's published service list
+            'service' => array_filter([
+                ...SpeedyShipmentPayload::service(),
+                'additionalServices' => SpeedyShipmentPayload::additionalServices($this->shipment),
+            ]),
+            // array_filter drops 'additionalServices' when it's an empty
+            // array rather than sending {} — Speedy's API rejects an empty
+            // JSON array there with a 400 (it wants an object or no key at
+            // all), the same array-vs-object trap `config/services.php`
+            // documents for `webhook_tolerance`.
             'content' => SpeedyShipmentPayload::content($this->shipment),
-            'payment' => SpeedyShipmentPayload::payment($this->shipment),
+            'payment' => SpeedyShipmentPayload::payment(),
         ];
     }
 }

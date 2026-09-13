@@ -171,10 +171,12 @@ Both gateways' request and response shapes are built from each vendor's
 - **Econt** has a public demo environment
   (`ECONT_API_URL=https://demo.econt.com/ee/services/`), but no request
   against it has been captured and compared to `EcontGateway`'s mapping.
-- **Speedy** has no public sandbox at all. `SPEEDY_USERNAME`/
-  `SPEEDY_PASSWORD` stay blank in `.env.example` until a real account is
-  issued, and `SpeedyGateway`'s field names are the least-verified part of
-  this layer.
+- **Speedy** has no public sandbox, but a real test account now exists
+  (see "Speedy's price quote, fixed and confirmed live" below).
+  `cities()`, `offices()`, and `quote()` are confirmed live.
+  `createShipment()`, `label()`, and `track()` remain unverified — no
+  Action calls them yet, and confirming them means creating a real test
+  waybill.
 
 Both classes' docblocks repeat this caveat at the point it matters. Confirm
 against a real sandbox response — the same discipline `CarrierSeeder`
@@ -293,6 +295,51 @@ A JSON schema is published at `https://api.speedy.bg/v1/schema` — the
 right place to check a field name against before assuming
 `SpeedyGateway`'s mapping is wrong, rather than guessing from the response
 shape alone.
+
+### Speedy's price quote, fixed and confirmed live — 2026-09-11
+
+A real Speedy test account arrived (`sandbox@speedy.bg`'s reply to the
+request the section above describes), closing the gap that section left
+open. Testing it live found `SpeedyGateway`'s field names were wrong in
+three places — not a guess this time, confirmed by Speedy's API rejecting
+the old shape with a 200-and-`error` body and accepting the new one with a
+real price:
+
+| What | Was sending | Speedy actually wants |
+|---|---|---|
+| Office delivery | `recipient.officeId` | `recipient.pickupOfficeId` (number) |
+| Address delivery | `recipient.address` | `recipient.addressLocation` (`siteName`/`postCode`/`streetName`) |
+| Service | `service.serviceId` (scalar) | `service.serviceIds` (array) |
+| Cash on delivery | `payment.cod` | `service.additionalServices.cod` |
+
+The COD field is the one worth dwelling on: Speedy doesn't reject
+`payment.cod`, it silently ignores it. A quote would return a price with no
+error, and only a real courier failing to collect cash on delivery would
+have surfaced the mistake — the kind of bug a "does the response parse"
+test cannot catch, only a request-body assertion can, which is why
+`SpeedyGatewayTest` now asserts what gets sent, not just what a canned
+response maps to.
+
+One more trap, found while fixing the above: `service.additionalServices`
+sent as an empty PHP array serializes to JSON `[]`, and Speedy's API
+rejects an empty array there with a 400 — it wants an object or no key at
+all. Same array-vs-object shape `config/services.php` already documents for
+`webhook_tolerance`, different endpoint. The fix omits the key entirely via
+`array_filter` rather than sending `{}` or `[]`.
+
+**Office lookup by Latin city name was also broken, separately.** Typing
+"Sofia" at checkout returned zero offices with no error, while "София"
+returned hundreds — Speedy's `/location/office` only matches its own
+Cyrillic site names. `/location/site` (used by `cities()` already) matches
+both scripts, so `SpeedyGateway::offices()` now resolves a site id through
+it first and searches offices by that id, not by name. Confirmed live:
+`offices('Sofia')` and `offices('СОФИЯ')` return the same 322 offices.
+
+`createShipment()` was not touched or verified beyond making its request
+body consistent with the fixed `quote()` shape — it shares
+`SpeedyShipmentPayload::recipient()`, so it gets the same field-name fix,
+but nothing has created a real test waybill against it, and no Action calls
+it yet (see "What is not yet built" above).
 
 ### No MCP server exists for either vendor
 

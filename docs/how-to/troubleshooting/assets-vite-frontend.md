@@ -172,6 +172,41 @@ Should read `*` or `http://localhost:8080` — reading back
 
 ---
 
+## An Alpine button runs, but the element it should remove stays on the page
+
+**Symptom.** Clicking **OK** or **Decline non-essential** on the cookie
+notice did nothing visible — the notice stayed. The console was clean, and
+reloading the page made the notice disappear, because the click *had* set
+`cookie_consent`. Only the part that hides the element failed.
+
+**Cause.** The component's method ended with `this.$el.remove()`. Inside a
+method defined in `x-data`, `$el` is not the `x-data` root when the method is
+called from a child's `x-on`: Alpine evaluates the click expression with the
+*clicked element's* magics first in the scope, so `this.$el` resolved to the
+button. The button removed itself — so quietly it read as "nothing happened."
+
+**Fix.** Hide through state, not DOM removal:
+
+```blade
+<div x-data="{ open: true, choose(value) { /* write cookie */ this.open = false } }"
+     x-show="open">
+```
+
+`$root` would also name the right element, but `x-show` keeps Livewire's
+morphing in charge of the DOM instead of racing it.
+
+**Why it recurs.** `$el` does mean "this element" in an inline expression
+(`x-on:focusout="if (! $el.contains(...))"` in `product-list.blade.php` is
+correct), so moving the same line into a method looks like a harmless
+refactor. A Feature test cannot catch it: the server renders the notice
+correctly, and the failure happens only in the browser.
+
+**Prevention.** Never use `$el` inside an `x-data` method to mean the
+component; toggle state with `x-show`. `tests/Browser/CookieConsentTest.php`
+clicks both buttons and asserts the notice is gone.
+
+---
+
 ## The webfont never loads, and every heading falls back to the system font
 
 **Symptom.** Type looks generic and slightly wrong — weights are close but

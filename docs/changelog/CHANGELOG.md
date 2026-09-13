@@ -151,6 +151,29 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Contact messages now email the shop inbox, with a one-click "Mark
+  handled" in the panel (2026-09-13).** Before this, `ContactForm` only
+  wrote a row: nobody was told a message had arrived, and marking it handled
+  meant opening Edit and filling in a date-time picker. `ContactForm::submit`
+  now queues `App\Mail\ContactMessageReceived` to
+  `MAIL_CONTACT_NOTIFICATION_ADDRESS` (falls back to `MAIL_FROM_ADDRESS`),
+  with Reply-To set to the sender and a button to the message's panel page.
+  That page, `ViewContactMessage`, gains a **Mark handled** header action
+  (`update_contact_message`, hidden once handled).
+
+  The sender's text goes into the email inside a code fence longer than any
+  backtick run in it. Markdown mail escapes HTML but still renders Markdown,
+  so without the fence the form would deliver working phishing links to
+  staff from the shop's own domain. SEC-010's "neither form sends mail"
+  bound gets a dated addendum; `explanation/gdpr.md` records that inbox
+  copies are beyond erasure's reach.
+
+  Tests: `Mail/ContactMessageReceivedTest` (content, link, Reply-To, three
+  link-injection cases), `Filament/ContactMessageResourceTest` (marks
+  handled, hidden once handled, hidden without `update`), and
+  `ContactFormTest` now asserts the mail is queued and that the honeypot and
+  throttled paths queue nothing.
+
 - **Standalone `semgrep` wired into CI (`.semgrep.yml`, repository root).**
   Four rules, each a mechanical check for an invariant
   `docs/reference/coding-conventions.md` states and review previously
@@ -341,6 +364,29 @@ when the work happened, not when it was committed — nothing in
   collisions, confirmed in `payments.stripe_payment_intent_id`.
 
 ### Fixed
+
+- **The cookie notice did not close when clicked (2026-09-13).** Clicking
+  **OK** or **Decline non-essential** set `cookie_consent` but left the notice
+  on screen: `choose()` ended with `this.$el.remove()`, and inside an `x-data`
+  method called from a button's `x-on`, `$el` is that button — so the button
+  removed itself and the notice stayed until the next page load. Reproduced in
+  a real browser before the fix (notice visible, only the clicked button gone,
+  cookie set). `<x-site.cookie-consent>` now hides through `x-show="open"`.
+
+  A second defect surfaced while checking that the cookie works: the banner
+  hid for *any* `cookie_consent` value, while `CookieConsent::decided()`
+  counts only `accepted`/`rejected` — so a malformed value suppressed the
+  notice without recording a choice. The banner now renders on
+  `! CookieConsent::decided()`.
+
+  Verified against the running app: both buttons hide the notice and write
+  `accepted`/`rejected`; the next page load renders no notice (the cookie
+  reaches PHP unencrypted); and with no cookie or a garbage value the notice
+  renders. `CookieConsentBannerTest` gains the garbage-value case (seen
+  failing first). New `tests/Browser/CookieConsentTest.php` clicks both
+  buttons — not yet run locally, because the local browser-test image was
+  built while the disk was full and its Node binary segfaults.
+  `how-to/troubleshooting/assets-vite-frontend.md` has the `$el` entry.
 
 - **The Stripe checkout-abandonment bug — an unpaid order emailed a
   confirmation and held its stock forever (ADR-0022).** Reaching the Stripe

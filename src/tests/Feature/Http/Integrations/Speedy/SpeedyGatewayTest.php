@@ -61,8 +61,18 @@ it('maps a site search response onto CourierCity', function (): void {
         ->and($cities->first()->vendorId)->toBe('68134');
 });
 
-it('maps an office search response onto CourierOffice', function (): void {
+it('resolves a typed city to a site id before searching offices, so Latin input works the same as Cyrillic', function (): void {
+    // offices() previously searched Speedy's `/location/office` by
+    // `siteName` directly, which only matches Speedy's own Cyrillic site
+    // names — a Latin-typed city silently returned zero offices with no
+    // error. Resolving through `/location/site` first (which matches both
+    // scripts) is the fix; this test pins the two-request sequence, not
+    // just the final mapped result, so a regression back to searching by
+    // name directly fails here rather than only in production.
     $mock = new MockClient([
+        SearchSitesRequest::class => MockResponse::make([
+            'sites' => [['id' => 68134, 'name' => 'СОФИЯ', 'postCode' => '1000']],
+        ]),
         SearchOfficesRequest::class => MockResponse::make([
             'offices' => [
                 [
@@ -80,6 +90,41 @@ it('maps an office search response onto CourierOffice', function (): void {
     expect($offices)->toHaveCount(1)
         ->and($offices->first()->code)->toBe('3020')
         ->and($offices->first()->maxWeightGrams)->toBe(20000);
+
+    $mock->assertSent(fn (SearchOfficesRequest $request): bool => $request->body()->all() === [
+        'userName' => config('services.speedy.username'),
+        'password' => config('services.speedy.password'),
+        'countryId' => 100,
+        'siteId' => 68134,
+    ]);
+});
+
+it('picks the site matching the given postcode when a city name resolves to more than one', function (): void {
+    // "Plovdiv" resolves to both the city itself and a same-named smaller
+    // settlement on Speedy's platform — a real case seen live, not a
+    // hypothetical. Without a postcode, the first result stands (Speedy's
+    // own ranking); with one, resolveSiteId() must not just take index 0.
+    $mock = new MockClient([
+        SearchSitesRequest::class => MockResponse::make([
+            'sites' => [
+                ['id' => 111, 'name' => 'ПЛОВДИВ', 'postCode' => '4000'],
+                ['id' => 222, 'name' => 'ПЛОВДИВ ГР.', 'postCode' => '4003'],
+            ],
+        ]),
+        SearchOfficesRequest::class => MockResponse::make(['offices' => []]),
+    ]);
+
+    speedyGateway($mock)->offices('Plovdiv', '4003');
+
+    $mock->assertSent(fn (SearchOfficesRequest $request): bool => $request->body()->all()['siteId'] === 222);
+});
+
+it('returns no offices, without an exception, when the typed city matches no Speedy site', function (): void {
+    $mock = new MockClient([
+        SearchSitesRequest::class => MockResponse::make(['sites' => []]),
+    ]);
+
+    expect(speedyGateway($mock)->offices('Nowhereville'))->toHaveCount(0);
 });
 
 it('maps a calculate response onto a DeliveryQuote', function (): void {
@@ -95,6 +140,90 @@ it('maps a calculate response onto a DeliveryQuote', function (): void {
 
     expect($quote->amount)->toBe('7.20')
         ->and($quote->currency)->toBe('BGN');
+});
+
+it('sends an office quote request in the shape Speedy\'s API actually accepts', function (): void {
+    // Pins the three field names Speedy's API silently rejected before
+    // this fix (a 200 carrying an `error` body, not an HTTP failure):
+    // `officeId` -> `pickupOfficeId`, `address` -> `addressLocation`, and
+    // `serviceId` (scalar) -> `serviceIds` (array). None of that was
+    // caught by the mapping-only tests above, which never inspected what
+    // the gateway actually sent — only what it did with a canned response.
+    $mock = new MockClient([
+        CalculatePriceRequest::class => MockResponse::make([
+            'calculations' => [['price' => ['total' => 3.55, 'currency' => 'EUR']]],
+        ]),
+    ]);
+
+    speedyGateway($mock)->quote(new ShipmentRequest(
+        city: 'СОФИЯ',
+        postcode: '1000',
+        country: 'BG',
+        street: null,
+        officeCode: '2',
+        receiverName: 'Ada Lovelace',
+        receiverPhone: '+359888123456',
+        weightGrams: 1500,
+        codAmount: null,
+    ));
+
+    $mock->assertSent(function (CalculatePriceRequest $request): bool {
+        $body = $request->body()->all();
+
+        return $body['recipient']['pickupOfficeId'] === 2
+            && ! isset($body['recipient']['addressLocation'])
+            && $body['service']['serviceIds'] === [505]
+            && ! isset($body['service']['additionalServices'])
+            && $body['payment'] === ['courierServicePayer' => 'SENDER'];
+    });
+});
+
+it('sends cash-on-delivery on service.additionalServices.cod, not payment.cod', function (): void {
+    // The mistake that made COD the more dangerous of the two bugs:
+    // `payment.cod` is not rejected, just silently ignored, so a courier
+    // would never be told to collect cash — this would have shipped
+    // clean and failed only in a real customer's hands.
+    $mock = new MockClient([
+        CalculatePriceRequest::class => MockResponse::make([
+            'calculations' => [['price' => ['total' => 4.75, 'currency' => 'EUR']]],
+        ]),
+    ]);
+
+    speedyGateway($mock)->quote(new ShipmentRequest(
+        city: 'СОФИЯ',
+        postcode: '1000',
+        country: 'BG',
+        street: null,
+        officeCode: '2',
+        receiverName: 'Ada Lovelace',
+        receiverPhone: '+359888123456',
+        weightGrams: 1500,
+        codAmount: '50.00',
+    ));
+
+    $mock->assertSent(function (CalculatePriceRequest $request): bool {
+        $body = $request->body()->all();
+
+        return $body['service']['additionalServices'] === ['cod' => ['amount' => 50.0, 'processingType' => 'CASH']]
+            && ! isset($body['payment']['cod']);
+    });
+});
+
+it('sends an address quote request with addressLocation, not the rejected address key', function (): void {
+    $mock = new MockClient([
+        CalculatePriceRequest::class => MockResponse::make([
+            'calculations' => [['price' => ['total' => 6.12, 'currency' => 'EUR']]],
+        ]),
+    ]);
+
+    speedyGateway($mock)->quote(fakeSpeedyShipmentRequest());
+
+    $mock->assertSent(fn (CalculatePriceRequest $request): bool => $request->body()->all()['recipient']['addressLocation'] === [
+        'countryId' => 100,
+        'siteName' => 'Sofia',
+        'postCode' => '1000',
+        'streetName' => 'Vitosha 1',
+    ]);
 });
 
 it('maps a create-shipment response onto a ShipmentResult', function (): void {

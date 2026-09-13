@@ -23,6 +23,13 @@ it('hides the notice once a choice cookie is present', function (): void {
         ->assertDontSee('Decline non-essential');
 });
 
+it('still shows the notice when the cookie holds neither known value', function (): void {
+    $this->withUnencryptedCookie(CookieConsent::COOKIE, 'garbage')
+        ->get('/catalogue')
+        ->assertOk()
+        ->assertSee('Decline non-essential');
+});
+
 it('does not encrypt the consent cookie', function (): void {
     // The banner sets it from JavaScript, so EncryptCookies must skip it or
     // it is discarded as tampered on the next request.
