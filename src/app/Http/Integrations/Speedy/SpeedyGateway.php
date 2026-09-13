@@ -21,6 +21,7 @@ use App\Support\Courier\ShipmentRequest;
 use App\Support\Courier\ShipmentResult;
 use DateTimeImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Saloon\Http\Request;
 use Saloon\Http\Response;
 use Throwable;
@@ -30,11 +31,13 @@ use Throwable;
  * of `Econt\EcontGateway`, mapping a differently-shaped vendor API onto the
  * exact same `CourierGateway` contract.
  *
- * Same caveat as Econt's gateway: field names come from Speedy's published
- * API documentation, not a confirmed sandbox response — `SPEEDY_USERNAME`/
- * `SPEEDY_PASSWORD` are blank in `.env.example` pending the sandbox access
- * ADR-0001 flags as unresolved. Re-verify `mapStatus()` and the response
- * paths below against a real account before this reaches a customer.
+ * `cities()`, `offices()`, and `quote()` are confirmed live against a real
+ * Speedy test account (2026-09-11) — see `SpeedyShipmentPayload`'s
+ * docblock for what that verification found and fixed. `createShipment()`,
+ * `label()`, and `track()` are still unverified: no Action calls them yet
+ * (see `docs/explanation/couriers.md`, "What is not yet built"), and
+ * confirming them means creating a real test waybill. Re-verify
+ * `mapStatus()` and those three response paths before any Action does.
  */
 final class SpeedyGateway implements CourierGateway
 {
@@ -62,8 +65,14 @@ final class SpeedyGateway implements CourierGateway
 
     public function offices(string $city, ?string $postcode = null): Collection
     {
-        return $this->guarded('offices', function () use ($city): Collection {
-            $data = $this->send(new SearchOfficesRequest($city), 'offices');
+        return $this->guarded('offices', function () use ($city, $postcode): Collection {
+            $siteId = $this->resolveSiteId($city, $postcode);
+
+            if ($siteId === null) {
+                return collect();
+            }
+
+            $data = $this->send(new SearchOfficesRequest($siteId), 'offices');
 
             /** @var Collection<int, CourierOffice> */
             return collect(self::arrayField($data, 'offices', []))->map(static function (mixed $office) use ($city): CourierOffice {
@@ -84,6 +93,39 @@ final class SpeedyGateway implements CourierGateway
                 );
             });
         });
+    }
+
+    /**
+     * `SearchOfficesRequest` takes a numeric site id, and Speedy's own
+     * `siteName` matching in `/location/office` only recognizes the
+     * vendor's Cyrillic site names — a Latin-typed city (the common case
+     * here) returns zero offices with no error. `/location/site` matches
+     * both scripts, so a lookup through it first is what makes typing
+     * "Sofia" at checkout work the same as typing "София".
+     *
+     * `$sites` can legitimately hold more than one match — "Plovdiv"
+     * resolves to both the city and a same-named smaller settlement — so a
+     * given postcode disambiguates when present; otherwise this takes
+     * Speedy's own first result, same as leaving the choice to the vendor.
+     */
+    private function resolveSiteId(string $city, ?string $postcode): ?int
+    {
+        $data = $this->send(new SearchSitesRequest($city), 'offices');
+        $sites = self::arrayField($data, 'sites', []);
+
+        if ($sites === []) {
+            return null;
+        }
+
+        if ($postcode !== null) {
+            foreach ($sites as $site) {
+                if (self::stringField($site, 'postCode', '') === $postcode) {
+                    return (int) self::stringField($site, 'id');
+                }
+            }
+        }
+
+        return (int) self::stringField($sites[0], 'id');
     }
 
     public function quote(ShipmentRequest $request): DeliveryQuote
@@ -263,6 +305,21 @@ final class SpeedyGateway implements CourierGateway
         $response = $this->rawSend($request, $operation);
 
         if ($this->failedRequest($response)) {
+            $error = self::field($response->json(), 'error');
+
+            // CourierUnavailableException's own message stays generic — it
+            // is what CalculateDeliveryPrice's fallback and CheckoutPage's
+            // error copy show a customer — but Speedy's own `error.context`
+            // and `error.message` are the only record of *why* a request
+            // was rejected, and are otherwise thrown away here.
+            if (is_array($error)) {
+                Log::warning('Speedy rejected a request.', [
+                    'operation' => $operation,
+                    'context' => self::field($error, 'context'),
+                    'message' => self::field($error, 'message'),
+                ]);
+            }
+
             throw CourierUnavailableException::requestFailed($this->code(), $operation);
         }
 
