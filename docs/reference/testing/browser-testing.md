@@ -143,10 +143,20 @@ cart", the variation pickers, and the checkout controls are all comfortably
 above the threshold. The gap is navigation chrome, worth a pass of its own
 rather than a blocker.
 
+**Resolved** (`ffdadfa`, 2026-09-09): footer links and breadcrumbs now carry
+`min-h-[24px]`/`-my-1 py-1`. Re-measure before closing — this note records
+the fix landing, not a re-run of the 375/768/1440 px check above.
+
 **The catalogue grid stops widening at three columns.** It reaches three by
 768 px and stays there through 1425 px, so a wide desktop shows more gutter
 than product. An `xl:` breakpoint at four or five columns would use the
 space. Nothing is broken; the layout is simply not earning the width.
+
+**Resolved**: `product-list.blade.php` now reads
+`grid-cols-2 ... lg:grid-cols-3 xl:grid-cols-4`, added after this pass ran.
+That base case is also inconsistent with "one column" at 375 px above
+(line 128) — worth a re-run of this page's measurement, not just a note,
+since the grid shape changed since 2026-09-02.
 
 ## The check that came first
 
