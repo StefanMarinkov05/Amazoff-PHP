@@ -11,21 +11,22 @@
     the choice changes nothing that is set — but the record, and the ability
     to withdraw, are there.
 
-    Rendered once, from the app layout. Hidden the moment a choice cookie is
-    present; the decision persists for a year.
+    Rendered once, from the app layout. Hidden once the cookie holds a valid
+    choice — any other value asks again; the decision persists for a year.
 --}}
-@php($consent = request()->cookie('cookie_consent'))
-
-@if ($consent === null)
+@unless (\App\Support\CookieConsent::decided())
+    {{-- Not this.$el.remove(): called from a button's x-on, $el is that button, so only the button was removed. --}}
     <div
         x-data="{
+            open: true,
             choose(value) {
                 document.cookie = 'cookie_consent=' + value
                     + '; path=/; max-age=' + (60 * 60 * 24 * 365)
                     + '; SameSite=Lax';
-                this.$el.remove();
+                this.open = false;
             },
         }"
+        x-show="open"
         role="region"
         aria-label="Cookie notice"
         class="fixed inset-x-0 bottom-0 z-50 border-t border-ink-200 bg-white/95 backdrop-blur-sm"
@@ -53,4 +54,4 @@
             </div>
         </div>
     </div>
-@endif
+@endunless
