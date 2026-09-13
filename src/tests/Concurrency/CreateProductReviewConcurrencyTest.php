@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
@@ -34,6 +35,7 @@ afterEach(function (): void {
     foreach ([
         'product_reviews',
         'order_items',
+        'order_status_histories',
         'orders',
         'inventories',
         'product_variations',
@@ -58,6 +60,11 @@ it('writes exactly one review when the same customer submits twice at once', fun
     $order = Order::factory()->create([
         'user_id' => $buyer->getKey(),
         'status' => OrderStatus::Delivered,
+    ]);
+
+    OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'new_status' => OrderStatus::Delivered,
     ]);
 
     OrderItem::factory()->create([

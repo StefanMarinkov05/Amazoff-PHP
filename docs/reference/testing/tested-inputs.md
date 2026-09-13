@@ -142,6 +142,23 @@ concern here, not a write-time one) and renders as inert escaped text in
 both the admin table and detail view, confirmed at the `innerHTML` level.
 Full writeup and screenshots: `reference/testing/ui-testing/phase-1-storefront-clickthrough.md`.
 
+## Free-text `#[Validate]`/`rules()` sweep across storefront Livewire (Group B2)
+
+Every string `wire:model` property on the 14 storefront components that take
+free text — `TrackOrder`, `ProductDetails` (`reviewBody`), `ContactForm`,
+`NewsletterSignup`, `Login`, `Register`, `ChangePassword`,
+`RequestPasswordReset`, `ConfirmPasswordReset`, `CheckoutPage`,
+`DeleteAccount`, `EditProfile`, `ManageAddresses`, `RequestReturn` — carries a
+`max:` rule and renders through an escaped `{{ }}` (no `{!! !!}` in any of
+their views). Two deliberate exceptions, neither a gap:
+`CheckoutPage::$courier_office_name` carries no rule because it is
+overwritten server-side from the resolved office immediately before use
+(SEC-015); `ContactForm::$website` (the honeypot) is checked only for
+emptiness and never persisted or rendered. Numeric and array-cast properties
+are out of scope here — covered separately by SEC-014 and SEC-016 — as are
+Filament-side forms (SEC-017). Audited 2026-09-13; no further work landed
+from this pass.
+
 ## `App\Filament\Widgets\*` (admin dashboard)
 
 Not yet run. These are staff-only (behind `canAccessPanel()`), which lowers

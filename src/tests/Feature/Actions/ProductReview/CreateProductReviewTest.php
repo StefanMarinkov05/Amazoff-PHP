@@ -7,27 +7,45 @@ use App\Enums\OrderStatus;
 use App\Exceptions\ReviewNotAllowedException;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
 use App\Models\User;
 
 /*
  * §24: only someone who bought the product may review it, and "bought" means
- * an order that reached Delivered - not merely Paid. Reviewing something you
- * have not received yet is the case the status check exists for.
+ * an order that has ever reached Delivered - not merely Paid, and not
+ * necessarily the order's current status. Reviewing something you have not
+ * received yet is the case the status check exists for; checking history
+ * rather than the live column is what lets a later return or a staff-side
+ * Returned/Refunded move (ADR-0020: independent of orders.status) leave
+ * eligibility untouched.
  *
  * The duplicate guard is a caught UNIQUE violation rather than a read-then-
  * insert, per CLAUDE.md's idempotency rule, so the assertion below is that
  * the domain exception surfaces - not a QueryException.
  */
 
-/** An order for $variation belonging to $buyer, at $status. */
-function purchaseOf(ProductVariation $variation, User $buyer, OrderStatus $status): Order
+/**
+ * An order for $variation belonging to $buyer, currently at $status, having
+ * passed through every status in $history along the way (Delivered included,
+ * when the scenario needs a completed delivery on record).
+ *
+ * @param  list<OrderStatus>  $history
+ */
+function purchaseOf(ProductVariation $variation, User $buyer, OrderStatus $status, array $history = []): Order
 {
     $order = Order::factory()->create([
         'user_id' => $buyer->getKey(),
         'status' => $status,
     ]);
+
+    foreach ($history as $pastStatus) {
+        OrderStatusHistory::factory()->create([
+            'order_id' => $order->getKey(),
+            'new_status' => $pastStatus,
+        ]);
+    }
 
     OrderItem::factory()->create([
         'order_id' => $order->getKey(),
@@ -38,10 +56,16 @@ function purchaseOf(ProductVariation $variation, User $buyer, OrderStatus $statu
     return $order->fresh();
 }
 
+/** Same as purchaseOf(), but the order's own history records reaching Delivered. */
+function deliveredPurchaseOf(ProductVariation $variation, User $buyer, OrderStatus $status = OrderStatus::Delivered): Order
+{
+    return purchaseOf($variation, $buyer, $status, [OrderStatus::Delivered]);
+}
+
 it('creates an unapproved review linked to the order line', function (): void {
     $variation = cartVariation();
     $buyer = User::factory()->create();
-    $order = purchaseOf($variation, $buyer, OrderStatus::Delivered);
+    $order = deliveredPurchaseOf($variation, $buyer);
 
     $review = app(CreateProductReview::class)
         ->handle($variation->product, $buyer, 5, 'Held up on site all winter.');
@@ -60,7 +84,7 @@ it('creates an unapproved review linked to the order line', function (): void {
 it('defaults the author name to the reviewer', function (): void {
     $variation = cartVariation();
     $buyer = User::factory()->create(['first_name' => 'Ivan', 'last_name' => 'Petrov']);
-    purchaseOf($variation, $buyer, OrderStatus::Delivered);
+    deliveredPurchaseOf($variation, $buyer);
 
     $review = app(CreateProductReview::class)
         ->handle($variation->product, $buyer, 4, 'Good value.');
@@ -71,7 +95,7 @@ it('defaults the author name to the reviewer', function (): void {
 it('refuses a second review of the same product by the same user', function (): void {
     $variation = cartVariation();
     $buyer = User::factory()->create();
-    purchaseOf($variation, $buyer, OrderStatus::Delivered);
+    deliveredPurchaseOf($variation, $buyer);
 
     app(CreateProductReview::class)->handle($variation->product, $buyer, 5, 'First.');
 
@@ -108,6 +132,44 @@ it('refuses a buyer whose order is paid but not yet delivered', function (): voi
         ->toThrow(ReviewNotAllowedException::class);
 });
 
+it('refuses a buyer whose order was cancelled before delivery', function (): void {
+    $variation = cartVariation();
+    $buyer = User::factory()->create();
+    purchaseOf($variation, $buyer, OrderStatus::Cancelled);
+
+    expect(fn () => app(CreateProductReview::class)
+        ->handle($variation->product, $buyer, 1, 'Never arrived.'))
+        ->toThrow(ReviewNotAllowedException::class);
+});
+
+it('accepts a buyer whose order was later moved to Returned by staff', function (): void {
+    // ADR-0020: a whole-order Returned/Refunded move is independent of the
+    // customer-facing return aggregate and does not retract that the order
+    // was, at one point, actually delivered.
+    $variation = cartVariation();
+    $buyer = User::factory()->create();
+    deliveredPurchaseOf($variation, $buyer, OrderStatus::Returned);
+
+    $review = app(CreateProductReview::class)
+        ->handle($variation->product, $buyer, 2, 'Sent it back, still reviewing it.');
+
+    expect($review->exists)->toBeTrue();
+});
+
+it('accepts a delivered order with a refunded customer return', function (): void {
+    // A customer RequestReturn/RefundReturn never touches orders.status
+    // (returns.md), so the order here stays Delivered - this is the ordinary
+    // case, kept as its own test since it is the one §24 is really about.
+    $variation = cartVariation();
+    $buyer = User::factory()->create();
+    deliveredPurchaseOf($variation, $buyer);
+
+    $review = app(CreateProductReview::class)
+        ->handle($variation->product, $buyer, 3, 'Returned one item, kept the rest.');
+
+    expect($review->exists)->toBeTrue();
+});
+
 it('accepts a purchase of any variation of the product', function (): void {
     // An order line records the variation bought; the review is about the
     // product, so any of its variations counts as having bought it.
@@ -118,7 +180,7 @@ it('accepts a purchase of any variation of the product', function (): void {
     ]);
 
     $buyer = User::factory()->create();
-    purchaseOf($bought, $buyer, OrderStatus::Delivered);
+    deliveredPurchaseOf($bought, $buyer);
 
     $review = app(CreateProductReview::class)
         ->handle($sibling->product, $buyer, 4, 'Bought the black one.');
@@ -129,7 +191,7 @@ it('accepts a purchase of any variation of the product', function (): void {
 it('refuses a rating outside one to five before writing anything', function (): void {
     $variation = cartVariation();
     $buyer = User::factory()->create();
-    purchaseOf($variation, $buyer, OrderStatus::Delivered);
+    deliveredPurchaseOf($variation, $buyer);
 
     foreach ([0, 6, -1] as $rating) {
         expect(fn () => app(CreateProductReview::class)

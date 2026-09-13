@@ -19,6 +19,7 @@ use App\Models\Brand;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductImage;
@@ -311,7 +312,10 @@ class ProductDetails extends Component
                 /** @var Builder<Order> $query */
                 return $query
                     ->where('user_id', $user->getKey())
-                    ->where('status', OrderStatus::Delivered);
+                    ->whereHas('orderStatusHistories', function (Builder $query): Builder {
+                        /** @var Builder<OrderStatusHistory> $query */
+                        return $query->where('new_status', OrderStatus::Delivered);
+                    });
             })
             ->whereHas('productVariation', function (Builder $query): Builder {
                 /** @var Builder<ProductVariation> $query */

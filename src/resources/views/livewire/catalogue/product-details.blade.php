@@ -129,7 +129,7 @@
             </div>
 
             {{-- ── Details ────────────────────────────────────────────── --}}
-            <div>
+            <div class="min-w-0">
                 @if ($this->brand)
                     <p class="text-xs font-medium uppercase tracking-[0.12em] text-ink-400">
                         {{ $this->brand->name }}
@@ -160,7 +160,7 @@
                 @endif
 
                 @if ($this->product->short_description)
-                    <p class="mt-4 text-sm leading-relaxed text-ink-600">
+                    <p class="mt-4 wrap-anywhere text-sm leading-relaxed text-ink-600">
                         {{ $this->product->short_description }}
                     </p>
                 @endif
@@ -404,7 +404,7 @@
                 @if ($this->product->description)
                     <div class="mt-8 border-t border-ink-200 pt-6">
                         <h2 class="text-sm font-semibold text-ink-900">Description</h2>
-                        <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-600">
+                        <p class="mt-2 wrap-anywhere whitespace-pre-line text-sm leading-relaxed text-ink-600">
                             {{ $this->product->description }}
                         </p>
                     </div>
