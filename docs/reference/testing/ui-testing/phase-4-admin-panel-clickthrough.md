@@ -33,6 +33,24 @@ Two seams, deliberately, because they answer different questions:
   button. Every write below was therefore run inside a transaction that
   rolls back, against the same Action the panel calls.
 
+  **Corroborated 2026-09-14, a different MCP, a different failure mode.**
+  Driving `ViewOrder`'s "Change status" `ActionGroup` dropdown (the
+  `moveTo{Status}` menu behind `TransitionOrderStatus`) with the
+  `playwright-chromium` MCP instead of Chrome DevTools MCP did not hang —
+  the click resolved instantly and `aria-expanded` stayed `false`, the panel
+  stayed `display:none` in the DOM, no console error either time, both
+  fresh-load and after `php artisan filament:assets` republished every
+  asset. `window.filamentDropdown` was confirmed `undefined` via
+  `Alpine.$data()`/DOM evaluation despite `support.js` (which defines it)
+  fetching 200 with the right content. Not chased further than that — the
+  same conclusion as the 2026-09-04 hang: whatever this is, it is specific
+  to driving Filament's Alpine-dropdown actions through browser automation
+  in this stack, not a property of the write underneath it. Confirmed by
+  reading the dropdown's own DOM content instead of clicking it (it held
+  exactly one item, `"Shipped"`, matching the policy read below) and then
+  calling `TransitionOrderStatus::handle()` directly — see "What held"
+  below.
+
 **Every destructive probe was rolled back and the row counts re-checked
 afterwards** (`attributes=9 brands=35 carriers=2 articleCats=4 shipments=0
 articles=24`, unchanged). One live click was refused by the harness's own
@@ -225,9 +243,23 @@ own, and CLAUDE.md's standing instruction is not to commit unasked.
   on every resource. This pass drove the *writes* those forms perform and the
   refusals underneath them, not each widget's client-side behaviour, which is
   upstream's to secure and upstream's to test.
-- **The `warehouse_employee` panel click-through in a browser.** Its route
-  access is proven at the kernel (the matrix above) and its order-status
-  authorization by reading `TransitionOrderStatus`, but its screens were not
-  driven live the way `content_editor`'s were.
+- **The `warehouse_employee` panel click-through — done 2026-09-14,
+  Tier 2 item 5.** Logged in live as `warehouse@example.com`: sidebar shows
+  exactly `Dashboard`, `Carriers`, `Inventory`, `Orders`, `Shipments` and
+  nothing else, matching the permission catalogue; the order view page
+  (`/admin/orders/113`) rendered fully, its relation-manager tabs (Order
+  Items, Status history, Order Addresses) all loaded real data. The one
+  interaction not driven live was the "Change status" dropdown itself —
+  see the note below, the same wall this pass already hit on 2026-09-04.
+  Inspected via `Alpine.$data()`/DOM evaluation instead: the dropdown panel
+  exists in the DOM with exactly one item, `"Shipped"` — correct, since
+  `ready_for_shipment → shipped` is the only transition
+  `OrderStatus::allowedTransitions()` allows from this order's status that
+  `warehouse_employee`'s `updateStatus_order` permission also covers
+  (`cancel_order`/`refund_order` gate the other two branches and this
+  account holds neither) — then verified by calling
+  `TransitionOrderStatus::handle()` directly inside a rolled-back
+  transaction: `ready_for_shipment → shipped` succeeded for real, as this
+  account.
 - **Relation managers** (`ProductVariations`, `ProductImages`,
   `ProductSpecifications`) — reached only indirectly through `CreateProduct`.
