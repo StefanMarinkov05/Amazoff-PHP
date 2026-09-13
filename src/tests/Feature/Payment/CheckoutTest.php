@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Actions\Order\ExpireUnpaidOrders;
 use App\Actions\Order\TransitionOrderStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Exceptions\PublicPropertyNotFoundException;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
+use Stripe\Exception\ApiConnectionException;
 use Stripe\StripeClient;
 
 /*
@@ -412,6 +414,131 @@ it('creates a PaymentIntent and hands the browser a client secret for a card ord
         // checkout findable by ExpireUnpaidOrders — a COD order stays at
         // New, so without this the two are indistinguishable.
         ->and($order->status)->toBe(OrderStatus::AwaitingPayment);
+});
+
+/*
+ * ── Chaos: Stripe unreachable mid-checkout ──────────────────────────────
+ *
+ * A real network failure calling Stripe — a timeout, DNS failure, TLS
+ * handshake refusal — surfaces from stripe-php as
+ * Stripe\Exception\ApiConnectionException, which extends ApiErrorException,
+ * which extends the SDK's own base Exception. Neither is an
+ * InvalidArgumentException nor a RuntimeException, and
+ * CheckoutPage::placeOrder()'s catch clause names exactly those two and
+ * nothing else — so this exception is not a hypothetical gap, it is a
+ * verified one: this test proves the uncaught 500, not merely asserts a
+ * catch list is incomplete by reading it.
+ */
+
+function fakeStripeOutage(): void
+{
+    $intents = Mockery::mock();
+    $intents->shouldReceive('create')->andThrow(
+        new ApiConnectionException('Could not connect to Stripe (simulated outage).'),
+    );
+
+    $client = Mockery::mock(StripeClient::class);
+    $client->shouldReceive('getService')->with('paymentIntents')->andReturn($intents);
+
+    app()->instance(StripeClient::class, $client);
+}
+
+it('surfaces an uncaught 500 when Stripe is unreachable during checkout — a real, unfixed gap', function (): void {
+    fakeStripeOutage();
+    $cart = checkoutCart(quantity: 1, price: '25.00');
+
+    $component = Livewire::test(CheckoutPage::class);
+
+    // The actual, current behaviour: CheckoutPage's catch clause does not
+    // list Stripe's exception hierarchy, so it propagates out of the
+    // Livewire component call, which is Laravel's equivalent of an
+    // unhandled 500 rather than a Livewire-level error caught by the test
+    // framework. This is asserted as the failure, not merely tolerated —
+    // if this line stops throwing, the gap it documents has been fixed and
+    // this test (and the finding it corroborates) needs updating together.
+    expect(fn () => fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])
+        ->call('placeOrder'))
+        ->toThrow(ApiConnectionException::class);
+});
+
+it('rolls back the order and releases stock even when Stripe fails uncaught', function (): void {
+    fakeStripeOutage();
+    $cart = checkoutCart(quantity: 1, price: '25.00', stock: 3);
+    $variation = $cart->cartItems()->first()->productVariation;
+
+    $component = Livewire::test(CheckoutPage::class);
+
+    try {
+        fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])
+            ->call('placeOrder');
+    } catch (ApiConnectionException) {
+        // Expected — the point of this test is what happens to the data,
+        // not the exception itself, which the test above already covers.
+    }
+
+    // The one thing that makes the uncaught-500 gap above "ugly but safe"
+    // rather than "ugly and corrupting": CreateOrder and RecordPayment ran
+    // inside the same DB::transaction() CreateStripeIntent's failure is
+    // still inside, per CheckoutPage::placeOrder()'s own transaction
+    // wrapping. An uncaught exception still unwinds the transaction — this
+    // is PHP/Laravel's ordinary behaviour, not something CheckoutPage does
+    // on purpose, and it is verified here rather than assumed.
+    expect(Order::query()->count())->toBe(0)
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(0);
+});
+
+/*
+ * ── Chaos: Stripe intent created, then abandoned (connection drop) ──────
+ *
+ * The scenario a dropped user connection actually produces: unlike the
+ * uncaught-exception cases above, this path *succeeds* — CreateStripeIntent
+ * returns normally, a real intent id is stored, the order legitimately
+ * reaches AwaitingPayment exactly as ADR-0022 designed. What "the
+ * customer's connection drops" changes is what happens after: the browser
+ * never receives the response, so it never confirms the PaymentIntent, and
+ * the order sits at AwaitingPayment indefinitely unless something sweeps
+ * it. This is the seam ExpireUnpaidOrdersTest.php's own helpers never
+ * cross — that file builds an AwaitingPayment order directly via factories,
+ * never through a real CheckoutPage submission with a real (mocked) Stripe
+ * response — so this proves the two already-tested halves actually connect
+ * end to end.
+ */
+
+it('places a real Stripe order through checkout, then the same order is found and released once abandoned past the TTL', function (): void {
+    config(['orders.unpaid_ttl_minutes' => 10]);
+    fakeStripeIntents('pi_abandoned_1');
+    $cart = checkoutCart(quantity: 2, price: '40.00', stock: 5);
+    $variation = $cart->cartItems()->first()->productVariation;
+
+    $component = Livewire::test(CheckoutPage::class);
+
+    fillCheckout($component, ['payment_method' => PaymentMethod::Stripe->value])
+        ->call('placeOrder')
+        ->assertHasNoErrors()
+        ->assertSet('clientSecret', 'pi_abandoned_1_secret_abc');
+
+    $order = Order::query()->latest('id')->first();
+
+    expect($order->status)->toBe(OrderStatus::AwaitingPayment)
+        ->and($order->payment->stripe_payment_intent_id)->toBe('pi_abandoned_1')
+        // The reservation is real and held, exactly as a genuinely paid
+        // checkout would leave it — nothing about "the connection is about
+        // to drop" is visible to the database yet.
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(2);
+
+    // "The connection drops" = nothing else ever happens to this order.
+    // Backdate the AwaitingPayment history row past the TTL rather than
+    // waiting in real time, the same technique ExpireUnpaidOrdersTest.php
+    // uses — the sweep ages off that row, not orders.created_at.
+    $order->orderStatusHistories()
+        ->where('new_status', OrderStatus::AwaitingPayment)
+        ->update(['created_at' => now()->subMinutes(11)]);
+
+    $cancelled = app(ExpireUnpaidOrders::class)->handle();
+
+    expect($cancelled)->toBe(1)
+        ->and($order->fresh()->status)->toBe(OrderStatus::Cancelled)
+        ->and($variation->inventory->fresh()->reserved_quantity)->toBe(0);
 });
 
 /*

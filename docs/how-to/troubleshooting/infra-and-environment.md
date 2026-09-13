@@ -829,3 +829,62 @@ target rather than a local reproduction, and if failures keep surfacing one
 layer deeper after each fix — as opposed to the same failure recurring —
 that pattern is itself information: it says the approach is the problem,
 not the current line.
+
+---
+
+## The `queue` container crash-loops, and every queued email fails with "Lost connection"
+
+**Symptom.** `docker compose ps` shows `queue` cycling through
+`Restarting` with an increasing backoff (a few seconds, then tens of
+seconds, then over a minute). `docker compose logs queue` shows the same
+shape repeating: a mail job (`OrderPlaced`, `NewsletterConfirmation`, …)
+starts, fails in well under a second with "Lost connection," and the
+worker itself stops — Laravel's queue worker exits on certain connection
+failures rather than just failing the one job, which is what turns "one
+job can't send mail" into "the whole container restarts." Anything that
+queues a lot of mail at once — `demo:seed`'s 140+ orders, in particular —
+turns this from an occasional retry into a tight crash loop, because the
+backlog is large enough that a new failing job is always waiting when the
+container comes back up.
+
+**Cause.** `mailpit` (`docker-compose.yml`'s mail-catcher service,
+`MAIL_HOST` in dev) was not running — `docker compose ps mailpit` returned
+nothing at all, not even a stopped container. Nothing starts it
+automatically as a dependency of `app` or `queue`; it has to be brought up
+explicitly, and a session that never ran `docker compose up -d` against
+the full stack (or that ran it before `mailpit` existed in the compose
+file) never gets it.
+
+**Fix.**
+
+```bash
+docker compose up -d mailpit
+```
+
+No restart of `queue` needed — once `mailpit` is reachable, `queue`'s next
+scheduled retry (per its own backoff) succeeds and the container stabilises
+on its own. A large backlog drains in well under a second per job once
+unblocked; watch `docker compose logs queue --tail 10` for `DONE` instead
+of `FAIL` to confirm.
+
+**Why it recurs.** `mailpit` costs nothing at rest and gives no positive
+signal that it is needed — the app itself never touches it, only queued
+mail does — so a session that never seeds a lot of orders in one go can
+run for hours without noticing it is missing. The crash loop looks alarming
+(a container endlessly restarting) but the actual cause is one line away
+from the symptom: check `docker compose ps` for anything *not* listed as
+running before assuming the queue worker itself is broken.
+
+**Prevention.** Nothing enforces this today — a healthcheck or `depends_on`
+relationship from `queue` to `mailpit` would surface the gap as "queue
+won't start" rather than "queue crash-loops once something queues mail,"
+which is a clearer failure to diagnose. Not added here since it would
+change `docker-compose.yml`'s service dependencies outside this fix's
+scope; worth doing the next time this file is touched for another reason.
+A background container crash-looping like this is also a plausible
+contributor to unrelated flakiness elsewhere — see
+"`pest --testsuite=Feature,Unit,Concurrency` fails a handful of unrelated
+`Feature` tests" in
+[`concurrency-and-testing-races.md`](concurrency-and-testing-races.md),
+found the same day this entry was written, before the cause here was
+known.
