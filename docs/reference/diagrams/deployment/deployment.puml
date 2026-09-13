@@ -4,7 +4,11 @@
 ' how-to/deploy-and-host.md. Local + Forge verified 2026-09-07; the Railway
 ' package redrawn 2026-09-12 for ADR-0024 (Railpack, not the custom Dockerfile
 ' ADR-0023 first described — that image failed eleven straight deploys, see
-' troubleshooting/infra-and-environment.md).
+' troubleshooting/infra-and-environment.md). Local package re-verified
+' 2026-09-13 against the current docker-compose.yml: a `queue` service
+' (php artisan queue:work) now runs locally too, added when
+' QUEUE_CONNECTION moved off `sync` for the newsletter double-opt-in flow —
+' it was missing from this diagram until now.
 ' The gap between Local and Forge is the whole point of deploy-and-host.md's
 ' checklist — anything fixed only in docker/nginx/*.conf reaches neither
 ' deployed box. Railway has no such gap: Railpack builds its own image, so
@@ -22,11 +26,23 @@ package "Local development — docker-compose.yml" {
   node "db\nmysql:8.0\n(durability RELAXED —\nlocal only, see\ntroubleshooting/database-and-migrations.md)" as LocalDB
   node "vite\nnode:22-alpine\n(HMR dev server)" as LocalVite
   node "mailpit\n(catches outbound mail,\nweb UI on :8025)" as LocalMail
+  node "queue\n(PHP-FPM, same image,\nphp artisan queue:work)" as LocalQueue
 
   LocalNginx --> LocalApp : fastcgi :9000
   LocalApp --> LocalDB : :3306
   LocalApp --> LocalMail : SMTP :1025
   LocalNginx ..> LocalVite : dev asset\nproxy (HMR)
+  LocalQueue --> LocalDB : :3306
+
+  note bottom of LocalQueue
+    QUEUE_CONNECTION=database.
+    Nothing runs schedule:run
+    locally — orders:expire-unpaid
+    and carts:expire need a manual
+    `artisan schedule:run` or a
+    cron loop; Forge/Railway handle
+    this in their own deploy target.
+  end note
 
   note bottom of LocalDB
     innodb_flush_log_at_trx_commit=2,

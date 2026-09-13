@@ -4,7 +4,8 @@ ADR-0006 decides who checks what. ADR-0007 decides how an Action's actor
 parameter works. Neither says, in one place, what the combination protects
 against and what it does not — which is the question that comes up whenever a
 new call site is about to reach an Action. This page is that picture, current
-as of 2026-08-16.
+as of 2026-08-16; the diagram itself was last updated 2026-09-13 to add the
+Livewire-property-hydration layer SEC-014 through SEC-017 found.
 
 Every layer a request or a piece of data actually passes through, in order —
 IP allowlist, host configuration, client- and server-side validation, rate
