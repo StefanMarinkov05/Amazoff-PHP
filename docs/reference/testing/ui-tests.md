@@ -228,16 +228,21 @@ persisted.
 
 `CreateProductReview` (§24, verified-purchase reviews) existed and was
 tested at the Action layer, but nothing on the storefront called it — this
-is that missing wiring. `canReview()` is a read-only mirror of the Action's
-own eligibility checks (delivered order for the product, not already
-reviewed), so the form can hide itself instead of only failing on submit;
-these tests cover both that gate and the real submission path through the
-Action, not a duplicate of the Action's own coverage.
+is that missing wiring. `canReview()` is a read-only mirror of
+`OrderItem::reviewableBy()`, the Action's own eligibility scope (delivered,
+returned, or cancelled after commitment — see `write-rules/product.md`), so
+the form can hide itself instead of only failing on submit; these tests
+cover both that gate and the real submission path through the Action, not a
+duplicate of the Action's own coverage.
 
 - The form is hidden from a guest.
-- The form is hidden from a signed-in customer with no delivered order for
+- The form is hidden from a signed-in customer with no reviewable order for
   the product.
 - The form shows for a customer with a delivered order.
+- The form shows for a customer whose order was cancelled after they
+  committed to it (from `Confirmed`, not `AwaitingPayment`).
+- The form is hidden for a customer whose order was cancelled while still
+  `AwaitingPayment` — the expiry-sweep/failed-webhook/self-cancel shape.
 - The form is hidden again once that customer has already reviewed it.
 - A submission reaches `CreateProductReview` for real (not a modal that
   only renders): the resulting row's `user_id`, `order_item_id`, `rating`,

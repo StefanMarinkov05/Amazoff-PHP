@@ -87,6 +87,58 @@ it('shows the review form to a customer with a delivered order for the product',
         ->assertSet('canReview', true);
 });
 
+it('shows the review form to a customer whose order was cancelled after they committed to it', function (): void {
+    $product = reviewableProduct();
+    $user = User::factory()->create();
+
+    $order = Order::factory()->create([
+        'user_id' => $user->getKey(),
+        'status' => OrderStatus::Cancelled,
+    ]);
+
+    OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'previous_status' => OrderStatus::Confirmed,
+        'new_status' => OrderStatus::Cancelled,
+    ]);
+
+    OrderItem::factory()->create([
+        'order_id' => $order->getKey(),
+        'product_id' => $product->getKey(),
+        'product_variation_id' => $product->productVariations()->first()->getKey(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(ProductDetails::class, ['product' => $product])
+        ->assertSet('canReview', true);
+});
+
+it('does not show the review form to a customer whose order is still awaiting payment', function (): void {
+    $product = reviewableProduct();
+    $user = User::factory()->create();
+
+    $order = Order::factory()->create([
+        'user_id' => $user->getKey(),
+        'status' => OrderStatus::Cancelled,
+    ]);
+
+    OrderStatusHistory::factory()->create([
+        'order_id' => $order->getKey(),
+        'previous_status' => OrderStatus::AwaitingPayment,
+        'new_status' => OrderStatus::Cancelled,
+    ]);
+
+    OrderItem::factory()->create([
+        'order_id' => $order->getKey(),
+        'product_id' => $product->getKey(),
+        'product_variation_id' => $product->productVariations()->first()->getKey(),
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(ProductDetails::class, ['product' => $product])
+        ->assertSet('canReview', false);
+});
+
 it('does not show the review form to a customer who already reviewed it', function (): void {
     $product = reviewableProduct();
     $user = User::factory()->create();

@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\ProductReview;
 
-use App\Enums\OrderStatus;
 use App\Exceptions\ReviewNotAllowedException;
-use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\ProductVariation;
@@ -29,15 +26,10 @@ use Illuminate\Support\Facades\DB;
  * ## Verified purchase, concretely
  *
  * "Bought it" means an `order_items` row for one of this product's variations
- * on an order that has ever reached `Delivered` — checked via
- * `order_status_histories`, same as `Order::deliveredAt()`, not the order's
- * current `status`. Delivered rather than merely paid: §24 is about
- * reviewing a product you have, and a paid-but-unshipped order has not
- * produced an opinion worth trusting yet. Checking history rather than the
- * live column means a return or a staff-side `Returned`/`Refunded`
- * transition afterward does not retract eligibility — the customer still
- * received and used the thing (ADR-0020, returns are independent of
- * `orders.status`).
+ * on an order of the reviewer's that `OrderItem::reviewableBy()` accepts —
+ * delivered, returned after delivery, or cancelled after the customer had
+ * actually committed to it. See that scope for why the check reads
+ * `order_status_histories` rather than the order's current `status`.
  *
  * The matching `order_item_id` is stored, which is what lets the storefront
  * render "verified purchase" and which variation was bought without a second
@@ -108,7 +100,7 @@ final class CreateProductReview
     }
 
     /**
-     * The reviewer's delivered order line for this product, if any.
+     * The reviewer's reviewable order line for this product, if any.
      *
      * Joins through `product_variations` because an order line records the
      * variation bought, not the product — the review is about the product,
@@ -117,15 +109,7 @@ final class CreateProductReview
     private function purchasedItem(Product $product, User $reviewer): ?OrderItem
     {
         return OrderItem::query()
-            ->whereHas('order', function (Builder $query) use ($reviewer): Builder {
-                /** @var Builder<Order> $query */
-                return $query
-                    ->where('user_id', $reviewer->getKey())
-                    ->whereHas('orderStatusHistories', function (Builder $query): Builder {
-                        /** @var Builder<OrderStatusHistory> $query */
-                        return $query->where('new_status', OrderStatus::Delivered);
-                    });
-            })
+            ->reviewableBy($reviewer)
             ->whereHas('productVariation', function (Builder $query) use ($product): Builder {
                 /** @var Builder<ProductVariation> $query */
                 return $query->where('product_id', $product->getKey());
