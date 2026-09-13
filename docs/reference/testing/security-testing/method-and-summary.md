@@ -40,7 +40,7 @@ Dependency scanning did complete once the host was repaired.
 
 ## Findings
 
-Seven entries. Two are exploitable IDOR/authorization bypasses in this
+Eleven entries. Two are exploitable IDOR/authorization bypasses in this
 project's own code, both confirmed by live exploitation on 2026-09-03 and
 both since fixed; both share one shape — a client-writable Livewire public
 property that a query downstream trusts. The third is a dependency advisory
@@ -55,7 +55,21 @@ future pentests.** The sixth records the headers added to close what the
 fifth found still open, including a wildcard the scanner caught in the first
 attempt at the fix. The seventh is the first *authenticated* scan — the run
 that finally reached the admin panel — and the header gap only it could
-find.
+find. The eighth is a different shape from the rest — not an authorization
+bypass but an unhandled-crash class, seven public numeric Livewire
+properties across four components that threw an uncaught `TypeError` at
+hydration, confirmed live and fixed for all seven. The ninth is the string
+counterpart of the eighth on the same component — a public property
+documented as "never customer input" that was still reachable via `$set()`,
+reaching a database column raw. The tenth, found during the authenticated
+account-page sweep the eighth's fix motivated, is a different failure mode
+again — no crash at all, a garbage-shaped array value silently cast to a
+plausible quantity of `1` rather than being refused. The eleventh, found
+during a role-scoped ZAP scan of the admin panel, is back to a raw crash —
+six plain-lookup admin resources with no length guard on any text field at
+all, discovered by reading the scan's raw access log rather than only its
+alert summary, since ZAP has no built-in rule for "this crashed the
+server."
 
 Severity uses CVSS-style qualitative bands (Critical / High / Medium / Low /
 Info), rated for this application in its current state, not in the abstract.
@@ -77,6 +91,18 @@ boundary would separate a fix from the finding it closes:
 - [sec-011-to-013.md](sec-011-to-013.md) — the tracking-lookup leniency
   probe (dismissed), the Stripe client secret leaking into the access log,
   and the unset `SESSION_SECURE_COOKIE`.
+- [sec-014.md](sec-014.md) — seven storefront Livewire properties that
+  crashed at hydration on an oversized `$set`, the sweep
+  `test-for-input-crashes.md` had predicted as its own next step.
+- [sec-015.md](sec-015.md) — `courier_office_name`, documented as "never
+  customer input," reached `order_addresses` raw because a `public string`
+  property is customer input regardless of what the form does with it.
+- [sec-016.md](sec-016.md) — `RequestReturn::$quantities`, a garbage-shaped
+  array value silently cast to a plausible "return 1" instead of being
+  refused — no crash, a wrong answer that read as a correct one.
+- [sec-017.md](sec-017.md) — six plain-lookup admin resources with zero
+  `->maxLength()` calls, found by reading a role-scoped scan's raw access
+  log rather than its alert summary alone.
 - [what-held.md](what-held.md) — the role-based access control sweep and
   everything else checked and found correct, plus the later 2026-09-06 ZAP
   runs.

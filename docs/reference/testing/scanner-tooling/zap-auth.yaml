@@ -47,6 +47,16 @@
 # seconds or less apart. The job-level threadPerHost on activeScan below is
 # now redundant with the global -config flag but left at 1 for clarity if
 # this plan is ever run without the command-line flags.
+#
+# TWO logout paths, not one — confirmed the hard way (2026-09-13). Filament's
+# own admin logout is `POST admin/logout` (`route:list`:
+# `filament.admin.auth.logout`), a DIFFERENT path from the root `/logout`
+# this plan already excluded. A prior authenticated run died mid-scan
+# because the spider followed exactly that link and ended its own session —
+# `excludePaths` matching only `/logout.*` does not also match
+# `/admin/logout.*`. Both are excluded below; if this project ever adds a
+# third panel or a differently-routed logout, check `route:list` for its
+# real path rather than assuming `/logout.*` covers it.
 
 env:
   contexts:
@@ -58,7 +68,8 @@ env:
         - "http://webserver(:80)?/.*"
       excludePaths:
         - "http://webserver(:80)?/storage/.*"
-        - "http://webserver(:80)?/logout.*"   # a spider that follows this ends its own session
+        - "http://webserver(:80)?/logout.*"        # a spider that follows this ends its own session
+        - "http://webserver(:80)?/admin/logout.*"  # Filament's own logout, a DIFFERENT path — see below
 jobs:
   - type: script
     parameters:

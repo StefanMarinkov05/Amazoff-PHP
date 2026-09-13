@@ -193,6 +193,37 @@ assumed from the type alone.
 - An id that matches nothing real falls back to the default variation
   rather than erroring.
 
+### `ProductDetailsLockedIdsTest`
+
+SEC-014. `$productId` and `$imageIndex` were `?int`/`int`, not `#[Locked]`,
+despite both being set only server-side (`mount()`, and
+`setImage()`/`nextImage()`/`previousImage()` respectively — confirmed no
+blade `$set` targets either). A client `$set(..., <34-digit>)` on either
+threw an uncaught `TypeError` at hydration, confirmed live before the fix.
+Same incident class as `ProductDetailsVariationIdTest`'s own `$variationId`
+case, a different pair of properties, closed with `#[Locked]` instead of
+widening — since nothing legitimately client-sets either one.
+
+- `productId` is locked against client tampering (`$set` throws
+  `CannotUpdateLockedPropertyException`).
+- `productId` does not crash — throws the lock exception, not a `TypeError`
+  — on an oversized client-set value.
+- `imageIndex` is locked against client tampering.
+- `imageIndex` does not crash on an oversized client-set value.
+
+### `ProductDetailsReviewRatingHydrationTest`
+
+SEC-014. `$reviewRating` was `public int`, and the star-rating widget
+legitimately drives it via `wire:click="$set('reviewRating', N)"` — the one
+property in this sweep that cannot be `#[Locked]` (that throws on any
+client set, breaking the feature) but is still hydrated from the raw client
+value before any component code runs. Widened to `mixed`;
+`submitReview()`'s `integer|min:1|max:5` rule still guards what is
+persisted.
+
+- Setting `reviewRating` to a number too large for PHP to represent as an
+  int does not crash.
+
 ### `ProductDetailsReviewSubmissionTest`
 
 `CreateProductReview` (§24, verified-purchase reviews) existed and was
@@ -390,6 +421,12 @@ the 14-day right of withdrawal, scoped exactly like `OrderDetails`.
 - An Action refusal (`ReturnNotAllowedException`, forced by the order flipping
   status between render and submit) surfaces as a **form error, not a 500**,
   and writes nothing.
+- **SEC-016.** A garbage-shaped `quantities` value (a nested array where a
+  quantity is expected) is refused with a form error rather than silently
+  cast to `1` and written as a real return — PHP's `(int)` of any non-empty
+  array is always `1`, which previously produced a legitimate-looking
+  return the customer never requested. Confirmed no `OrderReturn` row is
+  created for the refused case.
 
 ### `OrderHistoryTest`
 
@@ -459,6 +496,21 @@ change (see the class's own docblock).
 - Confirms billing and shipping defaults are independent: setting a new
   default billing address does not touch an existing default *shipping*
   address.
+
+### `ManageAddressesEditingIdTest`
+
+SEC-014. `$editingId` was `?int`, not `#[Locked]`, despite being set only
+server-side (`startAdding()`/`startEditing()`/`cancelEditing()`/`save()`/
+`delete()`) — confirmed no blade `$set` targets it. A client
+`$set('editingId', <34-digit>)` threw an uncaught `TypeError` at hydration,
+confirmed live before the fix. `save()`/`delete()` already owner-scope the
+lookup through `$this->user()->addresses()`, so this closed a crash, not an
+IDOR — the same distinction `OrderConfirmationOrderIdTest` draws for
+`$orderId`.
+
+- `editingId` is locked against client tampering.
+- `editingId` does not crash — throws the lock exception, not a
+  `TypeError` — on an oversized client-set value.
 
 ### `WishlistTest`, `ProductDetailsWishlistToggleTest`, `ProductListWishlistToggleTest`
 
@@ -658,6 +710,15 @@ own arithmetic is `StripePaymentTest` and the endpoint is
   on delivery. Every test in this file swaps the whole `Courier` facade for
   `FakeCourierGateway` (`tests/Pest.php`) — checkout must never reach Econt
   or Speedy over the network. See `docs/explanation/couriers.md`.
+- **SEC-015.** `courier_office_name` is re-derived from the office
+  `courier_office_code` resolves to, not trusted as submitted — a real,
+  valid code paired with an oversized or mismatched client-supplied name
+  places successfully, with the *resolved* office's name persisted, not the
+  client's. Before the fix this did not crash cleanly: the resulting
+  `QueryException` (the name overflowing `order_addresses`' `varchar(150)`)
+  was caught by `placeOrder()`'s own domain-refusal handling and surfaced as
+  a plausible-looking form error rather than a 500 — confirmed by reverting
+  the fix and observing exactly that.
 
 **A trap worth knowing.** `ResolveCurrentCart` finds a guest's cart by
 `Session::getId()` and a customer's by `user_id`. A cart created any other
@@ -665,6 +726,39 @@ way is invisible to the component, which then quietly opens a second empty
 one — every assertion then passes or fails against the wrong cart. The
 helpers here bind the cart to whoever the test acts as, and the cart-link
 test uses an owned cart because a plain `$this->get()` gets its own session.
+
+### `OrderConfirmationOrderIdTest`
+
+SEC-014. `$orderId` was `public int`, not `#[Locked]` — the one id-property
+in the codebase that broke the "every id-property is `#[Locked]`"
+convention every sibling (`CheckoutPage::$orderId`,
+`ProductDetails::$productId`/`$imageIndex`, `ManageAddresses::$editingId`)
+follows. A client `$set('orderId', <34-digit>)` threw an uncaught
+`TypeError` at hydration, before any component code ran — confirmed live
+before the fix. It is internal-only, assigned once in `mount()` and never
+legitimately client-set, so `#[Locked]` closes the crash outright rather
+than needing a normalising hook.
+
+- `orderId` is locked against client tampering.
+- `orderId` does not crash — throws the lock exception, not a `TypeError`
+  — on an oversized client-set value.
+
+### `CheckoutPageHydrationTest`
+
+SEC-014. `$carrier_id` and `$selected_address_id` were `?int`, bound to
+`wire:model.live` fields the client drives directly — the same incident
+class as `ProductDetailsQuantityTest`'s `$quantity`: Livewire assigns the
+raw client value to the typed property before any of this class's own code
+runs, so a number too large for PHP to represent as an int threw an
+uncaught `TypeError` at hydration, confirmed live before the fix. Widened
+to `mixed`; `updated()`/`updatedSelectedAddressId()` normalise back to a
+real id or `null` immediately after, and the `rules()` entry (`carrier_id`:
+`integer`, `exists`) still guards what `placeOrder()` accepts.
+
+- Setting `carrier_id` to a number too large for PHP to represent as an int
+  does not crash, and normalises back to `null`.
+- Setting `selected_address_id` to the same does not crash, and normalises
+  back to `null`.
 
 ### `StripePaymentTest` and `StripeWebhookSecurityTest` (`tests/Feature/Payment/`)
 
@@ -679,6 +773,36 @@ cumulative-versus-delta trap and the amount-match guard that refuses to mark
 a payment paid for the wrong sum.
 
 ## Admin panel (`tests/Feature/Filament/`)
+
+### `PlainLookupMaxLengthTest`
+
+SEC-017. Six plain-lookup resources' create forms —
+`ArticleCategoryForm`, `TagForm`, `AttributeForm`, `BrandForm`,
+`ProductCategoryForm`, `AttributeValueForm` — had zero `->maxLength()`
+calls on any field, so a value past the underlying migration's column
+length reached an `INSERT` raw and overflowed it: an uncaught
+`QueryException`, confirmed live before the fix, found by the
+content_editor role-scoped ZAP scan's raw access log (not its alert list —
+ZAP has no rule for "this crashed the server").
+
+- An oversized `ArticleCategory.name` (past `varchar(50)`) is refused on
+  the form, not the database.
+- An oversized `Tag.name` (past `varchar(30)`) is refused the same way.
+- An oversized `Attribute.name` (past `varchar(50)`) is refused the same
+  way.
+- An oversized `Brand.name` (past `varchar(50)`) is refused the same way.
+- An oversized `ProductCategory.name` (past `varchar(50)`) is refused the
+  same way.
+- An oversized `AttributeValue.value` (past `varchar(100)`) is refused the
+  same way.
+- An oversized `AttributeValue.color_hex` (past `char(7)`) is refused the
+  same way.
+
+Every case asserts `assertHasFormErrors()` and that no row was created —
+`RoleForm` and `ContactMessageForm`, the only other two forms with zero
+`->maxLength()` calls, were checked and are correctly exempt (every
+writable field on both is either non-dehydrated or a `Textarea` over an
+unbounded `text` column), so neither needed a test here.
 
 ### `ProductResourceTest`
 

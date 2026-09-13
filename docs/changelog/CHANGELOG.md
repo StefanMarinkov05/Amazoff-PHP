@@ -6,36 +6,267 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Fixed
+
+- **SEC-017: six plain-lookup admin resources had zero `->maxLength()`
+  calls anywhere on their create forms.** Found by the content_editor
+  role-scoped ZAP scan — not from ZAP's own alert list (it has no rule for
+  "this form crashed the server"), but from reading the raw access log
+  directly and finding four `500`s on `POST /livewire/update` at
+  `/admin/article-categories/create`. Traced to
+  `storage/logs/laravel.log`: `QueryException: Data too long for column
+  'name'` — `ArticleCategoryForm`'s `name` field had no `->maxLength()`,
+  so nothing in the stack stopped a value past the `varchar(50)` column
+  from reaching an `INSERT` raw.
+
+  A grep for every Filament form with zero `->maxLength()` calls anywhere
+  found five more resources sharing the exact gap — `TagForm`,
+  `AttributeForm`, `BrandForm`, `ProductCategoryForm`,
+  `AttributeValueForm` — every one of them a plain-lookup resource
+  ADR-0007 explicitly keeps on default Filament CRUD with no Action in
+  front of the save. Confirmed live for all six (and `AttributeValueForm`'s
+  `color_hex`, a seventh field): each threw the identical
+  `QueryException` on a value past its migration's own column length.
+
+  Fixed by adding `->maxLength(N)` to every affected field, `N` read
+  directly off the corresponding migration rather than an arbitrary round
+  number. `RoleForm` and `ContactMessageForm` — the only other two forms
+  with no `->maxLength()` calls — were checked and are correctly exempt:
+  every writable field on both is either `disabled()`/`dehydrated(false)`
+  or a `Textarea` over an unbounded `text` column.
+
+  Full write-up: `docs/reference/testing/security-testing/sec-017.md`. New
+  test file `tests/Feature/Filament/PlainLookupMaxLengthTest.php`, one case
+  per field (seven total), each verified red without its fix (the same
+  `QueryException` reproduced) and green with it. Full Feature+Unit suite
+  (1406 tests) run after, not filtered to the files that looked related;
+  `tests/.pest/shards.json` refreshed in the same change.
+
+- **SEC-016: a garbage-shaped return quantity silently became "return 1."**
+  Found during Sweep C (the authenticated account-page pass SEC-014's fix
+  motivated), not by the numeric hydration-crash playbook —
+  `RequestReturn::$quantities` is a plain `public array`, documented
+  `array<int, int>` but not actually constrained to that shape, and
+  `submit()` cast each value with a blind `(int)` before checking it was
+  numeric. PHP casts *any* non-empty array to `int(1)`, regardless of
+  contents or nesting, so `quantities[42] = [['nested' => 'garbage']]` did
+  not fail to parse — it silently created a real, persisted return request
+  for one unit of item 42 that the customer never actually asked for.
+  Confirmed live: no error, one `OrderReturn` row written, `quantity=1` on
+  the stored line.
+
+  Not a security bypass: a non-empty array can never cast to more than `1`,
+  and `RequestReturnAction::handle()`'s own ownership and
+  remaining-quantity checks still apply regardless of what reaches it. The
+  bug is confined to "a garbage value is silently accepted as a plausible
+  one" — the same "wrong answer returns 200" class
+  `test-for-input-crashes.md` already names for
+  `ProductList::$attributeValueIds`, on a component and property that
+  playbook's numeric-hydration scope does not cover.
+
+  Fixed with `is_numeric()` before the cast, refusing with a `quantities`
+  form error instead of proceeding; the property's `@var array<int, int>`
+  PHPDoc — which Larastan was treating as a certain type rather than
+  flagging the cast — corrected to `array<int, mixed>` with a note
+  explaining why. Full write-up:
+  `docs/reference/testing/security-testing/sec-016.md`. One new regression
+  test in `tests/Feature/Livewire/Account/RequestReturnTest.php`, verified
+  red without the fix (silent success, wrong quantity persisted) and green
+  with it.
+
+- **SEC-015: `courier_office_name` reached the database raw despite a
+  comment saying it never would.** `CheckoutPage::$courier_office_name` is
+  `public string`, reachable via `$set()` regardless of what the rendered
+  form does with it — the string counterpart of SEC-014 below, on the same
+  component. It carried no validation rule (the comment: "it is never
+  customer input"), and `placeOrder()` validated that the submitted
+  `courier_office_code` resolves against the carrier's own office list but
+  never re-derived the *name* from that resolution — it trusted the
+  property. Confirmed live: a real, resolvable code paired with a 200-char
+  name overflowed `order_addresses.courier_office_name varchar(150)`, and
+  the resulting `QueryException` was swallowed by `placeOrder()`'s own
+  domain-refusal handling into a plausible-looking form error rather than a
+  crash — a worse failure mode than a 500, since it reads as an ordinary
+  validation problem. A second, quieter case needed no overflow: a
+  misleading name could be paired with a legitimately-resolved code, with
+  nothing keeping the two consistent.
+
+  Fixed with one line: `placeOrder()` now reassigns
+  `$this->courier_office_name` from the resolved `$office->name` once the
+  code checks out, closing the overflow and the integrity gap together, and
+  making the class's own docblock claim ("`placeOrder()` re-resolves both
+  [code and name]") actually true rather than aspirational — the docblock
+  and the stale `rules()` comment were both corrected to describe what the
+  code now does.
+
+  Full write-up: `docs/reference/testing/security-testing/sec-015.md`. One
+  new regression test in `tests/Feature/Payment/CheckoutTest.php`, verified
+  red without the fix (the swallowed-`QueryException` failure mode above,
+  reproduced exactly) and green with it.
+
+- **SEC-014: seven storefront Livewire properties crashed at hydration on
+  an oversized `$set`.** `docs/how-to/test-for-input-crashes.md` had
+  already predicted this exact sweep: the same mechanism behind the four
+  previously-fixed `#[Url]` hydration crashes (`quantity`, `variationId`,
+  `brandId`, `categoryId`) is not specific to `#[Url]` at all — Livewire
+  assigns a client-sent value onto any public typed property, `$set()` or
+  `wire:model`, before any component code runs, and re-throws the
+  `TypeError` for a value that does not fit a strict `int`/`float` type. A
+  full grep for every such property not already `#[Locked]`, across every
+  storefront Livewire component, found seven instances:
+  `OrderConfirmation::$orderId`, `ProductDetails::$productId`/
+  `$imageIndex`, `ManageAddresses::$editingId` (none bound to a form field
+  or the URL at all — a bare `$set()` still reached and crashed each one),
+  and `ProductDetails::$reviewRating`, `CheckoutPage::$carrier_id`/
+  `$selected_address_id` (genuinely client-driven via
+  `wire:click="$set(...)"`/`wire:model.live`). All seven confirmed live
+  before any fix — a 34-digit numeric string against each threw the same
+  `TypeError`, an unhandled 500 that renders a full Ignition trace to an
+  anonymous visitor under local's `APP_DEBUG=true`.
+
+  None was an IDOR: every id-bearing property is still re-scoped through
+  its own entitlement check on every render, so a value that survived
+  hydration could not have read another customer's data — the bug was
+  purely that hydration crashed before that check, or the existing
+  submit-time validation, was ever reached.
+
+  Two fix shapes, chosen per property by whether a control legitimately
+  sets it (confirmed against the component's own blade view first, since
+  `#[Locked]` throws on *any* client write): `#[Locked]` for the four
+  server-managed ids, closing the crash outright; `mixed`, matching
+  `$quantity`'s existing fix shape, for the three genuinely client-driven
+  properties, with `CheckoutPage::updated()` gaining a normalising branch
+  for `$carrier_id` (the one property with no prior normalisation to lean
+  on).
+
+  Full write-up: `docs/reference/testing/security-testing/sec-014.md`.
+  Five new/changed test files, each verified red without its fix
+  (`OrderConfirmationOrderIdTest`, `ProductDetailsLockedIdsTest`,
+  `ManageAddressesEditingIdTest`, `CheckoutPageHydrationTest`,
+  `ProductDetailsReviewRatingHydrationTest`) — added to a CI shard and
+  `tests/.pest/shards.json` refreshed in the same change per
+  `use-ci.md`'s rule for a new test file. Full Feature+Unit+Concurrency
+  suite (1455 tests) run after, not filtered to the files that looked
+  related.
+
 ### Added
 
-- **A deployable container image and Railway as the beta target
-  (ADR-0023).** The app had never run anywhere but local Docker:
-  ADR-0001 named Forge in one line, no host was ever provisioned, and
-  `how-to/deploy-and-host.md` said so itself. The client-facing beta now
-  deploys to Railway from a root `Dockerfile` this repository owns —
-  three stages (Node builds Vite's bundles, Composer resolves `--no-dev`,
-  an Alpine `php:8.4-fpm` runtime receives only the results), plus
-  `docker/production/nginx.conf` and `supervisord.conf`. Four services:
-  web (nginx + php-fpm under supervisord), worker, scheduler, and
-  Railway's managed MySQL. The worker and scheduler are deliberately
-  *not* under that supervisord — a queue-worker crash must not fail the
-  site's health check, and the scheduler's cadence must not reset when
-  the web process restarts.
+- **Standalone `semgrep` wired into CI (`.semgrep.yml`, repository root).**
+  Four rules, each a mechanical check for an invariant
+  `docs/reference/coding-conventions.md` states and review previously
+  caught only by hand: unscoped `Order::findOrFail()`, `$request->all()`, a
+  direct `->status =` assignment on an `Order`, and a raw `bc*` call
+  outside `App\Support\Money`. Distinct from the "Semgrep Guardian" Claude
+  Code marketplace plugin, a separate, passive integration point.
 
-  `docker/php/Dockerfile` is **not** reused. Its own header says "for
-  local development. Not used in production," and it carries pcov,
-  Playwright/Chromium, and mysql-client — a coverage profiler and a
-  browser engine have no business on a public host.
+  Each rule confirmed to actually fire — not just parse — against a
+  throwaway fixture with one genuine violation per rule, created inside
+  `src/app/`, scanned, and deleted before anything was committed; the three
+  documented exceptions (`RaceWorker.php`'s unscoped lookups as a
+  concurrency-test harness with no user to scope to, `TransitionOrderStatus`
+  as the one Action allowed to assign `->status`, `Money.php` as the one
+  file `bc*` calls are meant to live in) confirmed to stay silent.
 
-  **One application-code change, and it is the one that would have looked
-  like a seeding bug:** `bootstrap/app.php` now calls
-  `trustProxies(at: '*')` for the four `X-Forwarded-*` headers. Railway
-  terminates TLS at its edge and forwards over plain HTTP, so without it
-  `$request->isSecure()` is false on every request — `url()` emits
-  `http://` links, and `config('filesystems.disks.public.url')` (built
-  from `APP_URL`) resolves every product and article image against the
-  wrong scheme. A catalogue of broken images reads as "the seed failed,"
-  three layers from the cause.
+  Writing the `bc*` rule surfaced two pre-existing violations —
+  `ProductPrice::percentOff()` and
+  `HandleStripeWebhookEvent::refundedTotalFrom()` — that were doing real
+  bcmath outside `Money`. Fixed by adding two methods to `Money` itself
+  (`fromMinorUnits()`, the inverse of the existing `toMinorUnits()`, and
+  `percentBelow()`, a whole-number discount-percentage calculation distinct
+  from `percentageOf()`/`shareOf()`, which extract or allocate a `Money`
+  amount rather than produce a display percentage) rather than excluding
+  the files — the rule is only honest if `Money` actually offers what every
+  real call site needs. Full Feature+Unit suite (1377 tests) run after,
+  not filtered to the files that looked related.
+
+  Two rollout traps, both confirmed by testing rather than by reading a
+  flag's description: an untyped `$REQUEST->all()` pattern matched 71
+  unrelated `Collection`/`Arr` `->all()` calls before a
+  `metavariable-type: Illuminate\Http\Request` constraint fixed it (with
+  its own documented, currently-unreachable gap for an untyped `$request`
+  parameter — none exist in `app/` today); and `semgrep`'s own `--error`
+  flag is what fails the CI job on a finding — it exits 0 by default, and
+  `pip install semgrep` needs `--break-system-packages` on the runner's
+  actual Ubuntu (PEP 668), both confirmed by running the exact CI step
+  against a bare `ubuntu:24.04` container before trusting it in `ci.yml`.
+
+- **Relation-manager direct tests** — `ProductVariationsRelationManager`'s
+  `manageImages` and `setDefault`, and a new file for
+  `ProductImagesRelationManager` (previously untested at this layer
+  entirely). `ProductSpecificationsRelationManager` deliberately got none:
+  plain default Filament CRUD with no Action, matching the reasoning
+  ADR-0007 already gives for leaving `Brand`/`Tag`/`Carrier` on default CRUD.
+
+  Every new test confirmed red-then-green by sabotaging the real mechanism
+  and restoring it (`git diff` clean on every source file afterward) — one
+  test design mistake this caught in its own first draft, worth recording:
+  an early "refuses a foreign image" test reused the same variation a
+  preceding test had already left in the correct end state, so the
+  assertion passed whether or not the refusal actually worked. Fixed with a
+  fresh, empty-gallery variation per case. `Notification::assertNotified()`
+  also turned out not to reliably read a notification dispatched through a
+  custom Action's mount/fill/submit sequence in this Livewire-test harness
+  (works fine for a single-call `DeleteAction`); the affected test asserts
+  the actual outcome instead.
+
+  Full Feature+Unit+Concurrency suite run after (1438 tests, 0 failures),
+  and `tests/.pest/shards.json` refreshed in the same change per
+  `use-ci.md`'s rule for a new test file.
+
+- **Railway as the beta target, built by Railway's own Railpack, not a
+  custom image (ADR-0023, ADR-0024).** The app had never run anywhere but
+  local Docker: ADR-0001 named Forge in one line, no host was ever
+  provisioned, and `how-to/deploy-and-host.md` said so itself.
+
+  The first attempt was a hand-written root `Dockerfile` (three stages:
+  Node, Composer, an Alpine `php:8.4-fpm` runtime with nginx and php-fpm
+  under supervisord). It failed eleven consecutive deploys, each fixing a
+  real, verified defect and each superseded by a new one one layer
+  further in — a `composer:2` base image missing `intl`; a BuildKit
+  `--mount` form Railway's builder rejects outright though local BuildKit
+  accepts it; `apk del` stripping the runtime libraries compiled
+  extensions link against, so they built and could not load; the
+  committed schema dump forcing `migrate` to shell out to a `mysql`
+  client the image didn't have; that client (MariaDB's) rejecting
+  Railway MySQL's self-signed certificate; and, once past that, unable to
+  authenticate to MySQL 8 at all, for a reason no flag closes
+  (`caching_sha2_password` support MariaDB's client doesn't have). Full
+  timeline in `troubleshooting/infra-and-environment.md`. The pattern
+  across all eleven — verified locally every time, wrong on the platform
+  every time — is the actual finding: a green local `docker build` and
+  `docker run` prove the image is internally consistent, not that
+  Railway's specific builder and proxy will accept it.
+
+  **Abandoned for Railway's own Railpack builder (ADR-0024).** No
+  Dockerfile, no nginx, no supervisord, no manual `$PORT` handling —
+  Railpack detects Laravel from `artisan` and builds FrankenPHP/Caddy
+  itself. `docker/php/Dockerfile` remains for local dev only, as it
+  always was. Three Railpack-specific settings this deploy needed, each
+  found by reading Railpack's own provider source rather than assuming:
+  `RAILPACK_SKIP_MIGRATIONS=true` (Railpack's own startup otherwise runs
+  `migrate` on every boot; migrations instead live in the web service's
+  `preDeployCommand`, with `--schema-path=/nonexistent` since the
+  FrankenPHP image has no `mysql` client either — migrations replay over
+  PDO on a from-scratch database); `RAILPACK_PHP_EXTENSIONS` /
+  `PHP_EXTENSIONS` set explicitly, since `composer.json` declares no
+  `ext-*` requirements and Railpack never reads `composer.lock`; and
+  `RAILPACK_NODE_VERSION=22`, since Vite 8 needs Node ≥ 22.12.
+
+  Three services: web, worker (`queue:work`), scheduler
+  (`schedule:work`) — separate so a worker crash can't fail the site's
+  health check and the scheduler's cadence can't reset when web restarts
+  — plus Railway's managed MySQL.
+
+  **One application-code change survives from the abandoned attempt, and
+  it is the one that would have looked like a seeding bug:**
+  `bootstrap/app.php` now calls `trustProxies(at: '*')` for the four
+  `X-Forwarded-*` headers. Railway terminates TLS at its edge and
+  forwards over plain HTTP, so without it `$request->isSecure()` is false
+  on every request — `url()` emits `http://` links, and
+  `config('filesystems.disks.public.url')` (built from `APP_URL`)
+  resolves every product and article image against the wrong scheme. A
+  catalogue of broken images reads as "the seed failed," three layers
+  from the cause.
 
   **`APP_ENV=demo`, never `production`, and that is deliberate.**
   `app()->isProduction()` matches the literal string `production`, and
@@ -46,25 +277,68 @@ when the work happened, not when it was committed — nothing in
   shop with nobody able to log in, discovered at seed time — which is to
   say, while presenting. `APP_DEBUG=false` is set independently.
 
-  Two things found by checking rather than assuming, both now fixed in
-  the committed config: a new `.dockerignore` was **required**, not
-  tidiness — `COPY src/ ./` would have baked the host's gitignored-but-
-  present `src/.env` into the image at `/var/www/html/.env`, silently
-  overriding every variable Railway injects (a deploy pointed at the
-  compose hostname `db`, with the local `APP_KEY` and `APP_DEBUG=true`);
-  and `src/public/storage` turned out *not* to be committed, so
-  `storage:link` runs in the entrypoint rather than relying on a symlink
-  the image does not contain.
+  **Seeding is `railway ssh`, not `railway run`.** `railway run` executes
+  on the operator's own machine with the service's variables injected —
+  `DB_HOST` there resolves to a private-network hostname unreachable
+  outside Railway, so it cannot actually reach the deployed database.
+  `railway ssh` opens a session inside the running container, where it
+  resolves.
 
   Recorded as accepted, not hidden: uploads are ephemeral (the 182
-  committed demo images survive by being *in* the image; an
+  committed demo images survive by being *in* the repository; an
   admin-uploaded one does not), the seeded admin accounts keep their
-  known passwords on a public URL, HSTS is still set nowhere, and the
-  Stripe webhook IP allow-list cannot be carried over as written —
-  it matches `$remote_addr`, which behind Railway's edge is the proxy,
-  so enabling it unchanged would reject every genuine event while looking
-  exactly like a signature failure. Each carries its own "revisit when"
-  in ADR-0023.
+  known passwords on a public URL, HSTS is still set nowhere, static-asset
+  headers under Caddy are unconfigured (a gap the abandoned nginx config
+  used to close), and the Stripe webhook IP allow-list was never enabled
+  and stays that way — it matches `$remote_addr`, which behind any
+  reverse proxy is the proxy rather than Stripe. Each carries its own
+  "revisit when" in ADR-0023 or ADR-0024.
+
+- **Filament admin assets on the beta — `src/start-container.sh`.**
+  Railpack's `composer install --no-scripts` means `filament:upgrade`
+  (composer.json's `post-autoload-dump` hook, which runs `filament:assets`)
+  never runs during the build, so the deployed panel worked but rendered
+  unstyled: `/css/filament/filament/app.css` 404'd, and
+  `public/css/filament/` did not exist in the container at all, confirmed
+  via `railway ssh`. Committing the generated assets instead is not
+  available — `src/.gitignore` ignores `/public/css` and `/public/js`
+  outright, since Filament regenerates them.
+
+  Adds `src/start-container.sh`, which Railpack uses in place of its own
+  default start script when present in the build context (confirmed from
+  Railpack's PHP provider source: `ctx.Deploy.StartCmd =
+  "/start-container.sh"`, and a custom file *replaces* the default, not
+  augments it). Reproduces the default body verbatim — the
+  `RAILPACK_SKIP_MIGRATIONS` guard, `storage:link`, `optimize`, the
+  FrankenPHP/Caddy startup line — with `php artisan filament:assets`
+  inserted before `optimize`. Merged via PR #90, deployed, verified live
+  in the Railway HTTP logs (not just a curl exit code):
+  `GET /css/filament/filament/app.css` → 200.
+
+- **The Stripe webhook endpoint didn't exist; the account-mismatch trap
+  briefly hid that it didn't.** `STRIPE_WEBHOOK_SECRET` was set on the
+  service and correctly rejected unsigned/malformed requests (400), which
+  read as "webhook verification works" — it does, but no dashboard endpoint
+  had ever pointed at the beta, so no real Stripe event had ever been
+  accepted either. Checking via the Stripe MCP connector initially seemed to
+  confirm this (`GetWebhookEndpoints` returned empty) but was checking the
+  *wrong Stripe account* — the third occurrence of a trap already recorded
+  in `troubleshooting/payments-and-security-tooling.md`, where the MCP
+  connector and CLI both silently default to a developer's other
+  identically-named "Amazoff" sandbox rather than the app's actual
+  `STRIPE_SECRET` account. Resolved by creating the endpoint by hand at the
+  account-scoped dashboard URL rather than through either tool: 7 events
+  (the exact set `HandleStripeWebhookEvent` handles —
+  `payment_intent.succeeded`/`.payment_failed`/`.canceled`/`.processing`,
+  `charge.refunded`, `charge.dispute.created`/`.closed`), new signing secret
+  rotated into `STRIPE_WEBHOOK_SECRET`, service restarted. Verified by a
+  real Stripe-signed test event in the Railway HTTP logs — genuine
+  `Stripe-Signature` header, UA `Stripe/1.0`, response 200 — not by the
+  curl check that was mistaken for sufficient earlier the same session.
+
+  Also ran `demo:stripe-payments` for real (not `--dry-run`) against the
+  seeded beta database: 10 intents opened, 0 failed, 0 stale-idempotency
+  collisions, confirmed in `payments.stripe_payment_intent_id`.
 
 ### Fixed
 
