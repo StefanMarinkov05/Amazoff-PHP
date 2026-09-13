@@ -11,4 +11,8 @@ declare(strict_types=1);
 return [
     'order_count' => env('STRESS_SEED_COUNT'),
     'catalogue_count' => env('CATALOGUE_STRESS_COUNT'),
+    'deep_catalogue_count' => env('DEEP_STRESS_COUNT'),
+    'deep_min_variations' => env('DEEP_STRESS_MIN_VARIATIONS'),
+    'deep_max_variations' => env('DEEP_STRESS_MAX_VARIATIONS'),
+    'deep_images_per_product' => env('DEEP_STRESS_IMAGES_PER_PRODUCT'),
 ];

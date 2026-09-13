@@ -6,7 +6,200 @@ when the work happened, not when it was committed — nothing in
 
 ## Unreleased
 
+### Added
+
+- **Chaos/failure-injection and accessibility testing — four induced
+  failures, two real bugs found and one fixed (2026-09-14).**
+  `docs/reference/testing/chaos-testing.md`: Stripe unreachable
+  mid-checkout surfaces a genuine uncaught 500 (`CheckoutPage::placeOrder()`'s
+  catch clause never lists Stripe's exception hierarchy — proven by a new
+  test that mocks a real `ApiConnectionException`, not fixed, needs a UX
+  decision), confirmed the transaction still rolls back cleanly even on
+  that uncaught path; a real MySQL connection killed mid-transaction via a
+  second PDO connection and a precisely-timed `KILL` (new
+  `tests/Concurrency/CreateOrderConnectionLossTest.php`) leaves no order,
+  order item, or reserved stock — `DB::transaction()`'s rollback guarantee
+  holds against a genuine network-level connection loss, not just a thrown
+  exception, verified red-before-green; mail service down (re-inducing the
+  session's own earlier mailpit incident on purpose) confirmed
+  `--tries=3` retry is correct but found a real gap — a permanently-failed
+  job has no recovery path once `failed_jobs` receives it, not fixed; and
+  a real Stripe order abandoned mid-connection is proven end-to-end for
+  the first time — a genuine `CheckoutPage` submission reaching
+  `AwaitingPayment` with a real intent, then found and released by
+  `ExpireUnpaidOrders`, a seam `ExpireUnpaidOrdersTest.php`'s
+  factory-built orders never crossed.
+
+  `docs/reference/testing/accessibility-testing.md`: `axe-core` against
+  the storefront critical path found and fixed a real structural bug live
+  — `product-list.blade.php` nested a bare `<main>` inside the layout's
+  own `<main id="main-content">`, tripping three landmark violations on
+  `/catalogue`; fixed to `<div>`, verified live (violations gone). Also
+  found a systemic colour-contrast failure — the same `#798898`/`#556577`
+  gray-blue text fails WCAG AA 4.5:1 across catalogue/product/cart/
+  checkout/confirmation (42+17+16+6+4 nodes) — checked live that it is
+  not a one-token fix (a `--color-ink-400` swap only closes 24 of 42
+  catalogue violations) and recorded precisely rather than patched as a
+  guess.
+
+- **`DeepCatalogueStressSeeder` — 100,000 products, 2.5M variations, 5M
+  images, real scale, measured (2026-09-14).** `CatalogueStressSeeder`'s
+  companion for variation/image *depth*, not catalogue breadth: every
+  generated product gets 20–30 variations and up to 50 images of its own,
+  each variation's gallery a real 3–8-image subset attached through
+  `product_image_product_variation`. Two bugs found and fixed while
+  building it: `product_variations.image_id` no longer exists (dropped in
+  an earlier migration; a variation's image resolves through the gallery
+  pivot alone now) and `DEEP_STRESS_COUNT` was silently ignored because
+  `config/stress.php` never declared the key — both fixed before the full
+  run. At the default 100,000-product count: seeded in 723.3s (12m 3s),
+  138.3 products/second sustained, linear scaling with no slowdown
+  measured start to finish. Page-load results against the full seed, in
+  `docs/reference/testing/performance-testing.md`: `/catalogue` 2,267ms
+  (203 queries — the same N+1/missing-index/full-scan problems Findings
+  1–3 already named, now confirmed at 2× the earlier run's scale), versus
+  a single product page with a real 27-variation switcher and 50-image
+  gallery at **100–126ms, 22 queries, no query above 2ms** — 18× faster
+  than the catalogue list in the same database. `docs/how-to/seed-the-database.md`
+  has the full usage; stress rows removed with `migrate:fresh --seed`
+  after measuring.
+
+- **Load test at 100,000 products and 500 variations/200 images on one
+  product; four findings — three real, one negative (2026-09-14).**
+  Tier 2 item 5: `CatalogueStressSeeder` seeded to 100,169 total products,
+  and a single product built directly through
+  `ProductVariation`/`ProductImage` factories at 100 and then 500
+  variations. `/catalogue`, `/catalogue?search=`, and `/products/{slug}`
+  measured in-process with `DB::enableQueryLog()` and `EXPLAIN` on the
+  slow queries. Findings, in
+  `docs/reference/testing/performance-testing.md`: (1) a genuine N+1 —
+  `ResolveCategoryFamily::selfAndDescendantIds()` re-queries the category
+  table once per category (173 identical queries), directly contradicting
+  its own caller's docblock; (2) `products.is_available`/`deleted_at`
+  carry no index, so the per-category and per-brand product-count queries
+  scan ~95% of the table despite `product_category_id`/`brand_id` being
+  indexed; (3) catalogue search's `LIKE '%term%'` is a full table scan by
+  construction (`type: ALL`, 0% filtered) and is the dominant cost of a
+  ~3.9s search page at this scale — the known B-tree-can't-serve-this
+  trade (ADR-0014), now measured rather than assumed; (4) a negative
+  result recorded on purpose — the product detail page's query count stays
+  flat at 19 regardless of variation/image count (5 → 100 → 500), proving
+  `ProductDetails`' eager-loading does what its own `with([...])` calls
+  claim. New `docs/how-to/measure-performance-under-load.md` records the
+  reproducible procedure. All stress data removed after measuring
+  (`migrate:fresh --seed` for the catalogue stress rows; the single
+  hand-built product force-deleted directly, since it wasn't seeded
+  through a seeder `migrate:fresh` alone would clear).
+
+- **The local `queue` container was crash-looping on every seeded order's
+  confirmation email — `mailpit` was simply never started
+  (2026-09-14).** Noticed as a side effect of `demo:seed`'s 157 queued
+  `OrderPlaced` emails, each failing with "Lost connection" and killing the
+  worker, which Docker restarted into the same failure every few seconds —
+  the exact resource-contention pattern behind the transient test-suite
+  flakiness recorded in
+  `troubleshooting/concurrency-and-testing-races.md`'s new entry the same
+  day. `docker compose up -d mailpit` fixed it outright; the queue drained
+  its backlog in under a second once mailpit was reachable. Not a code
+  bug — `mailpit` is declared in `docker-compose.yml` and was simply not
+  running in this session. No code change; recorded here because it cost
+  real time to trace and is worth a faster diagnosis next time.
+
+- **`admin:bootstrap` creates the first real administrator account
+  (2026-09-14).** `misc/todo.md`'s "Blocking deployability" item: once
+  `APP_ENV=production`, `UserSeeder` refuses to run (its accounts have
+  known passwords), and nothing else in `app/Console/Commands/` created an
+  administrator — a real production database had the `administrator` role
+  and nobody holding it. The command takes `--email`/`--first-name`/
+  `--last-name` (prompted if omitted) and a password from `ADMIN_PASSWORD`
+  (`config('auth.admin_password')`, for a scripted Railway release/start
+  step) or a hidden prompt otherwise — never a default or a checked-in
+  value. Refuses outright if an administrator already exists, so it is
+  idempotent to re-run. No Action: one `User::create()` plus one
+  `assignRole()`, the same single-table reasoning `Register` already
+  establishes (ADR-0007). `docs/reference/console-commands.md` has the
+  full detail. Verified live against the seeded dev database (refuses
+  correctly, `administrator` already present) and with a new Pest suite
+  (`tests/Feature/Console/Commands/BootstrapAdminTest.php`, 3 cases,
+  each confirmed red before its fix) covering the creation and refusal
+  paths a live check can't safely exercise against real data.
+
+- **HSTS, and a PHP-layer Stripe webhook IP allow-list (2026-09-14).**
+  `misc/todo.md`'s "Deploy-gating config" item, and the plan's own framing
+  ("fix the nginx `$remote_addr` trap") turned out not to match what is
+  actually deployed: ADR-0024 moved this deploy to Railway's Railpack/Caddy
+  builder, which has no committed nginx (or Caddyfile) this repository can
+  add either control to — `docker/nginx/stripe-ip-allowlist.conf.example`
+  was, and remains, dead code in production. `deploy-and-host.md` already
+  recorded both as accepted gaps for exactly that reason.
+
+  **HSTS**: `SetSecurityHeaders` now sends
+  `Strict-Transport-Security: max-age=31536000; includeSubDomains` — gated
+  on `$request->isSecure()`, not `app()->isProduction()` (this deploy runs
+  `APP_ENV=demo`, ADR-0023), so it appears exactly when the HTTPS guarantee
+  behind it is real: true on Railway once `trustProxies(at: '*')` resolves
+  the connection, false in local Docker Compose over plain HTTP. No
+  `preload` — a slow-to-reverse commitment for a shared `*.up.railway.app`
+  domain this app does not own outright.
+
+  **IP allow-list**: new `App\Http\Middleware\RestrictStripeWebhookIps`,
+  ahead of `VerifyStripeWebhookSignature` on `/stripe/webhook`, does the
+  same job Stripe's own nginx-shaped guidance describes, in PHP instead —
+  checking `$request->ip()` against `STRIPE_WEBHOOK_ALLOWED_IPS`
+  (comma-separated IPs/CIDRs from `https://stripe.com/files/ips/ips_webhooks.txt`).
+  `$request->ip()` is already the real client address here for the same
+  reason `isSecure()` is: `trustProxies(at: '*')` resolves it out of
+  `X-Forwarded-For` before this middleware runs — the exact resolution the
+  nginx form would otherwise need `real_ip_header`/`set_real_ip_from` to
+  perform. **Fails open, not closed, when unconfigured** — the deliberate
+  opposite of the signature middleware's philosophy: signature verification
+  is the endpoint's sole authentication and must fail closed, but Stripe's
+  ranges are a moving target and a stale copy here must cost this one
+  additive layer, logged as a warning, never silently blackhole real
+  payments.
+
+  `docs/explanation/security-model.md`'s "The Stripe webhook" section has
+  the full reasoning for both; `docs/how-to/deploy-and-host.md`'s Railway
+  section and environment-variable table are updated to match, and the two
+  now-stale "no HSTS" / "never enabled" lines there are removed rather than
+  left to contradict the code. Four new adversarial cases in
+  `tests/Feature/Payment/StripeWebhookSecurityTest.php` (now 21 total): the
+  allow-list rejects a genuinely-signed request from outside it, accepts
+  one from inside it (including a CIDR range), fails open when unconfigured,
+  and still refuses an unsigned request even from an allow-listed IP — each
+  confirmed red against a deliberately broken check before being confirmed
+  green.
+
+  `SESSION_SECURE_COOKIE` needed no code change for this item — confirmed
+  directly on Railway's dashboard (`Online_Shop_TeamB` service, production
+  environment) already `true`, closing out the rest of `misc/todo.md`'s
+  "Deploy-gating config" item alongside the two above.
+
 ### Fixed
+
+- **Every admin-panel view page showed money in dollars, not euros
+  (2026-09-14).** Found live while click-through-testing
+  `warehouse_employee`'s order view: "Totals" read `$12.90` even though the
+  same page's "Currency" field said "Euro (EUR)," and the orders *list*
+  right next to it correctly showed `€269.40`. Root cause:
+  `AppServiceProvider::boot()` set `Table::configureUsing(...
+  ->defaultCurrency('eur'))` for table columns, but `Filament\Schemas\Schema`
+  — the class every `*Infolist` (a `*ViewRecord` page's single-record view)
+  is built from — carries its own separate copy of the same
+  `HasDefaultDataFormattingSettings` trait, never configured. Every bare
+  `->money()` call on an infolist (`OrderInfolist`, `ShipmentInfolist`,
+  `ReturnInfolist`, `PaymentInfolist`, `ProductInfolist`,
+  `CouponInfolist` — six resources) fell back silently to Filament's own USD
+  default. Fixed with the equivalent `Schema::configureUsing(...
+  ->defaultCurrency('eur'))` alongside the existing `Table` one. New test,
+  `tests/Feature/Filament/ProductViewTest.php`'s `'shows an order's totals
+  in euros, not the Filament default of dollars'`, asserts `€12.90` is
+  present *and* `$12.90` is absent — confirmed red (a `QueryException` if
+  the provider is left syntactically broken counts) before green. Verified
+  live on both Orders (browser) and Products (direct in-process request)
+  after the fix; the other four affected resources share the identical
+  `TextEntry::make(...)->money()` pattern so the same `Schema`-level default
+  covers them too.
 
 - **SEC-017: six plain-lookup admin resources had zero `->maxLength()`
   calls anywhere on their create forms.** Found by the content_editor

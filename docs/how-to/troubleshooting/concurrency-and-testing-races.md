@@ -117,6 +117,45 @@ the barrier, which is what makes the interleaving happen at all.
 
 ---
 
+## `pest --testsuite=Feature,Unit,Concurrency` fails a handful of unrelated `Feature` tests with a missing-table error, then passes clean on re-run
+
+**Symptom.** `SQLSTATE[42S02]: Base table or view not found` (or a similar
+`Data too long`/constraint error one layer past it) on ordinary `Feature`
+tests with no relation to concurrency — `product_categories`,
+`AddProductVariation.php`'s own re-read query — inside a combined
+`--testsuite=Feature,Unit,Concurrency` run. 15–21 tests failed this way
+across two consecutive attempts of the same unchanged command; a third,
+identical run immediately after passed all 1479. Each individual failing
+test passes cleanly run alone.
+
+**Cause.** Not confirmed to a specific line — this is the same class of
+problem as "Every concurrency test fails at once, then passes on re-run"
+above (a fixed timing assumption meeting a container under more load than
+usual), one layer over: `LazilyRefreshDatabase`'s per-test migration reset
+in `Feature`/`Unit` shares the one physical `amazoff_test` database with
+`tests/Concurrency`'s real subprocess workers in the same invocation, and
+the failures both times coincided with the `queue` compose service
+crash-looping in the background (`docker compose ps` showed it
+`Restarting` repeatedly right before and during both failing runs, settled
+by the time of the clean third run) — competing for the same container's
+CPU and MySQL connections is a plausible amplifier, not a proven one.
+
+**Fix.** Re-run the same command unchanged. Confirm `docker compose ps`
+shows every service stable (not `Restarting`) first if it happens again —
+that correlation held both times here.
+
+**Why it recurs.** `--update-shards` across all three testsuites is a
+single ~10-minute invocation specifically because it must be one run (see
+`use-ci.md`, "Adding a new test file") — there is no way to split it to
+reduce exposure to a transient container issue without also invalidating
+the timing data it exists to collect.
+
+**Prevention.** Same as the entry above: this is a harness/environment
+symptom, not a locking regression, so the tell is the same — an unrelated
+scatter of tests failing together on a schema-level error, gone on
+re-run with no code change, is the signature to check `docker compose ps`
+against before spending time on the failing test's own code.
+
 ## A concurrency test cannot be written in one process
 
 **Symptom.** A test proving a `lockForUpdate()` works passes. Deleting the

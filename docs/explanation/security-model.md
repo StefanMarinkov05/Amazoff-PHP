@@ -170,16 +170,42 @@ Which half does what was established by removing each in turn against
   rather than dangerous here — but it is the pattern CLAUDE.md forbids, and
   it would be the whole guard if the index were ever dropped.
 
+### The IP allow-list — a second layer, not a substitute
+
+`App\Http\Middleware\RestrictStripeWebhookIps`, ahead of
+`VerifyStripeWebhookSignature` on the route, narrows *where* a webhook
+request may come from. Stripe's own guidance recommends this alongside
+signature verification, not instead of it — the traditional shape is an
+edge/nginx allow-list (`docker/nginx/stripe-ip-allowlist.conf.example`),
+but this deploy's edge is Railway's Railpack/Caddy build, which has no
+committed config file to add one to (ADR-0024). This class does the same
+check in PHP: `$request->ip()` is already the real client address here,
+because `bootstrap/app.php`'s `trustProxies(at: '*')` resolves it out of
+`X-Forwarded-For` before this middleware runs — the same resolution
+`url()`, `isSecure()`, and the login rate limiter already depend on.
+
+It fails **open**, not closed, when `STRIPE_WEBHOOK_ALLOWED_IPS` is unset or
+stale — the opposite of `VerifyStripeWebhookSignature`'s philosophy, and
+deliberately so: the signature check is the endpoint's sole authentication,
+so failing closed there stops a misconfigured deploy from silently
+accepting forged webhooks. This check is additive, and Stripe's published
+ranges change; failing closed here would instead risk silently dropping
+*real* payments the moment the list goes stale — a materially worse
+failure with no attacker involved. A missing or outdated list costs this
+one layer, logged as a warning, never the payment.
+
 ### The adversarial tests
 
 `tests/Feature/Payment/StripeWebhookSecurityTest.php` is written from the
 attacker's side: what does someone who can POST to this URL, without the
-signing secret, have to do to get an order marked paid? Seventeen cases,
+signing secret, have to do to get an order marked paid? Twenty-one cases,
 each naming one attempt — unsigned, wrong secret, malformed header, body
 edited after signing, a signature captured for one intent replayed against
 another, an expired timestamp, an unconfigured secret, whether error
-responses leak which PaymentIntent ids exist, and four cases covering
-signing-secret rotation (below).
+responses leak which PaymentIntent ids exist, four cases covering the IP
+allow-list (rejects outside it, accepts inside it, fails open when
+unconfigured, still refuses an unsigned request even from an allow-listed
+IP), and four more covering signing-secret rotation (below).
 
 They were validated by replacing the middleware with a deliberately
 vulnerable version that trusts the body without verifying: **8 of the

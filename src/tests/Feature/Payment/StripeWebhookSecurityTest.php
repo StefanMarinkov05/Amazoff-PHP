@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Http\Middleware\RestrictStripeWebhookIps;
 use App\Http\Middleware\VerifyStripeWebhookSignature;
 use App\Models\Order;
 use App\Models\Payment;
@@ -282,6 +283,112 @@ it('refuses every webhook when the signing secret is not configured', function (
 });
 
 /*
+ * ── IP allow-list (App\Http\Middleware\RestrictStripeWebhookIps) ────────
+ *
+ * The second half of Stripe's recommended pairing, applied at the
+ * application layer rather than at an edge this deploy does not control —
+ * see the middleware's own docblock. Signature verification alone already
+ * defeats every attack above; these cases are about this layer specifically:
+ * does it actually narrow the source, and does it fail the right direction
+ * when unconfigured.
+ */
+
+it('rejects a genuinely signed request from an IP outside the configured allow-list', function (): void {
+    config()->set('services.stripe.webhook_allowed_ips', '203.0.113.5');
+
+    $payment = pendingStripePayment('pi_bad_ip');
+    $payload = succeededEventPayload('pi_bad_ip', 'evt_bad_ip');
+
+    $this->call(
+        'POST',
+        '/stripe/webhook',
+        [],
+        [],
+        [],
+        [
+            'HTTP_STRIPE_SIGNATURE' => stripeSignature($payload),
+            'CONTENT_TYPE' => 'application/json',
+            'REMOTE_ADDR' => '198.51.100.7',
+        ],
+        $payload,
+    )->assertStatus(403);
+
+    // The point: even a perfectly valid signature does not move money once
+    // the request comes from an IP the allow-list does not name.
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Pending)
+        ->and(PaymentEvent::count())->toBe(0);
+});
+
+it('accepts a genuinely signed request from an IP inside the configured allow-list', function (): void {
+    config()->set('services.stripe.webhook_allowed_ips', '198.51.100.0/24,203.0.113.5');
+
+    $payment = pendingStripePayment('pi_good_ip');
+    $payload = succeededEventPayload('pi_good_ip', 'evt_good_ip');
+
+    $this->call(
+        'POST',
+        '/stripe/webhook',
+        [],
+        [],
+        [],
+        [
+            'HTTP_STRIPE_SIGNATURE' => stripeSignature($payload),
+            'CONTENT_TYPE' => 'application/json',
+            'REMOTE_ADDR' => '198.51.100.7',
+        ],
+        $payload,
+    )->assertOk();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Paid);
+});
+
+it('fails open, not closed, when the allow-list is not configured', function (): void {
+    // Deliberately left unset. A stale or missing list must not silently
+    // blackhole real payments — signature verification is what actually
+    // authenticates this endpoint regardless of this layer.
+    config()->set('services.stripe.webhook_allowed_ips', null);
+
+    $payment = pendingStripePayment('pi_no_list');
+    $payload = succeededEventPayload('pi_no_list', 'evt_no_list');
+
+    $this->call(
+        'POST',
+        '/stripe/webhook',
+        [],
+        [],
+        [],
+        [
+            'HTTP_STRIPE_SIGNATURE' => stripeSignature($payload),
+            'CONTENT_TYPE' => 'application/json',
+            'REMOTE_ADDR' => '198.51.100.7',
+        ],
+        $payload,
+    )->assertOk();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Paid);
+});
+
+it('still refuses an unsigned request from an allow-listed IP', function (): void {
+    // The allow-list narrows the source; it is not a second way in. A
+    // request from a trusted IP with no valid signature must still fail.
+    config()->set('services.stripe.webhook_allowed_ips', '198.51.100.0/24');
+
+    $payment = pendingStripePayment('pi_ip_ok_sig_bad');
+
+    $this->call(
+        'POST',
+        '/stripe/webhook',
+        [],
+        [],
+        [],
+        ['REMOTE_ADDR' => '198.51.100.7'],
+        json_encode(['type' => 'payment_intent.succeeded'], JSON_THROW_ON_ERROR),
+    )->assertStatus(400);
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Pending);
+});
+
+/*
  * ── Information disclosure ──────────────────────────────────────────────
  */
 
@@ -328,6 +435,7 @@ it('carries the signature middleware and nothing from the web group', function (
     $middleware = $route->gatherMiddleware();
 
     expect($middleware)->toContain(VerifyStripeWebhookSignature::class)
+        ->and($middleware)->toContain(RestrictStripeWebhookIps::class)
         // No web group: no session, no cookies, and — the point — no CSRF
         // token requirement that someone might later "fix" by exempting the
         // route while assuming that was the only protection.

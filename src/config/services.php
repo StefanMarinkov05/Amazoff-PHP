@@ -82,6 +82,28 @@ return [
          * of trusting the cast.
          */
         'webhook_tolerance' => max(60, (int) env('STRIPE_WEBHOOK_TOLERANCE', 300)),
+        /*
+         * The second half of Stripe's own recommended pairing —
+         * "IP allowlisting" alongside signature verification — applied at
+         * the application layer via App\Http\Middleware\RestrictStripeWebhookIps
+         * rather than at the edge: this deploy's edge is Railway's
+         * Railpack/Caddy build, which has no committed config file to add an
+         * allow-list to (ADR-0024). $request->ip() is still correct there —
+         * bootstrap/app.php's trustProxies(at: '*') resolves the real client
+         * IP out of X-Forwarded-For before this ever runs, the same
+         * resolution every other IP-scoped check in this app already
+         * depends on.
+         *
+         * Comma-separated CIDRs/IPs, refreshed from
+         * https://stripe.com/files/ips/ips_webhooks.txt — see
+         * docs/reference/console-commands.md or the middleware's own
+         * docblock for the refresh procedure. Unset or empty means the
+         * middleware logs once and steps aside rather than rejecting
+         * everything: signature verification is the layer that actually
+         * authenticates this endpoint, and a stale/missing list must not
+         * silently blackhole real payments.
+         */
+        'webhook_allowed_ips' => env('STRIPE_WEBHOOK_ALLOWED_IPS'),
     ],
 
     /*

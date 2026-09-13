@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Payment\StripeWebhookController;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\RestrictStripeWebhookIps;
 use App\Http\Middleware\SetSecurityHeaders;
 use App\Http\Middleware\VerifyStripeWebhookSignature;
 use App\Support\CookieConsent;
@@ -34,7 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
          * that authenticates it.
          */
         then: function (): void {
-            Route::middleware(VerifyStripeWebhookSignature::class)
+            // IP allow-list before signature verification — cheaper to
+            // reject on, though order carries no security weight here:
+            // both must pass, and CLAUDE.md's own pairing ("CSRF-excluded
+            // and signature-verified") still holds regardless of which
+            // runs first.
+            Route::middleware([RestrictStripeWebhookIps::class, VerifyStripeWebhookSignature::class])
                 ->post('/stripe/webhook', StripeWebhookController::class)
                 ->name('stripe.webhook');
         },

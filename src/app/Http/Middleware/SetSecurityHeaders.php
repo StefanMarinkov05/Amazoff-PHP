@@ -95,6 +95,29 @@ class SetSecurityHeaders
 
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+        // Keyed on $request->isSecure(), not app()->isProduction(): this
+        // deploy runs APP_ENV=demo (ADR-0023), and the header's own hazard
+        // is orthogonal to that flag anyway — HSTS instructs the browser to
+        // refuse plain HTTP to this host for the next year, so sending it
+        // over a connection that only *looks* secure (a broken proxy trust
+        // setup, isSecure() wrongly true) locks a visitor out until the max-age
+        // expires. isSecure() already reflects Railway's TLS-terminating
+        // proxy correctly once trustProxies(at: '*') resolves it
+        // (bootstrap/app.php), so gating on it rather than the environment
+        // means the header appears exactly when the connection it protects
+        // is real, on any host, and never over the plain-HTTP connection
+        // local Docker Compose actually serves.
+        //
+        // No preload: submission to the browser preload list is a one-way,
+        // slow-to-reverse commitment this repo has not made, and Railway's
+        // own *.up.railway.app domain is shared with every other Railpack
+        // deploy on the platform — preloading it is not this app's call to
+        // make. includeSubDomains is safe without preload because it only
+        // affects this exact host's own subdomains.
+        if ($request->isSecure()) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        }
+
         // Deny every browser feature this application does not use. Add an
         // entry here only when a feature is actually wired up, never
         // pre-emptively.

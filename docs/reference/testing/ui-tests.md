@@ -769,13 +769,14 @@ real id or `null` immediately after, and the `rules()` entry (`carrier_id`:
 
 Covered in full by `explanation/security-model.md`, "The Stripe webhook" —
 including which guard does what, established by removing each in turn.
-Short version: `StripeWebhookSecurityTest` is seventeen adversarial cases
-against the endpoint (including signing-secret rotation), validated by
-swapping in a deliberately vulnerable middleware and, separately, reverting
-to a single secret; `StripePaymentTest` covers intent creation, event
-handling, dispute handling, and refund arithmetic, including the
-cumulative-versus-delta trap and the amount-match guard that refuses to mark
-a payment paid for the wrong sum.
+Short version: `StripeWebhookSecurityTest` is twenty-one adversarial cases
+against the endpoint (including signing-secret rotation and the
+`RestrictStripeWebhookIps` allow-list), validated by swapping in a
+deliberately vulnerable middleware and, separately, reverting to a single
+secret; `StripePaymentTest` covers intent creation, event handling, dispute
+handling, and refund arithmetic, including the cumulative-versus-delta trap
+and the amount-match guard that refuses to mark a payment paid for the wrong
+sum.
 
 ## Admin panel (`tests/Feature/Filament/`)
 

@@ -235,9 +235,11 @@ gaps.
   gap is about pass coverage, not missing features.
 - **The admin panel was not swept.** Filament ships its own responsive
   behaviour; §37 #19 is about the storefront.
-- **Layout only.** Colour contrast, focus order, and screen-reader output
-  were not audited. `chrome-devtools-mcp` carries an `a11y-debugging` skill
-  for exactly that, and it has not been run.
+- **Layout only.** Colour contrast is now covered — see
+  `accessibility-testing.md` (2026-09-14, `axe-core` against the storefront
+  critical path: one structural bug found and fixed, a systemic
+  colour-contrast failure found and recorded, not yet fixed). Focus order
+  and screen-reader output are still not audited.
 
 ## Repeating it
 
