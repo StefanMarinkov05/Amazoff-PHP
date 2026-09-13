@@ -116,4 +116,18 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Administrator Bootstrap Password
+    |--------------------------------------------------------------------------
+    |
+    | Read once by `admin:bootstrap` for a scripted first deploy (Railway's
+    | release/start command, where there is no TTY to prompt on). Never a
+    | checked-in default — leave ADMIN_PASSWORD unset locally and the command
+    | falls back to an interactive hidden prompt.
+    |
+    */
+
+    'admin_password' => env('ADMIN_PASSWORD'),
+
 ];

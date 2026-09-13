@@ -22,6 +22,7 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | `demo:seed` | Loads the whole demo dataset in dependency order (`Demo\DemoDatabaseSeeder`); `--fresh` resets the database first. Refuses when `APP_ENV=production` — which is why the hosted beta runs `APP_ENV=demo` (ADR-0023). Assumes roles/permissions/carriers/staff accounts already exist (run `db:seed --force` first if not). `how-to/seed-the-database.md`, "Local, the full demo" | A human, whenever a demo database is wanted; on the beta box `railway ssh -- php artisan demo:seed`, once, by hand — never in a start command, or a mid-demo restart reseeds it. Not `railway run`, which executes on the operator's machine and cannot reach Railway's private-network database host |
 | `demo:stripe-payments` | Opens real Stripe **test** PaymentIntents against already-seeded orders, through `CreateStripeIntent`, for end-to-end payment simulation. Refuses a non-`sk_test_` key. Creates but never confirms — confirmation and the webhook are what an end-to-end run exercises. `how-to/seed-the-database.md`, "Real Stripe intents" | A human, opt-in, after `demo:seed`. Part of the beta walkthrough (ADR-0023): `railway ssh -- php artisan demo:stripe-payments`, so the panel shows real intent ids. Needs `STRIPE_SECRET` set first, and note the truncated-DB idempotency trap in `troubleshooting/payments-and-security-tooling.md` |
 | `demo:fetch-article-images` | The article sibling of `demo:fetch-images` — downloads a real Pexels photo for every article whose `main_image_path` is empty or missing on disk, and writes the path onto the row. `components/journal/cover.blade.php` prefers it once it exists; falls back to generated art until then. `how-to/seed-the-database.md`, "Article images" | A human, once, after the article fixtures are loaded |
+| `admin:bootstrap` | Creates exactly one real administrator account — the only thing that can, once `UserSeeder` refuses to run under `APP_ENV=production`. Refuses if an administrator already exists | A human (or a Railway release/start command), once, on a fresh production database |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
 ## What belongs in a command
@@ -190,6 +191,35 @@ idempotency on `payment-intent-{id}`; payment ids restart at 1 on every
 low ids collide with a previous seed's payments at different amounts. The
 command detects `idempotency_key_in_use` and reports it as a skip. That key
 is a double-charge defence — do not weaken it to make a demo tidier.
+
+## `admin:bootstrap`
+
+```bash
+docker compose exec app php artisan admin:bootstrap --email=... --first-name=... --last-name=...
+```
+
+The single blocker for a real production deploy: the moment `APP_ENV`
+becomes `production`, `UserSeeder` stops running (its accounts have known
+passwords), and nothing else creates an administrator. Refuses outright if
+`User::role('administrator')->exists()` — re-running it against an
+already-bootstrapped database is a no-op, not a second account, which is
+what makes it safe to put in a scripted release step.
+
+Any of `--email`/`--first-name`/`--last-name` omitted falls back to an
+interactive prompt. The password never has a command-line flag or a
+default: it comes from `ADMIN_PASSWORD` (`config('auth.admin_password')`,
+read through config rather than `env()` directly so a cached config still
+sees it — Larastan's `larastan.noEnvCallsOutsideOfConfig` catches the
+direct form) for a scripted run, or a hidden `secret()` prompt otherwise.
+Validated with the same rules `Register` uses — `Password::defaults()` for
+the password, the `users.email` unique index for the address — so a bad
+input is a validation error here rather than a constraint violation at
+insert.
+
+No Action: one `User::create()` plus one `assignRole()`, the same
+single-table reasoning that keeps `Register` off Actions (ADR-0007) — the
+role assignment is the one thing `Register` deliberately does not do for a
+customer, and the only reason this command exists at all.
 
 ## The scheduler does not run locally
 
