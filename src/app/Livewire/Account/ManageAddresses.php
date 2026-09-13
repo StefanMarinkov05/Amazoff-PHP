@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -36,7 +37,17 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class ManageAddresses extends Component
 {
-    /** Null when the form is closed; an id when editing; 0 when adding. */
+    /**
+     * Null when the form is closed; an id when editing; 0 when adding.
+     *
+     * `#[Locked]`: only ever set server-side via `startAdding()`/
+     * `startEditing()`/`cancelEditing()`/`save()`/`delete()` — the blade view
+     * only reads it. `save()`/`delete()` already owner-scope the lookup, so
+     * this closes a crash, not an IDOR. Without the lock, a client
+     * `$set('editingId', <34-digit>)` throws a `TypeError` at hydration —
+     * see `SEC-014`.
+     */
+    #[Locked]
     public ?int $editingId = null;
 
     public string $label = '';

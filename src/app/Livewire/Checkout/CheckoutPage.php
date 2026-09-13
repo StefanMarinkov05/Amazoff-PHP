@@ -107,7 +107,15 @@ class CheckoutPage extends Component
 
     public string $delivery_type = DeliveryType::Address->value;
 
-    public ?int $carrier_id = null;
+    /**
+     * Deliberately `mixed`, not `?int` — bound `wire:model.live` to the
+     * carrier radio group, so hydration assigns whatever the client sends
+     * before any of this class's code runs. `updatedCarrierId()` normalises
+     * it back to a real id or `null` immediately after; the `rules()` entry
+     * (`integer`, `exists`) still guards what `placeOrder()` accepts. Same
+     * incident class as `ProductDetails::$quantity` — see `SEC-014`.
+     */
+    public mixed $carrier_id = null;
 
     public string $country = 'BG';
 
@@ -145,8 +153,12 @@ class CheckoutPage extends Component
      * `updatedSelectedAddressId()`. Not `#[Locked]`: an id the customer does
      * not own is simply ignored by `applySavedAddress()`, which scopes the
      * lookup to `auth()->user()->addresses()`.
+     *
+     * Deliberately `mixed`, not `?int` — `wire:model.live` hydrates whatever
+     * the client sends before `updatedSelectedAddressId()`'s own normalising
+     * runs. Same incident class as `$carrier_id` above — see `SEC-014`.
      */
-    public ?int $selected_address_id = null;
+    public mixed $selected_address_id = null;
 
     /**
      * Set once the order is placed; drives the payment step. Both are
@@ -518,6 +530,15 @@ class CheckoutPage extends Component
      */
     public function updated(string $property): void
     {
+        if ($property === 'carrier_id') {
+            // $carrier_id is `mixed` (see its own docblock) — normalise the
+            // raw client value back to a real id or null, same shape
+            // ProductDetails::mount() uses for $variationId.
+            $this->carrier_id = is_numeric($this->carrier_id) && (int) $this->carrier_id == $this->carrier_id
+                ? (int) $this->carrier_id
+                : null;
+        }
+
         if (in_array($property, ['carrier_id', 'city', 'postcode', 'delivery_type'], true)) {
             $this->courier_office_code = '';
             $this->courier_office_name = '';
