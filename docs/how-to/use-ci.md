@@ -38,6 +38,17 @@ parallel rather than one after another.
 3. `composer install`.
 4. Runs `pint --test`.
 5. Runs `phpstan analyse` (Larastan).
+6. Runs `semgrep --config ../.semgrep.yml --error app` (standalone CLI,
+   installed in the step itself via `pip`) — the four project-specific
+   invariants in the repository-root `.semgrep.yml`: unscoped
+   `Order::findOrFail()`, `$request->all()`, a direct `->status =` on an
+   `Order`, and a raw `bc*` call outside `App\Support\Money`. `--error`
+   is what actually fails the job; semgrep exits 0 on findings without it.
+   Distinct from the "Semgrep Guardian" Claude Code marketplace plugin
+   (passive, scans agent-written code inside a session, currently disabled)
+   — see `set-up-security-and-quality-tools.md`. `.semgrep.yml` lives at
+   the repository root, one level above this job's `working-directory:
+   src` default, so the config path and target are both relative to that.
 
 **`test`** — a 4-shard, time-balanced matrix over `tests/Unit` and
 `tests/Feature`:
