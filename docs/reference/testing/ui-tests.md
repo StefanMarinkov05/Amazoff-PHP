@@ -1017,3 +1017,17 @@ found none, despite both having a live panel row action and a bulk action on
   recording precisely because the same-shaped bug existed on other
   resources and this one could easily have repeated it. Those other
   resources are now fixed too — see `DomainDeleteBulkActionTest` above.
+
+### `ContactMessageResourceTest`
+
+Added 2026-09-13 with `ContactMessageReceived`. The email's button lands on
+`ViewContactMessage`, so this pins the shortcut that email promises.
+
+- The view page, fetched as `administrator`, renders **Mark handled**.
+- Calling `markHandled` on an outstanding message sets `handled_at` and sends
+  the "Marked handled" notification.
+- The action is hidden on a message that is already handled.
+- A staff account granted `viewAny`/`view_contact_message` but not
+  `update_contact_message` sees the page without the action, and
+  `handled_at` stays null — `->authorize('update')` is what hides it, not
+  the role's lack of panel access.

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Livewire\Contact\ContactForm;
+use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
@@ -16,9 +18,14 @@ use Livewire\Livewire;
  * red if its mechanism is removed from ContactForm::submit().
  */
 
-beforeEach(fn () => RateLimiter::clear('contact|127.0.0.1'));
+beforeEach(function (): void {
+    RateLimiter::clear('contact|127.0.0.1');
+    Mail::fake();
+});
 
-it('writes a message for a genuine submission', function (): void {
+it('writes a message for a genuine submission and notifies the shop inbox', function (): void {
+    config(['mail.contact_notification_address' => 'inbox@example.test']);
+
     Livewire::test(ContactForm::class)
         ->set('name', 'Grace Hopper')
         ->set('email', 'grace@example.test')
@@ -28,7 +35,13 @@ it('writes a message for a genuine submission', function (): void {
         ->assertHasNoErrors()
         ->assertSet('sent', true);
 
-    expect(ContactMessage::where('email', 'grace@example.test')->exists())->toBeTrue();
+    $message = ContactMessage::where('email', 'grace@example.test')->firstOrFail();
+
+    Mail::assertQueued(
+        ContactMessageReceived::class,
+        fn (ContactMessageReceived $mail): bool => $mail->hasTo('inbox@example.test')
+            && $mail->contactMessage->is($message),
+    );
 });
 
 it('silently discards a submission that fills the honeypot, writing nothing', function (): void {
@@ -42,6 +55,7 @@ it('silently discards a submission that fills the honeypot, writing nothing', fu
         ->assertSet('sent', true);
 
     expect(ContactMessage::where('email', 'bot@example.test')->exists())->toBeFalse();
+    Mail::assertNothingQueued();
 });
 
 it('does not spend the rate limit on a honeypot hit', function (): void {
@@ -85,6 +99,7 @@ it('throttles the sixth genuine submission from one IP within a minute', functio
 
     expect(ContactMessage::where('email', 'sixth@example.test')->exists())->toBeFalse();
     expect(ContactMessage::count())->toBe(5);
+    Mail::assertQueuedCount(5);
 });
 
 it('associates the row with a signed-in user', function (): void {

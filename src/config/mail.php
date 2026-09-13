@@ -137,4 +137,7 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // The shop inbox `ContactMessageReceived` is sent to.
+    'contact_notification_address' => env('MAIL_CONTACT_NOTIFICATION_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+
 ];
