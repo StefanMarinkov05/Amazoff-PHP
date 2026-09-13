@@ -292,7 +292,7 @@
                 </div>
             </form>
 
-            <main>
+            <div>
                 {{-- Category-specific facets, as hover-triggered dropdowns —
                      above the grid rather than in the sidebar, since these
                      are the filters a shopper who has already picked a
@@ -674,7 +674,7 @@
                         {{ $products->onEachSide(1)->links() }}
                     </nav>
                 @endif
-            </main>
+            </div>
         </div>
     </div>
 </div>
