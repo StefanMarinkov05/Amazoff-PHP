@@ -78,9 +78,14 @@ use RuntimeException;
  * `carriers()` lists the active rows for the radio group; `offices()` calls
  * `Courier::for($carrier)->offices()` for the typed city and is what
  * `selectOffice()` resolves a click against. `courier_office_code`/`_name`
- * are therefore never customer-typed text — `placeOrder()` re-resolves the
- * submitted code against `offices()` one more time before trusting it,
- * because the browser can still submit any string as the property value.
+ * are therefore never customer-typed *through the rendered form* — but both
+ * are still public properties, independently reachable via `$set()`
+ * regardless of what the form does. `placeOrder()` re-resolves the
+ * submitted code against `offices()` one more time, and then re-derives
+ * `courier_office_name` from *that* resolved office rather than trusting
+ * the client's copy of the name at all (SEC-015) — a mismatched or
+ * oversized name submitted independently of the code it accompanies is
+ * discarded, not merely validated.
  * `docs/explanation/couriers.md` has the full read-path/write-path split.
  */
 #[Layout('components.layouts.app')]
@@ -355,10 +360,13 @@ class CheckoutPage extends Component
             // Exactly one of the two address shapes, decided by delivery_type
             // rather than by which fields happen to be filled.
             'street' => ['nullable', 'required_if:delivery_type,address', 'string', 'max:150'],
-            // courier_office_name carries no rule: it is never customer
-            // input. selectOffice() sets it alongside the code, from an
-            // office offices() itself returned, and placeOrder() re-resolves
-            // both against that same list before trusting either.
+            // courier_office_name carries no rule here: it is not trusted as
+            // submitted regardless of what a rule would allow through.
+            // selectOffice() sets it alongside the code, from an office
+            // offices() itself returned, but a public property is still
+            // independently client-settable via $set() — placeOrder()
+            // re-derives it from the office the code resolves to rather than
+            // validating the client's copy at all (SEC-015).
             'courier_office_code' => ['nullable', 'required_if:delivery_type,office', 'string', 'max:50'],
             'billing_same_as_delivery' => ['boolean'],
             'billing_city' => ['nullable', 'required_if:billing_same_as_delivery,false', 'string', 'max:50'],
@@ -579,11 +587,22 @@ class CheckoutPage extends Component
         // the same principle CLAUDE.md applies to a submitted total. A stale
         // code (the customer changed carrier or city after picking one, or
         // never picked one at all) fails here rather than at label time.
-        if ($this->delivery_type === DeliveryType::Office->value
-            && $this->offices()->firstWhere('code', $validated['courier_office_code']) === null) {
-            $this->addError('courier_office_code', 'Please choose a courier office from the list.');
+        if ($this->delivery_type === DeliveryType::Office->value) {
+            $office = $this->offices()->firstWhere('code', $validated['courier_office_code']);
 
-            return;
+            if ($office === null) {
+                $this->addError('courier_office_code', 'Please choose a courier office from the list.');
+
+                return;
+            }
+
+            // $courier_office_name is a public property the client can set
+            // via $set() independently of what selectOffice() wrote — the
+            // code above is re-resolved against offices(); the name gets the
+            // same treatment here, from the office that resolution just
+            // proved is real, rather than trusting whatever the property
+            // currently holds (SEC-015).
+            $this->courier_office_name = $office->name;
         }
 
         try {
