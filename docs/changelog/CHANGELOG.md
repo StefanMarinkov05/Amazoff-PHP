@@ -8,6 +8,29 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Contact messages now email the shop inbox, with a one-click "Mark
+  handled" in the panel (2026-09-13).** Before this, `ContactForm` only
+  wrote a row: nobody was told a message had arrived, and marking it handled
+  meant opening Edit and filling in a date-time picker. `ContactForm::submit`
+  now queues `App\Mail\ContactMessageReceived` to
+  `MAIL_CONTACT_NOTIFICATION_ADDRESS` (falls back to `MAIL_FROM_ADDRESS`),
+  with Reply-To set to the sender and a button to the message's panel page.
+  That page, `ViewContactMessage`, gains a **Mark handled** header action
+  (`update_contact_message`, hidden once handled).
+
+  The sender's text goes into the email inside a code fence longer than any
+  backtick run in it. Markdown mail escapes HTML but still renders Markdown,
+  so without the fence the form would deliver working phishing links to
+  staff from the shop's own domain. SEC-010's "neither form sends mail"
+  bound gets a dated addendum; `explanation/gdpr.md` records that inbox
+  copies are beyond erasure's reach.
+
+  Tests: `Mail/ContactMessageReceivedTest` (content, link, Reply-To, three
+  link-injection cases), `Filament/ContactMessageResourceTest` (marks
+  handled, hidden once handled, hidden without `update`), and
+  `ContactFormTest` now asserts the mail is queued and that the honeypot and
+  throttled paths queue nothing.
+
 - **A deployable container image and Railway as the beta target
   (ADR-0023).** The app had never run anywhere but local Docker:
   ADR-0001 named Forge in one line, no host was ever provisioned, and

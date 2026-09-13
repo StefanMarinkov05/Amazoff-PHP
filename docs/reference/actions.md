@@ -460,7 +460,10 @@ regardless.
 
 Contact messages deliberately have no Action. One insert, one table, no
 second writer: `ContactForm` calls `ContactMessage::create()` directly, which
-is the same test that keeps the lookup tables on Filament's default CRUD.
+is the same test that keeps the lookup tables on Filament's default CRUD. It
+then queues `ContactMessageReceived` to the shop inbox. The panel's **Mark
+handled** button on `ViewContactMessage` is likewise a direct one-column
+update of `handled_at`, gated by `update_contact_message`.
 
 ## GDPR
 

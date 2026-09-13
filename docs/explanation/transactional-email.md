@@ -76,6 +76,28 @@ ePrivacy Art. 13), and this project does not send campaigns.
   `client_secret`), passwords, session identifiers, or another customer's
   data. `OrderPlacedTest` asserts the negative cases directly.
 
+## Mail to staff
+
+`ContactMessageReceived` is the one mailable addressed to the shop rather
+than a customer. It goes to a single inbox,
+`config('mail.contact_notification_address')` (`.env`
+`MAIL_CONTACT_NOTIFICATION_ADDRESS`, falling back to `MAIL_FROM_ADDRESS`),
+not to each staff account: a shared inbox is where a shop answers mail, and
+a per-role recipient query would have to special-case the administrator,
+who holds no permission rows (`Gate::before`, ADR-0006).
+
+- **Reply-To is the sender**, so answering the email answers the customer.
+- **The button opens `ViewContactMessage`**, whose **Mark handled** header
+  action sets `handled_at` in one click. The link grants nothing by itself —
+  the panel still requires a login and `update_contact_message`.
+- **The sender's text is untrusted and is rendered inside a code fence.**
+  Markdown templates escape HTML but still parse Markdown, so a message
+  containing `[Reset your password](https://…)` would otherwise arrive in
+  the staff inbox as a working link, sent from the shop's own domain. The
+  fence is one backtick longer than the longest backtick run in the text, so
+  the sender cannot close it. `ContactMessageReceivedTest` covers a plain
+  link and both ways of closing the fence.
+
 ## Current mailables
 
 | Mailable | Trigger | Regulation |
@@ -84,6 +106,7 @@ ePrivacy Art. 13), and this project does not send campaigns.
 | `App\Mail\OrderPlaced` (card) | `SendOrderPlacedConfirmation`, listening on `OrderStatusChanged` when the order reaches `Paid` (ADR-0022) | CRD Art. 8(7); GDPR Art. 6(1)(b) |
 | `App\Mail\NewsletterConfirmation` | `SubscribeToNewsletter`, when a `Pending` row is created | ePrivacy Art. 13 |
 | `App\Mail\NewsletterUnsubscribed` | the unsubscribe route, after the status flips | GDPR Art. 7(3) acknowledgement |
+| `App\Mail\ContactMessageReceived` | `ContactForm::submit`, after the row is written — to the shop inbox, not the sender | none; operational |
 
 ## Not done
 

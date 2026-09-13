@@ -137,6 +137,13 @@ actions.
 - `activity_log` (spatie/laravel-activitylog) records nothing
   customer-facing yet. When it does, its `causer` and `properties` rows
   join the erasure routine.
+- **Copies of contact messages in the shop inbox.** `ContactMessageReceived`
+  emails each message's name, address and text to
+  `MAIL_CONTACT_NOTIFICATION_ADDRESS`. Erasure deletes the
+  `contact_messages` row but cannot reach a mailbox, so honouring an Art. 17
+  request also means deleting those emails by hand. Worth a line in the
+  erasure procedure staff follow, and in the privacy policy's retention
+  section.
 - Concurrency coverage for the erasure and purge paths: `GdprErasureConcurrencyTest`
   proves the locks with the `race:worker` subprocess pattern — two erasures,
   erasure vs. an order-status transition, and the retention purge vs. a

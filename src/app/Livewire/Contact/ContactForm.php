@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire\Contact;
 
 use App\Livewire\Concerns\ThrottlesSubmissions;
+use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -76,13 +78,16 @@ class ContactForm extends Component
 
         $this->throttleSubmission('contact|'.$this->requestIp(), 'message');
 
-        ContactMessage::create([
+        $contactMessage = ContactMessage::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'subject' => $validated['subject'] ?? null,
             'message' => $validated['message'],
             'user_id' => auth()->id(),
         ]);
+
+        Mail::to(config()->string('mail.contact_notification_address'))
+            ->queue(new ContactMessageReceived($contactMessage));
 
         $this->reset(['subject', 'message']);
         $this->sent = true;

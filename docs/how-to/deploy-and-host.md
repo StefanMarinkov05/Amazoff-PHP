@@ -72,6 +72,7 @@ is quiet rather than loud.
 | `DB_*` | from the MySQL service | `DB_HOST` is Railway's private hostname, never `127.0.0.1`. |
 | `COUPON_EMAIL_PEPPER` | any long random string | `RedeemCoupon` hashes emails with it. Blank is not a weaker hash, it is a different one than the rows were written with. |
 | `MAIL_MAILER` | `log` (or a real relay) | `mailpit` is a compose hostname that does not resolve here; queued mail fails silently against it. |
+| `MAIL_CONTACT_NOTIFICATION_ADDRESS` | the inbox staff actually read | Where each contact-form message is emailed. Unset, it falls back to `MAIL_FROM_ADDRESS` — usually a `noreply@` nobody reads, so messages pile up in the panel with no one told. |
 | `STRIPE_KEY` / `STRIPE_SECRET` | test keys | `pk_test_` / `sk_test_`. `demo:stripe-payments` refuses a non-`sk_test_` secret. |
 | `STRIPE_WEBHOOK_SECRET` | from the dashboard endpoint | **Not** from `stripe listen`. Create an endpoint at `https://<domain>/stripe/webhook` and copy its signing secret. |
 | `PORT` | *do not set* | Railway injects it; the entrypoint substitutes it into nginx's config. |

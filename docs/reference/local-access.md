@@ -157,7 +157,10 @@ Plus `/admin/logout`. There is no `/admin/login` — see above.
 Products carry three relation managers (variations, images, specifications);
 Orders carry three (items, addresses, status histories). Reviews are
 moderation-only — approve/unapprove row actions calling
-`ApproveProductReview`/`UnapproveProductReview`, no create. Roles are edit
+`ApproveProductReview`/`UnapproveProductReview`, no create. A contact
+message's view page carries **Mark handled** (needs `update_contact_message`,
+hidden once handled); it is where the button in the `ContactMessageReceived`
+email lands. Roles are edit
 only: `canAccessPanel()` gates on the `User::STAFF_ROLES` constant, so a
 role created in the UI would grant no panel access until someone edited
 that constant and deployed.
