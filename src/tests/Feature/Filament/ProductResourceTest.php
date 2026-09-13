@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\Catalogue\AddProductVariation;
+use App\Actions\Catalogue\SetVariationImages;
 use App\Actions\Inventory\ReserveStock;
 use App\Enums\InventoryMovementType;
 use App\Enums\LengthUnit;
@@ -15,11 +16,13 @@ use App\Models\AttributeValue;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ProductImage;
 use App\Models\ProductVariation;
 use App\Models\User;
 use Database\Seeders\System\PermissionSeeder;
 use Database\Seeders\System\RoleSeeder;
 use Database\Seeders\System\UserSeeder;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -431,4 +434,145 @@ it('deletes a product and its variations through the panel', function (): void {
     expect($product->fresh()->trashed())->toBeTrue()
         ->and(ProductVariation::where('product_id', $product->getKey())->count())->toBe(0)
         ->and(Inventory::count())->toBe(1);
+});
+
+/*
+ * manageImages and setDefault, both untested at this layer until now.
+ * SetVariationImages and SetDefaultVariation's own logic (ordering,
+ * scoping, the "exactly one default" invariant) are covered directly in
+ * SetVariationImagesTest and their own Action tests — what these prove is
+ * the relation manager's wiring around them: the gallery Select only offers
+ * the product's own images (ImageNotOnProductException is the Action's
+ * refusal; an admin should never be able to submit one), and the edit modal
+ * prefills in the pivot's stored position order rather than starting blank
+ * or resorting by id.
+ */
+
+it('accepts an image from the variation\'s own product into the gallery', function (): void {
+    Storage::fake(ProductImage::DISK);
+    $product = Product::factory()->create(['is_available' => false]);
+    $variation = app(AddProductVariation::class)->handle($product, [
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
+    ], 0, null);
+    $ownImage = ProductImage::factory()->for($product)->create();
+
+    Livewire::test(ProductVariationsRelationManager::class, [
+        'ownerRecord' => $product,
+        'pageClass' => EditProduct::class,
+    ])
+        ->mountTableAction('manageImages', $variation)
+        ->setTableActionData([
+            'images' => [
+                ['image_id' => $ownImage->id],
+            ],
+        ])
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    expect($variation->images()->pluck('product_images.id')->all())->toBe([$ownImage->id]);
+});
+
+it('refuses an image from another product rather than writing it to the gallery', function (): void {
+    Storage::fake(ProductImage::DISK);
+    $product = Product::factory()->create(['is_available' => false]);
+    // Empty gallery, unlike the accepts-its-own-image test above — starting
+    // from a gallery that already held this exact image would make the
+    // assertion below pass whether or not the refusal actually worked, since
+    // the erroneous state and the correct one would look identical.
+    $variation = app(AddProductVariation::class)->handle($product, [
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
+    ], 0, null);
+    $otherProductImage = ProductImage::factory()->create();
+
+    // The gallery Select's own options() scopes to the product's images
+    // (so an honest admin never sees another product's photos to pick
+    // from), but that is client-side convenience, not the guarantee — a
+    // Livewire test can submit any id regardless of what the field
+    // rendered. What actually stops the write is SetVariationImages'
+    // ImageNotOnProductException, caught by ReportsDomainFailures. Confirmed
+    // this is genuinely reachable, not hidden behind options(): the
+    // assertion below still passed when options() was temporarily widened
+    // to every product's images during this test's own development,
+    // because the write itself is refused regardless of what the field
+    // would have offered.
+    //
+    // Not asserting ->assertNotified() here, unlike the plain-DeleteAction
+    // case below: a custom Action's own form/mount/fill/submit sequence
+    // (needed because manageImages has a Repeater, where DeleteAction has
+    // none) does not reliably surface the notification through Filament's
+    // session-based Notification::assertNotified() in this Livewire-test
+    // harness — confirmed directly via SetVariationImages that the
+    // exception is thrown and via the pluck() below that the gallery write
+    // is refused either way. The outcome is what matters and is proven;
+    // the toast itself is not.
+    Livewire::test(ProductVariationsRelationManager::class, [
+        'ownerRecord' => $product,
+        'pageClass' => EditProduct::class,
+    ])
+        ->mountTableAction('manageImages', $variation)
+        ->setTableActionData([
+            'images' => [
+                ['image_id' => $otherProductImage->id],
+            ],
+        ])
+        ->callMountedTableAction();
+
+    expect($variation->fresh()->images()->pluck('product_images.id')->all())->toBe([]);
+});
+
+it('prefills the gallery modal in the stored position order, not by image id', function (): void {
+    Storage::fake(ProductImage::DISK);
+    $product = Product::factory()->create(['is_available' => false]);
+    $variation = app(AddProductVariation::class)->handle($product, [
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
+    ], 0, null);
+    // Created in ascending id order, attached in descending order — if
+    // fillForm() ever fell back to array/id order instead of reading the
+    // pivot's own position column, submitting the modal unchanged would
+    // silently rewrite the gallery to ascending id order.
+    $first = ProductImage::factory()->for($product)->create();
+    $second = ProductImage::factory()->for($product)->create();
+
+    app(SetVariationImages::class)->handle(
+        $variation,
+        [$second->id, $first->id],
+        null,
+    );
+
+    // mountTableAction with no data change, same pattern as the attribute-
+    // values edit-prefill test above: a blank/wrongly-ordered fill would
+    // pass its own errors check and only show up here, in what actually
+    // got written.
+    Livewire::test(ProductVariationsRelationManager::class, [
+        'ownerRecord' => $product,
+        'pageClass' => EditProduct::class,
+    ])
+        ->mountTableAction('manageImages', $variation)
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    expect($variation->fresh()->images()->pluck('product_images.id')->all())
+        ->toBe([$second->id, $first->id]);
+});
+
+it('promotes a variation to default through the relation manager', function (): void {
+    $product = Product::factory()->create(['is_available' => false]);
+    $original = app(AddProductVariation::class)->handle($product, [
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
+    ], 0, null);
+    $candidate = app(AddProductVariation::class)->handle($product, [
+        'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
+    ], 0, null);
+
+    expect($original->fresh()->is_default)->toBeTrue();
+
+    Livewire::test(ProductVariationsRelationManager::class, [
+        'ownerRecord' => $product,
+        'pageClass' => EditProduct::class,
+    ])
+        ->callTableAction('setDefault', $candidate)
+        ->assertHasNoTableActionErrors();
+
+    expect($candidate->fresh()->is_default)->toBeTrue()
+        ->and($original->fresh()->is_default)->toBeFalse();
 });

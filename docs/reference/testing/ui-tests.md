@@ -719,6 +719,52 @@ variations'` case.
   field enforced `minValue(0)` before the write reached the database.
 - Publishing a product is refused once its last variation is gone.
 - Deleting a product through the panel deletes its variations too.
+- An image belonging to the variation's own product can be added to its
+  gallery through `manageImages`; an image from another product is refused
+  by `SetVariationImages`' `ImageNotOnProductException` rather than
+  silently written — confirmed with a fresh, empty-gallery variation per
+  case, since asserting against a gallery that already held the expected
+  end-state would pass whether or not the refusal actually worked. The
+  Select's own `options()` scoping is a UX nicety, not the guarantee: the
+  refusal holds even with `options()` temporarily widened during this
+  test's own development, because the write is refused server-side
+  regardless of what the field would have offered.
+- The gallery modal pre-fills in the pivot's stored position order, not
+  ascending image id — confirmed by submitting the modal unchanged and
+  checking the gallery is untouched, the same "mount with no data change"
+  pattern the attribute-values edit test above uses, rather than reading
+  Filament's internal Repeater state directly (its live state is keyed by
+  an internal UUID per row, not by position).
+- A variation can be promoted to default (`setDefault` → `SetDefaultVariation`),
+  demoting whichever variation held it before.
+
+### `ProductImagesRelationManagerTest`
+
+New 2026-09-13. `misc/todo.md`'s Group B1 item calling this manager
+"reached only indirectly through `CreateProduct`" was accurate here (unlike
+`ProductVariationsRelationManager`, which already had direct coverage) —
+confirmed absent before this file existed.
+`ProductSpecificationsRelationManager` deliberately has no equivalent file:
+it is plain default Filament CRUD with no Action and no invariant (ADR-0007),
+so there is nothing "ours" to test beyond what Filament's own upstream
+suite already proves.
+
+- The single-upload form reaches `AddProductImage`, including its
+  first-image-becomes-main rule.
+- An image can be promoted to main (`setMain` → `SetMainProductImage`),
+  demoting whichever image held it before.
+- The bulk-upload closure-rule dimension validator refuses a too-small
+  file and accepts a batch where every file meets the minimum — the
+  validator exists specifically because Filament's built-in
+  `Illuminate\Validation\Rules\Dimensions` on a `->multiple()` field
+  validates every file through one nested `paths.*` Validator and surfaces
+  only the first failing message with no filename attached ("one of these
+  images is too small," on any number of files); the relation manager's
+  own closure rule is what names the actual file, and that naming — not
+  that dimension validation exists at all, which is Laravel's own,
+  already proven upstream — is what these tests pin.
+- A second bulk upload appends after the existing gallery's `sort_order`
+  rather than restarting at 0 and interleaving with what is already there.
 
 ### `ProductCategoryResourceTest`
 
