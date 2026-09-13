@@ -296,13 +296,31 @@ exact ЗЗП чл. 6б wording are counsel gaps.
 
 ## Review eligibility (§24)
 
-`CreateProductReview` and `ProductDetails::canReview()` both check
-`order_status_histories` for a `Delivered` row on one of the reviewer's
-orders, not the order's current `status`. A later whole-order
-`Returned`/`Refunded` staff move, or a customer return through
-`RequestReturn` (which never touches `orders.status` — see
-`write-rules/returns.md`), does not retract that the product was actually
-delivered and does not revoke eligibility.
+§24 only requires "bought it" — nothing says the order must still be open
+or successfully delivered. `OrderItem::reviewableBy()` is the single scope
+`CreateProductReview` and `ProductDetails::canReview()` both call; it
+accepts a line whose order's `order_status_histories` shows one of:
+
+- a `Delivered` row,
+- a `Returned` row (with or without a `Delivered` row before it — `Shipped`
+  can transition straight to `Returned`, e.g. refused at the door), or
+- a `Cancelled` row whose `previous_status` is not `AwaitingPayment`.
+
+The last one is the boundary: a cancellation still in `AwaitingPayment` is
+the expiry sweep, a failed webhook, or the customer's own Cancel button —
+none of those means anyone received anything, so that shape is excluded.
+Anything cancelled after the customer committed (from `Confirmed` onward)
+counts, on the same reasoning as the other two: they bought it.
+
+`previous_status` rather than the history row's `user_id`: a staff account
+can be deleted (`user_id` nulls on delete per the FK), which would otherwise
+silently strip eligibility from every order that account cancelled.
+
+Reading history rather than the order's current `status` is also what keeps
+this decoupled from later state: a whole-order `Returned`/`Refunded` staff
+move, or a customer return through `RequestReturn` (which never touches
+`orders.status` — see `write-rules/returns.md`), does not retract that the
+product was actually delivered.
 
 ## Lock order
 

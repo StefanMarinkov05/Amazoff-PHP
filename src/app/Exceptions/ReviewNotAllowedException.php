@@ -33,7 +33,7 @@ class ReviewNotAllowedException extends RuntimeException
     public static function notPurchased(Product $product, User $user): self
     {
         return new self(sprintf(
-            '%s has no delivered order containing %s, so cannot review it.',
+            '%s has no reviewable order containing %s, so cannot review it.',
             $user->email,
             $product->name,
         ), $product, $user);
