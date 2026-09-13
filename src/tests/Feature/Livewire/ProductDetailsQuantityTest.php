@@ -117,3 +117,32 @@ it('still refuses the add cleanly server-side even if the disabled button is byp
         ->call('addToCart')
         ->assertHasErrors('cart');
 });
+
+/*
+ * ── The add-to-cart rate limit (SEC-010) ────────────────────────────────
+ *
+ * Every add is a write plus a stock read, and nothing bounded how many a
+ * script could issue. Keyed on IP rather than on the variation: keying on
+ * the thing being submitted gives the full allowance per item, which is no
+ * limit at all. Generous enough (60/minute) that a customer clicking
+ * through a catalogue never meets it.
+ */
+
+it('throttles a flood of add-to-cart calls rather than serving them all', function (): void {
+    [$product, $variation] = makeAvailableVariation(currentQuantity: 500);
+
+    // mount(Product $product) — the route-model-bound parameter is
+    // `product`, as every other case in this file passes it. The variation
+    // has to be selected, or every call short-circuits on "Choose an
+    // option first!" and the throttle is never reached.
+    $component = Livewire::test(ProductDetails::class, ['product' => $product])
+        ->set('variationId', $variation->getKey());
+
+    foreach (range(1, 60) as $i) {
+        $component->call('addToCart');
+    }
+
+    $component->call('addToCart')->assertHasErrors('cart');
+
+    expect($component->errors()->first('cart'))->toContain('Too many attempts');
+});

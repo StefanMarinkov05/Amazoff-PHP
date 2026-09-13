@@ -221,6 +221,58 @@ an id normally, an expanded object when expansion was requested — so
 reading it as a string only would have silently ignored every dispute
 delivered with an expanded payload.
 
+## Resource exhaustion: abuse through our own logic
+
+Distinct from the authorization material above, and worth its own section
+because none of it involves anyone doing something they are not allowed to
+do. Every mechanism here bounds what a *legitimate* action costs when it is
+issued in a loop.
+
+### The cart
+
+| Bound | Value | What it stops |
+|---|---|---|
+| `cart.max_lines` | 50 | A basket with thousands of distinct lines. Each line is a rendered row on the cart page, the checkout summary and the confirmation email, plus an `order_items` insert and an `inventories` lock inside `CreateOrder`'s transaction |
+| `cart.max_units` | 200 | One session reserving an entire product's inventory. `ReserveStock` holds every unit at checkout, unsellable by anyone else |
+| `addToCart` throttle | 60/min/IP | A script issuing a write plus a stock read per call |
+| `applyCoupon` throttle | 20/min/IP | Coupon-code enumeration, and contention on the `coupons` row lock `RedeemCoupon` takes |
+
+Both throttles are keyed on **IP, never on the submitted value** — keying a
+coupon limit on the code hands a guesser the full allowance per code, which
+is not a limit at all (SEC-010). The coupon throttle runs before the
+unknown-code check, because that is the branch a guesser hits every time.
+
+### The unpaid-order hold
+
+The cart caps bound how much stock one checkout can reserve; ADR-0022
+bounds how *long* it stays reserved. An abandoned card order holds its
+stock for at most `config('orders.unpaid_ttl_minutes')` (10) before
+`orders:expire-unpaid` cancels it and `TransitionOrderStatus` releases
+every line. Before that ADR the hold was unbounded: a customer who reached
+the Stripe payment step and closed the tab held the stock forever, which
+made "add the last unit to a cart and walk away" a denial-of-service
+against a single product with no account and no payment required.
+
+### The lock-contention map
+
+Which rows a public, unauthenticated path can make other people wait on:
+
+| Lock | Taken by | Reachable from | Bounded by |
+|---|---|---|---|
+| `inventories` (per line) | `ReserveStock` | checkout | `cart.max_lines`, `cart.max_units`, the 10-minute TTL |
+| `coupons` (one row) | `RedeemCoupon` | checkout with a coupon | `applyCoupon`'s 20/min throttle; the redemption itself needs a full checkout |
+| `orders` (one row) | `TransitionOrderStatus` | the webhook, the sweep, Cancel | one order per cart (`UNIQUE(orders.cart_id)`) |
+| `payments` (one row) | `CreateStripeIntent`, the webhook | checkout, Stripe | one payment per order, and `CreateStripeIntent` holds it across a Stripe call — see `stripe-payments.md`'s 80-second-timeout note |
+
+### Still open
+
+Courier office/city lookups (an external call on a public form), review
+submission, wishlist toggles, and the catalogue's `LIKE '%term%'` search
+(ADR-0014, known unindexed) have no rate limit yet. An explicit
+per-session limit on `placeOrder` itself is also still worth adding — it is
+bounded indirectly today, by the cart caps and the TTL, rather than
+directly. `misc/todo.md` carries these.
+
 ## Summary table
 
 | Question | Answer | Where |
@@ -232,3 +284,57 @@ delivered with an expanded payload.
 | Who is allowed to skip the policy entirely? | Nullable, no-default `$actor` | ADR-0007 |
 | What stops an attacker reaching null-actor over HTTP? | `VerifyStripeWebhookSignature` — the request is refused before any Action is built | CLAUDE.md, this page |
 | What stops a *replayed* genuine webhook? | `payment_events.stripe_event_id` UNIQUE, not the signature | §37 #11, this page |
+
+## Request-level abuse data: what is collected, and what a firewall/ban feature would need
+
+Asked directly: does the application need to collect more per-request data
+(IP, user-agent, a browser fingerprint) so that spam and abuse can be
+fought later — a firewall, a ban list, rate analytics? This section is the
+answer, not a change. Nothing here is built.
+
+### What is already captured
+
+- **`sessions.ip_address` and `sessions.user_agent`.** `SESSION_DRIVER` is
+  `database`, and Laravel's database session handler writes both columns on
+  every request that has a session. This is a rolling snapshot — one row
+  per active session, overwritten each request, garbage-collected on
+  expiry — not a history. It answers "where is this session right now",
+  not "where has this account logged in from".
+- **`users.ip_address` and `users.user_agent`** columns exist in the
+  schema (the Blueprint-generated users table) but **nothing writes them**.
+  They are dead columns today.
+- **Per-IP rate limits** on the abuse-prone public forms —
+  `ContactForm`, `RequestPasswordReset`/`ConfirmPasswordReset`,
+  `Register`, `TrackOrder` — via `RateLimiter` keyed on
+  `request()->ip()`. These are enforcement, not storage: the counter lives
+  in the cache and decays; no row is kept.
+- **`spatie/laravel-activitylog` is installed and completely unused**
+  (`tech-stack-overview.md` lists it as an open decision, and
+  `misc/todo.md` as "installed, unused").
+
+### What a real anti-abuse capability would need, and the cost of each piece
+
+| Piece | What it buys | What it costs |
+|---|---|---|
+| **Write `users.ip_address`/`users.user_agent` on login** (populate the dead columns) | "last seen from" for support and for a coarse "this login looks new" signal | One line in the login path. Low. The columns are already GDPR-accounted for as personal data on `users`. |
+| **A `login_attempts` table** (email-or-ip, success/failure, timestamp, ua) written on every `Auth::attempt` | The data a lockout, a "new device" email, or a brute-force dashboard is built from — the rate limiter alone keeps no evidence | A new table, a new writer, and a **new retention obligation**: it is a log of who tried to access what and from where, which is personal data with a short justified lifetime (30–90 days, then pruned by a scheduled command). `gdpr.md`'s "tables holding personal data" list grows by one. |
+| **`spatie/activitylog` on the admin panel and the mutating Actions** | An audit trail — who changed which order status, who deleted which product, from which IP | The library is installed, so this is configuration not a dependency. But `activity_log` rows reference a causer (`users.id`) and hold arbitrary before/after JSON, so anonymisation (`gdpr.md`'s `anonymized_at` flow) has to reach into it, and it grows without bound unless a retention command prunes it. This is the "audit log shape" open decision — it needs an ADR before it is turned on, not just a config toggle. |
+| **A stored ban list** (IP or IP-range → reason → expiry), checked in middleware | The actual "firewall" — turning away a known-bad source before it reaches a form | A table, a middleware, an admin surface to manage it, and a policy on false positives (a shared NAT IP bans real customers). Meaningful build. Worth it only once there is measured abuse to justify it. |
+| **Browser fingerprinting** (canvas/font/hardware hashing) | Correlating sessions that rotate IPs | **Recommended against.** It is high-effort, an arms race, legally fraught under GDPR/ePrivacy (a fingerprint is personal data and arguably needs consent, unlike a security-necessary IP), and the honeypot-plus-rate-limit already in place handles the actual threat this form faces (bulk form spam), which is not a determined adversary. |
+
+### Recommendation
+
+1. **Now, cheap, no ADR:** populate `users.ip_address`/`users.user_agent`
+   on login — the columns exist and the GDPR accounting is done.
+2. **When abuse is actually observed:** add the `login_attempts` table
+   with a 90-day retention command, and only then. It is the foundation
+   every other lockout/alerting feature sits on, and it is useless without
+   real traffic to populate it.
+3. **Defer** the `activitylog` decision to its own ADR (audit-log shape),
+   and the ban list until there is a measured problem it would solve.
+4. **Do not** add fingerprinting.
+
+The through-line: the rate limits and honeypot are the right defence for
+the threat this storefront currently faces. Persistent per-request logging
+is a *forensics and response* capability — valuable, but it earns its
+retention cost only once there is something to respond to.

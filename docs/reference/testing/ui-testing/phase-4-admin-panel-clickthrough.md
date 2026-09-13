@@ -194,6 +194,12 @@ not protect it**, because the bulk action is a second, independent call site
 that Filament wires up by default. Any resource whose delete carries a rule
 needs both paths routed, and the bulk one is the one nobody remembers.
 
+> **Resolved 2026-09-08.** `App\Filament\Actions\DomainDeleteBulkAction` now
+> routes the bulk path through the per-record Action on all seven rule-bearing
+> resources, with a partial and an all-or-nothing entry. See
+> `docs/reference/actions.md` "Bulk delete composes with the per-record
+> Action" and `DomainDeleteBulkActionTest`.
+
 **Severity: low, and bounded.** It is a staff-only surface, the delete is
 correctly refused, and no data is lost or corrupted — the database is doing its
 job. The `Products` soft-delete case is the exception worth watching: there the

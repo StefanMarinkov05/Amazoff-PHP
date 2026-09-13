@@ -225,9 +225,24 @@
                             <div class="my-1 border-t border-ink-100"></div>
                         @endif
 
+                        <a href="/account/profile" wire:navigate
+                           class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                            Your profile
+                        </a>
+
                         <a href="/account/orders" wire:navigate
                            class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                             Your orders
+                        </a>
+
+                        <a href="/account/addresses" wire:navigate
+                           class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                            Your addresses
+                        </a>
+
+                        <a href="/wishlist" wire:navigate
+                           class="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                            Wishlist
                         </a>
 
                         <a href="/account/password" wire:navigate
@@ -305,10 +320,25 @@
                             Admin panel
                         </a>
                     @endif
+                    <a href="/account/profile"
+                       class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                              hover:bg-ink-100 hover:text-ink-900">
+                        Your profile
+                    </a>
                     <a href="/account/orders"
                        class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
                               hover:bg-ink-100 hover:text-ink-900">
                         Your orders
+                    </a>
+                    <a href="/account/addresses"
+                       class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                              hover:bg-ink-100 hover:text-ink-900">
+                        Your addresses
+                    </a>
+                    <a href="/wishlist"
+                       class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600
+                              hover:bg-ink-100 hover:text-ink-900">
+                        Wishlist
                     </a>
                     <a href="/account/password"
                        class="block rounded-control px-3 py-2.5 text-sm font-medium text-ink-600

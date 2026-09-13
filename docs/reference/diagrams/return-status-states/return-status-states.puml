@@ -1,0 +1,61 @@
+@startuml return-status-states
+
+' Source of truth: App\Enums\ReturnStatus::allowedTransitions().
+' Governed by ADR-0004. Verified against the enum on 2026-09-10.
+' If this diagram and the enum disagree, the enum is right — regenerate.
+'
+' ADR-0020: this machine runs BESIDE orders.status, never inside it. That is
+' the point of the diagram — the return has its own lifecycle, and a
+' fully-returned order still reads "Delivered" in the customer's account.
+
+title ReturnStatus — legal transitions (ADR-0020, CRD Arts. 9–15)
+
+skinparam state {
+  BackgroundColor<<terminal>> #FFE0E0
+  BackgroundColor<<money_out>> #E0F5E0
+  BackgroundColor<<live>> #FFF6E0
+}
+
+[*] --> Requested : RequestReturn\n(customer, within 14 days\nof Delivered)
+
+state "Requested" as Requested <<live>>
+Requested : returns + return_items rows;\nno stock or payment effect yet
+state "Approved" as Approved <<live>>
+Approved : ReviewReturn — staff accept;\nitem received, awaiting refund
+state "Denied" as Denied <<terminal>>
+Denied : ReviewReturn — staff refuse;\nthe customer opens a fresh request,\nnot this one again
+state "Refunded" as Refunded <<money_out>>
+Refunded : RefundReturn — RefundPayment\n(or offline note for COD)\n+ RestockReturn per line
+
+Requested --> Approved : ReviewReturn
+Requested --> Denied : ReviewReturn
+Approved --> Refunded : RefundReturn
+
+Denied --> [*]
+Refunded --> [*]
+
+note right of Approved
+  RefundReturn does NOT call
+  TransitionOrderStatus. orders.status
+  stays Delivered; OrderStatus::Returned
+  is a separate whole-order staff move
+  whose own restock would double-count
+  with RestockReturn here.
+end note
+
+note bottom of Refunded
+  Goods value only. Delivery-cost
+  reimbursement on a full withdrawal
+  (CRD Art. 13) is a documented gap.
+  Card refunds go through RefundPayment's
+  cap; a COD order is marked Refunded
+  with an offline-cash note and still
+  restocked.
+end note
+
+note as TerminalNote
+  Denied and Refunded are both terminal
+  (allowedTransitions() returns []).
+end note
+
+@enduml

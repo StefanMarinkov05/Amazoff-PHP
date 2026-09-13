@@ -381,6 +381,185 @@ cache and what to bypass, never the *serialization* of what gets cached,
 because the `array` store makes that half of the class permanently
 untestable from within this suite.
 
+---
+
+## `pest --dirty` needed a mirrored worktree mount, not just `.git`; `--tia`'s guard is bypassable but its results are not trustworthy here
+
+**Symptom.** Inside the `app` container, `git --version` works fine
+(`/usr/bin/git`, present on the image), but `pest --dirty` and `pest --tia`
+both fail immediately with `Pest\Exceptions\MissingDependency: The [Filter
+by dirty files] feature requires [git]. Please install it and try again.` —
+a message that reads like git is missing, when it plainly is not.
+
+**Cause, part 1 — no `.git` reachable at all.** `git -C /var/www/html
+status` fails with `fatal: not a git repository (or any parent up to mount
+point /var/www) — Stopping at filesystem boundary`. Every service in
+`docker-compose.yml` mounted `./src:/var/www/html` — only `src/`. The
+actual `.git` directory lives at the **repository root**, one level above
+`src/` (`CLAUDE.md`: "the app lives in `src/`, not at repo root"), so it
+was never mounted into any container at all.
+
+**Cause, part 2 — mounting `.git` alone is not sufficient, confirmed live.**
+The obvious fix — bind-mount just `.git` at a path git expects relative to
+`/var/www/html` — resolves *a* repository, but the wrong shape for what
+Pest needs. `git`'s own worktree root then becomes the parent of wherever
+`.git` was mounted, while `/var/www/html` only ever holds `src/`'s own
+files with no sibling directories — so every tracked path
+(`src/app/...`, `src/tests/...`) reads back as deleted, because nothing in
+the container answers to those names relative to `/var/www/html`.
+Overriding `GIT_WORK_TREE` to point at `/var/www/html` "fixes" a bare
+`git status` run by hand, but does not fix `pest --dirty`: Pest's own
+`GitDirtyTestCaseFilter` shells out to `git status --short -- '*.php'`
+with no `-C` and no env override of its own, inheriting whatever directory
+`pest` was invoked from, and computes each test's "relative path" by
+stripping its own `projectRoot` — independent of whatever `GIT_WORK_TREE`
+was set to. A git process reporting `src/tests/...`-prefixed paths (because
+the real index holds `src/`-prefixed paths) can never match Pest's own
+`tests/...`-relative expectation. No environment variable closes that gap;
+the two halves are structurally comparing against different roots.
+
+**Fix that actually works, confirmed live.** Mount the **whole repo root**,
+not just `.git`, at a sibling path (`/var/www/repo`), so `.git` and `src/`
+sit next to each other inside the container exactly as they do on the
+host — plus the `vendor`/`node_modules` named volumes a second time, at
+`/var/www/repo/src/vendor` and `.../node_modules`, so `pest` itself is
+runnable from there. Then run `pest --dirty` from **inside** that mirrored
+worktree (`cd /var/www/repo/src`), where git discovers `.git` by walking up
+two directories on its own — no `GIT_WORK_TREE` override needed at all —
+and reports every path relative to `/var/www/repo/src`, which is exactly
+where `pest`'s own `projectRoot` sits. That is the one shape where both
+halves agree.
+
+Two more things had to be baked into the image itself, or the same error
+resurfaces on every container recreate (`git config --global` writes to
+`$HOME`, which a bind-mounted container has none of persistently):
+
+- `git config --system --add safe.directory '*'` — a bind mount is owned
+  by the host user's uid, which the container's root does not recognise as
+  its own, and git refuses an untrusted repository by default
+  (CVE-2022-24765's fix).
+- `ENV GIT_DISCOVERY_ACROSS_FILESYSTEM=1` — a bind mount can present as a
+  different filesystem (`st_dev`) than its parent directory even though
+  both live under the same host path, and git's default "stop at the first
+  filesystem boundary" walk-up refuses to cross that even when `.git` is
+  right there.
+
+Both now live in `docker/php/Dockerfile`, immediately after `git` is
+installed — system-wide and image-baked, surviving every recreate.
+`docker-compose.yml`'s `app` and `playwright` services both carry the
+`/var/www/repo` mount.
+
+**Verified working, `--dirty` only:**
+
+```bash
+docker compose exec app sh -c "cd /var/www/repo/src && ./vendor/bin/pest --dirty"
+```
+
+Dirtying one test file and running this narrowed correctly to exactly that
+file's tests; a clean tree correctly reported "No dirty tests found." Both
+directions confirmed live, not assumed from the config alone.
+
+**`--tia` is not usable here — but not for the reason first written down,
+and the correction matters.** Out of the box, `pest --tia` throws
+`Pest\Exceptions\TiaRequiresRepositoryRoot`:
+
+> Tia mode requires the project root to be the git repository root, but
+> this project sits in the subdirectory `[src]` of a larger repository.
+> Please give it its own repository to use Tia.
+
+**[Corrected 2026-09-12]** This entry previously claimed that check was
+unconditional and that "no mount shape, no env var, no git config" could
+satisfy it. That was wrong, and it was wrong in the specific way this
+troubleshooting tree exists to catch: the conclusion was generalised from
+the *`--dirty`* investigation without testing TIA's own guard.
+
+What the guard actually does (`Plugins/Tia.php` ~line 825):
+
+```php
+$subdirectoryPrefix = $this->gitSubdirectoryPrefix($projectRoot);
+if ($subdirectoryPrefix !== null) { Panic::with(new TiaRequiresRepositoryRoot(...)); }
+```
+
+`gitSubdirectoryPrefix()` is `new Git($projectRoot)->subdirectoryPrefix()`,
+which is `git rev-parse --show-prefix` run with CWD at Pest's project root,
+returning `null` when the output is empty. So the real condition is
+"`--show-prefix` must be empty," not "the app must own the repository" —
+and git lets you declare a worktree root that is not the directory holding
+`.git`. Measured, from `/var/www/html`:
+
+| Config | `--show-prefix` | Guard |
+|---|---|---|
+| default (no env) | `fatal: not a git repository` | fails earlier, on git itself |
+| `GIT_DIR=/var/www/repo/.git GIT_WORK_TREE=/var/www/html` | *empty*, exit 0 | **passes** |
+
+The three downstream prerequisites pass too, in that same configuration:
+`hasCommits` yes, remote `origin` present, default branch resolving to
+`refs/remotes/origin/main`. So TIA can be made to start.
+
+**It should still not be used, because what it produces is silently
+wrong.** The index holds `src/`-prefixed paths — that is where these files
+genuinely live in the repository — while `GIT_WORK_TREE=/var/www/html`
+declares a worktree root one level below them. Under exactly the config
+that passes the guard:
+
+```
+$ git status --short -- '*.php'
+ D src/app/Actions/Cart/AddToCart.php        # every tracked file "deleted"
+$ git diff --name-only HEAD~1
+.github/PULL_REQUEST_TEMPLATE.md             # repo-root-relative, outside src/
+$ git ls-files | head -1
+.claude/hookify.ci-shard-reminder.local.md
+```
+
+`ChangedFiles::since()` issues `git diff --name-only --no-renames
+$sha..HEAD` and hands those paths on; `ChangedFiles::currentHash()` and
+`SourceScope::fromProjectRoot()` both resolve them as
+`$projectRoot . '/' . $relativePath` — i.e. `/var/www/html/src/app/...`,
+which does not exist. Every changed file resolves to a missing path, no
+graph edge matches, and TIA has nothing to narrow with. It does not crash;
+it selects everything, or selects wrongly, while looking fast and green.
+**A test selector that silently over- or under-selects is worse than no
+selector**, because the run still reports success — the same class of
+failure as a scanner that never reached the target.
+
+Making TIA genuinely sound here would require the index itself to be
+rooted at `src/` — i.e. giving `src/` its own repository, which
+contradicts the deliberate `src/`-inside-a-docs-and-tooling-repo layout
+`CLAUDE.md` chose. That trade is a real decision, not a config tweak, and
+belongs in an ADR if anyone wants to make it.
+
+`--dirty --tia` together silently falls back to `--dirty` alone (Pest's own
+message: "TIA does not apply to partial runs — running the selected tests
+directly"), which is why testing the combination first read as working when
+only `--dirty`'s half of it was.
+
+**Why it recurs.** Any future service that runs `pest` (a new CI job, a
+second dev container) needs the same three things — the `/var/www/repo`
+mount (plus mirrored `vendor`/`node_modules`), the two Dockerfile-baked git
+settings, and being invoked from inside the mirrored worktree, not from
+`/var/www/html` — or `--dirty` breaks again in exactly this way.
+
+**Prevention.** Before documenting or relying on any git-dependent Pest
+flag as part of the normal workflow, verify it against `docker compose exec
+app <command>` specifically, in both directions (a real dirty file, and a
+clean tree) — not just that the command exits 0.
+
+And the lesson this entry had to learn twice: **"the tool refuses" and
+"the tool cannot be made to work" are different claims, and so are "the
+tool runs" and "the tool is correct."** The first version of this entry
+read a refusal message, inferred an unconditional constraint, and wrote
+"no mount, env var, or git config satisfies this" — without running the
+one command (`git rev-parse --show-prefix`) that the guard actually
+consults. The guard turned out to be satisfiable in about a minute. Had
+the investigation stopped at *that* discovery, the entry would have been
+wrong in the opposite and more dangerous direction: recommending a config
+whose diffs resolve to non-existent paths and whose test selection is
+therefore meaningless. Push a "cannot" claim to the command the code
+actually runs, then push the resulting "can" claim to whether the output
+is *sound* — neither half alone is the answer.
+
+---
+
 ## The `db` container exits 126 on a fresh volume, and Pest then can't reach `amazoff_test`
 
 **Symptom.** On Windows, `docker compose up` after `docker compose down -v`

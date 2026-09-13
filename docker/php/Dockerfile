@@ -1,11 +1,16 @@
 # PHP-FPM image for local development. Not used in production — Forge
 # provisions PHP-FPM directly on the VPS.
 #
-# 8.4, not 8.3: composer.json declares "^8.3" but composer.lock was solved
-# against symfony/* v8.1.x, which requires PHP >=8.4.1. The lockfile is what
-# actually governs `composer install`, so the container follows it. This
-# mismatch needs resolving with the team — see README/PR notes.
-FROM php:8.4-fpm
+# 8.4: composer.json now requires "^8.4" (symfony/* v8.1.x, solved into
+# composer.lock, requires PHP >=8.4.1 — the constraint was raised to match
+# what the lockfile already governs).
+#
+# Two build targets:
+#   base    — the php-fpm image everything except the browser suite uses.
+#   browser — base + Node 22 + Playwright/Chromium, for the Pest browser
+#             testsuite only (ADR-0017). Built and run on demand via the
+#             `playwright` compose service; never part of the default stack.
+FROM php:8.4-fpm AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
@@ -19,6 +24,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libicu-dev \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Lets `pest --dirty` / `--tia` (Pest 5, ADR-0018) actually find a git
+# repository, system-wide and surviving every container recreate — unlike
+# `git config --global`, which writes to $HOME and is wiped whenever the
+# container is rebuilt. Two settings, both needed:
+#   - safe.directory: a bind-mounted directory is owned by the host user's
+#     uid, which this image's root user does not recognise as "its own,"
+#     and git refuses to operate in a repository it does not trust by
+#     default (CVE-2022-24765's fix). `*` trusts every directory rather
+#     than naming /var/www/repo specifically, because the exact mount
+#     path is a compose-file detail this Dockerfile should not have to
+#     track — the container has no untrusted multi-tenant use where that
+#     matters.
+#   - GIT_DISCOVERY_ACROSS_FILESYSTEM: a bind mount can present as a
+#     different filesystem (different st_dev) than its parent directory
+#     even though both live under the same host path, and git's default
+#     "stop at the first filesystem boundary" walk-up refuses to cross
+#     that even when .git is right there. See docker-compose.yml's own
+#     comment on the /var/www/repo mount for the full reasoning; both
+#     settings together are what makes `cd /var/www/repo/src && pest
+#     --dirty` work at all.
+RUN git config --system --add safe.directory '*'
+ENV GIT_DISCOVERY_ACROSS_FILESYSTEM=1
 
 # Oracle's mysql-client, not Debian's `default-mysql-client` — on Debian that
 # package is MariaDB's client, which rejects the MySQL-only flags Laravel passes
@@ -39,6 +67,9 @@ RUN curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 \
     && apt-get update && apt-get install -y --no-install-recommends mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# `sockets` is required by pestphp/pest-plugin-browser (ADR-0017) — the Pest 5
+# browser suite talks to the Playwright process over a socket. Every other
+# extension here is a framework/runtime baseline.
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         pdo_mysql \
@@ -50,6 +81,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         zip \
         intl \
         opcache \
+        sockets \
     && rm -rf /var/lib/apt/lists/*
 
 # PCOV for `pest --coverage` — line coverage only, not Xdebug's fuller (and
@@ -75,3 +107,31 @@ WORKDIR /var/www/html
 # in a local dev environment.
 EXPOSE 9000
 CMD ["php-fpm"]
+
+# ---------------------------------------------------------------------------
+# browser — base plus Node 22 and Playwright's Chromium, for the Pest 5
+# browser testsuite (`tests/Browser/`, ADR-0017). pest-plugin-browser spawns
+# `./node_modules/.bin/playwright run-server` as a child of the PHP process,
+# so Node, the Playwright npm package, and the browser binaries all have to
+# live in the same image that runs Pest — the plugin has no remote-server
+# option.
+#
+# This target is only ever built by the `playwright` compose service (and
+# the CI browser job). The default stack builds `base`.
+# ---------------------------------------------------------------------------
+FROM base AS browser
+
+# Node 22 from NodeSource — Debian trixie's own nodejs is too old for the
+# Playwright CLI. `--with-deps` on `playwright install` pulls the system
+# libraries Chromium needs (libnss3, libatk, fonts, …); pinning the browser
+# path into the image keeps the download in a layer, not the node_modules
+# volume. The `playwright` npm package itself is a devDependency in
+# package.json — pest-plugin-browser calls ./node_modules/.bin/playwright,
+# so it must be volume-installed alongside Vite's deps, not global here.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && npx --yes playwright@1.62.1 install --with-deps chromium
+
+CMD ["sleep", "infinity"]

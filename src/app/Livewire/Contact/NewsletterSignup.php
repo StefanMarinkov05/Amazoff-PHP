@@ -10,11 +10,13 @@ use Illuminate\View\View;
 use Livewire\Component;
 
 /**
- * Footer newsletter signup.
+ * Footer newsletter signup — double opt-in (ePrivacy Art. 13, ADR-0019).
  *
- * Unlike `ContactForm`, this one does go through an Action: the panel's
- * `NewsletterSubscriberForm` writes `status` too, and re-subscribing has to
- * reverse an unsubscribe rather than fail.
+ * Submitting does not subscribe: `SubscribeToNewsletter` creates a
+ * `Pending` row and emails a confirmation link. This component only ever
+ * shows "check your inbox". It goes through the Action because the consent
+ * state machine and the panel's `NewsletterSubscriberForm` share one
+ * writer.
  */
 class NewsletterSignup extends Component
 {
@@ -22,7 +24,7 @@ class NewsletterSignup extends Component
 
     public string $email = '';
 
-    public bool $subscribed = false;
+    public bool $submitted = false;
 
     public function subscribe(SubscribeToNewsletter $subscribe): void
     {
@@ -37,8 +39,11 @@ class NewsletterSignup extends Component
 
         $subscribe->handle($validated['email'], auth()->user());
 
+        // Same message whether the address is new, pending, or already
+        // subscribed — telling a stranger which would leak who is on the
+        // list.
         $this->reset('email');
-        $this->subscribed = true;
+        $this->submitted = true;
     }
 
     public function render(): View

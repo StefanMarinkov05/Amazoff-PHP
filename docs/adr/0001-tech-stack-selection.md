@@ -121,6 +121,15 @@ migration) were set aside.
 Both developers, from project start. Same PHP, MySQL, and Node versions on
 both machines and in CI. Production runs on Forge, no containers.
 
+> **[Hosting half superseded by [ADR-0023](0023-railway-beta-deploy-target.md),
+> 2026-09-12.]** "Production runs on Forge, no containers" no longer
+> describes where this app actually runs. The client-facing beta deploys to
+> **Railway**, from a container image the repository owns (root `Dockerfile`
+> plus `docker/production/`). Everything else in this ADR — the stack
+> itself, and Docker as the local-development choice — is unaffected;
+> ADR-0023 supersedes this one line and nothing more, and does not settle
+> where a real production deploy eventually lands.
+
 ## Consequences
 
 + Same environment on both machines and in CI. Verified: Docker stack built

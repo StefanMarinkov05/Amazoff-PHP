@@ -84,14 +84,21 @@ reads a few lines apart.
   window, zero abuse surface.
 - **`OrderStatus::New => AwaitingPayment` / `=> Confirmed`** — every order
   is created at `New` regardless of payment method, and `CreateOrder` does
-  not advance it. `TransitionOrderStatus` exists and is the only thing that
-  moves an order off `New`, but nothing calls it from checkout: a caller
-  decides the first hop, because the Stripe and cash-on-delivery paths
-  diverge there (`New => AwaitingPayment` against `New => Confirmed`) and
-  `CreateOrder` is blind to which one applies. CLAUDE.md's "COD reserves
-  stock on confirmation" is read against this as a conservative superset,
-  not a gap: reserving at creation is never later than reserving on
-  confirmation would be.
+  not advance it. `TransitionOrderStatus` is the only thing that moves an
+  order off `New`, and the caller decides the first hop, because the Stripe
+  and cash-on-delivery paths diverge there (`New => AwaitingPayment` against
+  `New => Confirmed`) and `CreateOrder` is blind to which one applies.
+  CLAUDE.md's "COD reserves stock on confirmation" is read against this as a
+  conservative superset, not a gap: reserving at creation is never later
+  than reserving on confirmation would be.
+
+  **Since ADR-0022 the card path's first hop is taken by the caller
+  immediately:** `CheckoutPage::placeOrder` calls
+  `TransitionOrderStatus($order, AwaitingPayment, null)` inside the checkout
+  transaction, right after `CreateStripeIntent` succeeds. `CreateOrder`
+  itself is unchanged and still lands every order at `New`. A COD order
+  stays at `New` until staff confirm it — that difference is what makes an
+  abandoned card checkout findable by `ExpireUnpaidOrders`.
 
 ## What changes underneath checkout
 
@@ -104,11 +111,33 @@ reads a few lines apart.
 | The acting account is soft-deleted moments before or during checkout | the order is still created and correctly attributed — a soft delete is an update, not a row removal, so the `orders.user_id` foreign key is satisfied exactly as an order can reference a since-soft-deleted product | `CreateOrderTest`, "attributes the order to the actor even if that account was soft-deleted moments earlier" |
 | The same person checks out once as a guest and once logged in, in parallel | the per-customer coupon cap unifies them correctly only if both checkouts used the same email — the cap is keyed by a hash of the order's own email, not by `user_id`, so identity here is whatever email was typed, not the account | mechanism shared with the per-customer race below; not separately tested, since the guard is blind to `user_id` by construction |
 
+## The unpaid-order sweep (ADR-0022)
+
+A card order that reached the Stripe payment step and was never paid for is
+cancelled by `ExpireUnpaidOrders`, run every minute by `orders:expire-unpaid`.
+
+| Situation | Outcome | Evidence |
+|---|---|---|
+| Card order at `AwaitingPayment`, transition older than `config('orders.unpaid_ttl_minutes')` (10) | cancelled; every line's reservation released through `TransitionOrderStatus`'s own inventory effect | `ExpireUnpaidOrdersTest`, "cancels an order left unpaid past the TTL and releases its stock" |
+| Same, still inside the window | untouched, stock still held | `ExpireUnpaidOrdersTest`, "leaves an order that is still inside the TTL alone" |
+| **Cash-on-delivery order at `New`, any age** | **never swept** — it is waiting for staff, not for a payment | `ExpireUnpaidOrdersTest`, "never touches a cash-on-delivery order waiting at New, however old" |
+| Order whose `AwaitingPayment` row is ancient but which has since been paid | untouched — status is checked, not just the history row | `ExpireUnpaidOrdersTest`, "leaves an order that was paid before the sweep ran" |
+| Order row old, payment step reached seconds ago | untouched — the age comes from the `AwaitingPayment` history row, not `orders.created_at` | `ExpireUnpaidOrdersTest`, "measures the age from the AwaitingPayment transition, not the order row" |
+| Order paid between the candidate query and the transition | skipped by the per-order re-check; the sweep cancels nothing | `ExpireUnpaidOrdersTest`, "skips an order paid between the candidate query and the transition" |
+| `payment_intent.canceled` / `payment_failed` for an order at `AwaitingPayment` | cancelled immediately, stock released, without waiting out the TTL | `StripePaymentTest`, "cancels an awaiting-payment order and releases its stock on payment_intent.canceled" |
+| The same events for an order at any other status | payment records the outcome; the order is untouched | `StripePaymentTest`, "leaves an order that is not awaiting payment untouched by a failed intent" |
+
+The status filter and the per-order re-check are two layers that mask each
+other — delete either and the outcome is still right — so each is pinned by
+a test that observes it directly rather than through its effect
+(`explanation/concurrency-and-locking.md`, "Choosing the assertion").
+
 ## Two actors at once
 
 | Race | Outcome | Evidence |
 |---|---|---|
 | Two customers checking out the last unit of the same variation | exactly 1 order succeeds; the loser gets a clean `InsufficientStockException`, not a `QueryException` — no half-written order | `CreateOrderConcurrencyTest` |
+| **The same visitor checking out in N tabs** (measured at N=4) | exactly 1 order, 1 payment, and the stock reserved **once** — not N times. The losing tabs get a form error, never a 500 | `CheckoutTest`, "reserves stock once however many tabs reach the payment step", "refuses the losing tabs with a form error rather than a 500" |
 | Two customers redeeming a coupon at its total usage limit, through `CreateOrder` | exactly 1 order succeeds; the loser gets a clean `CouponNotApplicableException` — proves composing `RedeemCoupon` inside `CreateOrder`'s larger transaction does not weaken the guarantee `RedeemCoupon` already proves alone | `CreateOrderConcurrencyTest` |
 | The same cart checked out twice at once — a double-submitted "place order," or two tabs | exactly 1 order succeeds; the loser gets a clean `CartAlreadyCheckedOutException`, not a raw `QueryException` | `CreateOrderConcurrencyTest`, "fails the loser of a double-submitted checkout cleanly, producing exactly 1 order" |
 | Two checkouts opening a payment for one order at once | exactly 1 `payments` row; the loser gets `PaymentAlreadyRecordedException` | `RecordPaymentConcurrencyTest` |
@@ -116,6 +145,24 @@ reads a few lines apart.
 | Two partial refunds that together still fit | **both** succeed and accumulate — this is a legal self-transition, not a double submit | `RecordPaymentConcurrencyTest` |
 | Two staff creating a shipment for one order at once | exactly 1 `shipments` row; the loser gets `ShipmentNotAllowedException`. For a COD order this is what stops the courier collecting the total twice | `CreateShipmentConcurrencyTest` |
 | The same customer submitting a review twice at once | exactly 1 `product_reviews` row; the loser gets `ReviewNotAllowedException`, **not** a `QueryException` | `CreateProductReviewConcurrencyTest` |
+
+**The N-tab row's mechanism is not the one the schema suggests, and that
+matters for anyone changing this path.** `UNIQUE(orders.cart_id)` plus
+`CartAlreadyCheckedOutException` is a genuine backstop, and it is *never
+reached from the storefront*. The winning tab's `CreateOrder` consumes the
+cart; `ResolveCurrentCart` then excludes it as spent (`whereDoesntHave
+('order')`); the losing tabs therefore resolve to a fresh, empty cart and
+short-circuit on `CheckoutPage::isEmpty()` before `CreateOrder` is called at
+all. So the observable refusal is "Your basket is empty", not "this cart was
+already checked out".
+
+Two consequences worth knowing. Relaxing that `whereDoesntHave('order')`
+exclusion — which has been attempted once already, see
+`ResolveCurrentCart`'s docblock — would move the refusal from the
+short-circuit onto the UNIQUE constraint, changing both the message and
+which layer fails. And each losing tab leaves behind one stray empty cart
+row (one in total, not one per tab: the first loser opens it and the rest
+find it), which `carts:expire` reaps once a TTL is stamped on it.
 
 The last three rows do **not** share that shape, and the difference is worth
 stating because it changes what each test proves:

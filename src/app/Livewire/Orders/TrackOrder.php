@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Orders;
 
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -69,6 +70,52 @@ class TrackOrder extends Component
      */
     #[Locked]
     public ?int $foundOrderId = null;
+
+    /**
+     * Prefill for the common cases, still a form the visitor confirms:
+     *
+     * - A signed-in customer's email — they are almost certainly tracking
+     *   their own order, and retyping the address they are logged in with
+     *   is friction with no security value (the email is not the secret
+     *   for them; their session already is).
+     * - Both fields, when arriving from a specific order — `?order=ORD-x`
+     *   and, if the visitor owns it, its email. The account order pages
+     *   link here that way so "track this one" is one click.
+     *
+     * Nothing here bypasses `track()`'s single-query check: a prefilled
+     * value is still matched against the row like a typed one.
+     */
+    public function mount(): void
+    {
+        $user = auth()->user();
+
+        if ($user instanceof User) {
+            $this->email = $user->email;
+        }
+
+        $order = request()->query('order');
+        $order = is_string($order) ? trim($order) : '';
+
+        if ($order === '') {
+            return;
+        }
+
+        $this->serial_number = $order;
+
+        // Only fill the email from an order the visitor demonstrably owns —
+        // a signed-in customer's own order. Never from a bare serial, which
+        // would turn this into the enumeration oracle the class exists to
+        // avoid.
+        if ($user instanceof User) {
+            $owned = $user->orders()
+                ->where('serial_number', $order)
+                ->first();
+
+            if ($owned !== null) {
+                $this->email = $owned->email;
+            }
+        }
+    }
 
     /** @return array<string, string> */
     protected function rules(): array

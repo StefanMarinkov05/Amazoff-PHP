@@ -1,11 +1,11 @@
 <div>
-    @if ($subscribed)
-        <p class="animate-card-in flex items-center gap-2 text-sm text-marine-300">
-            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+    @if ($submitted)
+        <p class="animate-card-in flex items-start gap-2 text-sm text-marine-300">
+            <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
                  stroke-width="2.4" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            You're on the list.
+            Check your inbox — click the link in the email to confirm.
         </p>
     @else
         <form wire:submit="subscribe" class="flex gap-2" novalidate>

@@ -1,6 +1,13 @@
 # GDPR: deletion, retention, and erasure
 
-Status: design. Describes the schema `draft.yaml`. The only part currently in the codebase is soft deletes on `User`.
+Status: implemented (ADR-0019, 2026-09-09). The schema this doc designed is
+built. `App\Actions\Gdpr\EraseCustomer` is the Art. 17 routine, at
+`/account/delete` and `ViewUser`; `ExportCustomerData` is the Art. 15 / 20
+export at `/account/data`; `PurgeAnonymisedOrders` (`orders:purge-anonymised`,
+weekly) is the retention purge, whose *period* is the one thing still left
+to a human — `config('gdpr.order_retention_years')`, set from BG accounting
+law before go-live. Per-table behaviour is `reference/write-rules/gdpr.md`.
+Regulatory scope beyond GDPR is `reference/regulatory-compliance.md`.
 
 ## Two different deletions
 
@@ -100,9 +107,19 @@ violation rather than doing anything.
 
 ## Tables holding personal data
 
-For whoever writes the erasure routine: `users`, `addresses`, `orders`,
+What `EraseCustomer` walks: `users`, `addresses`, `orders`,
 `order_addresses`, `product_reviews`, `coupon_redemptions`,
-`newsletter_subscribers`, `contact_messages`, `carts`, `wishlist_items`.
+`newsletter_subscribers`, `contact_messages`, `carts`, `cart_items`,
+`wishlist_items`, `order_status_histories`, `returns`.
+`reference/write-rules/gdpr.md` says what happens to each.
+
+A `returns` row (the 14-day withdrawal aggregate, ADR-0020) carries the
+customer's stated `reason` and a staff `resolution_note` — free text, the
+same class as `orders.customer_note`. Erasure overwrites both (`reason` →
+`[erased]`, `resolution_note` → `null`) while keeping `status`,
+`refunded_amount` and the timestamps: the refund is part of the retained
+financial record, and `ExportCustomerData` includes the returns so the
+customer can see them.
 
 `activity_log` (spatie/laravel-activitylog) also records a causer and
 arbitrary `properties` JSON, which can capture personal data depending on
@@ -111,9 +128,20 @@ actions.
 
 ## Open
 
-- Retention period for orders after erasure. Bulgarian accounting law sets
-  a minimum; the anonymized order should presumably be purged once that
-  expires, which nothing currently does.
-- Whether contact messages and newsletter subscriptions are deleted
-  outright on erasure or anonymized like orders. They carry no accounting
-  obligation, so deletion is the simpler answer.
+- **The retention period itself.** `orders:purge-anonymised` and its Action
+  are built; `config('gdpr.order_retention_years')` (default 11, `.env`
+  `GDPR_ORDER_RETENTION_YEARS`) drives them. What is not decided is the
+  number — Bulgarian accounting and tax law set the minimum, and it has to
+  be confirmed with counsel before go-live. Until then the conservative
+  default stands; set it to `null` to disable the purge outright.
+- `activity_log` (spatie/laravel-activitylog) records nothing
+  customer-facing yet. When it does, its `causer` and `properties` rows
+  join the erasure routine.
+- Concurrency coverage for the erasure and purge paths: `GdprErasureConcurrencyTest`
+  proves the locks with the `race:worker` subprocess pattern — two erasures,
+  erasure vs. an order-status transition, and the retention purge vs. a
+  refund. `reference/write-rules/gdpr.md` has the outcomes.
+
+**Resolved by ADR-0019:** contact messages and newsletter subscriptions are
+**deleted outright** on erasure — no accounting obligation attaches, and an
+anonymized free-text message is not reliably anonymized.

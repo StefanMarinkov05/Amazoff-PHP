@@ -6,7 +6,16 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
+        "ext-bcmath": "*",
+        "ext-exif": "*",
+        "ext-gd": "*",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-pcntl": "*",
+        "ext-pdo_mysql": "*",
+        "ext-sockets": "*",
+        "ext-zip": "*",
         "astrotomic/laravel-translatable": "^11.17",
         "filament/filament": "^4.0",
         "laravel/framework": "^13.8",
@@ -29,9 +38,10 @@
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "pestphp/pest": "^4.7",
-        "pestphp/pest-plugin-laravel": "^4.1",
-        "phpunit/phpunit": "^12.5.12"
+        "pestphp/pest": "^5.1",
+        "pestphp/pest-plugin-browser": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "phpunit/phpunit": "^13.3"
     },
     "autoload": {
         "psr-4": {

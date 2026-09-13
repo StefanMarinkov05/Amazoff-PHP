@@ -15,6 +15,8 @@ use App\Actions\Catalogue\SetVariationAttributeValues;
 use App\Actions\Catalogue\SetVariationImages;
 use App\Actions\Catalogue\UpdateProduct;
 use App\Actions\Coupon\RedeemCoupon;
+use App\Actions\Gdpr\EraseCustomer;
+use App\Actions\Gdpr\PurgeAnonymisedOrders;
 use App\Actions\Inventory\ReleaseStock;
 use App\Actions\Inventory\ReserveStock;
 use App\Actions\Order\CreateOrder;
@@ -23,6 +25,7 @@ use App\Actions\Payment\HandleStripeWebhookEvent;
 use App\Actions\Payment\RecordPayment;
 use App\Actions\Payment\TransitionPaymentStatus;
 use App\Actions\ProductReview\CreateProductReview;
+use App\Actions\Returns\RequestReturn;
 use App\Actions\Shipment\CreateShipment;
 use App\Enums\DeliveryType;
 use App\Enums\OrderStatus;
@@ -244,6 +247,18 @@ final class RaceWorker extends Command
                     OrderStatus::from($this->stringArg(0)),
                     null,
                 ),
+            // --id is the user. GDPR Art. 17 erasure, self-service path (null
+            // actor). Locks the user row and its non-anonymised orders inside
+            // one transaction — the second racer finds the user already
+            // forceDeleted (ModelNotFoundException) or the orders already
+            // anonymised (no-op). ADR-0019, write-rules/gdpr.md.
+            'erase-customer' => app(EraseCustomer::class)
+                ->handle(User::findOrFail($this->id(0)), null),
+            // No args. Deletes anonymised orders past the retention cutoff,
+            // each `lockForUpdate()` inside one transaction — serialises
+            // against a concurrent write to an about-to-be-deleted order's
+            // child rows. Returns null when retention is disabled.
+            'purge-anonymised-orders' => app(PurgeAnonymisedOrders::class)->handle(),
             'create-order' => $this->createOrder(),
             // --id is the order. Two checkouts of one order must produce one
             // payment and one refusal: Order::payment() is a HasOne, but
@@ -282,6 +297,18 @@ final class RaceWorker extends Command
                     5,
                     'Race review.',
                 ),
+            // --id is the order then one order item; --arg the quantity each
+            // side asks to return. Two requests racing the same line's
+            // remaining returnable quantity: RequestReturn reads
+            // "already returned" then writes inside the orders lock, so the
+            // second must see the first's write or a line can be
+            // over-returned (ADR-0020).
+            'request-return' => app(RequestReturn::class)->handle(
+                Order::findOrFail($this->id(0)),
+                [$this->id(1) => (int) $this->stringArg(0)],
+                'Race return.',
+                null,
+            ),
             default => throw new \InvalidArgumentException(
                 'Unknown race action: '.(string) $this->argument('action'),
             ),

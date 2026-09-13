@@ -54,12 +54,10 @@ Neither is exploitable in local dev over HTTP; both matter on first deploy.
   in every request body rather than an auth header; neither that pattern nor
   Econt's own credential handling has had a security pass run against it.
 
-- **`/account/orders` still has no scanner pass of either kind** — it
-  requires authentication (redirects anonymously), so a real pass needs the
-  `zap-auth.yaml` authenticated-scan setup, not a bare `docker run`. The
-  seven informational pages (`about`, `cookies`, `delivery`, `faq`,
-  `payment-information`, `privacy`, `terms`) got a baseline pass — see
-  [what-held.md](what-held.md) — closing that half of this gap.
+- **`/account/orders`** now has a clean, correctly-scoped authenticated full
+  scan — see [what-held.md](what-held.md). The seven informational pages
+  (`about`, `cookies`, `delivery`, `faq`, `payment-information`, `privacy`,
+  `terms`) got a clean baseline pass — also there.
 
 - **Browser-enforced controls, beyond the CSP finding.** SEC-009 (see
   [sec-008-to-010.md](sec-008-to-010.md)) came from asking whether the CSP

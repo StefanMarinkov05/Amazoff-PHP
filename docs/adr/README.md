@@ -23,3 +23,21 @@ note) is the one thing that can still be edited in place.
 - **[0015](0015-html-sanitization.md)** — HTML sanitization
 - **[0016](0016-payment-intents-over-checkout-sessions.md)** — Payment
   Intents over Checkout Sessions
+- **[0017](0017-adopt-pest-browser-testing.md)** — Pest browser tests
+  over standalone Playwright
+- **[0018](0018-adopt-pest-5.md)** — Upgrade to Pest 5 / PHPUnit 13
+- **[0019](0019-regulatory-compliance.md)** — Regulatory compliance posture
+  (GDPR incl. erasure, ePrivacy, Consumer Rights, Omnibus, DSA scoping,
+  EAA, tax retention)
+- **[0020](0020-order-return-aggregate.md)** — The `OrderReturn` aggregate
+  (14-day right of withdrawal; independent of `orders.status`; COD handling)
+- **[0021](0021-omnibus-prior-price-display.md)** — Omnibus prior-price
+  display (`product_price_history`; daily snapshot + write-triggered; lowest
+  price in the 30 days before a reduction)
+- **[0022](0022-unpaid-order-lifecycle.md)** — The unpaid-order lifecycle
+  (card orders reach `AwaitingPayment`; a scheduled sweep releases abandoned
+  reservations; the card path's CRD Art. 8(7) confirmation moves to payment)
+- **[0023](0023-railway-beta-deploy-target.md)** — Railway as the beta deploy
+  target, from a container image this repo owns (supersedes ADR-0001's
+  hosting line only; `APP_ENV=demo` rather than `production`, and why;
+  trusted proxies; three services from one image)

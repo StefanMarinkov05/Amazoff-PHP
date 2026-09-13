@@ -112,6 +112,26 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Email-domain verification
+    |--------------------------------------------------------------------------
+    |
+    | Whether `App\Rules\DeliverableEmailDomain` actually performs its MX/A
+    | lookup. On everywhere real; off in `phpunit.xml`, because every test
+    | fixture uses `@example.test` and `.test` is reserved by RFC 6761 so
+    | that it never resolves — leaving it on made 21 checkout tests depend
+    | on DNS for reasons unrelated to what they test.
+    |
+    | The rule itself is still covered: `DeliverableEmailDomainTest` turns
+    | this on and asserts against a domain that resolves and one that
+    | cannot, so the switch hides the lookup from unrelated tests without
+    | hiding it from its own.
+    |
+    */
+
+    'verify_email_domain' => (bool) env('MAIL_VERIFY_EMAIL_DOMAIN', true),
+
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),

@@ -24,9 +24,10 @@ environment. No rationale here — that's in
 | Package | Purpose |
 |---|---|
 | `larastan/larastan` ^3.10 | Static analysis (PHPStan + Laravel-aware rules) |
-| `pestphp/pest` ^4.7 | Test framework |
-| `pestphp/pest-plugin-laravel` ^4.1 | Laravel test helpers for Pest |
-| `brianium/paratest` ^7.20 | `pest --parallel`, local `Feature`/`Unit` only — see `how-to/run-the-tests.md` |
+| `pestphp/pest` ^5.1 | Test framework (Pest 5 / PHPUnit 13 — ADR-0018) |
+| `pestphp/pest-plugin-laravel` ^5.0 | Laravel test helpers for Pest |
+| `pestphp/pest-plugin-browser` ^5.0 | Real-browser testsuite (`tests/Browser/`, ADR-0017) — needs the `browser` image target |
+| `brianium/paratest` ^7.24 | `pest --parallel`, local `Feature`/`Unit` only — see `how-to/run-the-tests.md` |
 | `laravel/boost` ^2.5 | AI-agent guidelines, skills, and an MCP server exposing app info, schema, logs, and a Laravel docs search. Dev-only |
 | `laravel-lang/common` ^6.8 | Framework translation strings, non-English locales |
 | `laravel-shift/blueprint` ^2.13 | Migration/model/factory scaffolding from `draft.yaml` |

@@ -69,7 +69,7 @@ Checked and correct, recorded so a later pass does not re-derive it.
 | Mass assignment | Every model uses `$fillable`, never `$guarded`. Roles live in a pivot (`spatie/laravel-permission`) and are structurally unreachable by `User::create()` |
 | Privilege escalation via registration | `Register` assigns field-by-field from validated data, hardcodes `is_active => true`, assigns no role |
 | Session fixation | `session()->regenerate()` after both login and registration, unconditionally |
-| Account enumeration | One message for wrong-email and wrong-password; `is_active` folded into the credentials so a deactivated account fails identically |
+| Account enumeration | One message for wrong-email and wrong-password; `is_active` folded into the credentials so a deactivated account fails identically. `RequestPasswordReset` extends the same rule: identical success state whether or not the submitted email has an account, verified with `Notification::fake()` proving nothing is actually sent for an unknown email rather than trusting the UI message alone |
 | Brute force | `RateLimiter`, 5/min, keyed on email **and** IP so one attacker cannot lock out a real customer |
 | Password change | Requires `current_password`; `logoutOtherDevices()` backed by `AuthenticateSession` in the `web` group — without that middleware the call silently does nothing |
 | Stale sessions | `EnsureAccountIsActive` on `web`, plus `canAccessPanel()` re-checking `is_active` per request, so deactivation ends access on the next request rather than the next login |
@@ -135,8 +135,37 @@ Header Missing`. No page-specific finding on any of the seven. Reports:
 `scratchpad/zap-baseline-<page>.html`/`.xml` for each — **not committed**,
 not covered by `.gitignore` either.
 
-`/account/orders` is not included here — it requires authentication and
-redirects anonymously, so a real pass needs the existing `zap-auth.yaml`
-authenticated-scan setup (`how-to/pentest-the-system.md`'s "The
-authenticated scan" section), not a bare unauthenticated `docker run`. That
-remains open — see [gaps-and-not-covered.md](gaps-and-not-covered.md).
+**`/account/orders`, authenticated full scan, 2026-09-08 — clean, on the
+second, correctly-scoped attempt.** A dedicated Automation Framework plan
+authenticated as `customer@example.com` via the real Livewire login
+handshake (same method as `zap-auth.yaml`) and pointed at
+`/account/orders`. The first attempt copied `zap-auth.yaml`'s
+`includePaths` pattern (`http://webserver(:80)?/.*`, scoped to the whole
+host) unnarrowed; `/account/orders` links to the full global nav (every
+catalogue category, cart, `/about`, …), so the spider followed all of it —
+579 URLs found, and the 25-minute active-scan budget spread across the
+whole authenticated surface rather than concentrating on this one page. Not
+a tooling failure, a scoping one: fixed by narrowing `includePaths` to
+`http://webserver(:80)?/account/orders.*`, which still lets the spider
+*discover* the page from any nav link it happens to try first but refuses
+to queue anything outside the pattern for scanning.
+
+The corrected run found **1 endpoint total** (the report's own count),
+finished the active-scan phase in 1 minute 2 seconds — well under the
+25-minute cap, meaning it ran to completion rather than timing out, unlike
+the first attempt. `docker inspect`: exit code 0, not OOM-killed. No `302`
+appears anywhere in the report (no interleaved-200/302 session-race
+signature, confirming `zap-auth.yaml`'s serial-thread configuration held).
+Findings: 5 medium, 2 low, 2 informational, all already-triaged
+header/config categories seen elsewhere in this project — `CSP:
+script-src unsafe-eval`/`unsafe-inline`/`style-src unsafe-inline`, `Sub
+Resource Integrity Attribute Missing`, `Cookie No HttpOnly Flag`,
+`Cross-Domain JavaScript Source File Inclusion`, `Session Management
+Response Identified`, `User Agent Fuzzer` (informational scanner noise).
+One new-looking entry, `HTTP Only Site` (medium), is the same
+"dev serves HTTP not HTTPS" characteristic every other scan on this
+project has already flagged as expected in local dev, not a new class of
+finding — ZAP tried `https://webserver/account/orders`, got a connection
+failure, and reported that as the alert. No page-specific finding.
+Report: `scratchpad/zap-account-orders-report-v2.md` — **not committed**,
+not covered by `.gitignore` either.

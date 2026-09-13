@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Payment;
 
+use App\Actions\Order\TransitionOrderStatus;
+use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
 use App\Support\Money;
@@ -57,7 +60,10 @@ use Stripe\Event as StripeEvent;
  */
 final class HandleStripeWebhookEvent
 {
-    public function __construct(private readonly TransitionPaymentStatus $transitionPaymentStatus) {}
+    public function __construct(
+        private readonly TransitionPaymentStatus $transitionPaymentStatus,
+        private readonly TransitionOrderStatus $transitionOrderStatus,
+    ) {}
 
     /**
      * Stripe event types this application acts on, and the payment status
@@ -323,7 +329,65 @@ final class HandleStripeWebhookEvent
         // own behalf holds no permissions. ADR-0007.
         $this->transitionPaymentStatus->handle($locked, $target, null, $refundAmount);
 
+        $this->applyOrderEffect($locked, $target);
+
         return $paymentEvent;
+    }
+
+    /**
+     * The order-side consequence of a payment reaching a terminal-ish state.
+     * ADR-0022 decision 4.
+     *
+     * Deliberately narrow — only from `AwaitingPayment`, and only for the
+     * three events that actually settle a card attempt:
+     *
+     * - **Paid** advances the order to `Paid`, which is what makes
+     *   `SendOrderPlacedConfirmation` fire and the customer finally receive
+     *   the CRD Art. 8(7) confirmation.
+     * - **Cancelled / Failed** cancel the order, releasing its stock through
+     *   `TransitionOrderStatus`'s own inventory effect (ADR-0011) rather
+     *   than waiting out `ExpireUnpaidOrders`' TTL. The sweep remains the
+     *   mechanism; this is a latency improvement on it.
+     *
+     * Why only from `AwaitingPayment`: a failed attempt against an order
+     * staff have already confirmed is not the webhook's business, and
+     * `payment_intent.payment_failed` is retryable — `PaymentStatus`'s
+     * matrix has `Failed => Paid` for the second attempt — so cancelling
+     * from any other state would destroy an order the customer is about to
+     * pay for.
+     *
+     * A transition that is no longer legal (the sweep cancelled this order a
+     * moment ago, and a late `succeeded` arrived) is left to throw: it is
+     * caught by `handle()`'s transaction boundary, the payment keeps its own
+     * correct status, and staff see a paid payment against a cancelled order
+     * — the mismatch ADR-0022 records as the accepted cost of a 10-minute
+     * TTL, surfaced rather than hidden.
+     *
+     * Locks `orders` while already holding `payments`. That ordering —
+     * `payments` before `orders` — is declared in
+     * `reference/write-rules/concurrency.md`; nothing takes them the other
+     * way round, so no cycle exists.
+     */
+    private function applyOrderEffect(Payment $payment, PaymentStatus $target): void
+    {
+        $orderStatus = match ($target) {
+            PaymentStatus::Paid => OrderStatus::Paid,
+            PaymentStatus::Cancelled, PaymentStatus::Failed => OrderStatus::Cancelled,
+            default => null,
+        };
+
+        if ($orderStatus === null) {
+            return;
+        }
+
+        /** @var Order|null $order */
+        $order = Order::query()->find($payment->order_id);
+
+        if ($order === null || $order->status !== OrderStatus::AwaitingPayment) {
+            return;
+        }
+
+        $this->transitionOrderStatus->handle($order, $orderStatus, null);
     }
 
     /**

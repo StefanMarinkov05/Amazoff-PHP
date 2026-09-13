@@ -35,7 +35,9 @@ The catalogue's shape is defined once, in `App\Support\PermissionCatalogue`.
 | `publish` | `article` | §22 — separate from `update`, so drafting can be granted without publication |
 | `approve` | `product_review` | §24 — moderation rather than an edit |
 | `refund` | `payment` | Refunding money is not editing a row |
+| `refund` | `return` | `RefundReturn` — administrator-only (ADR-0011 / ADR-0020). `update_return` gates approve/deny (`ReviewReturn`); `refund_return` gates the disbursement. `RefundReturn` passes the actor to `RefundPayment`, so a return refunder also needs `refund_payment` |
 | `assignRole` | `user` | Granting a role is how an account gains panel access, so it is not folded into `update_user` — otherwise every holder of `update_user` could promote themselves. Administrator-only |
+| `erase` | `user` | GDPR Art. 17 erasure through the panel, for a request emailed to the shop (ADR-0019). Distinct from `delete_user`, which is deactivation. `UserPolicy::erase` also blocks erasing your own account here — self-service at `/account/delete` is that path. Administrator-only |
 
 `restore` and `forceDelete` do not exist. Only `User`, `Product`, and
 `ProductVariation` soft-delete and no admin surface exposes a trash view; they
@@ -43,14 +45,22 @@ get added with that UI.
 
 ## Resources
 
-Twenty, each with the five CRUD abilities unless noted.
+Twenty-one, each with the five CRUD abilities unless noted.
 
 | Area | Resources |
 |---|---|
 | Catalogue | `product`, `product_category`, `product_variation`, `brand`, `attribute`, `attribute_value`, `coupon`, `product_review`\* |
 | Content | `article`, `article_category`, `tag` |
-| Operations | `order`, `shipment`, `inventory`, `carrier`, `payment`\* |
+| Operations | `order`, `shipment`, `inventory`, `carrier`, `payment`\*, `return`\* |
 | Administration | `user`, `role`, `contact_message`\*, `newsletter_subscriber`\* |
+
+`return` is reachable at `admin/returns` — read-only apart from **Approve** /
+**Deny** (`update_return`, `ReviewReturn`) and **Refund** (`refund_return`,
+`RefundReturn`), the panel side of the 14-day right of withdrawal (ADR-0020).
+A customer never reaches it; they open and track returns on the storefront
+(`/account/orders/{order}/return`), scoped through their own orders.
+`warehouse_employee` does **not** currently hold `update_return` — giving it
+that would be a `RoleSeeder` decision.
 
 `payment` is reachable at `admin/payments` — read-only apart from **Refund**,
 which routes to `refund_payment` and goes through `RefundPayment`. Its
@@ -59,7 +69,8 @@ webhook Stripe delivered, and `note` says why any of them did not apply.
 
 \* No `create`. A payment row is written by the Stripe webhook (§13), a review
 by a verified purchaser (§24), a contact message and a newsletter subscription
-by a public form (§26). None is authored in the panel, so a `create_payment`
+by a public form (§26), a return by a customer withdrawing from a delivered
+order (ADR-0020). None is authored in the panel, so a `create_payment`
 permission could only ever be ticked by mistake.
 
 `create_order` and `delete_order` are also absent — an order exists because a

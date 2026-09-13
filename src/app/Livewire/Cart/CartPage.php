@@ -9,10 +9,12 @@ use App\Actions\Cart\TouchCartExpiry;
 use App\Actions\Cart\UpdateCartItemQuantity;
 use App\Actions\Coupon\ApplyCoupon;
 use App\Actions\Coupon\RemoveCoupon;
+use App\Exceptions\CartLimitExceededException;
 use App\Exceptions\CouponNotApplicableException;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidCartQuantityException;
 use App\Exceptions\RemovedFromCatalogueException;
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Coupon;
@@ -36,6 +38,8 @@ use Livewire\Component;
  */
 class CartPage extends Component
 {
+    use ThrottlesSubmissions;
+
     public string $couponCode = '';
 
     /**
@@ -190,7 +194,7 @@ class CartPage extends Component
 
         try {
             app(UpdateCartItemQuantity::class)->handle($item, $wanted);
-        } catch (RemovedFromCatalogueException|InvalidCartQuantityException|InsufficientStockException $e) {
+        } catch (RemovedFromCatalogueException|InvalidCartQuantityException|InsufficientStockException|CartLimitExceededException $e) {
             $this->addError('line-'.$itemId, $e->getMessage());
             $this->quantities[$itemId] = $item->quantity;
 
@@ -223,6 +227,18 @@ class CartPage extends Component
         if ($code === '') {
             return;
         }
+
+        // Keyed on IP rather than on the code: keying on the submitted
+        // value would give a guesser the full allowance *per code*, which
+        // is the opposite of a limit (SEC-010). Coupon codes are guessable
+        // by construction and `RedeemCoupon` takes a `coupons` row lock at
+        // checkout, so an unthrottled loop here is both an enumeration
+        // oracle and a lock-contention lever.
+        //
+        // Before the unknown-code check, deliberately: that check is the
+        // cheap branch a guesser hits on every wrong attempt, so throttling
+        // after it would leave the enumeration path unlimited.
+        $this->throttleSubmission('apply-coupon|'.$this->requestIp(), 'coupon', maxAttempts: 20, decaySeconds: 60);
 
         // `ApplyCoupon` resolves the code with `firstOrFail`, and an unknown
         // code is a typo rather than a refusal — checked here so it reads as a
@@ -266,7 +282,7 @@ class CartPage extends Component
 
         try {
             $update->handle($item, $item->quantity + $delta);
-        } catch (RemovedFromCatalogueException|InvalidCartQuantityException|InsufficientStockException $e) {
+        } catch (RemovedFromCatalogueException|InvalidCartQuantityException|InsufficientStockException|CartLimitExceededException $e) {
             $this->addError('line-'.$itemId, $e->getMessage());
 
             return;

@@ -11,12 +11,16 @@ them by hand. Scheduling is in `routes/console.php` (Laravel 11+ replaced
 | Command | Purpose | Invoked by |
 |---|---|---|
 | `carts:expire` | Deletes carts past `expires_at`, excluding any that already produced an order | The scheduler, daily |
+| `orders:expire-unpaid` | Cancels card orders left in `AwaitingPayment` past `config('orders.unpaid_ttl_minutes')` and releases the stock they hold, via `TransitionOrderStatus(Cancelled)` (ADR-0022) | The scheduler, every minute. On Railway that is a dedicated `scheduler` service running a `schedule:run` loop (ADR-0023) — its reliability there is **unverified**; if the sweep has not fired, `railway run php artisan orders:expire-unpaid` is the manual fallback |
+| `orders:purge-anonymised` | Deletes GDPR-anonymised orders past `config('gdpr.order_retention_years')` — the accounting-retention window. Disabled (says so, does nothing) when the config value is `null` (ADR-0019) | The scheduler, weekly |
+| `newsletter:purge-unconfirmed` | Deletes newsletter rows still `Pending` 30 days after submission — an address held without consent (ePrivacy Art. 13, ADR-0019) | The scheduler, daily |
+| `products:snapshot-prices` | Records every product's effective selling price into `product_price_history`, unconditionally, for the Omnibus 30-day prior-price display (ADR-0021). The daily cadence captures a scheduled discount window opening or closing without an admin edit | The scheduler, daily |
 | `race:worker` | Runs 1 Action as a participant in a two-process race | `tests/Concurrency/*`, never a human |
 | `fixtures:validate` | Checks a catalogue fixture set before any row is written | A human, before `DemoSeeder` |
 | `fixtures:validate-articles` | Same, for the article fixture set | A human, before `DemoArticleSeeder` |
 | `demo:fetch-images` | Downloads real Pexels photos for `product_images` rows still pointing at a placeholder path that does not exist on disk. One search per product; the whole catalogue finishes in a single run (25,000 requests/hour free tier), still resumable if interrupted. `how-to/seed-the-database.md`, "Product images" | A human, once, after the catalogue is seeded — already run; the 182 result files are committed |
-| `demo:seed` | Loads the whole demo dataset in dependency order (`Demo\DemoDatabaseSeeder`); `--fresh` resets the database first. `how-to/seed-the-database.md`, "Local, the full demo" | A human, whenever a demo database is wanted |
-| `demo:stripe-payments` | Opens real Stripe **test** PaymentIntents against already-seeded orders, through `CreateStripeIntent`, for end-to-end payment simulation. Refuses a non-`sk_test_` key. Creates but never confirms — confirmation and the webhook are what an end-to-end run exercises. `how-to/seed-the-database.md`, "Real Stripe intents" | A human, opt-in, after `demo:seed` |
+| `demo:seed` | Loads the whole demo dataset in dependency order (`Demo\DemoDatabaseSeeder`); `--fresh` resets the database first. Refuses when `APP_ENV=production` — which is why the hosted beta runs `APP_ENV=demo` (ADR-0023). `how-to/seed-the-database.md`, "Local, the full demo" | A human, whenever a demo database is wanted; on the beta box `railway run php artisan demo:seed`, once, by hand — never in a start command, or a mid-demo restart reseeds it |
+| `demo:stripe-payments` | Opens real Stripe **test** PaymentIntents against already-seeded orders, through `CreateStripeIntent`, for end-to-end payment simulation. Refuses a non-`sk_test_` key. Creates but never confirms — confirmation and the webhook are what an end-to-end run exercises. `how-to/seed-the-database.md`, "Real Stripe intents" | A human, opt-in, after `demo:seed`. Part of the beta walkthrough (ADR-0023): `railway run php artisan demo:stripe-payments`, so the panel shows real intent ids. Needs `STRIPE_SECRET` set first, and note the truncated-DB idempotency trap in `troubleshooting/payments-and-security-tooling.md` |
 | `demo:fetch-article-images` | The article sibling of `demo:fetch-images` — downloads a real Pexels photo for every article whose `main_image_path` is empty or missing on disk, and writes the path onto the row. `components/journal/cover.blade.php` prefers it once it exists; falls back to generated art until then. `how-to/seed-the-database.md`, "Article images" | A human, once, after the article fixtures are loaded |
 | `inspire` | Laravel's stock placeholder, still present | — |
 
@@ -50,6 +54,52 @@ it, because the TTL policy is not built. The intended shape, not yet
 implemented: guest carts expire roughly a month after last touch; a
 registered customer's cart does not expire at all, since the thing that
 expires for a logged-in customer is the checkout stage rather than the cart.
+
+## `orders:expire-unpaid`
+
+```bash
+docker compose exec app php artisan orders:expire-unpaid
+```
+
+Scheduled `->everyMinute()`, and the only command here that is genuinely
+time-sensitive. The abandoned-checkout case (ADR-0022): a customer reaches
+the Stripe payment step, closes the tab, and the units `ReserveStock` held
+are unsellable until something cancels the order. Every minute the sweep
+does not run is a minute a sold-out item stays sold out for nobody.
+
+Selects on `orders.status = awaiting_payment` — **not** `New`. A
+cash-on-delivery order sits at `New` waiting for staff and must never be
+swept; a card order moves to `AwaitingPayment` in `CheckoutPage::placeOrder`
+as soon as its intent exists, which is what makes the two distinguishable
+at all. The age is read from the `order_status_histories` row for the
+`AwaitingPayment` transition, not from `orders.created_at`, so time spent on
+the address step does not count against the payment window.
+
+Cancelling releases the stock because `TransitionOrderStatus` owns that
+effect (ADR-0011); the command composes no inventory call of its own.
+
+**It will sweep a demo database's seeded `AwaitingPayment` orders**, whose
+history rows are backdated. Nothing runs `schedule:run` locally today, so
+this only bites if someone starts a scheduler against demo data.
+
+## `orders:purge-anonymised`
+
+```bash
+docker compose exec app php artisan orders:purge-anonymised
+```
+
+Scheduled `->weekly()`. A GDPR-anonymised order still exists because it is
+an invoice under Bulgarian accounting law; once that retention window
+expires nothing keeps it, so it is deleted outright (ADR-0019). The window
+is `config('gdpr.order_retention_years')`, an `.env` value
+(`GDPR_ORDER_RETENTION_YEARS`, default 11): the exact figure is a matter of
+BG accounting law and a human sets it before go-live. Left `null`, the
+command prints "disabled" and deletes nothing rather than guessing.
+
+The command is a caller; `App\Actions\Gdpr\PurgeAnonymisedOrders` is the
+rule. Weekly rather than daily because the window is measured in years — a
+few days' lag between expiry and deletion is immaterial, and a daily run
+would almost always find nothing.
 
 ## `race:worker`
 

@@ -282,12 +282,13 @@ it('computes discount, payable and coupon-aware vat for a scoped coupon matching
     $discount = $component->instance()->discount();
 
     // 15% of the matched 400.00 = 60.00. Payable: 420.00 - 60.00 = 360.00.
-    // vat: (400.00 - 60.00) * 20/120 = 56.66, plus the unmatched line's
-    // untouched 20.00 * 20/120 = 3.33 — both, not only the matched line's,
-    // which is the exact regression CalculateCouponDiscount's fix covers.
+    // vat: (400.00 - 60.00) * 20/120 = 56.6666..., half-up rounded to 56.67,
+    // plus the unmatched line's untouched 20.00 * 20/120 = 3.3333..., rounded
+    // to 3.33 — both, not only the matched line's, which is the exact
+    // regression CalculateCouponDiscount's fix covers. 56.67 + 3.33 = 60.00.
     expect($discount['discount'])->toBe('60.00')
         ->and($discount['payable'])->toBe('360.00')
-        ->and($discount['vat'])->toBe('59.99');
+        ->and($discount['vat'])->toBe('60.00');
 });
 
 it('falls back to no discount once the applied coupon becomes inapplicable', function (): void {
@@ -346,4 +347,78 @@ it('renders the visitor\'s own cart items and server-computed totals', function 
     Livewire::test(CartPage::class)
         ->assertSee($item->productVariation->product->name)
         ->assertSet('quantities', [$item->getKey() => 2]);
+});
+
+/*
+ * ── The cart cap surfaces as a form error, not a 500 ────────────────────
+ *
+ * `CartLimitExceededException` is a `RuntimeException`, and CartPage's
+ * catch blocks listed three exception types by name. A fourth that is not
+ * listed falls straight through to an uncaught 500 on a public button —
+ * the same shape as the bare `DeleteAction` incidents. This is the test
+ * that catches that, and it is why it exists at the component layer rather
+ * than only against the Action.
+ */
+
+it('shows the cart cap as a line error rather than crashing', function (): void {
+    config(['cart.max_units' => 10]);
+    $user = User::factory()->create();
+    $cart = visitorCart($user);
+    $variation = cartVariation(stock: 100);
+    $item = cartLine($cart, $variation, 9);
+
+    Livewire::actingAs($user)
+        ->test(CartPage::class)
+        ->set('quantities.'.$item->id, 40)
+        ->assertHasErrors('line-'.$item->id)
+        ->assertOk();
+
+    // Refused, and the row is untouched.
+    expect($item->fresh()->quantity)->toBe(9);
+});
+
+it('shows the cart cap as an error from the increment button too', function (): void {
+    config(['cart.max_units' => 5]);
+    $user = User::factory()->create();
+    $cart = visitorCart($user);
+    $variation = cartVariation(stock: 100);
+    $item = cartLine($cart, $variation, 5);
+
+    Livewire::actingAs($user)
+        ->test(CartPage::class)
+        ->call('increment', $item->id)
+        ->assertHasErrors('line-'.$item->id)
+        ->assertOk();
+
+    expect($item->fresh()->quantity)->toBe(5);
+});
+
+/*
+ * ── Rate limits on the public writes (SEC-010) ──────────────────────────
+ *
+ * Keyed on IP, never on the submitted value: keying a coupon limit on the
+ * code would hand a guesser the full allowance *per code*, which is not a
+ * limit at all. Coupon codes are guessable by construction and
+ * `RedeemCoupon` takes a `coupons` row lock at checkout, so an unthrottled
+ * loop here is both an enumeration oracle and a lock-contention lever.
+ */
+
+it('throttles repeated coupon attempts rather than letting them run', function (): void {
+    $user = User::factory()->create();
+    $cart = visitorCart($user);
+    cartLine($cart, cartVariation(stock: 10), 1);
+
+    $component = Livewire::actingAs($user)->test(CartPage::class);
+
+    // 20 attempts are allowed per minute; the 21st must be refused.
+    foreach (range(1, 20) as $i) {
+        $component->set('couponCode', 'GUESS'.$i)->call('applyCoupon');
+    }
+
+    $component->set('couponCode', 'GUESS21')->call('applyCoupon')
+        ->assertHasErrors('coupon');
+
+    // Refused by the throttle, not by "code not recognised" — the message
+    // names the wait, which is what distinguishes the two.
+    expect($component->errors()->first('coupon'))->toContain('Too many attempts');
 });

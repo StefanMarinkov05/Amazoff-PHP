@@ -60,6 +60,14 @@ describe('percentageOf — VAT extraction from a gross price', function (): void
     it('returns zero for a zero rate', function (): void {
         expect((string) Money::of('120.00')->percentageOf('0.00'))->toBe('0.00');
     });
+
+    it('rounds half-up, not down, at the final digit', function (): void {
+        // 20% of 100.00 gross is 100 * 20 / 120 = 16.6666..., which rounds
+        // half-up to 16.67. A truncating final step (bare bcadd(x, '0', 2))
+        // would have produced 16.66, silently short-changing VAT extraction
+        // by a cent on every such line.
+        expect((string) Money::of('100.00')->percentageOf('20.00'))->toBe('16.67');
+    });
 });
 
 describe('shareOf — proportional allocation of a discount', function (): void {
@@ -75,6 +83,15 @@ describe('shareOf — proportional allocation of a discount', function (): void 
         $share = Money::of('30.00')->shareOf(Money::of('10.00'), Money::zero());
 
         expect((string) $share)->toBe('0.00');
+    });
+
+    it('rounds half-up, not down, at the final digit', function (): void {
+        // 1.00 out of an 8.00 matched subtotal takes 1/8 = 0.125 of a 1.00
+        // discount, which rounds half-up to 0.13 rather than truncating to
+        // 0.12.
+        $share = Money::of('1.00')->shareOf(Money::of('1.00'), Money::of('8.00'));
+
+        expect((string) $share)->toBe('0.13');
     });
 
     it('does not drift the sum away from the discount granted', function (): void {

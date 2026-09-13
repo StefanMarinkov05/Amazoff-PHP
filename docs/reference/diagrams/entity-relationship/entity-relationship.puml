@@ -257,6 +257,18 @@ entity "product_specifications" as product_specifications {
   updated_at : timestamp <<nullable>>
 }
 
+' Effective-price observations for the Omnibus 30-day prior-price display
+' (ADR-0021). Append-only.
+entity "product_price_history" as product_price_history {
+  * id : bigint unsigned <<PK>>
+  --
+  product_id : bigint unsigned <<FK>>
+  price : decimal(10,2)
+  recorded_at : timestamp
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
 entity "attributes" as attributes {
   * id : bigint unsigned <<PK>>
   --
@@ -504,6 +516,32 @@ entity "order_status_histories" as order_status_histories {
   updated_at : timestamp <<nullable>>
 }
 
+' returns / return_items — the customer 14-day withdrawal aggregate
+' (ADR-0020). Model class is OrderReturn; the table is `returns`.
+entity "returns" as returns {
+  * id : bigint unsigned <<PK>>
+  --
+  order_id : bigint unsigned <<FK>>
+  status : enum
+  reason : text
+  resolution_note : text <<nullable>>
+  requested_at : timestamp
+  resolved_at : timestamp <<nullable>>
+  refunded_amount : decimal(10,2) <<nullable>>
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
+entity "return_items" as return_items {
+  * id : bigint unsigned <<PK>>
+  --
+  return_id : bigint unsigned <<FK>>
+  order_item_id : bigint unsigned <<FK>>
+  quantity : int unsigned
+  created_at : timestamp <<nullable>>
+  updated_at : timestamp <<nullable>>
+}
+
 ' ---------- Payments ----------
 entity "payments" as payments {
   * id : bigint unsigned <<PK>>
@@ -678,6 +716,7 @@ product_categories |o--o{ product_categories : parent
 products ||--o{ product_variations
 products ||--o{ product_images
 products ||--o{ product_specifications
+products ||--o{ product_price_history
 
 attributes ||--o{ attribute_values
 attributes }o--o{ attribute_product
@@ -720,6 +759,10 @@ orders ||--o{ order_addresses
 addresses |o--o{ order_addresses
 orders ||--o{ order_status_histories
 users |o--o{ order_status_histories
+
+orders ||--o{ returns
+returns ||--o{ return_items
+order_items ||--o{ return_items
 
 orders ||--o{ payments
 payments ||--o{ payment_events

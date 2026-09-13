@@ -9,7 +9,14 @@ use Database\Factories\NewsletterSubscriberFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property NewsletterStatus $status
+ * @property string|null $confirmation_token
+ * @property Carbon|null $subscribed_at
+ * @property Carbon|null $confirmed_at
+ */
 class NewsletterSubscriber extends Model
 {
     /** @use HasFactory<NewsletterSubscriberFactory> */
@@ -24,7 +31,9 @@ class NewsletterSubscriber extends Model
         'user_id',
         'email',
         'status',
+        'confirmation_token',
         'subscribed_at',
+        'confirmed_at',
     ];
 
     /**
@@ -39,6 +48,7 @@ class NewsletterSubscriber extends Model
             'user_id' => 'integer',
             'status' => NewsletterStatus::class,
             'subscribed_at' => 'datetime',
+            'confirmed_at' => 'datetime',
         ];
     }
 

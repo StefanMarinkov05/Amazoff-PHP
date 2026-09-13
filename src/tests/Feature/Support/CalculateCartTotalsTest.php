@@ -35,10 +35,10 @@ it('extracts VAT from the gross line total at the standard rate', function (): v
         1,
     );
 
-    // 100 gross at 20% is 83.33 net plus 16.67 VAT, truncated to 16.66 by
-    // bcdiv. Not 20.00 — that would be the answer if 100 were the net price.
+    // 100 gross at 20% is 83.33 net plus 16.6666... VAT, half-up rounded to
+    // 16.67. Not 20.00 — that would be the answer if 100 were the net price.
     expect(CalculateCartTotals::forCart($cart))
-        ->toBe(['subtotal' => '100.00', 'vat' => '16.66', 'total' => '100.00']);
+        ->toBe(['subtotal' => '100.00', 'vat' => '16.67', 'total' => '100.00']);
 });
 
 it('extracts VAT at the reduced rate', function (): void {
@@ -49,7 +49,8 @@ it('extracts VAT at the reduced rate', function (): void {
         1,
     );
 
-    expect(CalculateCartTotals::forCart($cart)['vat'])->toBe('8.25');
+    // 100 * 9 / 109 = 8.2568..., half-up rounded to 8.26.
+    expect(CalculateCartTotals::forCart($cart)['vat'])->toBe('8.26');
 });
 
 it('mixes VAT rates across lines', function (): void {
@@ -59,8 +60,9 @@ it('mixes VAT rates across lines', function (): void {
 
     // Per line, not per cart — §19 snapshots the rate onto the order item for
     // exactly this reason, and one blended rate for a mixed basket is wrong.
+    // 16.67 (20% line) + 8.26 (9% line) = 24.93.
     expect(CalculateCartTotals::forCart($cart))
-        ->toBe(['subtotal' => '200.00', 'vat' => '24.91', 'total' => '200.00']);
+        ->toBe(['subtotal' => '200.00', 'vat' => '24.93', 'total' => '200.00']);
 });
 
 it('reports the total as the gross subtotal', function (): void {

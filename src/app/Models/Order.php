@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,11 +16,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
  * @property OrderStatus $status
  * @property PaymentMethod $payment_method
  * @property-read PaymentStatus $payment_status
+ * @property Currency $currency
+ * @property Carbon|null $anonymized_at
  */
 class Order extends Model
 {
@@ -70,6 +75,9 @@ class Order extends Model
             'cart_id' => 'integer',
             'status' => OrderStatus::class,
             'payment_method' => PaymentMethod::class,
+            // Cast to the enum (ADR-0004) so the storefront and the panel get
+            // a symbol and a label, not a bare "EUR" string.
+            'currency' => Currency::class,
             'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'shipping_amount' => 'decimal:2',
@@ -102,6 +110,55 @@ class Order extends Model
     public function couponRedemptions(): HasMany
     {
         return $this->hasMany(CouponRedemption::class);
+    }
+
+    /** @return HasMany<OrderReturn, $this> */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
+    }
+
+    /**
+     * When this order reached `Delivered`, or null if it has not.
+     *
+     * Read from the `order_status_histories` row for the `Delivered`
+     * transition rather than a column — `UNIQUE(order_id, new_status)` means
+     * there is at most one, and `OrderStatus`'s graph is acyclic so it cannot
+     * be re-entered. The 14-day withdrawal window (`RequestReturn`,
+     * `config('returns.withdrawal_days')`) and the storefront's
+     * return-eligibility display both start from this, so the rule lives once
+     * here. ADR-0020.
+     */
+    public function deliveredAt(): ?CarbonInterface
+    {
+        $row = $this->orderStatusHistories()
+            ->where('new_status', OrderStatus::Delivered)
+            ->first();
+
+        return $row?->created_at;
+    }
+
+    /**
+     * When this order entered `AwaitingPayment`, or null if it never has.
+     *
+     * The card path's clock, read by `ExpireUnpaidOrders` (ADR-0022) to
+     * decide whether an unpaid order has outlived
+     * `config('orders.unpaid_ttl_minutes')`. Not `created_at`: the two
+     * differ by however long the customer spent on the address step, and it
+     * is reaching the payment step that starts the timer.
+     *
+     * Same shape and same reasoning as `deliveredAt()` above —
+     * `UNIQUE(order_id, new_status)` guarantees at most one such row, and
+     * `OrderStatus`'s acyclic graph means it cannot be re-entered, so there
+     * is no ambiguity about which visit is meant.
+     */
+    public function awaitingPaymentSince(): ?CarbonInterface
+    {
+        $row = $this->orderStatusHistories()
+            ->where('new_status', OrderStatus::AwaitingPayment)
+            ->first();
+
+        return $row?->created_at;
     }
 
     /** @return HasOne<Shipment, $this> */
