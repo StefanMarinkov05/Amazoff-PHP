@@ -7,6 +7,10 @@ one date, not a standing fact about the system.
 
 ## Top-level pages
 
+- **[acceptance-criteria.md](acceptance-criteria.md)** — §37's twenty
+  mandatory criteria, each mapped to the exact test file and case name that
+  proves it today. The answer to "where's the proof" for §37 #20
+  specifically, without restating the ~150 files it indexes.
 - **[ui-tests.md](ui-tests.md)** — every storefront and admin-panel UI test
   and what it proves, grouped by component/resource. Check before changing
   a Livewire component or Filament resource.
@@ -16,6 +20,33 @@ one date, not a standing fact about the system.
 - **[browser-testing.md](browser-testing.md)** — what only a real browser
   can prove (§37 #19, responsive), with the same honest list of gaps: one
   browser, no real devices, no text zoom.
+- **[accessibility-testing.md](accessibility-testing.md)** — `axe-core`
+  against the storefront critical path: a stray nested `<main>` landmark
+  found and fixed live, a systemic colour-contrast failure found and
+  recorded (not yet fixed — it is a real design decision, not a one-line
+  patch). Screen-reader and keyboard-only navigation are still open.
+- **[chaos-testing.md](chaos-testing.md)** — four deliberately induced
+  failures (Stripe unreachable, a real MySQL connection killed
+  mid-transaction, mail service down, a Stripe order abandoned
+  mid-connection): an uncaught-500 gap proven live, a rollback guarantee
+  proven against a genuine network-level connection loss, a queue-retry
+  mechanism confirmed correct but with no recovery path for a
+  permanently-failed job, and the abandoned-checkout sweep proven
+  end-to-end rather than only at its own two already-tested halves.
+- **[dependency-currency.md](dependency-currency.md)** — `composer
+  audit`/`npm audit` results and outdated-package currency, dated and
+  separate from the load-test and application-scan pages since it changes
+  on upstream's release cadence, not this codebase's own.
+- **[performance-testing.md](performance-testing.md)** — dated findings
+  from load tests against a stress-scale catalogue: a real N+1, two
+  missing indexes, catalogue search's full-table-scan cost, and — at the
+  largest run, 100,000 products with 2.5M variations and 5M images through
+  `DeepCatalogueStressSeeder` — the plainly-stated number that a single
+  product page still loads in ~100ms at that scale, 18× faster than the
+  catalogue list page the other findings are about. Every claim carries
+  its query log and `EXPLAIN` output. See
+  `../../how-to/measure-performance-under-load.md` for the reproducible
+  procedure.
 - **[security-testing/](security-testing/)** — what a security pass
   probed, what held, and what it could not reach. Read before trusting any
   claim that an authorization path is safe. See its own
