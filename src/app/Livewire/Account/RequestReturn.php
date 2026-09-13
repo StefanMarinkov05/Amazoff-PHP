@@ -37,7 +37,17 @@ class RequestReturn extends Component
     #[Locked]
     public int $orderId;
 
-    /** @var array<int, int> order_item_id => quantity the customer wants to return */
+    /**
+     * order_item_id => quantity the customer wants to return.
+     *
+     * `array<int, int>` describes the *intended* shape, not what Livewire
+     * actually hydrates onto it — `wire:model` sends whatever the client
+     * sends, so a value can arrive as a nested array or any other shape
+     * `submit()` must check for itself, not trust from this annotation
+     * (SEC-016).
+     *
+     * @var array<int, mixed>
+     */
     public array $quantities = [];
 
     #[Validate('required|string|min:3|max:2000')]
@@ -124,7 +134,20 @@ class RequestReturn extends Component
         /** @var array<int, int> $lines */
         $lines = [];
 
+        // SEC-016. $quantities is array<int, int> only by PHPDoc — Livewire
+        // hydrates whatever the client sends, and (int) of any non-empty
+        // array is always 1 in PHP regardless of its contents. A blind
+        // (int) cast here silently turned a garbage-shaped value into a
+        // legitimate-looking "return 1" request instead of refusing it.
+        // is_numeric() rejects anything that isn't actually a number before
+        // the cast ever runs.
         foreach ($this->quantities as $orderItemId => $quantity) {
+            if (! is_numeric($quantity)) {
+                $this->addError('quantities', 'One of the quantities entered is not a valid number.');
+
+                return;
+            }
+
             $quantity = (int) $quantity;
 
             if ($quantity > 0) {
