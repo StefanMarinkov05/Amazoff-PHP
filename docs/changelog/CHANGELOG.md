@@ -8,6 +8,42 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Courier office-lookup rate limit, and a dependency currency sweep
+  (2026-09-14).** `CheckoutPage::resolveOffices()` now throttles at
+  30/min/IP ahead of the live Econt/Speedy call — `CachedCourierGateway`
+  only caches repeat lookups for the *same* city, so an unauthenticated
+  checkout visitor cycling through city names could otherwise drive
+  unbounded real traffic at the courier. A trip is treated exactly like
+  the courier itself being unavailable (fall back to `lastKnownOffices`,
+  else the existing amber "isn't reachable" message) rather than a new
+  form-error path. Group B1's other three named surfaces were deliberately
+  left alone: review submission and the wishlist toggle both require
+  `auth()->user()` already, so neither is an anonymous-write surface the
+  same way; the catalogue search box is a read, tracked separately under
+  Group A's full-text-search item. Two new `CheckoutTest` cases, both
+  proven red before the fix.
+
+  Every direct dependency that could move without touching Filament
+  (v4.12.6, one major behind) or Livewire (v3.8.3, one major behind) was
+  bumped — `docs/reference/testing/dependency-currency.md` has the full
+  before/after. Found and fixed one stale `@phpstan-ignore argument.type`
+  comment in `ProductList.php`: `larastan` v3.10.0→v3.12.1 fixed its own
+  inference for the `orWhere(Closure, operator, value)` overload the
+  comment was silencing, so the ignore itself started failing
+  (`reportUnmatchedIgnoredErrors`) — removed, not suppressed further.
+  New troubleshooting entry for a pre-existing, unrelated flake surfaced
+  by the full-suite re-run: `pest --parallel` can intermittently fail with
+  `mkdir(): File exists` at `TestCase.php`'s shared fake-Vite-manifest
+  fixture, a real TOCTOU race between parallel workers, not a regression
+  (`docs/how-to/troubleshooting/auth-and-sessions.md`).
+
+  Also: `OrderStatusChanged`'s docblock claimed "no listeners yet", stale
+  since `SendOrderPlacedConfirmation` was wired up — confirmed live via
+  `artisan event:list` and corrected. Added the one test that was missing
+  for that pair: `StripePaymentTest` proved the order reaches `Paid` but
+  never asserted the confirmation mail actually queues off of it: this now
+  does, proven red first (against an inverted guard).
+
 - **Chaos/failure-injection and accessibility testing — four induced
   failures, two real bugs found and one fixed (2026-09-14).**
   `docs/reference/testing/chaos-testing.md`: Stripe unreachable

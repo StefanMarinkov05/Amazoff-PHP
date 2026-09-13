@@ -18,6 +18,7 @@ use App\Support\Money;
 use App\Support\Resolvers\ResolveCurrentCart;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Livewire\Exceptions\PublicPropertyNotFoundException;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
@@ -846,6 +847,73 @@ it('drops the stale office list once the city actually changes, even after a tra
     // honestly empty one.
     expect($component->instance()->offices())->toBeEmpty()
         ->and($component->instance()->courierUnavailable())->toBeFalse();
+});
+
+it('rate-limits the live office lookup per IP rather than letting it run unbounded', function (): void {
+    // The office lookup is a real courier API call on every distinct city
+    // (CachedCourierGateway only saves repeat calls for the *same* city), so
+    // an unauthenticated checkout visitor cycling through city names could
+    // otherwise drive unbounded traffic at Econt/Speedy. Group B1.
+    RateLimiter::clear('courier-offices|127.0.0.1');
+
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '', 'city' => 'Sofia']);
+
+    expect($component->instance()->offices())->not->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeFalse();
+
+    // fillCheckout() itself sets carrier_id/delivery_type/city individually,
+    // each clearing $resolvedOffices via updated() and re-hitting the
+    // limiter — so the remaining headroom, not a fixed count, is what
+    // determines how many more distinct cities exhaust it.
+    $remaining = 30 - RateLimiter::attempts('courier-offices|127.0.0.1');
+    $callsBeforeExhausting = fakeCourier()->officesCalls;
+
+    // Each distinct city clears $resolvedOffices via updated() and forces a
+    // fresh real call, which is what exhausts the limiter here without
+    // relying on CachedCourierGateway's same-city cache masking the count.
+    for ($i = 0; $i < $remaining; $i++) {
+        $component->set('city', 'City '.$i);
+    }
+
+    expect(fakeCourier()->officesCalls)->toBe($callsBeforeExhausting + $remaining);
+
+    $component->set('city', 'One City Too Many');
+
+    // The trip is treated exactly like the courier itself being
+    // unavailable: no new call reaches the gateway. updated() already
+    // cleared lastKnownOffices for this new city before resolveOffices()
+    // ran, so — same as a genuine cold-cache courier outage — there is
+    // nothing to fall back to and the amber message shows instead of a
+    // form error.
+    expect(fakeCourier()->officesCalls)->toBe($callsBeforeExhausting + $remaining)
+        ->and($component->instance()->offices())->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeTrue();
+
+    RateLimiter::clear('courier-offices|127.0.0.1');
+});
+
+it('marks the courier unavailable, not a form error, when the lookup throttle trips with nothing cached yet', function (): void {
+    RateLimiter::clear('courier-offices|127.0.0.1');
+
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    for ($i = 0; $i < 30; $i++) {
+        RateLimiter::hit('courier-offices|127.0.0.1', 60);
+    }
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '', 'city' => 'Sofia']);
+
+    expect(fakeCourier()->officesCalls)->toBe(0)
+        ->and($component->instance()->offices())->toBeEmpty()
+        ->and($component->instance()->courierUnavailable())->toBeTrue();
+
+    RateLimiter::clear('courier-offices|127.0.0.1');
 });
 
 it('adds the carrier\'s cash-on-delivery fee to the delivery price only for COD orders', function (): void {

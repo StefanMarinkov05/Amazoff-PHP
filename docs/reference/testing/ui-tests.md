@@ -658,6 +658,17 @@ broker `submit()` validates against, not a stand-in:
 
 ### `CheckoutTest` (`tests/Feature/Payment/`)
 
+**[Added 2026-09-14]** Two courier-office-lookup rate-limit cases. The
+lookup reaches a live Econt/Speedy API on every distinct city typed —
+`CachedCourierGateway` only saves repeat calls for the *same* city — so an
+unauthenticated visitor cycling through city names could otherwise drive
+unbounded traffic at the courier. One proves the limit actually trips at
+30/min/IP and stops new calls reaching the fake gateway; the other proves
+a trip with nothing cached yet reads as `courierUnavailable()`, the same
+amber message a genuine courier outage shows, rather than a form error —
+consistent with the existing transient-failure fallback this file already
+documents below. Group B1.
+
 **[Added 2026-09-11]** Two multi-tab cases: four component instances in one
 session all reaching `placeOrder` produce one order, one payment and one
 reservation, and the losers refuse with a form error rather than a 500. The

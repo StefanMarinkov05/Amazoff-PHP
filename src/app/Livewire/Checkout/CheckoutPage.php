@@ -14,6 +14,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Exceptions\CourierUnavailableException;
 use App\Facades\Courier;
+use App\Livewire\Concerns\ThrottlesSubmissions;
 use App\Mail\OrderPlaced;
 use App\Models\Address;
 use App\Models\Carrier;
@@ -31,6 +32,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
@@ -91,6 +93,8 @@ use RuntimeException;
 #[Layout('components.layouts.app')]
 class CheckoutPage extends Component
 {
+    use ThrottlesSubmissions;
+
     public string $email = '';
 
     public string $phone = '';
@@ -439,6 +443,15 @@ class CheckoutPage extends Component
      * their own, so they can never observe two different outcomes of what
      * is meant to be the same lookup.
      *
+     * A per-IP throttle sits ahead of the real call: office lookups reach a
+     * live courier API on every distinct city typed (`CachedCourierGateway`
+     * only saves repeat calls for the *same* city), so an unauthenticated
+     * visitor cycling through city names can otherwise drive unbounded
+     * traffic at Econt/Speedy. A trip is treated exactly like the courier
+     * itself being unavailable — same fallback to `lastKnownOffices`, same
+     * amber message — rather than surfaced as a form error, since nothing
+     * about this failure is the customer's typing to correct.
+     *
      * @return Collection<int, CourierOffice>
      */
     private function resolveOffices(): Collection
@@ -460,8 +473,10 @@ class CheckoutPage extends Component
         }
 
         try {
+            $this->throttleSubmission('courier-offices|'.$this->requestIp(), 'city', maxAttempts: 30, decaySeconds: 60);
+
             $offices = Courier::for($carrier)->offices($this->city, $this->postcode ?: null);
-        } catch (CourierUnavailableException) {
+        } catch (ValidationException|CourierUnavailableException) {
             if ($this->lastKnownOffices !== []) {
                 return $this->resolvedOffices = collect($this->lastKnownOffices)
                     ->map(fn (array $row): CourierOffice => new CourierOffice(...$row));

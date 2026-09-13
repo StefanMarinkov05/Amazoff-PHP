@@ -145,3 +145,44 @@ decision if `@vite`-rendering tests are now common enough that per-file
 fakes are duplicated across the suite. Run the suite with `public/hot`
 temporarily renamed to reproduce the CI condition locally before trusting a
 route-level test is green for the right reason.
+
+## `pest --parallel` intermittently fails with `mkdir(): File exists` at `TestCase.php`
+
+**Symptom.** A small, non-reproducible number of tests fail under
+`--parallel --processes=4` with `ErrorException: mkdir(): File exists` at
+`vendor/laravel/framework/.../Filesystem.php`, three frames under
+`tests/TestCase.php:59`. Re-running the exact same failing test file alone,
+or the whole suite non-parallel, passes every time. Different tests fail on
+different runs — not the same file twice.
+
+**Cause.** The fake-Vite-manifest fixture from the entry above was promoted
+from a per-file `beforeEach` into `TestCase::setUp()`, so every test case
+now runs `File::exists($buildPath.'/manifest.json')` then, if missing,
+`File::ensureDirectoryExists($buildPath)` against the same shared
+`public_path('build')` path. `ensureDirectoryExists()` is a
+check-then-`mkdir()`, not an atomic create — under 4 parallel worker
+processes, two workers can both pass the `File::exists()` check on the same
+tick, both call `mkdir()` on the same non-recursive path, and the loser gets
+`mkdir(): File exists` instead of Laravel silently treating "already there"
+as success. It is a real TOCTOU race in shared test infrastructure, not a
+per-test bug — the manifest path itself is process-wide, not per-worker.
+
+**Fix.** None applied yet — noted here rather than patched blind. The
+correct fix is making the directory-creation step in `TestCase::setUp()`
+tolerant of a concurrent creator (e.g. suppress `mkdir()`'s own warning and
+re-check `is_dir()` after, the same pattern `File::makeDirectory($path,
+0755, true, true)`'s `$force` flag already uses elsewhere in the framework)
+rather than `ensureDirectoryExists()`'s plain check-then-act.
+
+**Why it recurs.** `--parallel` is the CI-shard-relevant run mode
+(`docs/how-to/use-ci.md`), so this can surface in CI on an unrelated PR with
+no code change of its own — the failure is a scheduling accident between
+workers, not a regression in whatever the diff touches. A single-process
+`pest` run, or re-running just the flagged file, will never reproduce it,
+which makes it easy to mistake for "must have been a fluke" and re-run past
+rather than record.
+
+**Prevention.** Before treating a `--parallel` failure as a real regression,
+re-run the specific failing file(s) alone. If they pass in isolation and the
+failure is `mkdir(): File exists` at `TestCase.php`'s Vite-manifest block,
+it is this race, not the change under review.

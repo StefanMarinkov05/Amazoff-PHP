@@ -7,7 +7,8 @@ and CVE check, not a load test or an application-level scan, and it changes
 on a completely different cadence — whenever upstream ships a release, not
 whenever this codebase's own code changes.
 
-**Date of record:** 2026-09-14.
+**Date of record:** 2026-09-14 (updated same day — see "What changed today"
+below).
 
 ## Known-vulnerability check — clean
 
@@ -24,30 +25,45 @@ against their respective advisory databases (Packagist's for Composer, the
 npm registry's for Node) — a real, dated result, not an inference from
 version numbers.
 
-## Version currency — 24 direct Composer dependencies
+## What changed today
 
-`composer outdated --direct` (skips transitive dependencies — a package this
-project doesn't choose directly and can't act on alone). Two are a major
-version behind; the rest are routine patch/minor drift, normal for any
-actively-maintained stack and not worth tracking individually:
+Every direct dependency that could move without touching Filament or
+Livewire was bumped (`larastan`, `laravel/boost`, `laravel/pao`,
+`laravel/pint`, `mockery/mockery`, `pestphp/pest`, `phpunit/phpunit`,
+`saloonphp/saloon`, `spatie/laravel-activitylog`, `stripe/stripe-php`,
+`astrotomic/laravel-translatable`, plus `laravel-vite-plugin`, `playwright`,
+and `vite` on the npm side) via `composer update <package> --with-all-dependencies`
+per package, never a blanket `composer update`. Full local gate re-run
+clean after: `pint --test` (744 files), `phpstan analyse --memory-limit=1G`
+(0 errors — one stale `@phpstan-ignore argument.type` comment in
+`ProductList.php` was removed; larastan's own type-inference fix made the
+ignored error stop occurring, which is what "unmatched ignored error"
+means here, not a regression), `pest --parallel --testsuite=Feature,Unit`
+(1437 passed), `pest --testsuite=Concurrency` (53 passed, sequential per
+`coding-conventions.md`'s rule). Two parallel-run failures were the
+pre-existing `mkdir(): File exists` race documented in
+`docs/how-to/troubleshooting/auth-and-sessions.md` — confirmed by
+re-running each failing file alone, both green — not caused by this bump.
+
+## Version currency — remaining outdated direct dependencies
+
+`composer outdated --direct` / `npm outdated` (skips transitive
+dependencies — a package this project doesn't choose directly and can't
+act on alone). Everything not listed here reports current as of today:
 
 | Package | Installed | Latest | Gap |
 |---|---|---|---|
 | `filament/filament` | v4.12.6 | v5.8.1 | **major** |
 | `livewire/livewire` | v3.8.3 | v4.4.4 | **major** |
-| `astrotomic/laravel-translatable` | v11.17.0 | v11.17.1 | patch |
-| `larastan/larastan` | v3.10.0 | v3.12.1 | minor |
-| `laravel/boost` | v2.5.5 | v2.8.1 | minor |
-| `laravel/pao` | v1.1.3 | v1.1.5 | patch |
-| `laravel/pint` | v1.30.4 | v1.32.1 | minor |
-| `mockery/mockery` | 1.6.12 | 1.6.15 | patch |
-| `pestphp/pest` | v5.1.2 | v5.1.4 | patch |
-| `phpunit/phpunit` | 13.3.1 | 13.3.3 | patch |
-| `saloonphp/saloon` | v4.0.0 | v4.0.1 | patch |
-| `spatie/laravel-activitylog` | 5.0.0 | 5.1.1 | minor |
-| `stripe/stripe-php` | v21.1.1 | v21.3.2 | minor |
+| `phpunit/phpunit` | 13.3.2 | 13.3.3 | patch |
+| `concurrently` (npm) | 9.2.4 | 10.0.5 | **major** |
+| `playwright` (npm) | 1.62.1 | 1.63.0 | patch |
 
-The other 11 direct dependencies report current.
+`phpunit/phpunit` is pinned by `pestphp/pest` v5.1.4's own constraint
+(`composer why-not phpunit/phpunit 13.3.3` shows the conflict) — 13.3.2 is
+the newest version Pest currently allows, not an oversight.
+`concurrently`'s major was left alone for the same reason as Filament and
+Livewire below: no CVE or functional gap forcing it.
 
 ### Filament and Livewire — one major version behind, deliberately not bumped
 

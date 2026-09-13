@@ -1073,21 +1073,11 @@ class ProductList extends Component
             // bar (it does "have" some, so the doesntHave branch is false,
             // but nothing then checks the average) — both must be OR'd.
             $query->where(function (Builder $q) {
-                // Eloquent's where(Closure, operator, value) delegates to the
-                // underlying Query\Builder, which calls the closure with a
-                // fresh Query\Builder of its own for the subquery — not the
-                // Eloquent Builder every other closure in this file receives.
-                // Larastan's Eloquent stubs only model orWhere(Closure):
-                // Builder — the scalar-subquery-comparison overload used
-                // below, orWhere(Closure, operator, value), is real (traced
-                // against Illuminate\Database\Query\Builder::where and
-                // ::createSub directly) but outside what the stubs cover.
                 $q->whereDoesntHave('productReviews', function (Builder $r): Builder {
                     /** @var Builder<ProductReview> $r */
                     return $r->where('approved', true);
                 })
                     ->orWhere(
-                        // @phpstan-ignore argument.type
                         fn (QueryBuilder $sub) => $sub->selectRaw('avg(rating)')
                             ->from('product_reviews')
                             ->whereColumn('product_reviews.product_id', 'products.id')

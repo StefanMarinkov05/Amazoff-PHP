@@ -23,9 +23,11 @@ use Illuminate\Queue\SerializesModels;
  * observable failure would be a customer notified about a status change that
  * never happened.
  *
- * No listeners yet — §28's queued emails are a later slice. This class exists
- * so the first Action that needs the event is not also the first to
- * establish the convention.
+ * `App\Listeners\SendOrderPlacedConfirmation` is the one listener, bound by
+ * Laravel's auto-discovery (no explicit `EventServiceProvider` mapping) —
+ * confirmed live via `artisan event:list`. It queues the CRD Art. 8(7)
+ * confirmation for a **card** order once this event's `to` reaches `Paid`;
+ * see its own docblock for why cash-on-delivery doesn't go through here.
  */
 class OrderStatusChanged implements ShouldDispatchAfterCommit
 {
