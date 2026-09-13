@@ -32,9 +32,12 @@ class CreateShipmentRequest extends Request implements HasBody
         return [
             ...$this->credentials(),
             'recipient' => SpeedyShipmentPayload::recipient($this->shipment),
-            'service' => ['serviceId' => 505],
+            'service' => array_filter([
+                ...SpeedyShipmentPayload::service(),
+                'additionalServices' => SpeedyShipmentPayload::additionalServices($this->shipment),
+            ]),
             'content' => SpeedyShipmentPayload::content($this->shipment),
-            'payment' => SpeedyShipmentPayload::payment($this->shipment),
+            'payment' => SpeedyShipmentPayload::payment(),
         ];
     }
 }

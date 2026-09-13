@@ -10,7 +10,15 @@ use Saloon\Enums\Method;
 use Saloon\Http\Request;
 use Saloon\Traits\Body\HasJsonBody;
 
-/** `POST /location/office`. */
+/**
+ * `POST /location/office`.
+ *
+ * Takes the numeric site id, not a name: Speedy's `siteName` lookup only
+ * matches the vendor's own Cyrillic site names, so a Latin-typed city (the
+ * common case for a Bulgarian address) silently returns zero offices.
+ * `SpeedyGateway::offices()` resolves the id first via `SearchSitesRequest`,
+ * whose `/location/site` search does match Latin input.
+ */
 class SearchOfficesRequest extends Request implements HasBody
 {
     use HasJsonBody;
@@ -18,7 +26,7 @@ class SearchOfficesRequest extends Request implements HasBody
 
     protected Method $method = Method::POST;
 
-    public function __construct(private readonly string $siteName) {}
+    public function __construct(private readonly int $siteId) {}
 
     public function resolveEndpoint(): string
     {
@@ -28,6 +36,6 @@ class SearchOfficesRequest extends Request implements HasBody
     /** @return array<string, mixed> */
     protected function defaultBody(): array
     {
-        return [...$this->credentials(), 'countryId' => 100, 'siteName' => $this->siteName];
+        return [...$this->credentials(), 'countryId' => 100, 'siteId' => $this->siteId];
     }
 }
