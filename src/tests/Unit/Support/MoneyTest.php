@@ -111,6 +111,43 @@ describe('shareOf — proportional allocation of a discount', function (): void 
     });
 });
 
+describe('fromMinorUnits — Stripe cents back to a decimal amount', function (): void {
+    it('is the inverse of toMinorUnits', function (): void {
+        expect((string) Money::fromMinorUnits(19990))->toBe('199.90')
+            ->and(Money::of('199.90')->toMinorUnits())->toBe(19990);
+    });
+
+    it('handles zero and single-digit cent amounts', function (): void {
+        expect((string) Money::fromMinorUnits(0))->toBe('0.00')
+            ->and((string) Money::fromMinorUnits(5))->toBe('0.05');
+    });
+});
+
+describe('percentBelow — a discount percentage for display, not a stored amount', function (): void {
+    it('computes the whole-number percent one amount is below another', function (string $original, string $reduced, int $expected): void {
+        expect(Money::of($reduced)->percentBelow(Money::of($original)))->toBe($expected);
+    })->with([
+        '20% off' => ['100.00', '80.00', 20],
+        'non-round prices' => ['19.99', '14.99', 25],
+        'a two-thirds discount' => ['99.99', '33.33', 67],
+        'a one-third discount' => ['100.00', '66.67', 33],
+    ]);
+
+    it('returns zero rather than dividing by zero when the original is zero', function (): void {
+        expect(Money::of('0.00')->percentBelow(Money::of('0.00')))->toBe(0);
+    });
+
+    it('returns zero when there is no actual discount', function (): void {
+        expect(Money::of('100.00')->percentBelow(Money::of('100.00')))->toBe(0)
+            ->and(Money::of('120.00')->percentBelow(Money::of('100.00')))->toBe(0);
+    });
+
+    it('returns zero for a difference too small to round to a whole percent', function (): void {
+        // 9.99 is 0.1% below 10.00 — rounds to 0, not a phantom "1% off".
+        expect(Money::of('9.99')->percentBelow(Money::of('10.00')))->toBe(0);
+    });
+});
+
 it('compares without float error', function (): void {
     expect(Money::of('10.00')->isGreaterThan(Money::of('9.99')))->toBeTrue()
         ->and(Money::of('9.99')->isLessThan(Money::of('10.00')))->toBeTrue()

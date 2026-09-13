@@ -46,6 +46,26 @@ compounds the drift across a multi-line cart; see `MoneyTest`'s
 "sum stays 9.99 not 10.00" case for what rounding-per-line would produce
 instead.
 
+## Two conversions at the API boundary, and one display-only calculation
+
+- **`toMinorUnits()` / `fromMinorUnits(int $minor)`** — Stripe's API takes and
+  reports amounts as an integer count of the currency's smallest unit (cents
+  for EUR), never a decimal; these are the one place that conversion happens,
+  in both directions, rather than a caller doing `bcmul`/`bcdiv` with a
+  hand-written scale at the call site. Both assume a two-decimal currency, the
+  same assumption `SCALE` makes everywhere else — a zero-decimal currency
+  (JPY) or three-decimal one (KWD) would need the exponent to come from the
+  currency rather than be assumed 2 (`schema/open-schema-questions.md` #2).
+- **`percentBelow(self $original)`** — how many whole percent lower one
+  amount is than another, for a discount label like "20% off." Returns an
+  `int`, not a `Money`: unlike `percentageOf()`/`shareOf()`, which extract or
+  allocate a monetary amount, this produces a display percentage from two
+  amounts. Added when `ProductPrice::percentOff()`'s own raw `bcsub`/`bcmul`/
+  `bcdiv`/`bccomp` chain was found during the `.semgrep.yml` rollout
+  (2026-09-13) — the semgrep rule for "no raw `bc*` outside `Money`" is only
+  honest if `Money` actually offers what every real call site needs, so the
+  method moved here rather than the file being excluded from the rule.
+
 ## Deliberately not currency-aware
 
 `App\Enums\Currency` exists and `orders`/`payments` snapshot it, but the
@@ -59,7 +79,20 @@ currencies) when that arrives, not before.
 
 `CalculateCartTotals`, `CalculateCouponDiscount` (and its `CouponDiscountLine`
 result), `CreateOrder`, `TransitionPaymentStatus`, and `ValidateFixtures` —
-the 6 files the original 30 `bc*` call sites lived in. `MoneyTest` (unit, no
-database) covers the object itself; `CalculateCartTotals`'s and
-`CalculateCouponDiscount`'s own test suites cover it indirectly by staying
-green across the migration from raw `bc*` calls.
+the 6 files the original 30 `bc*` call sites lived in. `ProductPrice`
+(`percentOff()`) and `HandleStripeWebhookEvent` (`refundedTotalFrom()`)
+joined this list 2026-09-13, moving off raw `bc*` for the same reason as the
+original 6. `MoneyTest` (unit, no database) covers the object itself;
+`CalculateCartTotals`'s and `CalculateCouponDiscount`'s own test suites cover
+it indirectly by staying green across the migration from raw `bc*` calls.
+
+## Enforced mechanically, not just by convention
+
+`.semgrep.yml` (repository root) has a rule — `raw-bcmath-outside-money` —
+that fails CI on any `bc*` call outside `app/Support/Money.php`, the one file
+excluded. The same `.semgrep.yml` carries three other rules for unrelated
+invariants (unscoped `Order::findOrFail()`, `$request->all()`, a direct
+`->status =` on an `Order`), each with its own narrow exclusion where a
+legitimate exception exists — `RaceWorker.php` and
+`TransitionOrderStatus.php` among them, but for those other rules, not this
+one. `docs/how-to/use-ci.md`'s `lint` job section has the full CI step.

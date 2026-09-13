@@ -587,6 +587,32 @@ it('places an office delivery only once an office is picked through selectOffice
         ->and($order->carrier_id)->toBe($carrier->getKey());
 });
 
+it('re-derives courier_office_name from the resolved office rather than trusting the client value', function (): void {
+    // SEC-015. courier_office_name is a public property,
+    // independently client-settable via $set() regardless of what
+    // selectOffice() wrote it to. An oversized or mismatched value used to
+    // reach order_addresses.courier_office_name (varchar(150)) raw, which
+    // an oversized value overflows into an uncaught QueryException.
+    $cart = checkoutCart();
+    $carrier = checkoutCarrier();
+
+    $component = Livewire::test(CheckoutPage::class);
+    fillCheckout($component, ['carrier_id' => $carrier->getKey(), 'delivery_type' => 'office', 'street' => '']);
+    $component->call('selectOffice', 'OFF1');
+
+    // A real, valid code paired with a client-supplied name that neither
+    // matches the resolved office nor fits the column.
+    $component->set('courier_office_name', str_repeat('x', 200));
+
+    $component->call('placeOrder')->assertHasNoErrors();
+
+    $order = Order::query()->latest('id')->first();
+    $delivery = $order->orderAddresses()->where('type', 'delivery')->first();
+
+    expect($delivery->courier_office_code)->toBe('OFF1')
+        ->and($delivery->courier_office_name)->toBe('Test Office 1');
+});
+
 it('refuses an office code that was never resolved from the carrier\'s own list', function (): void {
     // The browser can still submit any string as the property value even
     // though the input is no longer free text — placeOrder() re-resolves it

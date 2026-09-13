@@ -40,6 +40,17 @@ jobs:
       - name: PHPStan / Larastan (static analysis)
         run: ./vendor/bin/phpstan analyse --memory-limit=1G
 
+      - name: Semgrep (project invariants)
+        # Standalone CLI + .semgrep.yml, not the "Semgrep Guardian" Claude
+        # Code marketplace plugin (a separate, passive integration point —
+        # see docs/how-to/set-up-security-and-quality-tools.md). Runs from
+        # the repository root, one level above this job's working-directory
+        # default, since .semgrep.yml lives there and its own path globs
+        # are written relative to it.
+        run: |
+          python3 -m pip install --quiet --break-system-packages semgrep
+          semgrep --config ../.semgrep.yml --error app
+
   test:
     name: test (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest

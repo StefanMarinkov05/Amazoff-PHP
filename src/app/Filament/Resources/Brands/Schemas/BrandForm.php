@@ -14,9 +14,11 @@ class BrandForm
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->maxLength(50),
                 TextInput::make('slug')
-                    ->required()->unique(ignoreRecord: true),
+                    ->required()->unique(ignoreRecord: true)
+                    ->maxLength(100),
             ]);
     }
 }

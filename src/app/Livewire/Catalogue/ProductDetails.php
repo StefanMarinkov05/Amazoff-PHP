@@ -37,6 +37,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -66,6 +67,12 @@ class ProductDetails extends Component
 {
     use ThrottlesSubmissions;
 
+    /**
+     * `#[Locked]`: set once in `mount()`, never client-set. Without it, a
+     * client `$set('productId', <34-digit>)` throws a `TypeError` at
+     * hydration — see `SEC-014`.
+     */
+    #[Locked]
     public ?int $productId = null;
 
     /**
@@ -82,9 +89,24 @@ class ProductDetails extends Component
     #[Url(as: 'v')]
     public mixed $variationId = null;
 
+    /**
+     * `#[Locked]`: only ever set server-side, via `setImage()`/
+     * `nextImage()`/`previousImage()` — the blade view only reads it, never
+     * `$set`s it. Without the lock, a client `$set('imageIndex', <34-digit>)`
+     * throws a `TypeError` at hydration — see `SEC-014`.
+     */
+    #[Locked]
     public int $imageIndex = 0;
 
-    public int $reviewRating = 5;
+    /**
+     * Deliberately `mixed`, not `int` — the star-rating click uses
+     * `wire:click="$set('reviewRating', N)"`, legitimately client-set, so it
+     * cannot be `#[Locked]` (that throws `CannotUpdateLockedPropertyException`
+     * on any client set). Widening avoids the same hydration `TypeError`
+     * `$quantity` had; `submitReview()`'s `integer|min:1|max:5` rule still
+     * guards what is actually persisted. See `SEC-014`.
+     */
+    public mixed $reviewRating = 5;
 
     public string $reviewBody = '';
 

@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -55,7 +56,12 @@ class OrderConfirmation extends Component
      * assigned to an `Order`-typed property and fail. Holding the id and
      * resolving through a computed property also keeps the entitlement check
      * on every render rather than only on mount.
+     *
+     * `#[Locked]`: internal-only, set once in `mount()` and never client-set
+     * by any UI. Without it, a client `$set('orderId', <34-digit>)` throws a
+     * `TypeError` at hydration — see `SEC-014`.
      */
+    #[Locked]
     public int $orderId;
 
     /**

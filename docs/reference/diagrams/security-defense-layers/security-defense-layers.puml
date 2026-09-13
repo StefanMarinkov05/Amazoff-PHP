@@ -10,6 +10,25 @@
 ' constraints) on 2026-09-07. NOT all boxes apply to every route — the
 ' diagram says which ones do.
 '
+' Layer 3.5 (Livewire property hydration) added 2026-09-13 after
+' SEC-014/015/016/017: a public Livewire property is written to by
+' $set()/wire:model BEFORE any of the component's own code runs — earlier
+' than "client-side validation" above it and earlier than
+' $this->validate() below it. A strict int/float type crashes outright
+' (SEC-014, fixed with #[Locked] or widening to mixed); a client-settable
+' string with no ->maxLength() reaches a write raw regardless of a
+' docblock claiming otherwise (SEC-015); a client-settable array cast
+' blindly can silently fabricate a plausible value with NO crash and NO
+' validation error at all (SEC-016 — PHP's (int) of any non-empty array is
+' 1); and the identical class exists one layer over in Filament's own
+' admin forms, where ->maxLength() is the only thing standing between a
+' TextInput and its column (SEC-017). Verified against
+' docs/reference/testing/security-testing/sec-014.md through sec-017.md.
+
+' NOTE: the .svg/.pdf beside this file are STALE relative to this source.
+' Regenerate with the commands in docs/reference/diagrams/README.md — there
+' is no render script in this repo and nothing regenerates them automatically.
+'
 ' No inline #color: activities — this PlantUML build's parser breaks on a
 ' second bare colored activity anywhere in the diagram (reproduced in
 ' isolation while building this file; not worth fighting further). Refusal
@@ -125,6 +144,31 @@ note right
   loop for a real user, not to stop an
   attacker.
 end note
+
+' ============================================================
+'  LAYER 3.5 — Livewire property hydration (BEFORE any component
+'  code runs — earlier than both the client-side box above and
+'  $this->validate() below; added 2026-09-13, SEC-014/015/016/017)
+' ============================================================
+
+if (Livewire request targets a\npublic component property? —\n$set() or wire:model, on EVERY update,\nnot just the rendered form's own fields) then (yes)
+  if (Property has a strict int/float\ntype, and is NOT #[Locked]?) then (yes)
+    :**REFUSED, uncaught** — TypeError before\nmount()/any handler runs (SEC-014).\nFix: #[Locked] for server-managed ids,\nwiden to mixed + normalise for\ngenuinely client-driven fields;
+    stop
+  endif
+  if (Property is a client-settable\nstring reaching a DB write with no\n->maxLength() to match its column?) then (yes)
+    :**REFUSED, uncaught** — QueryException,\nsometimes swallowed into a misleading\nform error rather than a crash (SEC-015).\nA docblock saying "never customer input"\nis a claim about the form, not the endpoint;
+    stop
+  endif
+  if (Property is an array cast with\n(int)/(float) and no is_numeric()\nguard first?) then (yes)
+    :**NOT refused — silently WRONG.**\nNo crash, no validation error: PHP casts\nany non-empty array to 1, fabricating a\nplausible value the client never sent\n(SEC-016 — "wrong answer returns 200");
+  endif
+endif
+
+if (Same class, one layer over —\nFilament admin TextInput with no\n->maxLength() matching its migration\ncolumn? (SEC-017, six plain-lookup\nresources: Tag/Attribute/Brand/\nProductCategory/ArticleCategory/\nAttributeValue)) then (yes)
+  :**REFUSED, uncaught** — QueryException on\nthe first oversized field, found by reading\na ZAP scan's raw access log, not its\nalert list (no scanner rule for\n"this crashed the server");
+  stop
+endif
 
 ' ============================================================
 '  LAYER 4 — server-side validation

@@ -126,6 +126,43 @@ of the same root cause is a pattern a systematic sweep would have caught in
 one sitting, at the cost of one property being reviewed slightly before its
 own bug was found "by accident."
 
+**The predicted sweep, done (2026-09-13, SEC-014).** The fourth instance did
+turn up, on a different property again, and the systematic pass this section
+predicted found six more alongside it in one grep: every `public`
+`int`/`?int`/`float`/`?float` property **not** already `#[Locked]`, across
+every storefront Livewire component — not just `#[Url]`/`wire:model`
+properties, since the earlier framing ("`#[Url]` or `wire:model`") turned
+out to be narrower than the actual trigger. The mechanism is Livewire's
+property hydration in general, which runs on any `$set()` over
+`/livewire/update` regardless of whether a rendered control targets the
+property at all: `OrderConfirmation::$orderId`, `ProductDetails::$productId`
+and `$imageIndex`, and `ManageAddresses::$editingId` were never bound to a
+form field or the URL, yet a bare `$set('orderId', <34-digit>)` crashed them
+exactly like `$quantity` did. `ProductDetails::$reviewRating`,
+`CheckoutPage::$carrier_id`, and `$selected_address_id` *are* client-driven
+(`wire:click="$set(...)"`/`wire:model.live`) and crashed for the reason this
+doc already documents.
+
+Two fix shapes followed from one further question — does the client
+legitimately ever set this property? — that the earlier `mixed`-everywhere
+pattern did not need to ask, because every earlier instance was
+client-driven by definition:
+
+- **No legitimate client write** (`orderId`, `productId`, `imageIndex`,
+  `editingId`): `#[Locked]`, confirmed against the component's own blade
+  view first — `#[Locked]` throws `CannotUpdateLockedPropertyException` on
+  *any* client `$set()`, so locking a property a control does target breaks
+  the feature outright rather than degrading gracefully.
+- **A legitimate client write exists** (`reviewRating`, `carrier_id`,
+  `selected_address_id`): `mixed`, same as every earlier instance, with
+  normalisation either already present at the point that needed it or added
+  alongside the type change.
+
+Full write-up: `docs/reference/testing/security-testing/sec-014.md`. The
+scope was bounded to storefront components, matching this doc's own scope
+statement above; Filament admin-panel Livewire components have not had this
+grep run against them.
+
 ## The second class: not a crash, a silently wrong answer
 
 `ProductList::$attributeValueIds` (2026-09-03) found a different failure
@@ -159,6 +196,29 @@ Two rules follow:
   load from `#[Url]` hydration — the same timing that makes the crash class
   above possible. One shared `safeX()` method, called by every reader, is
   the shape that closes both.
+
+**A second instance, a different property, no `#[Url]` involved at all
+(2026-09-13, SEC-016)**: `RequestReturn::$quantities` (`array<int, int>`
+only by PHPDoc; the actual property is a plain `public array`) hydrates
+into `submit()`'s own `foreach`, which cast each value with a blind `(int)`
+before checking it was numeric. `(int)` of *any* non-empty array is always
+`1` in PHP — not the array's length, not an element, always exactly `1`,
+regardless of contents or nesting depth — so
+`quantities[42] = [['nested' => 'garbage']]` did not fail to parse; it
+silently became a legitimate-looking "return 1 unit of item 42" that the
+customer never actually requested. Confirmed live: no error, one
+`OrderReturn` row created, `quantity=1` on the persisted line. This one had
+no `#[Url]` and no `wire:model` timing gap to exploit — it is the
+`intval()`-of-array trap on its own, reachable through any `foreach`
+loop that casts a Livewire-hydrated array's values without checking
+`is_numeric()` first. Not a security bypass (the Action's own
+ownership/quantity-ceiling checks still hold, and a non-empty array can
+never cast to more than `1`), but the same "wrong answer, no error" shape
+this section exists to name. Fixed the same way: `is_numeric()` before the
+cast, refusing with a form error instead of proceeding on a value that was
+never a number; the false `array<int, int>` PHPDoc — which Larastan was
+treating as certain — corrected to `array<int, mixed>`. Full write-up:
+`docs/reference/testing/security-testing/sec-016.md`.
 
 ## What already came back clean
 

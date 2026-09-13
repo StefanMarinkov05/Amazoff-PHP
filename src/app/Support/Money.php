@@ -212,6 +212,51 @@ final readonly class Money implements Stringable
         return (int) bcmul($this->amount, '100', 0);
     }
 
+    /**
+     * The inverse of `toMinorUnits()` — Stripe (and any integer-minor-unit
+     * API) reports amounts as an integer count of cents; this is where that
+     * comes back into a decimal amount, rather than a caller doing
+     * `bcdiv((string) $minor, '100', Money::SCALE)` by hand at the call
+     * site. Same single-currency, two-decimal assumption `toMinorUnits()`
+     * documents: a zero-decimal currency (JPY) or three-decimal one (KWD)
+     * would need the exponent to come from the currency, not be assumed 2.
+     */
+    public static function fromMinorUnits(int $minor): self
+    {
+        return new self(bcdiv((string) $minor, '100', self::SCALE));
+    }
+
+    /**
+     * How many whole percent lower `$this` is than `$original` — a discount
+     * percentage for display, not a `Money` amount. Returns 0 rather than
+     * dividing by zero when `$original` is zero or not actually higher than
+     * `$this` (there is no discount to express as a percentage).
+     *
+     * Not `percentageOf()` or `shareOf()`: those extract or allocate a
+     * `Money` amount from a rate or a pool. This produces a plain
+     * whole-number percentage from two amounts — `ProductPrice`'s "20% off"
+     * label, not a stored monetary value. The intermediate still runs at
+     * double scale and rounds once at the end, for the same reason as the
+     * other two: rounding earlier would drift the displayed percentage from
+     * the actual prices it is computed from.
+     */
+    public function percentBelow(self $original): int
+    {
+        if (! $original->isPositive() || ! $original->isGreaterThan($this)) {
+            return 0;
+        }
+
+        $saving = $original->subtract($this);
+
+        $precise = bcdiv(
+            bcmul($saving->amount, '100', self::SCALE * 2),
+            $original->amount,
+            self::SCALE * 2,
+        );
+
+        return (int) round((float) self::roundHalfUp($precise));
+    }
+
     public function isZero(): bool
     {
         return $this->compareTo(self::zero()) === 0;

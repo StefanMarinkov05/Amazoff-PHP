@@ -52,16 +52,6 @@ final class ProductPrice
             throw new InvalidArgumentException('ProductPrice::percentOff() requires numeric amounts.');
         }
 
-        if (bccomp($regular, '0.00', 2) <= 0) {
-            return 0;
-        }
-
-        $saving = bcsub($regular, $current, 2);
-
-        if (bccomp($saving, '0.00', 2) <= 0) {
-            return 0;
-        }
-
-        return (int) round((float) bcmul(bcdiv($saving, $regular, 4), '100', 2));
+        return Money::of($current)->percentBelow(Money::of($regular));
     }
 }

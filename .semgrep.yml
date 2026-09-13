@@ -1,0 +1,126 @@
+# Standalone semgrep, run as its own CI step — distinct from the "Semgrep
+# Guardian" Claude Code marketplace plugin, which passively scans
+# agent-written code inside a session and is a different integration point
+# entirely (disabled in .claude/settings.json; see
+# docs/how-to/set-up-security-and-quality-tools.md, "Semgrep — two different
+# things share this name here").
+#
+# Four rules, each encoding an invariant from docs/reference/coding-conventions.md
+# that review currently catches by hand. Scoped to src/app — Console
+# commands acting as concurrency-test harnesses (race:worker) are a
+# documented, deliberate exception to the Order-scoping rule and are
+# excluded per-rule rather than narrowing the path glob, so the exclusion is
+# visible in the rule itself.
+#
+# Run from the repository root:
+#   docker run --rm -v "$PWD:/repo" semgrep/semgrep semgrep --config /repo/.semgrep.yml /repo/src/app
+# (or, once wired into CI, see docs/how-to/use-ci.md for the lint job step.)
+
+rules:
+  - id: order-findorfail-unscoped
+    languages: [php]
+    severity: ERROR
+    message: >
+      Order::findOrFail() reaches any order by id, not just the current
+      user's. Scope through the relation instead:
+      auth()->user()->orders()->findOrFail($id). See
+      docs/reference/coding-conventions.md, "Scope queries to the user."
+      If this really is a staff/system context with no user to scope to
+      (an Artisan command, a race-test worker), say so with a
+      `// nosemgrep: order-findorfail-unscoped` comment and the reason.
+    paths:
+      include:
+        - "**/app/**/*.php"
+      exclude:
+        # race:worker deliberately acts as a bare participant in a
+        # two-process concurrency test with no authenticated user to scope
+        # to — it is the test harness, not a customer-facing path.
+        # docs/reference/console-commands.md: "never a human."
+        - "**/app/Console/Commands/RaceWorker.php"
+    patterns:
+      - pattern-either:
+          - pattern: Order::findOrFail(...)
+          - pattern: \App\Models\Order::findOrFail(...)
+
+  - id: request-all
+    languages: [php]
+    severity: ERROR
+    message: >
+      $request->all() bypasses Form Request validation and hands every
+      submitted key straight to whatever reads it — including keys the form
+      never intended to accept. Validate via a Form Request and read
+      $request->validated(), or name the specific field(s) with ->input()/
+      ->string()/->integer(). See docs/reference/coding-conventions.md,
+      "Validation via Form Requests."
+    paths:
+      include:
+        - "**/app/**/*.php"
+    patterns:
+      - pattern: $REQUEST->all()
+      # ->all() is also Collection::all(), Arr::all(), and similar — this
+      # rule is about Illuminate\Http\Request specifically, not every
+      # method named "all". Confirmed necessary: an untyped version of this
+      # rule matched 71 unrelated ->all() calls (Collection::pluck()->all(),
+      # ->unique()->all(), ...) on first run against this codebase.
+      - metavariable-type:
+          metavariable: $REQUEST
+          type: Illuminate\Http\Request
+      # Known limitation, tested and confirmed: metavariable-type can only
+      # match a *declared* type, so an untyped `function f($request)` slips
+      # past this rule entirely — there is currently no such parameter
+      # anywhere in app/ (this codebase always type-hints, per its own
+      # convention), so the gap is real but not live. If that ever
+      # changes, this rule needs a second variant with no type constraint,
+      # narrowed some other way (parameter name alone is too broad — see
+      # the 71-false-positive run this rule's history came from).
+
+  - id: order-status-direct-assignment
+    languages: [php]
+    severity: ERROR
+    message: >
+      orders.status is written only by TransitionOrderStatus — it is the
+      sole writer of both the status column and order_status_histories, and
+      composes the correct inventory effect (ReleaseStock/CompleteSale/
+      RestockReturn) for the target status. A direct assignment bypasses
+      both. See docs/reference/coding-conventions.md and ADR-0004.
+    paths:
+      include:
+        - "**/app/**/*.php"
+      exclude:
+        # TransitionOrderStatus is the one Action allowed to do this — it
+        # IS the mechanism the rule protects, not a violation of it.
+        - "**/app/Actions/Order/TransitionOrderStatus.php"
+    patterns:
+      - pattern: $ORDER->status = $VALUE
+      - metavariable-type:
+          metavariable: $ORDER
+          type: Order
+
+  - id: raw-bcmath-outside-money
+    languages: [php]
+    severity: ERROR
+    message: >
+      Raw bcmath call outside App\Support\Money. Every bc* call needs an
+      explicit scale or it silently truncates (bcadd($a, $b) with no scale
+      defaults to 0 and turns 189.90 into 189) — Money exists precisely so
+      that scale is never a per-call-site decision. Use Money's own
+      operations (add/subtract/multiply/percentageOf/shareOf/
+      fromMinorUnits/toMinorUnits/percentBelow), or add a narrowly-named
+      method to Money itself if the operation you need does not exist yet.
+      See docs/reference/coding-conventions.md, "Money," and
+      app/Support/Money.php's own docblock.
+    paths:
+      include:
+        - "**/app/**/*.php"
+      exclude:
+        # Money.php is the one place these calls are meant to live.
+        - "**/app/Support/Money.php"
+    patterns:
+      - pattern-either:
+          - pattern: bcadd(...)
+          - pattern: bcsub(...)
+          - pattern: bcmul(...)
+          - pattern: bcdiv(...)
+          - pattern: bccomp(...)
+          - pattern: bcpow(...)
+          - pattern: bcround(...)

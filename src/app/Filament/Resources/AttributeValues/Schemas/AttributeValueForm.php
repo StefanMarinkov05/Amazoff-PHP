@@ -20,9 +20,11 @@ class AttributeValueForm
                     ->relationship('attribute', 'name')
                     ->required(),
                 TextInput::make('value')
-                    ->required(),
+                    ->required()
+                    ->maxLength(100),
                 TextInput::make('slug')
                     ->required()
+                    ->maxLength(120)
                     ->unique(
                         ignoreRecord: true,
                         modifyRuleUsing: function (Unique $rule, Get $get) {
@@ -34,7 +36,8 @@ class AttributeValueForm
                             );
                         },
                     ),
-                TextInput::make('color_hex'),
+                TextInput::make('color_hex')
+                    ->maxLength(7),
                 TextInput::make('sort_order')
                     ->required()
                     ->numeric()

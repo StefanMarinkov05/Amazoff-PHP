@@ -54,6 +54,28 @@ it('renders the reason, not the form, for an order outside the window', function
         ->assertDontSee('Submit return request');
 });
 
+it('does not silently treat a garbage-shaped quantity as "return 1"', function (): void {
+    // SEC-016. $quantities is array<int, int> only by PHPDoc — Livewire
+    // hydrates whatever the client sends, so a value can arrive as a nested
+    // array. (int) of any non-empty array is always 1 in PHP, regardless of
+    // its contents, so a garbage shape silently became a legitimate-looking
+    // request to return exactly one unit — the same "wrong answer returns
+    // 200" class test-for-input-crashes.md already documents for
+    // ProductList::$attributeValueIds, confirmed live here before the fix.
+    $user = User::factory()->create();
+    $order = deliveredOrderForReturn(customer: $user, quantity: 2);
+    $line = $order->orderItems->first();
+
+    Livewire::actingAs($user)
+        ->test(RequestReturn::class, ['order' => $order->id])
+        ->set("quantities.{$line->id}", [['nested' => 'garbage']])
+        ->set('reason', 'garbage nested array test')
+        ->call('submit')
+        ->assertHasErrors('quantities');
+
+    expect(OrderReturn::where('order_id', $order->id)->count())->toBe(0);
+});
+
 it('surfaces an Action refusal as a form error, not a 500', function (): void {
     $user = User::factory()->create();
     $order = deliveredOrderForReturn(customer: $user, quantity: 1);

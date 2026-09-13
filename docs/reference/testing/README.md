@@ -42,7 +42,7 @@ role-denial matrix inside the panel). Screenshots live in
 
 ## [security-testing/](security-testing/)
 
-The dated findings record, `SEC-001` through `SEC-013`, split by
+The dated findings record, `SEC-001` through `SEC-017`, split by
 investigation arc rather than one file per finding. See its
 [method-and-summary.md](security-testing/method-and-summary.md) for the
 full index.

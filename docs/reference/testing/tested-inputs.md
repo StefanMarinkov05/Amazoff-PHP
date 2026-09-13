@@ -32,6 +32,9 @@ is `docs/reference/write-rules/catalogue-filters.md`. Summary:
 |---|---|---|---|
 | `quantity` | `mixed` (was `int` — see the incident in `test-for-input-crashes.md`) | overflow (34-digit), non-numeric, decimal, negative, in-range-but-past-stock | No crash — resets to `min_order_quantity` on unparseable input, clamps to `[min_order_quantity, stock]` otherwise |
 | `variationId` | was `?int`, now `mixed`, `#[Url]` | overflow (34-digit, via `?v=` on the real route), non-numeric, non-matching id | **Crashed live** — `TypeError: Cannot assign float to property ... of type ?int` (an oversized numeric string decodes to a float during `#[Url]` hydration, which `?int` then refuses). Fixed: widened to `mixed`, normalised at the top of `mount()` before the existing "fall back to the default variation" branch runs. Confirmed red without the fix, green with it |
+| `productId` | was `?int`, now `#[Locked]` | overflow (34-digit) via direct `$set()` (not URL/route-bound — set once in `mount()`, never client-set) | **Crashed live** — `TypeError: Cannot assign string to property ... of type ?int`. SEC-014. No blade `$set`/`wire:model` targets it, so `#[Locked]` closes the crash with no feature loss. Confirmed red (bare `set()` succeeded instead of throwing `CannotUpdateLockedPropertyException`) without the fix, green with it — `tests/Feature/Livewire/ProductDetailsLockedIdsTest.php` |
+| `imageIndex` | was `int`, now `#[Locked]` | overflow (34-digit) via direct `$set()` (set only by `setImage()`/`nextImage()`/`previousImage()`) | **Crashed live**, same shape as `productId`. SEC-014. Fixed and proven the same way, same test file |
+| `reviewRating` | was `int`, now `mixed` | overflow (34-digit) via `$set()` (legitimately client-set: `wire:click="$set('reviewRating', N)"`) | **Crashed live** — `TypeError: Cannot assign string to property ... of type int`. SEC-014. Cannot be `#[Locked]` (the star-rating click needs to set it). Fixed: widened to `mixed`; `submitReview()`'s `integer\|min:1\|max:5` rule still guards what is persisted. Confirmed red without the fix, green with it — `tests/Feature/Livewire/ProductDetailsReviewRatingHydrationTest.php` |
 
 ## `App\Livewire\Journal\ArticleList`
 
@@ -70,6 +73,40 @@ the crash closes the leak as a side effect, but a pass that only checked
 "does this crash" would have found it via `test-for-input-crashes.md`'s
 playbook regardless — the leak's *content* is what needed `APP_DEBUG=true`
 and reading the actual response body to see.
+
+## `App\Livewire\Checkout\OrderConfirmation` — `$orderId`
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `orderId` | was `int`, now `#[Locked]` | overflow (34-digit) via direct `$set()` (internal-only, set once in `mount()`, never legitimately client-set) | **Crashed live** — `TypeError: Cannot assign string to property ... of type int`. SEC-014. The one id-property in the codebase that broke the "every id-property is `#[Locked]`" convention every sibling (`CheckoutPage::$orderId`, `ProductDetails::$productId`/`$imageIndex`, `ManageAddresses::$editingId`) already follows. Confirmed red without the fix, green with it — `tests/Feature/Livewire/OrderConfirmationOrderIdTest.php`. Distinct from the route-param `$order` crash recorded above (a different property, a different binding path, fixed in an earlier pass) |
+
+## `App\Livewire\Account\ManageAddresses` — `$editingId`
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `editingId` | was `?int`, now `#[Locked]` | overflow (34-digit) via direct `$set()` (set only by `startAdding()`/`startEditing()`/`cancelEditing()`/`save()`/`delete()`) | **Crashed live** — `TypeError: Cannot assign string to property ... of type ?int`. SEC-014. `save()`/`delete()` already owner-scope the lookup through `$this->user()->addresses()`, so this closed a crash, not an IDOR. Confirmed red without the fix, green with it — `tests/Feature/Livewire/ManageAddressesEditingIdTest.php` |
+
+## `App\Livewire\Checkout\CheckoutPage` — `$carrier_id` / `$selected_address_id` / `$courier_office_name`
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `carrier_id` | was `?int`, now `mixed` | overflow (34-digit) via `wire:model.live` on the carrier radio group | **Crashed live** — `TypeError: Cannot assign string to property ... of type ?int`. SEC-014. Fixed: widened to `mixed`; `updated()` gained a normalising branch (numeric-or-null, same shape `ProductDetails::mount()` uses for `$variationId`) since nothing previously converted the raw client value back to a real id; the `rules()` entry (`integer`, `exists`) still guards `placeOrder()`. Confirmed red without the fix, green with it — `tests/Feature/Livewire/CheckoutPageHydrationTest.php` |
+| `selected_address_id` | was `?int`, now `mixed` | overflow (34-digit) via `wire:model.live` on the saved-address picker | **Crashed live**, same shape. SEC-014. Fixed: widened to `mixed`; `updatedSelectedAddressId()` already normalised the value, so no new normalisation was needed. Confirmed red without the fix, green with it — same test file |
+| `courier_office_name` | `string`, no rule | 200-char string (past the `varchar(150)` column) paired with a real, resolvable `courier_office_code` | **Crashed live before the fix, but not as a raw 500** — `QueryException: Data too long for column 'courier_office_name'`, which `placeOrder()`'s own `catch (InvalidArgumentException\|RuntimeException $e)` swallowed into a plausible-looking form error rather than surfacing as a crash. SEC-015. The comment "it is never customer input" described the rendered form, not the endpoint — a `public string` property is reachable via `$set()` regardless. Fixed: `placeOrder()` re-derives the name from the office `courier_office_code` resolves to, rather than trusting the client's copy at all. Confirmed red without the fix (order silently failed to place), green with it (order places, persisted name matches the resolved office, not the client's) — `tests/Feature/Payment/CheckoutTest.php`, `'re-derives courier_office_name from the resolved office rather than trusting the client value'` |
+
+## `App\Livewire\Account\OrderDetails` / `RequestReturn` — the id-hydration sweep, and one further check
+
+Sweep C (`docs/how-to/pentest-the-system.md`'s authenticated-account-page
+pass): both components' id-bearing properties were already `#[Locked]`
+before this pass — `OrderDetails::$orderId` and `RequestReturn::$orderId`,
+both `public int`, confirmed against their blade views (route-model-bound
+`Order $order` in `mount()`, never client-`$set`) — so neither needed a
+SEC-014-style fix. Checking further turned up a different property on
+`RequestReturn` with its own bug:
+
+| Property | Type | Playbook cases tried | Result |
+|---|---|---|---|
+| `RequestReturn::$quantities` | `array`, documented `array<int, int>` (inaccurately) | nested array value (`[['nested' => 'garbage']]`), a foreign `order_item_id` | **The foreign-line case was clean** — `RequestReturnAction::handle()` refuses a line not on the locked order (`ReturnNotAllowedException::lineNotOnOrder()`), matching the earlier static review's claim. **The nested-array case was not clean** — no crash, but `submit()`'s blind `(int)` cast silently turned the garbage value into `1` (PHP casts any non-empty array to `int(1)`), creating a real `OrderReturn` row the customer never actually requested. SEC-016. Not exploitable past a genuine "return 1" (a non-empty array can never cast to more than `1`, and the Action's own quantity ceiling still applies), but a wrong answer that read as a correct one — the same class `test-for-input-crashes.md` names for `ProductList::$attributeValueIds`. Fixed: `is_numeric()` before the cast, refusing with a `quantities` form error instead of proceeding; the `@var array<int, int>` PHPDoc — which Larastan was treating as a certain type — corrected to `array<int, mixed>`. Confirmed red without the fix (silent success, `quantity=1` persisted), green with it — `tests/Feature/Livewire/Account/RequestReturnTest.php`, `'does not silently treat a garbage-shaped quantity as "return 1"'` |
 
 ## Storefront authentication (`App\Livewire\Auth\*`)
 

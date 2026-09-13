@@ -80,9 +80,12 @@ disagree.
   contract → Econt/Speedy Saloon connectors), replacing the ASCII
   box-stack in `explanation/couriers.md`. Component diagram, not class —
   the pattern names (facade/decorator/strategy) are the point.
-- **[deployment/](deployment/)** — local Docker Compose vs. production
-  Forge, side by side. The gap between the two topologies is why
-  `how-to/deploy-and-host.md` exists as a checklist at all.
+- **[deployment/](deployment/)** — local Docker Compose, the actual Railway
+  beta (ADR-0023 platform, ADR-0024 Railpack build), and production Forge
+  (ADR-0001, never provisioned), side by side. The gap between Local and
+  Forge is why `how-to/deploy-and-host.md` exists as a checklist at all;
+  Railway has no equivalent gap, since Railpack builds its own image and
+  never reads this repo's `docker/nginx/*.conf`.
 - **[product-variability-objects/](product-variability-objects/)** — one
   real product ("Classic Tee", the same worked example as
   `../schema/product-catalogue-worked-example.md`) as instances, showing
@@ -120,12 +123,17 @@ disagree.
 - **[security-defense-layers/](security-defense-layers/)** — every layer a
   request or a piece of data actually passes through, in the real order:
   IP allowlist → host configuration (cookies, headers, protocol, CSP,
-  encryption) → client-side validation → server-side validation → rate
-  limiting → DB-level validation. Not every box applies to every route —
-  the diagram says which ones do. Verified against `bootstrap/app.php`,
-  `VerifyStripeWebhookSignature`, `EnsureAccountIsActive`,
-  `SetSecurityHeaders`, `ThrottlesSubmissions`, CLAUDE.md's "Security rules
-  that are ours", and ADR-0005.
+  encryption) → client-side validation → **Livewire property hydration**
+  (SEC-014 through SEC-017 — a strict-typed property throws before any
+  handler runs, a client-settable string with no `->maxLength()` reaches a
+  write raw, an array cast with no `is_numeric()` guard silently fabricates
+  a value) → server-side validation → rate limiting → DB-level validation.
+  Not every box applies to every route — the diagram says which ones do.
+  Verified against `bootstrap/app.php`, `VerifyStripeWebhookSignature`,
+  `EnsureAccountIsActive`, `SetSecurityHeaders`, `ThrottlesSubmissions`,
+  CLAUDE.md's "Security rules that are ours", ADR-0005, and
+  `docs/reference/testing/security-testing/sec-014.md` through
+  `sec-017.md`.
 
 ## Not yet built
 
