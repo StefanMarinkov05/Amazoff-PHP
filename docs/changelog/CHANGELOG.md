@@ -91,6 +91,29 @@ when the work happened, not when it was committed — nothing in
 
 ### Fixed
 
+- **The cookie notice did not close when clicked (2026-09-13).** Clicking
+  **OK** or **Decline non-essential** set `cookie_consent` but left the notice
+  on screen: `choose()` ended with `this.$el.remove()`, and inside an `x-data`
+  method called from a button's `x-on`, `$el` is that button — so the button
+  removed itself and the notice stayed until the next page load. Reproduced in
+  a real browser before the fix (notice visible, only the clicked button gone,
+  cookie set). `<x-site.cookie-consent>` now hides through `x-show="open"`.
+
+  A second defect surfaced while checking that the cookie works: the banner
+  hid for *any* `cookie_consent` value, while `CookieConsent::decided()`
+  counts only `accepted`/`rejected` — so a malformed value suppressed the
+  notice without recording a choice. The banner now renders on
+  `! CookieConsent::decided()`.
+
+  Verified against the running app: both buttons hide the notice and write
+  `accepted`/`rejected`; the next page load renders no notice (the cookie
+  reaches PHP unencrypted); and with no cookie or a garbage value the notice
+  renders. `CookieConsentBannerTest` gains the garbage-value case (seen
+  failing first). New `tests/Browser/CookieConsentTest.php` clicks both
+  buttons — not yet run locally, because the local browser-test image was
+  built while the disk was full and its Node binary segfaults.
+  `how-to/troubleshooting/assets-vite-frontend.md` has the `$el` entry.
+
 - **The Stripe checkout-abandonment bug — an unpaid order emailed a
   confirmation and held its stock forever (ADR-0022).** Reaching the Stripe
   payment step and closing the tab queued `App\Mail\OrderPlaced` ("you
