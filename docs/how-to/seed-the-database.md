@@ -38,6 +38,7 @@ backslash is a shell escape character.
 | `UserSeeder` | `Database\Seeders\System\UserSeeder` | Local, deployed demo (gated non-production) | One account per role, plus a plain customer |
 | `StressSeeder` | `Database\Seeders\Stress\StressSeeder` | Local only | 2000 (default) additional orders via the same engine as `DemoOrderSeeder`, for query-plan/pagination testing — never in CI, never presented |
 | `CatalogueStressSeeder` | `Database\Seeders\Stress\CatalogueStressSeeder` | Local only | 5000 (default) additional products, each with 1 variation, 1 inventory row, and 1 shared-placeholder image row, for catalogue-scale browsing/pagination/search testing — never in CI, never presented |
+| `DeepCatalogueStressSeeder` | `Database\Seeders\Stress\DeepCatalogueStressSeeder` | Local only | 100,000 (default) additional products, each with 20–30 variations and up to 50 images of its own (shared across that product's variations via the gallery pivot), for variation-switcher/image-gallery depth testing — the companion `CatalogueStressSeeder` cannot exercise, since every one of its products has exactly 1 variation and 1 image. Takes ~12 minutes at the default count; never in CI, never presented. `reference/testing/performance-testing.md` has the measured results |
 
 Example: `docker compose exec app php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"`.
 
@@ -329,6 +330,61 @@ oversight specific to this seeder.
 Like `StressSeeder`, this is opt-in only: never wired into `DatabaseSeeder`,
 never run in CI, and clearly identifiable afterward — every generated row's
 `sku`/`slug` carries a `STRESS-` or `stress-product-` prefix.
+
+### Local with a stress catalogue, deep — variations and image galleries
+
+`CatalogueStressSeeder`'s companion for *depth*: every product it generates
+gets exactly 1 variation and 1 image, which stresses row *count* but never
+exercises a product page's variation switcher or a real multi-image
+gallery at any real size — the hand-authored demo catalogue's own maximum
+is 5 variations, 2 images. `DeepCatalogueStressSeeder` gives every
+generated product 20–30 variations and up to 50 images of its own, with
+each variation's gallery a random 3–8-image subset of that product's pool,
+attached through `product_image_product_variation` exactly the shape
+`SetVariationImages` would produce.
+
+```bash
+docker compose exec app php artisan db:seed --class="Database\Seeders\Stress\DeepCatalogueStressSeeder"
+```
+
+Default 100,000 products — **takes about 12 minutes** at that count (measured:
+723.3s for 100,000 products, 2,500,265 variations, 5,000,000 images,
+13,753,252 gallery-pivot rows; scales linearly with no slowdown observed
+start to finish). Override the product count and the variation/image
+bounds independently:
+
+```bash
+docker compose exec \
+  -e DEEP_STRESS_COUNT=1000 \
+  -e DEEP_STRESS_MIN_VARIATIONS=10 \
+  -e DEEP_STRESS_MAX_VARIATIONS=15 \
+  -e DEEP_STRESS_IMAGES_PER_PRODUCT=20 \
+  app php artisan db:seed --class="Database\Seeders\Stress\DeepCatalogueStressSeeder"
+```
+
+Same direct-insert, no-Action shape as `CatalogueStressSeeder`, and the
+same reasoning — every product still gets exactly one `is_default`
+variation, every variation's gallery resolves correctly through
+`ResolveVariationImage` (verified: `$variation->images()->first()` returns
+a real row, not null, for a freshly-seeded stress variation).
+**`product_variations.image_id` does not exist** — dropped in
+`2026_08_23_093000_drop_image_id_from_product_variations_table` — a
+variation's image is the pivot alone; nothing here writes a column that no
+longer exists. Shares `CatalogueStressSeeder`'s placeholder file (same
+path, same copy-once-on-first-run logic) rather than duplicating it — every
+one of the 5,000,000 image rows at the default count points at the one
+physical file, distinct database rows, not distinct uploads.
+
+`reference/testing/performance-testing.md` has the measured page-load
+results against the full-scale seed: the catalogue list page pays for
+three already-identified, not-yet-fixed problems (an N+1, a missing index,
+an unindexable search); a single product page — even one with a real
+20-something-variation switcher and a real 50-image gallery — loads in
+about a tenth of a second regardless.
+
+Reset with `migrate:fresh --seed` (or `demo:seed --fresh`) when done — the
+stress rows are not part of the demo state
+`schema/demo-data.md`/`how-to/run-a-customer-demo.md` assume is present.
 
 ## Product images
 

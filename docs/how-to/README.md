@@ -55,6 +55,11 @@ it (that's [`explanation/`](../explanation/)) or the bare facts
   false all-clear.
 - **[use-ci.md](use-ci.md)** — how CI is sharded, and where a new test file
   goes.
+- **[measure-performance-under-load.md](measure-performance-under-load.md)**
+  — seed the catalogue at scale and measure real query counts and timing
+  against it, rather than guessing from reading the query builder code.
+  `reference/testing/performance-testing.md` is where a finding from this
+  procedure gets recorded.
 
 ## When something breaks
 

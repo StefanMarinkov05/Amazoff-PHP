@@ -139,7 +139,11 @@ in agreement: if a rule here changes, change it there too.
   `pentest-the-system.md` (the full security-pass procedure — which layer
   finds which bug class, the model/effort split it needs, and why
   downgrading the model for the reasoning half produces a false all-clear),
-  `run-the-tests.md`, `seed-the-database.md`, `set-up-claude-code.md`
+  `run-the-tests.md`, `seed-the-database.md`,
+  `measure-performance-under-load.md` (seed the catalogue at scale and
+  measure real query counts/timing rather than guessing —
+  `reference/testing/performance-testing.md` is where a finding from it
+  gets recorded), `set-up-claude-code.md`
   (the committed plugin list and the four hookify rules that enforce this
   file's own invariants mechanically), `set-up-stripe.md`,
   `set-up-security-and-quality-tools.md` (getting OWASP ZAP and Pcov
