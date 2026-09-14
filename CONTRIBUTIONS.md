@@ -22,20 +22,25 @@ needed to touch.
 
 | Area | Work |
 |---|---|
-| CI | Pipeline setup |
+| CI | Pipeline setup, parallelization |
 | Enums | Backed enums, casts, status transition matrices |
-| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing</li><li>Code coverage tooling (PCOV)</li><li>Widget and panel UI tests (responsive, data presentation etc.)</li><li>An adversarial suite against the Stripe webhook, validated by swapping in a deliberately vulnerable signature check and confirming it failed</li><li>A recurring interactive pass over the storefront and admin panel — real browser sessions, real accounts per role, server-state checked against every claim on the page</li><li>A live 3-D Secure payment run against the real Stripe test API, end to end through the webhook</li><li>Performance testing</li><li>Chaos/failure-injection testing</li><li>Accessibility testing</li><li>Every finding closed with a regression test proven able to fail — the fix reverted, the test confirmed red, then restored</li></ul> |
+| Testing | <ul><li>Factory coverage against real schema constraints</li><li>Action and concurrency coverage</li><li>Mutation testing; PCOV coverage tooling</li><li>Widget and panel UI tests (responsive, data presentation)</li><li>Adversarial Stripe-webhook suite</li><li>Recurring interactive storefront/admin pass, server-state verified against every claim on the page</li><li>Live 3-D Secure run against the real Stripe test API, end to end through the webhook</li><li>Performance, chaos/failure-injection, and accessibility testing</li></ul> |
 | Validation | Database-level constraints across pivot and catalogue tables |
-| Optimization | <ul><li>Docker/database tuning — migrations and tests from 8m to 30s</li><li>CI parallelization — halving wall-clock time</li><li>LLM token usage, output quality and safety mechanisms</li></ul> |
-| Authorization | Permissions, roles, policies, administrator bypass, plus fixes to a role's ability to escalate its own permissions and to a customer's guest basket surviving login |
-| Admin panel | <ul><li>Roles and permissions screen</li><li>Product image logic, including the variation gallery</li><li>Visual minimalism and statistical widgets</li><li>Inventory, Shipment, User, and Payment resources — closing §37 criteria 15 and 16, and the admin surface for refunds</li></ul> |
-| Actions | Full `app/Actions`, including the Stripe slice — `CreateStripeIntent`, `HandleStripeWebhookEvent`, `RefundPayment` |
-| Payments | <ul><li>Stripe integration end to end — PaymentIntents, Elements, webhook, refunds</li><li>Checkout — guest and registered, cart through payment to order confirmation, server-recalculated totals</li><li>Verified against the real Stripe API via its MCP server, alongside the faked test suite, including a completed 3-D Secure challenge</li><li>Fixed the payment form failing to render and a repeat purchase in one session being permanently refused</li></ul> |
-| Security | <ul><li>Prevented a guest/Stripe-webhook null-actor authorization bypass</li><li>Signing-secret rotation and dispute handling for the Stripe webhook</li><li>Closed a header misconfiguration that silently blocked card payment in every environment</li><li>Rate-limited every public form that lacked one</li><li>Closed a secret-in-URL leak on the payment return path</li></ul> |
-| Console | `ExpireCarts` (the project's first scheduled command), `RaceWorker` (the concurrency test harness), `fixtures:validate`/`fixtures:validate-articles`, `demo:fetch-images` |
-| Seeder | <ul><li>Demo/System/Stress seeder organization</li><li>Full transactional demo pass</li><li>Data Parser before seeding</li><li>`CatalogueStressSeeder` and `StressSeeder` for volume testing</li></ul> |
-| Storefront | <ul><li>Personal account management panel</li><li>Category filtering, sorting criteria</li><li>Public order tracking and a customer's own order history, both scoped by ownership rather than by a guessable identifier</li></ul> |
+| Optimization | Docker/database tuning (migrations and tests, 8m → 30s); LLM token usage, output quality, and safety mechanisms |
+| Authorization | Permissions, roles, policies, administrator bypass; fixed a role's own-permission escalation and a guest basket not surviving login |
+| Admin panel | Roles/permissions screen; product image logic and the variation gallery; visual minimalism and statistical widgets; Inventory, Shipment, User, and Payment resources (§37 #15–16, refund surface) |
+| Actions | Full `app/Actions`, including the Stripe slice (`CreateStripeIntent`, `HandleStripeWebhookEvent`, `RefundPayment`) |
+| Payments | Stripe integration end to end — PaymentIntents, Elements, webhook, refunds; checkout (guest and registered) through server-recalculated totals; verified against the real Stripe API via MCP, including a completed 3-D Secure challenge; fixed the payment form failing to render and a repeat purchase being permanently refused |
+| Security | Closed a guest/webhook null-actor authorization bypass; Stripe signing-secret rotation and dispute handling; fixed a header misconfiguration silently blocking card payment; rate-limited every public form that lacked one; closed a secret-in-URL leak on the payment return path |
+| Console | `ExpireCarts` (first scheduled command), `RaceWorker` (concurrency harness), `fixtures:validate`/`-articles`, `demo:fetch-images` |
+| Seeder | Demo/System/Stress seeder organization; full transactional demo pass; data parser; `CatalogueStressSeeder`/`StressSeeder` for volume testing |
+| Storefront | Personal account management panel; category filtering and sorting; public order tracking and order history, both ownership-scoped |
 | Documentation | For the above |
+
+Every finding above was closed with a regression test proven able to
+fail — the fix reverted, the test confirmed red, then restored — the
+standing methodology for this project's own testing discipline, not
+repeated per row.
 
 ### Aleksandar Stanchev
 
