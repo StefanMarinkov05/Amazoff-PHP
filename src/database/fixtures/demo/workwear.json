@@ -1,0 +1,930 @@
+[
+    {
+        "name": "Hi-Vis Work Gloves Cut-Resistant",
+        "slug": "hi-vis-work-gloves-cut-resistant-wrk0001",
+        "sku": "WRK-0001",
+        "category": "gloves",
+        "brand": "stanley",
+        "short_description": "Cut-resistant hi-vis work gloves with reinforced palm.",
+        "description": "Level 3 cut resistance without sacrificing dexterity for detail work — the knit-back construction flexes at the knuckle rather than bunching.\n\nThe hi-vis cuff makes the wearer visible on a site without a separate armband.",
+        "regular_price": "9.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 120,
+        "length_mm": 260,
+        "width_mm": 140,
+        "height_mm": 15,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Hi-Vis Cut-Resistant Work Gloves | Amazoff",
+        "seo_description": "Cut-resistant hi-vis work gloves, reinforced palm.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0001-main.jpg",
+                "alt_text": "Work gloves",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Cut level",
+                "value": "Level 3",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0001-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 90,
+                "attribute_values": {
+                    "size": "m"
+                }
+            },
+            {
+                "sku": "WRK-0001-L",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 75,
+                "attribute_values": {
+                    "size": "l"
+                }
+            },
+            {
+                "sku": "WRK-0001-XL",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 30,
+                "attribute_values": {
+                    "size": "xl"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Leather Rigger Gloves Heavy Duty",
+        "slug": "leather-rigger-gloves-heavy-duty-wrk0002",
+        "sku": "WRK-0002",
+        "category": "gloves",
+        "brand": "stanley",
+        "short_description": "Heavy-duty leather rigger gloves for general labour and rigging.",
+        "description": "Full-grain leather across the palm and fingers stands up to rope, timber, and rebar in a way a fabric glove cannot.\n\nThe canvas back keeps the hand cool on a warm site day, and the elasticated wrist keeps debris out.",
+        "regular_price": "8.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 2,
+        "weight_g": 160,
+        "length_mm": 270,
+        "width_mm": 150,
+        "height_mm": 20,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Leather Rigger Gloves | Amazoff",
+        "seo_description": "Heavy-duty leather rigger gloves, canvas back.",
+        "attributes": [
+            "size",
+            "material"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0002-main.jpg",
+                "alt_text": "Rigger gloves",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Leather / canvas",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0002-L",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 55,
+                "attribute_values": {
+                    "size": "l",
+                    "material": "leather"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Nitrile Coated Grip Gloves 12-Pack",
+        "slug": "nitrile-coated-grip-gloves-12pack-wrk0003",
+        "sku": "WRK-0003",
+        "category": "gloves",
+        "brand": "einhell",
+        "short_description": "12-pack nitrile-coated grip gloves for warehouse and assembly work.",
+        "description": "A dozen pairs of light-duty nitrile-coated gloves, breathable enough for a full shift and grippy enough for handling boxes and small parts.\n\nSold as a case rather than a pair, since these are the ones that go missing fastest on a busy floor.",
+        "regular_price": "24.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 900,
+        "length_mm": 300,
+        "width_mm": 200,
+        "height_mm": 100,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Nitrile Coated Grip Gloves 12-Pack | Amazoff",
+        "seo_description": "12-pack nitrile grip gloves for warehouse work.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0003-main.jpg",
+                "alt_text": "Grip gloves pack",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Pairs",
+                "value": "12",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0003-M",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 40,
+                "attribute_values": {
+                    "size": "m"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Steel Toe Cap Safety Boots",
+        "slug": "steel-toe-cap-safety-boots-wrk0004",
+        "sku": "WRK-0004",
+        "category": "footwear",
+        "brand": "stanley",
+        "short_description": "Steel toe cap safety boots, oil-resistant sole, S3 rated.",
+        "description": "S3-rated boots with a steel toe cap, midsole puncture protection, and an oil-resistant outsole for workshop and site floors.\n\nThe padded ankle collar is what makes these bearable for a ten-hour shift, not just the rating on the box.",
+        "regular_price": "64.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 1400,
+        "length_mm": 320,
+        "width_mm": 130,
+        "height_mm": 180,
+        "is_available": true,
+        "is_featured": true,
+        "seo_title": "Steel Toe Cap Safety Boots | Amazoff",
+        "seo_description": "S3-rated steel toe cap safety boots, oil-resistant sole.",
+        "attributes": [
+            "shoe-size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0004-main.jpg",
+                "alt_text": "Safety boots",
+                "is_main": true,
+                "sort_order": 0
+            },
+            {
+                "key": "side",
+                "path": "demo/wrk0004-side.jpg",
+                "alt_text": "Boot side profile",
+                "is_main": false,
+                "sort_order": 1
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Rating",
+                "value": "S3",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0004-42",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main",
+                    "side"
+                ],
+                "initial_quantity": 18,
+                "attribute_values": {
+                    "shoe-size": "eu-42"
+                }
+            },
+            {
+                "sku": "WRK-0004-43",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 22,
+                "attribute_values": {
+                    "shoe-size": "eu-43"
+                }
+            },
+            {
+                "sku": "WRK-0004-44",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 14,
+                "attribute_values": {
+                    "shoe-size": "eu-44"
+                }
+            },
+            {
+                "sku": "WRK-0004-45",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 0,
+                "attribute_values": {
+                    "shoe-size": "eu-45"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Waterproof Wellington Boots",
+        "slug": "waterproof-wellington-boots-wrk0005",
+        "sku": "WRK-0005",
+        "category": "footwear",
+        "brand": "gardena",
+        "short_description": "Waterproof wellington boots for garden and outdoor site work.",
+        "description": "Fully waterproof rubber boots for wet ground, mud, and hosing down at the end of a shift.\n\nThe cleated sole grips on wet grass and mud alike, and the reinforced heel resists collapsing after a season of daily wear.",
+        "regular_price": "29.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 1100,
+        "length_mm": 330,
+        "width_mm": 130,
+        "height_mm": 350,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Waterproof Wellington Boots | Amazoff",
+        "seo_description": "Waterproof wellington boots, cleated sole.",
+        "attributes": [
+            "shoe-size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0005-main.jpg",
+                "alt_text": "Wellington boots",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Rubber",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0005-41-GRN",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 32,
+                "attribute_values": {
+                    "shoe-size": "eu-41",
+                    "colour": "green"
+                }
+            },
+            {
+                "sku": "WRK-0005-42-GRN",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 28,
+                "attribute_values": {
+                    "shoe-size": "eu-42",
+                    "colour": "green"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Hi-Vis Work Jacket Waterproof",
+        "slug": "hi-vis-work-jacket-waterproof-wrk0006",
+        "sku": "WRK-0006",
+        "category": "workwear",
+        "brand": "stanley",
+        "short_description": "Waterproof hi-vis work jacket with reflective tape and hood.",
+        "description": "A fully waterproof, breathable jacket that stays hi-vis compliant through the whole shift, with taped seams that actually keep rain out rather than just resisting a light drizzle.\n\nThe stow-away hood clears a hard hat without bunching at the collar.",
+        "regular_price": "54.90",
+        "discount_price": "44.90",
+        "discount_starts_at": "-6 days",
+        "discount_ends_at": "+8 days",
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 800,
+        "length_mm": 750,
+        "width_mm": 550,
+        "height_mm": 40,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Hi-Vis Waterproof Work Jacket | Amazoff",
+        "seo_description": "Waterproof hi-vis work jacket, reflective tape, hood. On sale now.",
+        "attributes": [
+            "size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0006-main.jpg",
+                "alt_text": "Hi-vis jacket",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Waterproof rating",
+                "value": "5000mm",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0006-L",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 24,
+                "attribute_values": {
+                    "size": "l"
+                }
+            },
+            {
+                "sku": "WRK-0006-XL",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 19,
+                "attribute_values": {
+                    "size": "xl"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Work Trousers with Knee Pad Pockets",
+        "slug": "work-trousers-knee-pad-pockets-wrk0007",
+        "sku": "WRK-0007",
+        "category": "workwear",
+        "brand": "dewalt",
+        "short_description": "Ripstop work trousers with reinforced knee pad pockets.",
+        "description": "Ripstop fabric across the seat and knees, with pockets sized for foam knee pads on flooring and tiling work.\n\nA holster pocket on the right thigh holds a hammer or a phone without either sliding out mid-crouch.",
+        "regular_price": "39.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 600,
+        "length_mm": 700,
+        "width_mm": 400,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Work Trousers with Knee Pads | Amazoff",
+        "seo_description": "Ripstop work trousers, reinforced knee pad pockets.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "attribute_values": [
+            "material.cotton",
+            "material.polyester"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0007-main.jpg",
+                "alt_text": "Work trousers",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Material",
+                "value": "Ripstop polyester-cotton",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0007-32-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 16,
+                "attribute_values": {
+                    "size": "m",
+                    "colour": "black"
+                }
+            },
+            {
+                "sku": "WRK-0007-34-GRY",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 21,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "grey"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Safety Goggles Anti-Fog",
+        "slug": "safety-goggles-anti-fog-wrk0008",
+        "sku": "WRK-0008",
+        "category": "workwear",
+        "brand": "boschtech",
+        "short_description": "Anti-fog safety goggles for grinding, sanding, and chemical splash protection.",
+        "description": "A sealed goggle rather than open safety glasses, for grinding dust and chemical splash where side protection matters.\n\nThe anti-fog coating survives repeated wipe-downs, unlike the spray-on coatings that wear off within weeks.",
+        "regular_price": "7.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 2,
+        "weight_g": 90,
+        "length_mm": 200,
+        "width_mm": 90,
+        "height_mm": 50,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Anti-Fog Safety Goggles | Amazoff",
+        "seo_description": "Anti-fog safety goggles, sealed, for grinding and chemical splash.",
+        "attributes": [],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0008-main.jpg",
+                "alt_text": "Safety goggles",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Coating",
+                "value": "Anti-fog",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0008-STD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 200,
+                "attribute_values": {}
+            }
+        ]
+    },
+    {
+        "name": "Hard Hat with Ratchet Adjustment",
+        "slug": "hard-hat-ratchet-adjustment-wrk0009",
+        "sku": "WRK-0009",
+        "category": "workwear",
+        "brand": "stanley",
+        "short_description": "Site hard hat with ratchet size adjustment, EN 397 rated.",
+        "description": "A standard-issue site hard hat with a ratchet adjuster at the back rather than a fixed strap, so it actually fits between users on a shared site.\n\nFour-point chin strap sold separately; the shell alone meets EN 397 on its own.",
+        "regular_price": "12.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 380,
+        "length_mm": 290,
+        "width_mm": 240,
+        "height_mm": 150,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Hard Hat Ratchet Adjustment | Amazoff",
+        "seo_description": "Site hard hat, ratchet adjustment, EN 397 rated.",
+        "attributes": [
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0009-main.jpg",
+                "alt_text": "Hard hat",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Standard",
+                "value": "EN 397",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0009-WHT",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 65,
+                "attribute_values": {
+                    "colour": "white"
+                }
+            },
+            {
+                "sku": "WRK-0009-YEL",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 48,
+                "attribute_values": {
+                    "colour": "yellow"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Insulated Softshell Work Vest",
+        "slug": "insulated-softshell-work-vest-wrk0010",
+        "sku": "WRK-0010",
+        "category": "workwear",
+        "brand": "dewalt",
+        "short_description": "Insulated softshell work vest for cold-weather outdoor shifts.",
+        "description": "A sleeveless insulated layer for cold mornings where full sleeves would just get in the way of the work.\n\nThe softshell outer sheds light rain, and two zip chest pockets hold a phone and a notepad without bulk.",
+        "regular_price": "44.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 500,
+        "length_mm": 650,
+        "width_mm": 500,
+        "height_mm": 30,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Insulated Softshell Work Vest | Amazoff",
+        "seo_description": "Insulated softshell work vest, water-resistant.",
+        "attributes": [
+            "size",
+            "colour"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0010-main.jpg",
+                "alt_text": "Work vest",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Insulation",
+                "value": "Synthetic fill",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0010-L-BLK",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 13,
+                "attribute_values": {
+                    "size": "l",
+                    "colour": "black"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Non-Slip Work Sneakers Composite Toe",
+        "slug": "non-slip-work-sneakers-composite-toe-wrk0011",
+        "sku": "WRK-0011",
+        "category": "footwear",
+        "brand": "stanley",
+        "short_description": "Lightweight composite-toe work sneakers with non-slip sole.",
+        "description": "A sneaker silhouette with a composite toe cap instead of steel, lighter on the foot across a full shift without dropping the S1P rating.\n\nThe non-slip sole is rated for wet tile and stainless kitchen floors as well as a warehouse concrete slab.",
+        "regular_price": "54.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 900,
+        "length_mm": 310,
+        "width_mm": 120,
+        "height_mm": 130,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Non-Slip Composite Toe Sneakers | Amazoff",
+        "seo_description": "Lightweight composite-toe work sneakers, non-slip sole.",
+        "attributes": [
+            "shoe-size"
+        ],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0011-main.jpg",
+                "alt_text": "Work sneakers",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Rating",
+                "value": "S1P",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0011-40",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 20,
+                "attribute_values": {
+                    "shoe-size": "eu-40"
+                }
+            },
+            {
+                "sku": "WRK-0011-41",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 18,
+                "attribute_values": {
+                    "shoe-size": "eu-41"
+                }
+            }
+        ]
+    },
+    {
+        "name": "Knee Pads Gel Cushioned",
+        "slug": "knee-pads-gel-cushioned-wrk0012",
+        "sku": "WRK-0012",
+        "category": "workwear",
+        "brand": "stanley",
+        "short_description": "Gel-cushioned knee pads with adjustable straps for flooring work.",
+        "description": "A gel core rather than plain foam, which is what makes these bearable on tile and concrete rather than just carpet.\n\nTwo adjustable straps keep them from sliding down mid-task, the most common complaint with cheaper pads.",
+        "regular_price": "14.90",
+        "discount_price": null,
+        "discount_starts_at": null,
+        "discount_ends_at": null,
+        "vat_rate": "20.00",
+        "min_order_quantity": 1,
+        "weight_g": 400,
+        "length_mm": 250,
+        "width_mm": 200,
+        "height_mm": 60,
+        "is_available": true,
+        "is_featured": false,
+        "seo_title": "Gel Cushioned Knee Pads | Amazoff",
+        "seo_description": "Gel-cushioned knee pads, adjustable straps.",
+        "attributes": [],
+        "images": [
+            {
+                "key": "main",
+                "path": "demo/wrk0012-main.jpg",
+                "alt_text": "Knee pads",
+                "is_main": true,
+                "sort_order": 0
+            }
+        ],
+        "specifications": [
+            {
+                "name": "Cushion",
+                "value": "Gel core",
+                "sort_order": 0
+            }
+        ],
+        "variations": [
+            {
+                "sku": "WRK-0012-STD",
+                "price": null,
+                "discount_price": null,
+                "weight_g": null,
+                "length_mm": null,
+                "width_mm": null,
+                "height_mm": null,
+                "is_available": true,
+                "is_default": true,
+                "images": [
+                    "main"
+                ],
+                "initial_quantity": 38,
+                "attribute_values": {}
+            }
+        ]
+    }
+]

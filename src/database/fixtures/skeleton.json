@@ -1,0 +1,95 @@
+{
+    "name": "18V Cordless Drill Driver",
+    "slug": "18v-cordless-drill-driver",
+    "sku": "PWR-DRL-18V-001",
+    "category": "power-tools",
+    "brand": "makita",
+    "short_description": "Compact 18V drill driver with two batteries and a carry case.",
+    "description": "A two-speed drill driver built for cabinet work and light construction.\n\nThe brushless motor holds torque under load where a brushed motor fades, and the 13mm keyless chuck takes both round and hex shanks.",
+    "regular_price": "189.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1600,
+    "length_mm": 240,
+    "width_mm": 80,
+    "height_mm": 210,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "18V Cordless Drill Driver | Amazoff",
+    "seo_description": "Buy the 18V Cordless Drill Driver online. Two batteries, carry case, next-day delivery.",
+    "attributes": [
+        "colour"
+    ],
+    "attribute_values": [
+        "material.cotton",
+        "material.polyester"
+    ],
+    "images": [
+        {
+            "key": "main",
+            "path": "demo/drill-main.jpg",
+            "alt_text": "Drill, front view",
+            "is_main": true,
+            "sort_order": 0
+        },
+        {
+            "key": "side",
+            "path": "demo/drill-side.jpg",
+            "alt_text": "Drill, side view",
+            "is_main": false,
+            "sort_order": 1
+        }
+    ],
+    "specifications": [
+        {
+            "name": "Voltage",
+            "value": "18V",
+            "sort_order": 0
+        },
+        {
+            "name": "Battery",
+            "value": "2x 2.0Ah Li-ion",
+            "sort_order": 1
+        },
+        {
+            "name": "Chuck",
+            "value": "13mm keyless",
+            "sort_order": 2
+        }
+    ],
+    "variations": [
+        {
+            "sku": "PWR-DRL-18V-001-BLK",
+            "price": null,
+            "discount_price": null,
+            "weight_g": null,
+            "is_available": true,
+            "is_default": true,
+            "images": [
+                "main",
+                "side"
+            ],
+            "initial_quantity": 42,
+            "attribute_values": {
+                "colour": "black"
+            }
+        },
+        {
+            "sku": "PWR-DRL-18V-001-RED",
+            "price": "199.90",
+            "discount_price": null,
+            "weight_g": null,
+            "is_available": true,
+            "images": [
+                "side"
+            ],
+            "initial_quantity": 0,
+            "attribute_values": {
+                "colour": "red"
+            }
+        }
+    ]
+}

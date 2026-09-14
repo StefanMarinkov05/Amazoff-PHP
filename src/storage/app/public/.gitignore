@@ -1,0 +1,13 @@
+*
+!.gitignore
+
+# Demo product photos, sourced by `demo:fetch-images` — committed
+# deliberately, unlike the rest of this directory. Real uploads (an admin
+# adding a product image through the panel) stay excluded; this is
+# committed catalogue content the same way database/fixtures/demo/*.json
+# is, so a fresh clone + migrate:fresh --seed has working images without
+# anyone needing a Pexels API key. 14MB across 182 files as of the run
+# that produced them — see docs/how-to/seed-the-database.md, "Product
+# images" for the full account.
+!demo/
+!demo/**

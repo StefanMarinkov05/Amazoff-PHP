@@ -1,0 +1,842 @@
+[
+  {
+    "name": "Flagship Smartphone 6.7-inch OLED",
+    "slug": "flagship-smartphone-6-7-oled-elc0001",
+    "sku": "ELC-0001",
+    "category": "electronics-phones-smartphones",
+    "brand": "veltrix",
+    "short_description": "6.7-inch OLED smartphone with triple camera and fast charging.",
+    "description": "A 6.7-inch OLED display with a 120Hz refresh rate that makes scrolling and gaming noticeably smoother than a standard 60Hz panel.\n\nThe triple camera system covers wide, ultra-wide, and telephoto without needing a separate lens attachment.",
+    "regular_price": "899.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 195,
+    "length_mm": 160,
+    "width_mm": 75,
+    "height_mm": 8,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Flagship Smartphone 6.7-inch OLED | Amazoff",
+    "seo_description": "6.7-inch OLED smartphone, triple camera, fast charging.",
+    "attributes": ["storage", "colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0001-main.jpg", "alt_text": "Smartphone front", "is_main": true, "sort_order": 0 },
+      { "key": "back", "path": "demo/elc0001-back.jpg", "alt_text": "Smartphone back", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Display", "value": "6.7-inch OLED, 120Hz", "sort_order": 0 },
+      { "name": "Rear camera", "value": "Triple, 50MP main", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "ELC-0001-128-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "back"], "initial_quantity": 20, "attribute_values": { "storage": "128gb", "colour": "black" } },
+      { "sku": "ELC-0001-256-BLK", "price": "999.00", "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 12, "attribute_values": { "storage": "256gb", "colour": "black" } },
+      { "sku": "ELC-0001-128-SLV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 8, "attribute_values": { "storage": "128gb", "colour": "silver" } }
+    ]
+  },
+  {
+    "name": "Mid-Range Smartphone 6.1-inch",
+    "slug": "mid-range-smartphone-6-1-elc0002",
+    "sku": "ELC-0002",
+    "category": "electronics-phones-smartphones",
+    "brand": "nexbyte",
+    "short_description": "6.1-inch smartphone with dual camera, all-day battery.",
+    "description": "A well-rounded mid-range phone that covers calls, browsing, and photos without the flagship price tag.\n\nA 5000mAh battery comfortably clears a full day of moderate use, including navigation and streaming.",
+    "regular_price": "349.00",
+    "discount_price": "299.00",
+    "discount_starts_at": "-4 days",
+    "discount_ends_at": "+10 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 190,
+    "length_mm": 155,
+    "width_mm": 73,
+    "height_mm": 9,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Mid-Range Smartphone 6.1-inch | Amazoff",
+    "seo_description": "6.1-inch smartphone, dual camera, all-day battery. On sale now.",
+    "attributes": ["storage", "colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0002-main.jpg", "alt_text": "Mid-range smartphone", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Battery", "value": "5000mAh", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0002-128-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 44, "attribute_values": { "storage": "128gb", "colour": "blue" } }
+    ]
+  },
+  {
+    "name": "Clear Silicone Phone Case",
+    "slug": "clear-silicone-phone-case-elc0003",
+    "sku": "ELC-0003",
+    "category": "electronics-phones-cases",
+    "brand": "nexbyte",
+    "short_description": "Clear silicone phone case with reinforced corners.",
+    "description": "A slim, transparent case that shows off the phone's own finish rather than hiding it, with reinforced corners for drop protection.\n\nRaised bezels around the camera and screen keep both off the table when the phone is set face down.",
+    "regular_price": "9.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 30,
+    "length_mm": 165,
+    "width_mm": 80,
+    "height_mm": 10,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Clear Silicone Phone Case | Amazoff",
+    "seo_description": "Clear silicone phone case, reinforced corners.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0003-main.jpg", "alt_text": "Phone case", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Material", "value": "TPU silicone", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 150, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "USB-C Fast Charger 65W with Cable",
+    "slug": "usb-c-fast-charger-65w-elc0004",
+    "sku": "ELC-0004",
+    "category": "electronics-phones-chargers",
+    "brand": "quantalink",
+    "short_description": "65W USB-C fast charger with 1.5m braided cable.",
+    "description": "65W is enough to fast-charge a phone and trickle-charge a laptop from the same brick, useful for a single travel adapter rather than two.\n\nThe braided cable resists the fraying that happens at the connector on a cheaper rubber cable.",
+    "regular_price": "24.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 150,
+    "length_mm": 60,
+    "width_mm": 60,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "65W USB-C Fast Charger | Amazoff",
+    "seo_description": "65W USB-C fast charger, braided cable included.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0004-main.jpg", "alt_text": "USB-C charger", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Output", "value": "65W", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0004-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 80, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Tempered Glass Screen Protector 2-Pack",
+    "slug": "tempered-glass-screen-protector-2pack-elc0005",
+    "sku": "ELC-0005",
+    "category": "electronics-phones-screen-protectors",
+    "brand": "nexbyte",
+    "short_description": "2-pack tempered glass screen protectors, 9H hardness.",
+    "description": "9H hardness tempered glass, sold as a two-pack for the first-attempt bubble that never quite goes away.\n\nAn alignment frame in the box makes the application genuinely bubble-free on the second try.",
+    "regular_price": "12.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 40,
+    "length_mm": 170,
+    "width_mm": 85,
+    "height_mm": 15,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Tempered Glass Screen Protector 2-Pack | Amazoff",
+    "seo_description": "2-pack tempered glass screen protectors, alignment frame included.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0005-main.jpg", "alt_text": "Screen protector pack", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Hardness", "value": "9H", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0005-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 110, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "14-inch Ultrabook Laptop",
+    "slug": "14-inch-ultrabook-laptop-elc0006",
+    "sku": "ELC-0006",
+    "category": "electronics-computing-laptops",
+    "brand": "veltrix",
+    "short_description": "14-inch ultrabook, 16GB RAM, all-day battery life.",
+    "description": "A 14-inch ultrabook built for portability first — under 1.3kg, all-metal chassis, and a battery rated for a full working day away from a socket.\n\n16GB of RAM handles browser-heavy multitasking without the slowdown an 8GB machine hits after a dozen tabs.",
+    "regular_price": "1099.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1280,
+    "length_mm": 320,
+    "width_mm": 220,
+    "height_mm": 16,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "14-inch Ultrabook Laptop | Amazoff",
+    "seo_description": "14-inch ultrabook, 16GB RAM, all-day battery.",
+    "attributes": ["storage", "colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0006-main.jpg", "alt_text": "Ultrabook laptop", "is_main": true, "sort_order": 0 },
+      { "key": "open", "path": "demo/elc0006-open.jpg", "alt_text": "Laptop open, keyboard view", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "RAM", "value": "16GB", "sort_order": 0 },
+      { "name": "Weight", "value": "1.28kg", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "ELC-0006-512-SLV", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "open"], "initial_quantity": 7, "attribute_values": { "storage": "512gb", "colour": "silver" } },
+      { "sku": "ELC-0006-1TB-SLV", "price": "1299.00", "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "storage": "1tb", "colour": "silver" } }
+    ]
+  },
+  {
+    "name": "15.6-inch Gaming Laptop",
+    "slug": "15-6-inch-gaming-laptop-elc0007",
+    "sku": "ELC-0007",
+    "category": "electronics-computing-laptops",
+    "brand": "sonarapex",
+    "short_description": "15.6-inch gaming laptop with dedicated GPU and 144Hz display.",
+    "description": "A dedicated GPU and 144Hz panel for gaming at native resolution without the tearing a lower-refresh screen introduces.\n\nDual-fan cooling keeps sustained load temperatures in check during long sessions.",
+    "regular_price": "1499.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 2400,
+    "length_mm": 360,
+    "width_mm": 260,
+    "height_mm": 25,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "15.6-inch Gaming Laptop | Amazoff",
+    "seo_description": "15.6-inch gaming laptop, dedicated GPU, 144Hz.",
+    "attributes": ["storage"],
+    "images": [
+      { "key": "main", "path": "demo/elc0007-main.jpg", "alt_text": "Gaming laptop", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Display", "value": "15.6-inch, 144Hz", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0007-512", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 5, "attribute_values": { "storage": "512gb" } }
+    ]
+  },
+  {
+    "name": "27-inch 4K Monitor IPS",
+    "slug": "27-inch-4k-monitor-ips-elc0008",
+    "sku": "ELC-0008",
+    "category": "electronics-computing-monitors",
+    "brand": "sonarapex",
+    "short_description": "27-inch 4K IPS monitor with USB-C connectivity.",
+    "description": "A 27-inch 4K IPS panel with accurate colour reproduction, suited to design work as much as everyday productivity.\n\nUSB-C input carries video and charges a connected laptop through the same cable, cutting desk clutter to one line.",
+    "regular_price": "349.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 5200,
+    "length_mm": 620,
+    "width_mm": 210,
+    "height_mm": 460,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "27-inch 4K IPS Monitor | Amazoff",
+    "seo_description": "27-inch 4K IPS monitor, USB-C connectivity.",
+    "attributes": ["connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0008-main.jpg", "alt_text": "4K monitor", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Resolution", "value": "3840 x 2160", "sort_order": 0 },
+      { "name": "Panel", "value": "IPS", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "ELC-0008-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 9, "attribute_values": { "connectivity": "wired" } }
+    ]
+  },
+  {
+    "name": "24-inch Full HD Monitor",
+    "slug": "24-inch-full-hd-monitor-elc0009",
+    "sku": "ELC-0009",
+    "category": "electronics-computing-monitors",
+    "brand": "sonarapex",
+    "short_description": "24-inch Full HD monitor for office and everyday use.",
+    "description": "A no-frills 24-inch Full HD monitor for the desk that just needs a second screen for spreadsheets and browser windows.\n\nThe stand tilts for comfortable viewing without needing a VESA mount.",
+    "regular_price": "119.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 3400,
+    "length_mm": 550,
+    "width_mm": 190,
+    "height_mm": 400,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "24-inch Full HD Monitor | Amazoff",
+    "seo_description": "24-inch Full HD monitor for office and everyday use.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0009-main.jpg", "alt_text": "Full HD monitor", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Resolution", "value": "1920 x 1080", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0009-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 26, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Mechanical Keyboard RGB Backlit",
+    "slug": "mechanical-keyboard-rgb-backlit-elc0010",
+    "sku": "ELC-0010",
+    "category": "electronics-computing-keyboards",
+    "brand": "quantalink",
+    "short_description": "RGB backlit mechanical keyboard with hot-swappable switches.",
+    "description": "Hot-swappable switches mean trying a different feel — clicky, tactile, linear — without desoldering anything.\n\nPer-key RGB is more than decoration on a shared desk: it makes finding the right key in a dark room genuinely easier.",
+    "regular_price": "79.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 900,
+    "length_mm": 360,
+    "width_mm": 130,
+    "height_mm": 35,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Mechanical Keyboard RGB Backlit | Amazoff",
+    "seo_description": "RGB mechanical keyboard, hot-swappable switches.",
+    "attributes": ["connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0010-main.jpg", "alt_text": "Mechanical keyboard", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Switches", "value": "Hot-swappable", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0010-WRD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 33, "attribute_values": { "connectivity": "wired" } },
+      { "sku": "ELC-0010-BT", "price": "89.90", "discount_price": null, "weight_g": 950, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 21, "attribute_values": { "connectivity": "bluetooth" } }
+    ]
+  },
+  {
+    "name": "Wireless Ergonomic Mouse",
+    "slug": "wireless-ergonomic-mouse-elc0011",
+    "sku": "ELC-0011",
+    "category": "electronics-computing-mice",
+    "brand": "quantalink",
+    "short_description": "Wireless ergonomic mouse with vertical grip design.",
+    "description": "A vertical grip that keeps the wrist in a more natural handshake position, reducing the strain flat mice build up over a full workday.\n\nAdjustable DPI covers everything from detail work to fast cursor travel across a multi-monitor setup.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 130,
+    "length_mm": 130,
+    "width_mm": 75,
+    "height_mm": 65,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Wireless Ergonomic Mouse | Amazoff",
+    "seo_description": "Wireless ergonomic vertical mouse.",
+    "attributes": ["connectivity", "colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0011-main.jpg", "alt_text": "Ergonomic mouse", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Grip", "value": "Vertical", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0011-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 60, "attribute_values": { "connectivity": "bluetooth", "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Portable SSD 1TB USB-C",
+    "slug": "portable-ssd-1tb-usb-c-elc0012",
+    "sku": "ELC-0012",
+    "category": "electronics-computing-storage",
+    "brand": "nexbyte",
+    "short_description": "1TB portable SSD, USB-C, pocket-size.",
+    "description": "A pocket-size SSD that transfers a full photo library in minutes rather than the hours a spinning hard drive needs.\n\nNo external power required — it draws power from the USB-C port it plugs into.",
+    "regular_price": "89.90",
+    "discount_price": "74.90",
+    "discount_starts_at": "-5 days",
+    "discount_ends_at": "+9 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 55,
+    "length_mm": 90,
+    "width_mm": 50,
+    "height_mm": 10,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Portable SSD 1TB | Amazoff",
+    "seo_description": "1TB portable SSD, USB-C. On sale now.",
+    "attributes": ["storage"],
+    "images": [
+      { "key": "main", "path": "demo/elc0012-main.jpg", "alt_text": "Portable SSD", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Interface", "value": "USB-C 3.2", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0012-1TB", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 48, "attribute_values": { "storage": "1tb" } }
+    ]
+  },
+  {
+    "name": "Over-Ear Noise Cancelling Headphones",
+    "slug": "over-ear-noise-cancelling-headphones-elc0013",
+    "sku": "ELC-0013",
+    "category": "electronics-audio-headphones",
+    "brand": "sonarapex",
+    "short_description": "Over-ear headphones with active noise cancellation, 30hr battery.",
+    "description": "Active noise cancellation that genuinely quiets a plane cabin or open office, not just marketing-copy ANC that barely touches low hums.\n\n30 hours of battery with ANC on covers a long-haul flight and the commute either side of it.",
+    "regular_price": "199.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 260,
+    "length_mm": 190,
+    "width_mm": 170,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Over-Ear Noise Cancelling Headphones | Amazoff",
+    "seo_description": "Over-ear ANC headphones, 30hr battery.",
+    "attributes": ["colour", "connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0013-main.jpg", "alt_text": "Over-ear headphones", "is_main": true, "sort_order": 0 },
+      { "key": "case", "path": "demo/elc0013-case.jpg", "alt_text": "Carry case", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Battery life", "value": "30 hours (ANC on)", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0013-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "case"], "initial_quantity": 16, "attribute_values": { "colour": "black", "connectivity": "bluetooth" } }
+    ]
+  },
+  {
+    "name": "True Wireless Earbuds",
+    "slug": "true-wireless-earbuds-elc0014",
+    "sku": "ELC-0014",
+    "category": "electronics-audio-earbuds",
+    "brand": "sonarapex",
+    "short_description": "True wireless earbuds with charging case, IPX4 rated.",
+    "description": "True wireless earbuds that clear the low bar most cheap pairs fail — a stable connection that doesn't drop mid-call.\n\nIPX4 splash resistance means a light rain or a sweaty run does not end the earbuds' life early.",
+    "regular_price": "59.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 50,
+    "length_mm": 60,
+    "width_mm": 50,
+    "height_mm": 30,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "True Wireless Earbuds | Amazoff",
+    "seo_description": "True wireless earbuds, IPX4, charging case included.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0014-main.jpg", "alt_text": "Wireless earbuds", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Water resistance", "value": "IPX4", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0014-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 72, "attribute_values": { "colour": "white" } },
+      { "sku": "ELC-0014-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 55, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Portable Bluetooth Speaker Waterproof",
+    "slug": "portable-bluetooth-speaker-waterproof-elc0015",
+    "sku": "ELC-0015",
+    "category": "electronics-audio-speakers",
+    "brand": "sonarapex",
+    "short_description": "Waterproof portable Bluetooth speaker, 12hr battery.",
+    "description": "IPX7 waterproof rating means this survives a splash by the pool or a sudden shower on a picnic without a second thought.\n\n12 hours of playback at moderate volume, with a built-in strap for hanging off a bag or a bike frame.",
+    "regular_price": "49.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 480,
+    "length_mm": 180,
+    "width_mm": 80,
+    "height_mm": 80,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Portable Waterproof Bluetooth Speaker | Amazoff",
+    "seo_description": "Waterproof Bluetooth speaker, 12hr battery.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0015-main.jpg", "alt_text": "Bluetooth speaker", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Water resistance", "value": "IPX7", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0015-BLU", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 0, "attribute_values": { "colour": "blue" } }
+    ]
+  },
+  {
+    "name": "Fitness Smartwatch GPS",
+    "slug": "fitness-smartwatch-gps-elc0016",
+    "sku": "ELC-0016",
+    "category": "electronics-wearables-smartwatches",
+    "brand": "veltrix",
+    "short_description": "GPS fitness smartwatch with heart rate and sleep tracking.",
+    "description": "Built-in GPS tracks runs and rides without needing a phone along, and continuous heart rate monitoring feeds into sleep and recovery scores.\n\nA 7-day battery life means charging is a weekly chore rather than a nightly one.",
+    "regular_price": "179.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 45,
+    "length_mm": 45,
+    "width_mm": 40,
+    "height_mm": 12,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Fitness Smartwatch GPS | Amazoff",
+    "seo_description": "GPS fitness smartwatch, heart rate and sleep tracking.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0016-main.jpg", "alt_text": "Fitness smartwatch", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Battery life", "value": "7 days", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0016-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 18, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Slim Fitness Tracker Band",
+    "slug": "slim-fitness-tracker-band-elc0017",
+    "sku": "ELC-0017",
+    "category": "electronics-wearables-fitness-trackers",
+    "brand": "nexbyte",
+    "short_description": "Slim fitness tracker band with step and heart rate monitoring.",
+    "description": "A slim, lightweight band for step counting and heart rate monitoring, worn comfortably around the clock unlike a bulkier smartwatch.\n\nA 10-day battery life outlasts most smartwatches by a wide margin.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 20,
+    "length_mm": 40,
+    "width_mm": 20,
+    "height_mm": 10,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Slim Fitness Tracker Band | Amazoff",
+    "seo_description": "Slim fitness tracker band, step and heart rate tracking.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0017-main.jpg", "alt_text": "Fitness tracker", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Battery life", "value": "10 days", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0017-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 65, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "55-inch 4K Smart TV",
+    "slug": "55-inch-4k-smart-tv-elc0018",
+    "sku": "ELC-0018",
+    "category": "electronics-tv-video-televisions",
+    "brand": "sonarapex",
+    "short_description": "55-inch 4K smart TV with HDR and built-in streaming apps.",
+    "description": "A 55-inch 4K panel with HDR support for the extra contrast range modern streaming content is graded for.\n\nBuilt-in apps cover the major streaming services without a separate box, though the HDMI ports are there for one anyway.",
+    "regular_price": "549.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 14500,
+    "length_mm": 1230,
+    "width_mm": 80,
+    "height_mm": 710,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "55-inch 4K Smart TV | Amazoff",
+    "seo_description": "55-inch 4K smart TV with HDR, built-in streaming apps.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0018-main.jpg", "alt_text": "Smart TV", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Resolution", "value": "3840 x 2160", "sort_order": 0 },
+      { "name": "HDR", "value": "Yes", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "ELC-0018-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 6, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "4K Streaming Media Player",
+    "slug": "4k-streaming-media-player-elc0019",
+    "sku": "ELC-0019",
+    "category": "electronics-tv-video-streaming-devices",
+    "brand": "nexbyte",
+    "short_description": "4K HDR streaming media player with voice remote.",
+    "description": "Adds 4K HDR streaming and a proper app store to any TV with an HDMI port, including ones far too old to be called smart.\n\nThe voice remote handles search across apps rather than typing on an on-screen keyboard.",
+    "regular_price": "49.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 60,
+    "length_mm": 90,
+    "width_mm": 30,
+    "height_mm": 15,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "4K Streaming Media Player | Amazoff",
+    "seo_description": "4K HDR streaming media player, voice remote.",
+    "attributes": ["connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0019-main.jpg", "alt_text": "Streaming media player", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Output", "value": "4K HDR", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0019-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "connectivity": "wifi" } }
+    ]
+  },
+  {
+    "name": "Next-Gen Gaming Console",
+    "slug": "next-gen-gaming-console-elc0020",
+    "sku": "ELC-0020",
+    "category": "electronics-gaming-consoles",
+    "brand": "sonarapex",
+    "short_description": "Next-gen gaming console with 1TB storage.",
+    "description": "1TB of built-in storage for a modern game library without constant uninstall-reinstall juggling.\n\nSupports 4K output at up to 120fps on a compatible display, for the games that actually push that far.",
+    "regular_price": "499.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 4500,
+    "length_mm": 390,
+    "width_mm": 260,
+    "height_mm": 100,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Next-Gen Gaming Console 1TB | Amazoff",
+    "seo_description": "Next-gen gaming console, 1TB storage, 4K 120fps.",
+    "attributes": ["storage"],
+    "images": [
+      { "key": "main", "path": "demo/elc0020-main.jpg", "alt_text": "Gaming console", "is_main": true, "sort_order": 0 },
+      { "key": "controller", "path": "demo/elc0020-controller.jpg", "alt_text": "Console with controller", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Max output", "value": "4K at 120fps", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0020-1TB", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "controller"], "initial_quantity": 4, "attribute_values": { "storage": "1tb" } }
+    ]
+  },
+  {
+    "name": "Wireless Game Controller",
+    "slug": "wireless-game-controller-elc0021",
+    "sku": "ELC-0021",
+    "category": "electronics-gaming-controllers",
+    "brand": "sonarapex",
+    "short_description": "Wireless game controller with rechargeable battery.",
+    "description": "A second controller for local multiplayer, or a spare for the one that always ends up with a dead battery mid-session.\n\nThe rechargeable battery lasts around 20 hours per charge, and the layout matches the console's own pad exactly.",
+    "regular_price": "54.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 250,
+    "length_mm": 160,
+    "width_mm": 100,
+    "height_mm": 65,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Wireless Game Controller | Amazoff",
+    "seo_description": "Wireless game controller, rechargeable battery.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0021-main.jpg", "alt_text": "Game controller", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Battery life", "value": "~20 hours", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0021-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 51, "attribute_values": { "colour": "black" } },
+      { "sku": "ELC-0021-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 34, "attribute_values": { "colour": "white" } }
+    ]
+  },
+  {
+    "name": "Gaming Headset with Surround Sound",
+    "slug": "gaming-headset-surround-sound-elc0022",
+    "sku": "ELC-0022",
+    "category": "electronics-gaming-headsets",
+    "brand": "sonarapex",
+    "short_description": "Gaming headset with 7.1 surround sound and detachable mic.",
+    "description": "7.1 virtual surround helps place footsteps and gunfire directionally, a real edge in competitive titles rather than a spec-sheet gimmick.\n\nThe detachable boom mic means this doubles as a regular headphone set away from a game.",
+    "regular_price": "69.90",
+    "discount_price": "59.90",
+    "discount_starts_at": "-6 days",
+    "discount_ends_at": "+8 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 350,
+    "length_mm": 200,
+    "width_mm": 180,
+    "height_mm": 90,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Gaming Headset 7.1 Surround | Amazoff",
+    "seo_description": "Gaming headset, 7.1 surround, detachable mic. On sale now.",
+    "attributes": ["connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0022-main.jpg", "alt_text": "Gaming headset", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Surround sound", "value": "7.1 virtual", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0022-WRD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 28, "attribute_values": { "connectivity": "wired" } }
+    ]
+  },
+  {
+    "name": "Compact Bluetooth Keyboard Foldable",
+    "slug": "compact-bluetooth-keyboard-foldable-elc0023",
+    "sku": "ELC-0023",
+    "category": "electronics-computing-keyboards",
+    "brand": "quantalink",
+    "short_description": "Foldable Bluetooth keyboard for tablets and phones on the go.",
+    "description": "Folds to roughly the size of a phone for a jacket pocket, unfolds to a nearly full-size keyboard for real typing on a tablet or phone.\n\nPairs with up to three devices and switches between them with a single key press.",
+    "regular_price": "39.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 210,
+    "length_mm": 150,
+    "width_mm": 90,
+    "height_mm": 15,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Foldable Bluetooth Keyboard | Amazoff",
+    "seo_description": "Compact foldable Bluetooth keyboard for tablets and phones.",
+    "attributes": ["connectivity"],
+    "images": [
+      { "key": "main", "path": "demo/elc0023-main.jpg", "alt_text": "Foldable keyboard", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Device pairing", "value": "Up to 3", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0023-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "images": ["main"], "initial_quantity": 0, "attribute_values": { "connectivity": "bluetooth" } }
+    ]
+  },
+  {
+    "name": "USB-C Hub 7-in-1",
+    "slug": "usb-c-hub-7-in-1-elc0024",
+    "sku": "ELC-0024",
+    "category": "electronics-phones-chargers",
+    "brand": "quantalink",
+    "short_description": "7-in-1 USB-C hub with HDMI, USB-A, SD card, and PD passthrough.",
+    "description": "Seven ports condensed into one compact hub — HDMI, two USB-A, SD/microSD, and USB-C power passthrough so charging never competes with the other ports.\n\nAluminium housing dissipates heat better than plastic under sustained data transfer.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 90,
+    "length_mm": 100,
+    "width_mm": 40,
+    "height_mm": 15,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "USB-C Hub 7-in-1 | Amazoff",
+    "seo_description": "7-in-1 USB-C hub, HDMI, USB-A, SD card, PD passthrough.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/elc0024-main.jpg", "alt_text": "USB-C hub", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Ports", "value": "7", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "ELC-0024-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 37, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Compact Digital Camera 20MP",
+    "slug": "compact-digital-camera-20mp-elc0025",
+    "sku": "ELC-0025",
+    "category": "electronics-phones-smartphones",
+    "brand": "veltrix",
+    "short_description": "20MP compact digital camera with 5x optical zoom.",
+    "description": "A pocketable compact camera for people who want a real optical zoom and a proper grip, not just a phone with a better lens.\n\n5x optical zoom outperforms any phone's digital crop, especially in low light where the larger sensor helps most.",
+    "regular_price": "279.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 240,
+    "length_mm": 105,
+    "width_mm": 60,
+    "height_mm": 35,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Compact Digital Camera 20MP | Amazoff",
+    "seo_description": "20MP compact digital camera, 5x optical zoom.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/elc0025-main.jpg", "alt_text": "Compact camera", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Resolution", "value": "20MP", "sort_order": 0 },
+      { "name": "Optical zoom", "value": "5x", "sort_order": 1 }
+    ],
+    "variations": [
+      { "sku": "ELC-0025-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 11, "attribute_values": { "colour": "black" } }
+    ]
+  }
+]

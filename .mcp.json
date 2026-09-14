@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "laravel-boost": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "artisan",
+        "boost:mcp"
+      ]
+    },
+    "playwright-chromium": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium"
+      ]
+    }
+  }
+}

@@ -1,0 +1,296 @@
+name: CI
+
+# See docs/how-to/use-ci.md for the reasoning behind this trigger, the job
+# split, and the concurrency shards below.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: src
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Pint (formatting)
+        run: ./vendor/bin/pint --test
+
+      - name: PHPStan / Larastan (static analysis)
+        run: ./vendor/bin/phpstan analyse --memory-limit=1G
+
+      - name: Semgrep (project invariants)
+        # Standalone CLI + .semgrep.yml, not the "Semgrep Guardian" Claude
+        # Code marketplace plugin (a separate, passive integration point —
+        # see docs/how-to/set-up-security-and-quality-tools.md). Runs from
+        # the repository root, one level above this job's working-directory
+        # default, since .semgrep.yml lives there and its own path globs
+        # are written relative to it.
+        run: |
+          python3 -m pip install --quiet --break-system-packages semgrep
+          semgrep --config ../.semgrep.yml --error app
+
+  test:
+    name: test (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+
+    # Time-balanced sharding (ADR-0018; the ADR's "Verified" addendum has
+    # the full measured numbers). `pest --shard=N/4` reads the committed
+    # tests/.pest/shards.json — real per-class wall-clock time from the
+    # last `--update-shards` run — and bin-packs the heaviest classes into
+    # the lightest shard first. This replaced a hand-partitioned matrix
+    # (ADR-0010's original split, rebalanced by hand at least once already)
+    # that had drifted back out of balance by the time it was measured
+    # against this: 69s max hand-shard vs 39s max time-balanced, on the
+    # same suite, same day. See how-to/use-ci.md, "Adding a new test file"
+    # for the refresh command — there is no shard number to choose by hand
+    # any more.
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: amazoff_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: amazoff_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Pest (tests, shard ${{ matrix.shard }}/4)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest --testsuite=Feature,Unit --shard=${{ matrix.shard }}/4
+
+  test-concurrency:
+    name: test-concurrency (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+
+    # Time-balanced sharding (ADR-0018), same mechanism and same committed
+    # tests/.pest/shards.json as the `test` job above — `--shard` just
+    # narrows by `--testsuite` first, so one file safely backs both.
+    # Real measured delta on this job specifically was smaller (149s max
+    # hand-shard vs 133s time-balanced — the ADR's "Verified" addendum has
+    # the numbers) because the old a/b/c split was closer to even to begin
+    # with, but it is adopted for the same reason as `test`: no shard
+    # number to hand-pick for a new file, and a loud warning instead of
+    # silent drift.
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: amazoff_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: amazoff_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Pest (concurrency tests, shard ${{ matrix.shard }}/3)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest --testsuite=Concurrency --shard=${{ matrix.shard }}/3
+
+  test-browser:
+    name: test-browser
+    runs-on: ubuntu-latest
+
+    # The Pest 5 real-browser suite (tests/Browser/, ADR-0017). One job, not
+    # sharded — it is ~7 tests / ~2 min, dominated by Chromium context setup
+    # per test, which sharding would not help.
+    #
+    # No app server is started: pest-plugin-browser boots the application
+    # in-process (an amphp HTTP server calling the HTTP kernel) and drives
+    # Chromium against that. What it does need that no other job does:
+    #   - the `sockets` PHP extension (the plugin talks to its Playwright
+    #     server over a socket);
+    #   - Node, the `playwright` npm package (`npm ci`), and Chromium plus
+    #     its system libraries (`npx playwright install --with-deps`);
+    #   - a real `npm run build` — @vite must resolve against the built
+    #     manifest or every page renders unstyled and ResponsiveTest's
+    #     compiled-CSS precondition fails loudly (which is the point of it).
+    #
+    # ThreeDSecureTest skips itself here — use-ci.md is categorical that no
+    # Stripe/Econt/Speedy secret goes in CI, and that test creates a real
+    # Stripe test-mode PaymentIntent (no `stripe listen` needed — it builds
+    # and signs the webhook itself, see stripe-testing.md). Local runbook.
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: amazoff_browser
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, gd, zip, intl, exif, sockets
+          coverage: none
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: src/vendor
+          key: composer-${{ hashFiles('src/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build front-end assets
+        run: npm run build
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: amazoff_browser
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: php artisan migrate --force
+
+      - name: Pest (browser suite)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: password
+        run: ./vendor/bin/pest -c phpunit.browser.xml

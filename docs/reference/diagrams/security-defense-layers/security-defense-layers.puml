@@ -1,0 +1,235 @@
+@startuml security-defense-layers
+
+' Every layer a request or a piece of data actually passes through in this
+' app, in the real order: IP allowlist -> host configuration (cookies,
+' headers, protocol, CSP, encryption) -> client-side validation ->
+' server-side validation -> rate limiting -> DB-level validation.
+' Verified against bootstrap/app.php, VerifyStripeWebhookSignature,
+' EnsureAccountIsActive, SetSecurityHeaders, ThrottlesSubmissions,
+' CLAUDE.md's "Security rules that are ours", and ADR-0005 (CHECK
+' constraints) on 2026-09-07. NOT all boxes apply to every route — the
+' diagram says which ones do.
+'
+' Layer 3.5 (Livewire property hydration) added 2026-09-13 after
+' SEC-014/015/016/017: a public Livewire property is written to by
+' $set()/wire:model BEFORE any of the component's own code runs — earlier
+' than "client-side validation" above it and earlier than
+' $this->validate() below it. A strict int/float type crashes outright
+' (SEC-014, fixed with #[Locked] or widening to mixed); a client-settable
+' string with no ->maxLength() reaches a write raw regardless of a
+' docblock claiming otherwise (SEC-015); a client-settable array cast
+' blindly can silently fabricate a plausible value with NO crash and NO
+' validation error at all (SEC-016 — PHP's (int) of any non-empty array is
+' 1); and the identical class exists one layer over in Filament's own
+' admin forms, where ->maxLength() is the only thing standing between a
+' TextInput and its column (SEC-017). Verified against
+' docs/reference/testing/security-testing/sec-014.md through sec-017.md.
+
+' NOTE: the .svg/.pdf beside this file are STALE relative to this source.
+' Regenerate with the commands in docs/reference/diagrams/README.md — there
+' is no render script in this repo and nothing regenerates them automatically.
+'
+' No inline #color: activities — this PlantUML build's parser breaks on a
+' second bare colored activity anywhere in the diagram (reproduced in
+' isolation while building this file; not worth fighting further). Refusal
+' vs. success is marked with **REFUSED**/**SUCCESS** bold text instead,
+' which is legible without relying on color at all.
+'
+' What this diagram deliberately does NOT claim: there is no IP BLACKLIST
+' anywhere in this application. The allowlist that exists is narrow and
+' real: the Stripe webhook's own nginx config
+' (docker/nginx/stripe-ip-allowlist.conf.example), modeled below as its
+' own layer since the user asked for IP allowlist to be the first gate.
+' A general per-visitor IP allowlist does not exist and is not modeled as
+' if it did — see whole-project-composite-states/ for the equivalent
+' "is this IP allowed" choice at the very top of the whole-site diagram.
+
+title Defense in depth — every layer a request or write passes through
+
+start
+
+:Request arrives;
+
+' ============================================================
+'  LAYER 1 — IP allowlist (narrow: only the Stripe webhook has one)
+' ============================================================
+
+if (Route is /stripe/webhook?) then (yes)
+  if (Source IP on Stripe's published range? —\ndocker/nginx/stripe-ip-allowlist.conf.example) then (no)
+    :**REFUSED** — nginx drops it before\nit ever reaches PHP-FPM;
+    stop
+  endif
+  :**VerifyStripeWebhookSignature** middleware\n(bootstrap/app.php — the ONLY middleware\non this route; no session, no CSRF, no web group);
+  if (Signature valid?) then (no)
+    :**REFUSED** — **400** {"error": "Invalid signature."}\nFails closed — see stripe-payment-sequence/\nfor the full status-code breakdown;
+    stop
+  endif
+  :**HandleStripeWebhookEvent**\n(idempotent on payment_events.stripe_event_id UNIQUE);
+  :**SUCCESS** — 200 {"received": true};
+  stop
+else (no — every other route\nhas no IP-layer gate at all)
+endif
+
+' ============================================================
+'  LAYER 2 — host configuration: cookies, headers, protocol, CSP, TLS
+' ============================================================
+
+:**Host configuration** — applied to the response\nregardless of what the request contains;
+note right
+  session cookie: HttpOnly, SameSite=Lax,
+  Secure in production (SESSION_SECURE_COOKIE —
+  see how-to/deploy-and-host.md, half-closed
+  until set on the real host)
+  ..
+  XSRF-TOKEN cookie: NOT HttpOnly, by design —
+  JS must read it for Axios's CSRF header
+  ..
+  **SetSecurityHeaders** (global middleware,
+  reaches /admin too): X-Frame-Options,
+  X-Content-Type-Options, Referrer-Policy,
+  Permissions-Policy
+  ..
+  **Content-Security-Policy**: frame-ancestors
+  'none', object-src 'none', base-uri 'self',
+  form-action 'self' hold even though script-src
+  must permit 'unsafe-inline'/'unsafe-eval' for
+  Livewire/Alpine — named Stripe origins only,
+  no wildcards
+  ..
+  TLS terminates at Forge in production; local
+  dev is plain HTTP on purpose (a Secure cookie
+  would break the dev session)
+end note
+
+:**web** middleware group\n(Laravel default: session, cookies,\n**CSRF token** — one without signature\nverification is a free-products vuln\non the ONE route that's exempt, above);
+
+if (CSRF token valid? — state-changing request) then (no)
+  :**REFUSED** — **419** Page Expired;
+  stop
+endif
+
+:**AuthenticateSession** (bootstrap/app.php)\nstores a password hash on the session,\nchecked every request — what makes\nAuth::logoutOtherDevices() actually work;
+
+if (Session's stored hash still matches?) then (no)
+  :**REFUSED** — session invalidated,\nredirect to /login;
+  stop
+endif
+
+:**EnsureAccountIsActive** (bootstrap/app.php)\nre-checks is_active EVERY request —\na session outlives the row it authenticated against;
+
+if (Account still active?) then (no)
+  :**REFUSED** — logged out mid-session;
+  stop
+endif
+
+if (Route is /admin/*?) then (yes)
+  :**canAccessPanel()** on the User model\n(role membership — STAFF_ROLES —\nAND is_active, Filament is NOT\nprotected past login by default);
+  if (Has a STAFF_ROLES role?) then (no)
+    :**REFUSED** — **403** Forbidden;
+    stop
+  endif
+endif
+
+' ============================================================
+'  LAYER 3 — client-side validation (advisory only — UX, not security)
+' ============================================================
+
+:**Client-side validation** — Livewire's\nwire:model + browser input constraints\n(type="email", required, maxlength...);
+note right
+  **Advisory only.** Every rule enforced
+  here is re-checked server-side below —
+  a client can send anything regardless
+  of what the form's HTML permits. This
+  layer exists to shorten the feedback
+  loop for a real user, not to stop an
+  attacker.
+end note
+
+' ============================================================
+'  LAYER 3.5 — Livewire property hydration (BEFORE any component
+'  code runs — earlier than both the client-side box above and
+'  $this->validate() below; added 2026-09-13, SEC-014/015/016/017)
+' ============================================================
+
+if (Livewire request targets a\npublic component property? —\n$set() or wire:model, on EVERY update,\nnot just the rendered form's own fields) then (yes)
+  if (Property has a strict int/float\ntype, and is NOT #[Locked]?) then (yes)
+    :**REFUSED, uncaught** — TypeError before\nmount()/any handler runs (SEC-014).\nFix: #[Locked] for server-managed ids,\nwiden to mixed + normalise for\ngenuinely client-driven fields;
+    stop
+  endif
+  if (Property is a client-settable\nstring reaching a DB write with no\n->maxLength() to match its column?) then (yes)
+    :**REFUSED, uncaught** — QueryException,\nsometimes swallowed into a misleading\nform error rather than a crash (SEC-015).\nA docblock saying "never customer input"\nis a claim about the form, not the endpoint;
+    stop
+  endif
+  if (Property is an array cast with\n(int)/(float) and no is_numeric()\nguard first?) then (yes)
+    :**NOT refused — silently WRONG.**\nNo crash, no validation error: PHP casts\nany non-empty array to 1, fabricating a\nplausible value the client never sent\n(SEC-016 — "wrong answer returns 200");
+  endif
+endif
+
+if (Same class, one layer over —\nFilament admin TextInput with no\n->maxLength() matching its migration\ncolumn? (SEC-017, six plain-lookup\nresources: Tag/Attribute/Brand/\nProductCategory/ArticleCategory/\nAttributeValue)) then (yes)
+  :**REFUSED, uncaught** — QueryException on\nthe first oversized field, found by reading\na ZAP scan's raw access log, not its\nalert list (no scanner rule for\n"this crashed the server");
+  stop
+endif
+
+' ============================================================
+'  LAYER 4 — server-side validation
+' ============================================================
+
+if (Public write with no session? —\nContactForm, NewsletterSignup,\nRegister, TrackOrder, ChangePassword) then (yes)
+
+  ' ============================================================
+  '  LAYER 5 — rate limiting (placed here: it gates the endpoint
+  '  before server-side validation spends any work on the payload)
+  ' ============================================================
+  :**ThrottlesSubmissions** (App\\Livewire\\Concerns)\nRateLimiter, keyed per-endpoint —\nnever on the value being enumerated;
+  if (Under the limit?) then (no)
+    :**REFUSED** — **429** Too Many Requests\n(ValidationException from the trait);
+    stop
+  endif
+endif
+
+:**Policy / Gate check** on every mutating\npath and every route taking an ID\n(Gate::before grants administrator;\neverything else is per-resource —\n"may THIS user act on THIS object");
+
+if (Authorized for this specific resource?) then (no)
+  :**REFUSED** — **403** AuthorizationException\n(a hidden button is NOT security —\nCLAUDE.md);
+  stop
+endif
+
+:**Query scoped to the user**\n(auth()->user()->orders()->findOrFail($id),\nNEVER Order::findOrFail($id) —\nsee SEC-002 for what happens\nwhen this is skipped);
+
+:**Livewire component validation**\n($this->validate() / rules() — the\nREAL server-side check; no Form Request\nclasses here, the component owns its\nown rules);
+
+if (Passes validation rules?) then (no)
+  :**REFUSED** — inline field error,\nno write attempted;
+  stop
+endif
+
+:**The Action** (app/Actions/{Area}/{Verb}{Noun})\nowns the write — never a controller,\nnever raw Eloquent for a rule\nspanning more than 1 table;
+
+if (Contested state? — stock reservation,\ncoupon caps) then (yes)
+  :DB::transaction + lockForUpdate()\non the row the invariant lives on\n(NOT necessarily the row being written —\nwrite-rules/concurrency.md has the lock order);
+endif
+
+' ============================================================
+'  LAYER 6 — DB-level validation (the backstop under everything above)
+' ============================================================
+
+:**Database CHECK constraints** (ADR-0005)\nnon-negative money/quantities, discount < price,\npercentages 0-100, dates ordered, reservations\n<= stock — enforced even if every layer\nabove this one somehow let a bad value through;
+
+if (Constraint violated?) then (yes)
+  :**REFUSED** — **QueryException**\n(the loud failure a race SHOULD\nproduce if a lock is missing —\nsee troubleshooting/concurrency-and-testing-races.md);
+  stop
+endif
+
+:**Idempotency** where it matters\n(UNIQUE constraint + caught violation,\nNEVER check-then-act — payment_events.stripe_event_id,\norders.serial_number, etc.);
+
+:Write commits;
+
+if (Response reflects user input in HTML? —\narticle/review body) then (yes)
+  :**Purify before rendering**\n(Article::safeContent() — the raw-echo\nBlade directive escapes NOTHING;\ndouble-brace output escaping is the default);
+endif
+
+:**SUCCESS** — response sent,\nheaders from Layer 2 still applied;
+
+stop
+
+@enduml

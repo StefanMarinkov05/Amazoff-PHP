@@ -1,0 +1,70 @@
+{
+  "_comment": [
+    "SKUs whose stock level IS the demo, and which no transactional seeder may",
+    "consume. Read by DemoOrderSeeder (and anything else that places seeded",
+    "orders) to exclude lines before sampling.",
+    "",
+    "Why this file exists: TransitionOrderStatus => Shipped composes CompleteSale,",
+    "which moves stock from reserved to sold and permanently drops",
+    "current_quantity. CreateOrder reserves at creation. So a seeder that picks",
+    "order lines at random will drain exactly the variations that",
+    "docs/reference/schema/demo-data.md names as 'out of stock' and 'exactly one",
+    "left' — and that page is the presenter's lookup table for a live demo. The",
+    "failure is silent: every seeder run succeeds, the orders look right, and the",
+    "documented state is simply gone.",
+    "",
+    "This is data rather than a PHP const so the list is readable by anything that",
+    "needs it, not only by the one class that must not violate it.",
+    "",
+    "Adding a SKU here is cheap. Removing one means the matrix row it backs is no",
+    "longer claimed in demo-data.md — check that page first."
+  ],
+
+  "out_of_stock": {
+    "_why": "current_quantity = 0 on an otherwise-orderable variation — the add-to-cart refusal path. A single reserved unit destroys it.",
+    "skus": [
+      "PWR-0006",
+      "PWR-0009",
+      "ELC-0015",
+      "ELC-0023",
+      "WRK-0004-45"
+    ]
+  },
+
+  "exactly_one_left": {
+    "_why": "the quantity-validation boundary. Reserving the last unit turns these into out-of-stock and loses the boundary entirely.",
+    "skus": [
+      "PWR-0011",
+      "PWR-0012-GRY",
+      "HND-0006",
+      "HND-0014",
+      "KIT-0006",
+      "CLW-0022-M",
+      "SPT-0011"
+    ]
+  },
+
+  "unavailable_products": {
+    "_why": "is_available = false, so these are excluded from the storefront and can never legitimately appear in a seeded order. Listed by PRODUCT sku — exclude every variation beneath each.",
+    "skus": [
+      "CLM-0016",
+      "CLW-0021",
+      "HND-0008",
+      "HOM-0013",
+      "KIT-0015",
+      "PWR-0014",
+      "SPT-0006"
+    ]
+  },
+
+  "min_order_quantity": {
+    "_why": "NOT excluded — these belong in real orders. Listed so a seeder can respect the floor instead of tripping over it, since a quantity below min_order_quantity is refused.",
+    "floors": {
+      "HND-0007": 3,
+      "KIT-0005": 2,
+      "PWR-0017": 2,
+      "WRK-0002": 2,
+      "WRK-0008": 2
+    }
+  }
+}

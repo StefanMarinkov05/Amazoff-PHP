@@ -1,0 +1,163 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: base
+    volumes:
+      - ./src:/var/www/html
+      # Named volumes, not the bind mount, for anything platform-compiled or
+      # perf-sensitive — sharing vendor/node_modules through the Windows/WSL2
+      # boundary is what makes Composer and Vite crawl.
+      - vendor:/var/www/html/vendor
+      - node_modules:/var/www/html/node_modules
+      # The whole repo root, read-only, as a second mount alongside the
+      # ./src one above — NOT just .git, and NOT used via /var/www/html at
+      # all. Two dead ends before this shape, both documented in
+      # docs/how-to/troubleshooting/infra-and-environment.md:
+      #   1. Mounting .git alone resolves a repository, but its worktree
+      #      root becomes the parent of .git (the true repo root), while
+      #      /var/www/html only ever contains src/'s own files — every
+      #      tracked path (src/app/..., src/tests/...) then reads back as
+      #      deleted, because nothing in the container answers to those
+      #      names relative to /var/www/html.
+      # 2. Pointing GIT_WORK_TREE at /var/www/html while GIT_DIR stays at
+      #    the mounted .git "fixes" `git status` (paths resolve), but
+      #    Pest's own dirty-filter and TIA shell out to git with no -C and
+      #    no env override of their own — they inherit whatever directory
+      #    `pest` itself is invoked from, and always compare the result
+      #    against paths relative to *that* directory. A git process whose
+      #    worktree is /var/www/html still reports paths prefixed `src/`,
+      #    because the index itself holds src/-prefixed paths (that is
+      #    where files live in the *real* repository) — a mismatch no env
+      #    var fixes, since Pest computes its own "relative path" independently
+      #    and never sees what GIT_WORK_TREE was set to.
+      # The only shape that makes both halves agree: `pest` runs from
+      # *inside* the real worktree, at /var/www/repo/src, where git
+      # discovers .git by walking up two directories and needs no
+      # GIT_WORK_TREE override at all — then its own path reporting is
+      # naturally relative to /var/www/repo/src, exactly matching Pest's
+      # own project root. vendor/ and node_modules/ have to be reachable
+      # there too, hence mounting the same named volumes at both paths.
+      - .:/var/www/repo
+      - vendor:/var/www/repo/src/vendor
+      - node_modules:/var/www/repo/src/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+
+  webserver:
+    image: nginx:1.27-alpine
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    # Durability traded for speed. This container is local development and
+    # tests only — production runs on Forge, which keeps MySQL's defaults.
+    #
+    # Out of the box MySQL fsyncs the redo log and the binlog on every commit
+    # (innodb_flush_log_at_trx_commit=1, sync_binlog=1). On a Docker Desktop
+    # volume that made a single CREATE TABLE + DROP TABLE take eight seconds,
+    # and `migrate:fresh` nearly seven minutes. The only thing those settings
+    # protect against is losing committed data when the host loses power,
+    # which for a database rebuilt by `migrate:fresh` costs nothing.
+    command:
+      - --innodb-flush-log-at-trx-commit=2
+      - --sync-binlog=0
+      - --skip-log-bin
+      - --innodb-flush-method=nosync
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-amazoff}
+      MYSQL_USER: ${DB_USERNAME:-sail}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-password}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-password}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  vite:
+    image: node:22-alpine
+    working_dir: /var/www/html
+    entrypoint: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
+    volumes:
+      - ./src:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${FORWARD_MAILPIT_PORT:-8025}:8025"   # web UI
+      - "1025:1025"                             # SMTP
+
+  # QUEUE_CONNECTION is `database`, so anything ShouldQueue (the order
+  # confirmation email, ADR-0019) sits in the `jobs` table until a worker
+  # runs it. This is that worker for local dev — Forge runs it via a
+  # supervisor process in production, not this file. Same image as `app`.
+  # --max-time recycles the process hourly so a code change is picked up
+  # within the hour without a manual restart; `docker compose restart queue`
+  # forces it immediately.
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: base
+    command: php artisan queue:work --tries=3 --max-time=3600 --sleep=1
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - vendor:/var/www/html/vendor
+      - node_modules:/var/www/html/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+
+  # Pest browser testsuite only (ADR-0017). Opt-in: the `browser` profile
+  # keeps it out of `docker compose up`. Run the suite with
+  #   docker compose run --rm playwright ./vendor/bin/pest -c phpunit.browser.xml
+  # The container idles (sleep infinity) so `run` and `exec` both work.
+  # pest-plugin-browser boots the Laravel app in-process and spawns its own
+  # Playwright server — nothing here listens on a fixed port.
+  playwright:
+    profiles: ["browser"]
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: browser
+    working_dir: /var/www/html
+    volumes:
+      - ./src:/var/www/html
+      - vendor:/var/www/html/vendor
+      - node_modules:/var/www/html/node_modules
+      # Same reasoning as the app service's mount above — TIA/--dirty need
+      # a real git worktree to shell out to, and this service runs pest too.
+      - .:/var/www/repo:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=amazoff_browser
+
+volumes:
+  db_data:
+  vendor:
+  node_modules:

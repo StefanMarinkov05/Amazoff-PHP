@@ -1,0 +1,63 @@
+# Documentation
+
+This is where all the project docs live. We're following
+[Diátaxis](https://diataxis.fr/) for the structure, plus two extra folders
+for decisions and release history.
+
+There is no `tutorials/` — Diátaxis's tutorial quadrant is intentionally
+empty here. `explanation/documentation-design.md` records why and what
+plays that role instead.
+
+## [How-to](how-to/)
+
+Short recipes for a specific job: run the seeder, add a courier, rotate a
+Stripe key. Assumes the reader already knows the basics.
+
+## [Reference](reference/)
+
+Just the facts — schema, state diagrams, API shapes. No opinions, no "why,"
+just what's true right now.
+
+## [Explanation](explanation/)
+
+How things fit together as they are today. Pulls several decisions into one
+picture, points at ADRs by number instead of repeating their reasoning, and
+gets updated whenever the system changes.
+`explanation/system-overview.md` is the single orientation page — the whole
+system as one state machine, with links out to every diagram.
+
+## [ADR](adr/)
+
+One decision, one file, frozen the moment it was made. Once accepted, it
+doesn't get edited — if we change our mind later, we write a new ADR and
+mark the old one `Superseded by ADR-XXXX`.
+
+## [Changelog](changelog/)
+
+What actually shipped, in order: added, changed, fixed, removed. One file,
+not one per release — see `CONTRIBUTING.md` for the entry format and what
+goes in the `Open` section.
+
+---
+
+**Explanation vs. ADR**, since the two are easy to mix up: an ADR argues for
+one choice at one point in time ("Filament or hand-rolled CRUD? Filament —
+here's why, here's what we gave up"). Explanation just describes how things
+work right now, with nothing left to defend. Quick test: if the doc is
+making a case, it's an ADR; if it's describing a result, it's explanation.
+
+**Troubleshooting** is the "common errors and how they're fixed" material from
+the original draft, which was never a changelog: a changelog entry says a bug is
+gone and is filed under the date of the fix, while a troubleshooting entry is
+found by the symptom someone is looking at right now.
+
+It lives under `how-to/troubleshooting/`, one file per area, with
+`how-to/troubleshooting.md` as the index — early planning had it as a single
+file, on the reasoning that one file is searchable in a way a folder of
+one-problem files is not, but by the time it reached 48 entries and 2,400
+lines that stopped being true: a single sitting could no longer hold it, and
+a `grep` across a directory finds a symptom exactly as well as a `grep`
+within one large file does. Someone with a symptom is still someone with a
+specific job, which is what how-to is for; the index page states which area
+each file covers so a search can start there instead of scrolling one long
+page.

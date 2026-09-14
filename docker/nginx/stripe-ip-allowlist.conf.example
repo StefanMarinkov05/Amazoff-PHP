@@ -1,0 +1,76 @@
+# Stripe webhook IP allowlist — PRODUCTION ONLY, not enabled by default.
+#
+# This is the edge/nginx shape of the control, for a self-managed host
+# (Forge or similar) that has an nginx config to add it to. The currently
+# deployed target (Railway/Railpack/Caddy, ADR-0024) has no such file, so it
+# uses App\Http\Middleware\RestrictStripeWebhookIps instead — same check,
+# same source list, done in PHP against $request->ip() once trustProxies
+# has resolved it. Read that class's docblock before assuming this file is
+# the only way to get this protection.
+#
+# Stripe's guidance is to use BOTH protections, not either:
+#
+#   "IP allowlisting: Stripe sends webhook events from a set list of IP
+#    addresses. Configure your server or firewall to only accept webhook
+#    requests from these addresses.
+#    Signature verification: ..."
+#
+# The application already does signature verification unconditionally
+# (App\Http\Middleware\VerifyStripeWebhookSignature). This file is the other
+# half, and it lives at the edge because that is where it belongs — nginx
+# can refuse the connection before PHP is ever started, which is the point.
+#
+# ── Why this is NOT enabled in local development ──────────────────────────
+#
+# `stripe listen --forward-to localhost:8080/stripe/webhook` forwards events
+# from the CLI running on your own machine, so they arrive from a Docker
+# bridge address, never from Stripe's published ranges. Turning this on
+# locally would reject every forwarded event and look exactly like a broken
+# signature. Enable it only where Stripe connects to you directly.
+#
+# ── How to enable it in production ────────────────────────────────────────
+#
+# 1. Fetch the CURRENT list. Do not trust the addresses below to still be
+#    right — Stripe changes them, and a stale allowlist silently drops real
+#    payments:
+#
+#        curl https://stripe.com/files/ips/ips_webhooks.txt
+#
+#    The canonical page is https://docs.stripe.com/ips
+#
+# 2. Regenerate the `allow` lines from that output.
+# 3. Include this file inside the webhook location block in default.conf:
+#
+#        location = /stripe/webhook {
+#            include /etc/nginx/conf.d/stripe-ip-allowlist.conf;
+#            try_files $uri /index.php?$query_string;
+#        }
+#
+# 4. If you terminate TLS at a load balancer or CDN, `$remote_addr` is the
+#    proxy, not Stripe — every request would be denied. Set up
+#    `real_ip_header X-Forwarded-For` and `set_real_ip_from <proxy range>`
+#    first, and verify with a real delivery before relying on it.
+#
+# 5. Re-check the list on a schedule. This is the failure mode that hurts:
+#    it works for months, Stripe adds a range, and a fraction of your
+#    webhooks start 403ing with nothing in the application logs.
+#
+# ── Snapshot, 2026-09-01 — VERIFY BEFORE USE ──────────────────────────────
+#
+# These were current when this file was written and are here as a shape to
+# copy, not a list to trust.
+
+allow 3.18.12.63;
+allow 3.130.192.231;
+allow 13.235.14.237;
+allow 13.235.122.149;
+allow 18.211.135.69;
+allow 35.154.171.200;
+allow 52.15.183.38;
+allow 54.88.130.119;
+allow 54.88.130.237;
+allow 54.187.174.169;
+allow 54.187.205.235;
+allow 54.187.216.72;
+
+deny all;

@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\ArticleCategories\Schemas;
+
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
+
+class ArticleCategoryForm
+{
+    public static function configure(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(50),
+                TextInput::make('slug')
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(100),
+                TextInput::make('description')
+                    ->maxLength(255),
+            ]);
+    }
+}

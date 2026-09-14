@@ -1,0 +1,73 @@
+# Tech stack
+
+Everything currently in `src/composer.json` and the dev
+environment. No rationale here — that's in
+`docs/explanation/tech-stack-overview.md` and
+`docs/adr/0001-tech-stack-selection.md`.
+
+## Runtime
+
+| Package | Purpose |
+|---|---|
+| `laravel/framework` ^13.8 | Application framework |
+| `filament/filament` ^4.0 | Admin panel |
+| `livewire/livewire` (via Filament) | Storefront interactivity |
+| `spatie/laravel-permission` ^8.3 | Roles and permissions |
+| `saloonphp/saloon` ^4.0 | Econt/Speedy API clients |
+| `stripe/stripe-php` ^21.1 | Stripe SDK |
+| `stevebauman/purify` ^6.3 | HTML sanitization for article/review content |
+| `astrotomic/laravel-translatable` ^11.17 | Content translation tables — pending |
+| `spatie/laravel-activitylog` ^5.0 | Audit log — pending |
+
+## Dev / tooling
+
+| Package | Purpose |
+|---|---|
+| `larastan/larastan` ^3.10 | Static analysis (PHPStan + Laravel-aware rules) |
+| `pestphp/pest` ^5.1 | Test framework (Pest 5 / PHPUnit 13 — ADR-0018) |
+| `pestphp/pest-plugin-laravel` ^5.0 | Laravel test helpers for Pest |
+| `pestphp/pest-plugin-browser` ^5.0 | Real-browser testsuite (`tests/Browser/`, ADR-0017) — needs the `browser` image target |
+| `brianium/paratest` ^7.24 | `pest --parallel`, local `Feature`/`Unit` only — see `how-to/run-the-tests.md` |
+| `laravel/boost` ^2.5 | AI-agent guidelines, skills, and an MCP server exposing app info, schema, logs, and a Laravel docs search. Dev-only |
+| `laravel-lang/common` ^6.8 | Framework translation strings, non-English locales |
+| `laravel-shift/blueprint` ^2.13 | Migration/model/factory scaffolding from `draft.yaml` |
+| `laravel/pint` ^1.27 | Code formatting |
+| `laravel/pao` ^1.0.6 | Compresses PHPUnit/Pest/PHPStan/Artisan output when run inside an AI agent |
+
+## Infrastructure
+
+| Tool | Purpose |
+|---|---|
+| Docker Compose | Local dev: `app` (PHP-FPM), `webserver` (nginx), `db` (MySQL 8), `vite`, `mailpit` |
+| GitHub Actions | CI — Pint, Larastan, Pest against a real MySQL service container |
+| Forge + VPS | Production, not containerized |
+| PCOV 1.0.12 | Test coverage collection, `app` image and CI only — not installed in production. ADR-0009 |
+
+### Boost is dev-only, and the deploy has to keep it that way
+
+`laravel/boost` registers a live route, `POST _boost/browser-logs`, which
+accepts log payloads from a browser. Its own master switch defaults to
+**on** (`'enabled' => env('BOOST_ENABLED', true)`), so nothing inside the
+package stops that route existing in production — the only thing that does
+is Boost being a `require-dev` package that a production install omits.
+
+Production must therefore deploy with `composer install --no-dev`. Nothing
+in this repo enforces or documents that yet (Forge's deploy script is
+configured outside version control), so it is worth confirming before the
+first real deployment. `BOOST_ENABLED=false` in the production environment
+is the belt-and-braces second answer if dev dependencies are ever installed
+there deliberately.
+
+The same reasoning already applies to PCOV, which is why the row above says
+"not installed in production".
+
+## Currently unresolved
+
+- **PHP 8.3 vs 8.4** — `composer.json` declares `^8.3`; the lockfile is
+  solved against packages requiring 8.4. Docker and CI both currently follow
+  8.4 to match the lockfile.
+- **`astrotomic/laravel-translatable`** — installed. Translation storage
+  shape (tables vs JSON columns) not settled. `lang/` and one migration set
+  aside.
+- **`spatie/laravel-activitylog`** — installed. Audit log shape not
+  settled. Migration set aside.

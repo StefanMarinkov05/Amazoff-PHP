@@ -1,0 +1,52 @@
+# Secrets — never commit. A key that reaches git history can only be fixed by
+# rotating the key; deleting the commit is not enough.
+.env
+.env.*
+!.env.example
+*.pem
+auth.json
+
+# Planning material — CLAUDE.md, ADRs, spec, open questions. On disk for
+# reference, deliberately not versioned in this repo; src/ is the
+# actual deliverable.
+misc/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Personal Claude Code skill config — Windows directory junctions into a
+# per-machine archive, not project source. Wouldn't survive a clone anyway.
+#
+# ...except the parts that ARE project source and DO survive a clone: the
+# shared plugin list, and the hookify rules that encode CLAUDE.md's
+# invariants as mechanical guards. Both are self-contained, with no
+# machine-specific paths. `.claude/skills/` stays excluded — it is 30
+# symlinks into a personal library — and so does `settings.local.json`,
+# which is per-machine MCP config.
+#
+# Ignoring the directory itself would stop git from ever descending into
+# it, so the exclusion is on the contents (`.claude/*`) and the shares are
+# re-included below it.
+.claude/*
+!.claude/settings.json
+!.claude/hookify.*.local.md
+
+# Laravel's own .gitignore is added when the app is scaffolded and merges
+# with this file.
+
+# Laravel Boost — generated, not source. `src/.ai/guidelines/` is the
+# hand-written part and IS committed; everything below is rebuilt from it by
+# `php artisan boost:install`, so committing it would only produce churn on
+# every regeneration. Same split this repo already applies to the race worker
+# and to Blueprint's output: the source is versioned, the artifact is not.
+src/CLAUDE.md
+src/boost.json
+src/.claude/skills/
+
+# Playwright MCP session output — console logs, snapshots, screenshots from
+# browser-driven checks. Regenerated per session, never source.
+.playwright-mcp/

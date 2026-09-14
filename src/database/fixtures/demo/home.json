@@ -1,0 +1,466 @@
+[
+  {
+    "name": "3-Seater Fabric Sofa",
+    "slug": "3-seater-fabric-sofa-hom0001",
+    "sku": "HOM-0001",
+    "category": "home-furniture-sofas",
+    "brand": "restfield",
+    "short_description": "3-seater fabric sofa with removable, washable cushion covers.",
+    "description": "A generously cushioned 3-seater in a durable weave fabric, sized to seat three without cramming.\n\nRemovable, washable cushion covers mean a spill is a laundry cycle rather than a permanent stain.",
+    "regular_price": "649.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 42000,
+    "length_mm": 2100,
+    "width_mm": 900,
+    "height_mm": 850,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "3-Seater Fabric Sofa | Amazoff",
+    "seo_description": "3-seater fabric sofa, removable washable covers.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0001-main.jpg", "alt_text": "Fabric sofa", "is_main": true, "sort_order": 0 },
+      { "key": "detail", "path": "demo/hom0001-detail.jpg", "alt_text": "Fabric texture detail", "is_main": false, "sort_order": 1 }
+    ],
+    "specifications": [
+      { "name": "Seats", "value": "3", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0001-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main", "detail"], "initial_quantity": 4, "attribute_values": { "colour": "grey" } },
+      { "sku": "HOM-0001-BEI", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "colour": "beige" } }
+    ]
+  },
+  {
+    "name": "Ergonomic Office Chair Mesh Back",
+    "slug": "ergonomic-office-chair-mesh-back-hom0002",
+    "sku": "HOM-0002",
+    "category": "home-furniture-chairs",
+    "brand": "moderloft",
+    "short_description": "Ergonomic office chair with mesh back and adjustable lumbar support.",
+    "description": "A breathable mesh back that doesn't trap heat the way padded office chairs do across a full workday.\n\nAdjustable lumbar support, armrests, and seat height cover the ergonomics a fixed-design chair simply cannot.",
+    "regular_price": "179.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 14000,
+    "length_mm": 650,
+    "width_mm": 650,
+    "height_mm": 1200,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Ergonomic Mesh Office Chair | Amazoff",
+    "seo_description": "Ergonomic office chair, mesh back, adjustable lumbar support.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0002-main.jpg", "alt_text": "Office chair", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Adjustments", "value": "Lumbar, armrest, height", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0002-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 16, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Solid Oak Dining Table",
+    "slug": "solid-oak-dining-table-hom0003",
+    "sku": "HOM-0003",
+    "category": "home-furniture-tables",
+    "brand": "moderloft",
+    "short_description": "Solid oak dining table, seats 6.",
+    "description": "A solid oak table rather than veneer, so surface scratches sand out instead of exposing chipboard underneath.\n\nSeats six comfortably, with tapered legs that keep the design from feeling heavy in a mid-size dining room.",
+    "regular_price": "549.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 38000,
+    "length_mm": 1800,
+    "width_mm": 900,
+    "height_mm": 750,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Solid Oak Dining Table | Amazoff",
+    "seo_description": "Solid oak dining table, seats 6.",
+    "attributes": ["material"],
+    "images": [
+      { "key": "main", "path": "demo/hom0003-main.jpg", "alt_text": "Dining table", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Seats", "value": "6", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0003-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 2, "attribute_values": { "material": "wood" } }
+    ]
+  },
+  {
+    "name": "5-Tier Bookshelf Ladder Style",
+    "slug": "5-tier-bookshelf-ladder-style-hom0004",
+    "sku": "HOM-0004",
+    "category": "home-furniture-shelving",
+    "brand": "moderloft",
+    "short_description": "5-tier ladder-style bookshelf, industrial frame.",
+    "description": "A ladder-style leaning shelf that fits corners a flush bookcase can't, with a small footprint for the storage it offers.\n\nThe industrial metal frame carries real weight, not just decorative items.",
+    "regular_price": "79.90",
+    "discount_price": "64.90",
+    "discount_starts_at": "-5 days",
+    "discount_ends_at": "+9 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 12000,
+    "length_mm": 600,
+    "width_mm": 350,
+    "height_mm": 1800,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "5-Tier Ladder Bookshelf | Amazoff",
+    "seo_description": "5-tier ladder-style bookshelf. On sale now.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0004-main.jpg", "alt_text": "Ladder bookshelf", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Tiers", "value": "5", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0004-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 9, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Egyptian Cotton Bed Sheet Set",
+    "slug": "egyptian-cotton-bed-sheet-set-hom0005",
+    "sku": "HOM-0005",
+    "category": "home-bedding-sheets",
+    "brand": "puravelle",
+    "short_description": "Egyptian cotton bed sheet set, 400 thread count.",
+    "description": "400 thread count Egyptian cotton, soft from the first wash without the sizing-chemical stiffness of a cheaper set.\n\nDeep pockets on the fitted sheet actually stay on a thicker mattress instead of popping off at 3am.",
+    "regular_price": "59.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1400,
+    "length_mm": 300,
+    "width_mm": 250,
+    "height_mm": 60,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Egyptian Cotton Bed Sheet Set | Amazoff",
+    "seo_description": "Egyptian cotton bed sheet set, 400 thread count.",
+    "attributes": ["colour", "material"],
+    "images": [
+      { "key": "main", "path": "demo/hom0005-main.jpg", "alt_text": "Bed sheet set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Thread count", "value": "400", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0005-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 40, "attribute_values": { "colour": "white", "material": "cotton" } },
+      { "sku": "HOM-0005-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 33, "attribute_values": { "colour": "grey", "material": "cotton" } }
+    ]
+  },
+  {
+    "name": "Memory Foam Pillow Contour",
+    "slug": "memory-foam-pillow-contour-hom0006",
+    "sku": "HOM-0006",
+    "category": "home-bedding-pillows",
+    "brand": "restfield",
+    "short_description": "Contour memory foam pillow with cooling gel layer.",
+    "description": "A contoured shape that supports the neck in both back and side sleeping positions, unlike a flat pillow that only suits one.\n\nA cooling gel layer on top counters the heat retention memory foam is otherwise known for.",
+    "regular_price": "34.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 900,
+    "length_mm": 600,
+    "width_mm": 350,
+    "height_mm": 120,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Contour Memory Foam Pillow | Amazoff",
+    "seo_description": "Contour memory foam pillow, cooling gel layer.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hom0006-main.jpg", "alt_text": "Memory foam pillow", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Fill", "value": "Memory foam with gel layer", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0006-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 55, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "All-Season Duvet 4.5 Tog",
+    "slug": "all-season-duvet-4-5-tog-hom0007",
+    "sku": "HOM-0007",
+    "category": "home-bedding-duvets",
+    "brand": "puravelle",
+    "short_description": "4.5 tog all-season duvet, hypoallergenic microfibre fill.",
+    "description": "A mid-weight 4.5 tog rating suited to spring and autumn, or layered with a second duvet for winter.\n\nHypoallergenic microfibre fill is machine washable, unlike a down duvet that needs specialist cleaning.",
+    "regular_price": "44.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1600,
+    "length_mm": 400,
+    "width_mm": 300,
+    "height_mm": 150,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "All-Season Duvet 4.5 Tog | Amazoff",
+    "seo_description": "4.5 tog all-season duvet, hypoallergenic.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hom0007-main.jpg", "alt_text": "All-season duvet", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Tog rating", "value": "4.5", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0007-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 28, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Adjustable LED Desk Lamp",
+    "slug": "adjustable-led-desk-lamp-hom0008",
+    "sku": "HOM-0008",
+    "category": "home-lighting-lamps",
+    "brand": "lumeraft",
+    "short_description": "Adjustable LED desk lamp with touch dimmer and USB port.",
+    "description": "A touch dimmer with multiple brightness and colour-temperature settings, from warm reading light to cool focus light.\n\nA built-in USB port charges a phone without a separate charger competing for the desk's only socket.",
+    "regular_price": "29.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 700,
+    "length_mm": 350,
+    "width_mm": 150,
+    "height_mm": 400,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Adjustable LED Desk Lamp | Amazoff",
+    "seo_description": "Adjustable LED desk lamp, touch dimmer, USB port.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0008-main.jpg", "alt_text": "Desk lamp", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Dimming", "value": "Touch, multi-level", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0008-WHT", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 47, "attribute_values": { "colour": "white" } },
+      { "sku": "HOM-0008-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "images": ["main"], "initial_quantity": 39, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Modern Pendant Ceiling Light",
+    "slug": "modern-pendant-ceiling-light-hom0009",
+    "sku": "HOM-0009",
+    "category": "home-lighting-ceiling",
+    "brand": "lumeraft",
+    "short_description": "Modern pendant ceiling light, adjustable drop height.",
+    "description": "A single pendant with an adjustable drop height, suited to a dining table or kitchen island as a focal fixture.\n\nA metal shade directs light downward, useful for task lighting rather than diffuse ambient glow.",
+    "regular_price": "49.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1200,
+    "length_mm": 300,
+    "width_mm": 300,
+    "height_mm": 250,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Modern Pendant Ceiling Light | Amazoff",
+    "seo_description": "Modern pendant ceiling light, adjustable drop.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0009-main.jpg", "alt_text": "Pendant light", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Adjustable drop", "value": "Yes", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0009-BLK", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 14, "attribute_values": { "colour": "black" } }
+    ]
+  },
+  {
+    "name": "Wool Blend Area Rug 160x230cm",
+    "slug": "wool-blend-area-rug-160x230-hom0010",
+    "sku": "HOM-0010",
+    "category": "home-decor-rugs",
+    "brand": "vantahue",
+    "short_description": "Wool blend area rug, 160x230cm, hand-tufted.",
+    "description": "A hand-tufted wool blend rug that anchors a living room seating area without the cost of a fully hand-knotted piece.\n\nA cotton backing keeps the rug from sliding on hard floors.",
+    "regular_price": "149.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 9500,
+    "length_mm": 2300,
+    "width_mm": 1600,
+    "height_mm": 15,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Wool Blend Area Rug 160x230cm | Amazoff",
+    "seo_description": "Wool blend area rug, hand-tufted, 160x230cm.",
+    "attributes": ["colour", "material"],
+    "images": [
+      { "key": "main", "path": "demo/hom0010-main.jpg", "alt_text": "Area rug", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Size", "value": "160 x 230cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0010-GRY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 7, "attribute_values": { "colour": "grey", "material": "wool" } }
+    ]
+  },
+  {
+    "name": "Abstract Canvas Wall Art Set 3-Piece",
+    "slug": "abstract-canvas-wall-art-set-3pc-hom0011",
+    "sku": "HOM-0011",
+    "category": "home-decor-wall-art",
+    "brand": "vantahue",
+    "short_description": "3-piece abstract canvas wall art set, ready to hang.",
+    "description": "Three coordinated canvases that fill a wall as a single composition, printed on gallery-grade canvas rather than paper.\n\nEach piece arrives with its own hanging hardware, ready to mount without a separate frame purchase.",
+    "regular_price": "59.90",
+    "discount_price": "49.90",
+    "discount_starts_at": "-4 days",
+    "discount_ends_at": "+10 days",
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 1800,
+    "length_mm": 900,
+    "width_mm": 600,
+    "height_mm": 40,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Abstract Canvas Wall Art Set | Amazoff",
+    "seo_description": "3-piece abstract canvas wall art set. On sale now.",
+    "attributes": [],
+    "images": [
+      { "key": "main", "path": "demo/hom0011-main.jpg", "alt_text": "Wall art set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Pieces", "value": "3", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0011-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 18, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Scented Soy Candle Set 3-Piece",
+    "slug": "scented-soy-candle-set-3pc-hom0012",
+    "sku": "HOM-0012",
+    "category": "home-decor-candles",
+    "brand": "glownest",
+    "short_description": "3-piece scented soy candle set, 40hr burn time each.",
+    "description": "Soy wax burns cleaner and longer than paraffin, roughly 40 hours per candle in this set of three complementary scents.\n\nCotton wicks avoid the lead-core wicks some cheaper candles still use.",
+    "regular_price": "27.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 900,
+    "length_mm": 200,
+    "width_mm": 200,
+    "height_mm": 100,
+    "is_available": true,
+    "is_featured": false,
+    "seo_title": "Scented Soy Candle Set 3-Piece | Amazoff",
+    "seo_description": "3-piece scented soy candle set, 40hr burn time.",
+    "attributes": ["scent"],
+    "images": [
+      { "key": "main", "path": "demo/hom0012-main.jpg", "alt_text": "Candle set", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Burn time", "value": "~40 hours each", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0012-WDY", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 52, "attribute_values": { "scent": "woody" } }
+    ]
+  },
+  {
+    "name": "Round Side Table Marble Top",
+    "slug": "round-side-table-marble-top-hom0013",
+    "sku": "HOM-0013",
+    "category": "home-furniture-tables",
+    "brand": "moderloft",
+    "short_description": "Round side table with marble-effect top and gold-finish base.",
+    "description": "A compact round side table sized to sit beside a sofa without crowding the seating area.\n\nA marble-effect top and slim gold-finish metal base add a decorative touch without the cost or fragility of real marble.",
+    "regular_price": "69.90",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 6500,
+    "length_mm": 400,
+    "width_mm": 400,
+    "height_mm": 500,
+    "is_available": false,
+    "is_featured": false,
+    "seo_title": "Round Side Table Marble Top | Amazoff",
+    "seo_description": "Round side table, marble-effect top. Currently unavailable.",
+    "attributes": [],
+    "images": [],
+    "specifications": [
+      { "name": "Diameter", "value": "40cm", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0013-STD", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": false, "is_default": true, "initial_quantity": 0, "attribute_values": {} }
+    ]
+  },
+  {
+    "name": "Two-Seater Accent Chair",
+    "slug": "two-seater-accent-chair-hom0014",
+    "sku": "HOM-0014",
+    "category": "home-furniture-chairs",
+    "brand": "restfield",
+    "short_description": "Two-seater accent chair in bouclé fabric.",
+    "description": "A compact loveseat-style accent chair in a textured bouclé fabric, sized for a reading nook rather than a full living room.\n\nSolid wood legs add stability without visually weighing down the piece.",
+    "regular_price": "289.00",
+    "discount_price": null,
+    "discount_starts_at": null,
+    "discount_ends_at": null,
+    "vat_rate": "20.00",
+    "min_order_quantity": 1,
+    "weight_g": 22000,
+    "length_mm": 1200,
+    "width_mm": 800,
+    "height_mm": 800,
+    "is_available": true,
+    "is_featured": true,
+    "seo_title": "Two-Seater Accent Chair | Amazoff",
+    "seo_description": "Two-seater accent chair, bouclé fabric.",
+    "attributes": ["colour"],
+    "images": [
+      { "key": "main", "path": "demo/hom0014-main.jpg", "alt_text": "Accent chair", "is_main": true, "sort_order": 0 }
+    ],
+    "specifications": [
+      { "name": "Material", "value": "Bouclé fabric", "sort_order": 0 }
+    ],
+    "variations": [
+      { "sku": "HOM-0014-CRM", "price": null, "discount_price": null, "weight_g": null, "length_mm": null, "width_mm": null, "height_mm": null, "is_available": true, "is_default": true, "images": ["main"], "initial_quantity": 3, "attribute_values": { "colour": "white" } }
+    ]
+  }
+]
