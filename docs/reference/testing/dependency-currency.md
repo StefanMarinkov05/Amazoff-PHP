@@ -25,26 +25,6 @@ against their respective advisory databases (Packagist's for Composer, the
 npm registry's for Node) — a real, dated result, not an inference from
 version numbers.
 
-## What changed today
-
-Every direct dependency that could move without touching Filament or
-Livewire was bumped (`larastan`, `laravel/boost`, `laravel/pao`,
-`laravel/pint`, `mockery/mockery`, `pestphp/pest`, `phpunit/phpunit`,
-`saloonphp/saloon`, `spatie/laravel-activitylog`, `stripe/stripe-php`,
-`astrotomic/laravel-translatable`, plus `laravel-vite-plugin`, `playwright`,
-and `vite` on the npm side) via `composer update <package> --with-all-dependencies`
-per package, never a blanket `composer update`. Full local gate re-run
-clean after: `pint --test` (744 files), `phpstan analyse --memory-limit=1G`
-(0 errors — one stale `@phpstan-ignore argument.type` comment in
-`ProductList.php` was removed; larastan's own type-inference fix made the
-ignored error stop occurring, which is what "unmatched ignored error"
-means here, not a regression), `pest --parallel --testsuite=Feature,Unit`
-(1437 passed), `pest --testsuite=Concurrency` (53 passed, sequential per
-`coding-conventions.md`'s rule). Two parallel-run failures were the
-pre-existing `mkdir(): File exists` race documented in
-`docs/how-to/troubleshooting/auth-and-sessions.md` — confirmed by
-re-running each failing file alone, both green — not caused by this bump.
-
 ## Version currency — remaining outdated direct dependencies
 
 `composer outdated --direct` / `npm outdated` (skips transitive

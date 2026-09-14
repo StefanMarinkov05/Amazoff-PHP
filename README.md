@@ -4,6 +4,8 @@ Laravel e-commerce platform with a blog/news module, Stripe and cash-on-delivery
 payments, and Econt/Speedy courier integrations. Internship project, Lumen101
 2026.
 
+**Live demo:** https://onlineshopteamb-production.up.railway.app/
+
 The application lives in [`src/`](src/) — not at repo
 root. Docker config is at the repo root ([`docker-compose.yml`](docker-compose.yml),
 [`docker/`](docker/)); architecture rules and scope decisions are in
