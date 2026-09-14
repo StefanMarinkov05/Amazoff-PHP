@@ -6,6 +6,8 @@ namespace App\Actions\Cart;
 
 use App\Models\Cart;
 use App\Models\CartItem;
+use App\Models\Inventory;
+use App\Models\ProductVariation;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -14,8 +16,20 @@ use Illuminate\Support\Facades\DB;
  * where both hold the same variation — `UNIQUE(cart_id, product_variation_id)`
  * forbids two rows, so a plain move would violate it on the second line.
  *
- * The summed quantity is not re-validated against stock; `CreateOrder` is
- * what raises that at checkout, same as `AddToCart`.
+ * The summed quantity is capped at the variation's currently available
+ * stock — not merely deferred to checkout the way a single `AddToCart` call
+ * is. Two independently-valid carts (a guest cart with 3 units, a customer
+ * cart also with 3 units of the same variation, both legal when each was
+ * built against 5 units of stock) can sum to a quantity neither cart alone
+ * ever had — `AddToCart` checks `available()` on every call and would have
+ * refused the 4th and 5th unit outright; a blind sum here bypasses that
+ * check entirely. Capping, not throwing: `MergeCartOnAuthentication`'s own
+ * rule is that a failed merge must never fail the login, so this degrades
+ * silently to "as much as is actually available" rather than raising.
+ * `CreateOrder`'s own `ReserveStock` would still refuse an over-quantity
+ * line at checkout, but only after the customer has filled in address and
+ * payment — this closes that gap where it is actually created, not just
+ * downstream of it.
  *
  * Locks nothing on the first attempt, for the same reason `AddToCart` does
  * not — a caught `UNIQUE` violation retries as an update instead. Unlike
@@ -77,14 +91,61 @@ final class MergeGuestCart
             /** @var CartItem|null $existing */
             $existing = $lock ? $query->lockForUpdate()->first() : $query->first();
 
+            $currentQuantity = $existing === null ? 0 : $existing->quantity;
+            $summed = $currentQuantity + $quantity;
+            $cap = $this->purchasableCap($variationId);
+            // null means "the variation is gone, or carries no cap to apply"
+            // — the catalogue is not consulted here (see the soft-delete
+            // test below), so the raw sum survives unchanged, matching
+            // AddToCart's own "deactivation leaves an existing line alone".
+            $wanted = $cap === null ? $summed : min($summed, $cap);
+
             if ($existing !== null) {
-                $existing->increment('quantity', $quantity);
-            } else {
+                // Capped below 1: no purchasable quantity remains (either
+                // truly out of stock, or what's left is under the product's
+                // own minimum order quantity — a quantity AddToCart would
+                // never have accepted either way). Deleting the line is the
+                // correct representation — cart_items has no quantity-0
+                // state, and RemoveFromCart is the customer's own path to
+                // clear a line that no longer makes sense.
+                if ($wanted < 1) {
+                    $existing->delete();
+                } elseif ($wanted !== $currentQuantity) {
+                    $existing->update(['quantity' => $wanted]);
+                }
+            } elseif ($wanted >= 1) {
                 $userCart->cartItems()->create([
                     'product_variation_id' => $variationId,
-                    'quantity' => $quantity,
+                    'quantity' => $wanted,
                 ]);
             }
         });
+    }
+
+    /**
+     * The largest quantity actually purchasable for a variation right now,
+     * or `null` if the variation no longer exists (soft-deleted or gone) —
+     * distinct from 0, which means "exists, but nothing to sell". Below the
+     * product's own `min_order_quantity`, available stock is not a legal
+     * quantity either — a customer cannot buy fewer than the minimum even
+     * if 1 unit remains — so that also collapses to 0, the same outcome
+     * `AddToCart` reaches by refusing the write outright.
+     */
+    private function purchasableCap(int $variationId): ?int
+    {
+        /** @var ProductVariation|null $variation */
+        $variation = ProductVariation::query()->with('product')->find($variationId);
+
+        if ($variation === null || $variation->product === null) {
+            return null;
+        }
+
+        /** @var Inventory|null $inventory */
+        $inventory = $variation->inventory;
+        $available = $inventory?->available() ?? 0;
+
+        $minimum = $variation->product->min_order_quantity;
+
+        return $available >= $minimum ? $available : 0;
     }
 }

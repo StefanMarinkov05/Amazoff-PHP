@@ -128,7 +128,13 @@ it('returns the user cart with its merged lines already loaded', function (): vo
         ->and($result->cartItems()->count())->toBe(1);
 });
 
-it('merges a quantity that exceeds available stock', function (): void {
+it('caps a summed quantity that exceeds available stock', function (): void {
+    // Two independently-valid carts (3 + 3, each legal on its own against 4
+    // in stock) can sum to more than either cart alone ever held.
+    // AddToCart checks available() on every call and would refuse the 4th
+    // and 5th unit outright — a blind sum here bypassed that entirely.
+    // Fixed to cap, not throw: MergeCartOnAuthentication's own rule is that
+    // a failed merge must never fail the login.
     $guest = emptyCart();
     $user = emptyCart(User::factory()->create());
     $variation = cartVariation(stock: 4);
@@ -137,10 +143,7 @@ it('merges a quantity that exceeds available stock', function (): void {
 
     app(MergeGuestCart::class)->handle($guest, $user);
 
-    // Deliberate, per the Action's docblock: login is not a moment §11 requires
-    // availability to hold, and silently dropping half a merge is worse than a
-    // message at checkout. CreateOrder is what refuses this.
-    expect($user->cartItems()->sole()->quantity)->toBe(6);
+    expect($user->cartItems()->sole()->quantity)->toBe(4);
 });
 
 it('merges a quantity below the product minimum', function (): void {
@@ -153,6 +156,26 @@ it('merges a quantity below the product minimum', function (): void {
     // Same reasoning in the other direction: the merge revalidates nothing, so
     // a line that was legal when added stays exactly as it was.
     expect($user->cartItems()->sole()->quantity)->toBe(6);
+});
+
+it('drops the line entirely when the only available stock is below the product minimum', function (): void {
+    // Capping to available stock alone is not enough: 1 unit left on a
+    // product with min_order_quantity 2 is not a legal quantity either —
+    // AddToCart would refuse it the same way it refuses insufficient
+    // stock. There is no smaller legal quantity to cap down to, so the
+    // line is dropped rather than left at a value nothing else in the app
+    // would ever accept.
+    $guest = emptyCart();
+    $user = emptyCart(User::factory()->create());
+    $variation = cartVariation(stock: 3, product: ['min_order_quantity' => 2]);
+    app(AddToCart::class)->handle($guest, $variation, 3);
+
+    // Stock drops to 1 after the cart line was legally built against 3.
+    $variation->inventory->update(['current_quantity' => 1]);
+
+    app(MergeGuestCart::class)->handle($guest, $user);
+
+    expect($user->cartItems()->count())->toBe(0);
 });
 
 it('merges lines whose variation has since been soft-deleted', function (): void {
