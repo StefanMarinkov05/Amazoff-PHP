@@ -8,6 +8,123 @@ when the work happened, not when it was committed — nothing in
 
 ### Added
 
+- **Shipment tracking sync — the connector-calling half of slice 8, and the
+  first real Job class (2026-09-14).** `App\Actions\Shipment\SyncShipmentTracking`
+  polls `CourierGateway::track()` (built and unit-tested since an earlier
+  session, but never called from an Action until now) and applies whatever
+  it returns through `TransitionShipmentStatus`, one event at a time in
+  chronological order — the single writer of `shipments.status` and
+  `shipment_tracking_events`, whose own docblock already anticipated this
+  exact caller. A stale or out-of-order event
+  (`IllegalShipmentStatusTransitionException`) is skipped rather than
+  failing the whole sync; a real courier outage
+  (`CourierUnavailableException`) is deliberately left to propagate rather
+  than swallowed, so the queue's own retry mechanism sees it. No locking of
+  its own — already lives inside `TransitionShipmentStatus`, and this
+  Action composes into that transaction via savepoint nesting rather than
+  adding a second lock.
+
+  **Authorization was initially left entirely to `TransitionShipmentStatus`'s
+  own per-event check, and a same-day self-review found that delegation was
+  not airtight**: that check sits *after* both the same-status no-op and
+  the illegal-transition check, so an actor holding zero permissions,
+  calling this Action directly on a shipment whose only new event was a
+  repeat or a stale one, got no exception at all — confirmed live before
+  the fix. Today's only real-actor caller (the panel button below) happened
+  to gate this at the UI layer first, but the Action itself wasn't safe for
+  a future caller without that gate. Fixed: `SyncShipmentTracking` now
+  authorizes `update_shipment` itself, once, up front, before checking
+  `tracking_number` or calling the courier — matching `CreateShipment`'s
+  own "authorize before any work" convention rather than trusting a
+  composed Action's conditional check.
+
+  `App\Jobs\SyncShipmentTracking` is `app/Jobs/`'s first class — wraps the
+  Action for queued execution, serializing the shipment **id** rather than
+  the model, with an explicit widening backoff (`[30, 120, 300]`) since the
+  worker command sets no `--backoff` of its own. Also `ShouldBeUnique`,
+  keyed by shipment id — found in the same review pass: a single Job's
+  retry cycle can span up to 450 seconds, long enough to still be mid-retry
+  when the next 5-minute sweep dispatches another Job for the same
+  shipment; without this, a courier having a slow day would get hit by an
+  ever-growing pile of jobs for the same row instead of one job retrying in
+  place. Proven live: the lock-acquisition happens in `PendingDispatch`,
+  upstream of `Queue::fake()`, against the real cache store (`array` in
+  tests, `database` on the beta — both implement `LockProvider`), so
+  `Queue::assertPushed(..., 1)` after two dispatches for the same shipment
+  id is a genuine assertion, not a fake-only artifact.
+  `app/Console/Commands/SyncShipmentsTracking.php` (`shipments:sync-tracking`)
+  queries every shipment still `Shipped`/`InTransit` with a tracking number
+  and queues one Job per row, registered in `routes/console.php` at a
+  5-minute cadence. `ViewShipment` gained a "Resync tracking" panel button
+  calling the same Action directly, for a manual poll between scheduled
+  sweeps — both paths serialize correctly on `TransitionShipmentStatus`'s
+  existing lock with no new code, though this specific race is not yet
+  proven by a real two-process concurrency test
+  (`reference/write-rules/concurrency.md` records it as unverified rather
+  than claiming more than is actually shown).
+
+  Testing this surfaced a real gap in the shared test fixtures:
+  `tests/Pest.php`'s existing `swapFakeCourier()` only swaps the `Courier`
+  *facade*, which resolves the same `CourierManager::class` container
+  entry a constructor-injected `CourierManager` parameter reads —
+  `CourierManager` is `final` with no interface, so it cannot be
+  Mockery-doubled for a type-hinted parameter, and reusing
+  `swapFakeCourier()`'s existing double for both roles was tried and
+  confirmed to break `CheckoutTest`'s real-carrier-code courier coverage
+  (a driver-lookup `InvalidArgumentException` on any carrier code besides
+  `'fake'`). Added `swapFakeCourierManager()` and `fakeCourierCarrier()` as
+  a separate, additive fixture instead, bound the same way
+  `fakeStripeIntents()` binds its Mockery double — `swapFakeCourier()`
+  itself is untouched and every existing courier test still passes
+  unmodified.
+
+  New `docs/reference/deferred-and-reactive-work.md` — the scheduler,
+  queue/Jobs, and events/listeners in one inventory, since this is the
+  first time more than one of the three existed together in this
+  codebase and the distinction (a repeating timer vs. a one-shot deferred
+  unit of work vs. an in-process reaction) is easy to conflate.
+  `explanation/queues-and-jobs.md`'s "How to add a Job" recipe, written
+  as a hypothetical earlier this session, now points at this real Job
+  instead. `reference/actions.md` and `reference/console-commands.md`
+  updated with the new Action/command.
+
+- **Split seed and upload media disks — admin uploads survive a redeploy
+  for the first time (2026-09-14, ADR-0025).** Railway's filesystem is
+  ephemeral (ADR-0023); until now every image, seeded and uploaded alike,
+  lived on the same `public` disk, so an image uploaded through the admin
+  panel was lost on the next deploy. Added a `media` disk
+  (`MEDIA_DISK` config, default `media`), backed on Railway by a volume
+  mounted at `/app/storage/app/media` — deliberately outside
+  `storage/app/public`, so an empty volume can never shadow the 182
+  committed demo images the way mounting inside that tree would risk.
+  `ProductImage::disk()`/`Article::imageDisk()` route a row to the right
+  disk by its existing path prefix (`demo/…` vs. `product-images/…`/
+  `articles/…`) rather than probing both — one `Storage::exists()` call in
+  `servableUrl()`, same as before, deterministic, and correct on an empty
+  volume (every seeded row still resolves). `MEDIA_DISK=public` is a
+  one-variable rollback; `MEDIA_DISK=s3` is the whole eventual object-storage
+  switch. Filament's per-record image columns (`ArticlesTable`,
+  `ArticleInfolist`, `ProductImagesRelationManager`) take a
+  `fn ($record) => $record->disk()` closure instead of a hardcoded disk;
+  the two `stacked()` relation columns (`ProductInfolist`,
+  `ProductVariationsRelationManager`) use `getStateUsing()` to resolve
+  images to URLs directly, since a per-record closure can't discriminate
+  images within a relation — verified live, a real upload and two seeded
+  images rendering correctly side by side in the same table. Also fixed:
+  `FetchDemoArticleImages` wrote its downloaded files under the upload
+  prefix while the fixtures it was backfilling had always used the seed
+  prefix — a pre-existing disagreement this routing rule surfaced, not
+  previously a visible bug — and the stress seeders' generated placeholder
+  had the same issue. ADR-0023's stale mount path
+  (`/var/www/html/…`, a leftover from the abandoned custom-image build) is
+  corrected in place. Deployment diagram (`reference/diagrams/deployment/`)
+  updated with the new volume; SVG/PDF regenerated. Deliberately deferred:
+  under a remote `MEDIA_DISK` (S3), the existing `exists()` check becomes a
+  network round-trip per image — real cost, but only decidable once S3 is
+  real; trigger recorded in the ADR. New `MediaDiskRoutingTest.php`, each
+  case proven red before the fix. The Railway volume itself is a separate,
+  not-yet-taken step — see `deploy-and-host.md`.
+
 - **Courier office-lookup rate limit, and a dependency currency sweep
   (2026-09-14).** `CheckoutPage::resolveOffices()` now throttles at
   30/min/IP ahead of the live Econt/Speedy call — `CachedCourierGateway`
@@ -234,6 +351,55 @@ when the work happened, not when it was committed — nothing in
   "Deploy-gating config" item alongside the two above.
 
 ### Fixed
+
+- **`MergeGuestCart` could sum a guest and a customer cart past available
+  stock, or below the product's own minimum order quantity (2026-09-14).**
+  Two independently-valid carts — each legal on its own against the stock
+  it saw when built — can sum to a quantity neither cart alone ever had;
+  the merge previously wrote that sum verbatim, deferring entirely to
+  `CreateOrder` at checkout the same way a single `AddToCart` call defers
+  a *stale* line, except `AddToCart` itself always checks `available()` on
+  write and this bypassed that check outright. The customer's cart page
+  then silently showed an already-impossible quantity, discovered only
+  after they had filled in address and payment.
+
+  Fixed to cap the summed quantity to what is actually available, and to
+  treat a result below `min_order_quantity` as unpurchasable (0) — the
+  same floor `AddToCart` enforces by refusing the write outright — rather
+  than leaving a quantity nothing else in the app would ever produce.
+  Capping, not throwing: `MergeCartOnAuthentication`'s own standing rule is
+  that a failed merge must never fail the login, so this degrades silently
+  instead. A soft-deleted or otherwise missing variation is deliberately
+  **not** affected by this fix and keeps the old behaviour — the catalogue
+  is not consulted for existence, only for the cap, so a dead line still
+  survives the merge and stays visible on the cart page for the customer
+  to see and remove themselves, rather than vanishing silently.
+
+  Found live while investigating a separately-reported "guest cart merge
+  behaves differently for an administrator" issue; that report could not
+  be reproduced through the storefront `Login` component with a real
+  administrator account and a guest cart present (tested directly), so it
+  is recorded as an open, unconfirmed gap rather than fixed here — see
+  `misc/todo.md`.
+
+  `reference/write-rules/cart.md` and `reference/actions.md` corrected —
+  both previously described the pre-fix behaviour as a deliberate design
+  choice, with `reference/write-rules/cart.md`'s own "A line after the
+  catalogue changes underneath it" table citing it as the standard other
+  Actions were compared against. Two existing tests
+  (`tests/Feature/Actions/Cart/MergeGuestCartTest.php`'s "merges a
+  quantity that exceeds available stock" and
+  `tests/Feature/Livewire/CartMergeOnAuthenticationTest.php`'s bare-factory
+  fixtures) had themselves pinned the old, now-wrong behaviour or silently
+  relied on a variation with no inventory row at all — both updated: the
+  first to assert the new capped outcome, the second to use
+  `cartVariation()`'s real stock instead of a bare
+  `ProductVariation::factory()`, which would otherwise cap to zero and
+  delete the line under the fix. Two new tests cover the min-quantity
+  floor and the corrected exceeds-stock case; both concurrency tests
+  touching this Action (`MergeGuestCartConcurrencyTest`,
+  `AddToCartVsMergeGuestCartConcurrencyTest`) re-run clean, unaffected
+  since their fixtures already summed well under their stock ceiling.
 
 - **Every admin-panel view page showed money in dollars, not euros
   (2026-09-14).** Found live while click-through-testing

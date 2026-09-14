@@ -154,14 +154,23 @@ price the browser could have submitted.
 ## What is not yet built
 
 This layer covers carrier and office selection at checkout, and delivery
-pricing. It does **not** cover the warehouse half of slice 8:
-`createShipment()`, `label()`, and `track()` exist on both gateways (§37
-#14 requires the shared interface to cover them), but no Action calls them
-yet. `CreateShipment` (`app/Actions/Shipment/CreateShipment.php`) still
-opens a shipment with every courier column nullable, exactly as it did
-before this layer existed — a future `DispatchShipment` Action is what
-would call `CourierManager` to actually create the vendor shipment and fill
-those columns in.
+pricing. It does **not** cover all of the warehouse half of slice 8:
+`createShipment()` and `label()` exist on both gateways (§37 #14 requires
+the shared interface to cover them) but no Action calls either yet.
+`CreateShipment` (`app/Actions/Shipment/CreateShipment.php`) still opens a
+shipment with `tracking_number`/`label_path`/`courier_tracking_url`/
+`shipment_number` nullable, exactly as it did before this layer existed — a
+future `DispatchShipment` Action is what would call `CourierManager` to
+actually create the vendor shipment and fill those columns in.
+
+`track()` is different: `App\Actions\Shipment\SyncShipmentTracking` calls it
+now (2026-09-14), polling on a schedule
+(`console-commands.md`'s `shipments:sync-tracking`) and on demand
+(`ViewShipment`'s "Resync tracking" button). It necessarily refuses a
+shipment with no `tracking_number` yet — `DispatchShipment` not existing
+means every shipment today is stuck at exactly that state, so
+`SyncShipmentTracking` has a real caller but nothing for it to sync against
+until the connector-calling half above is built.
 
 ## What is unverified
 
@@ -170,13 +179,19 @@ Both gateways' request and response shapes are built from each vendor's
 
 - **Econt** has a public demo environment
   (`ECONT_API_URL=https://demo.econt.com/ee/services/`), but no request
-  against it has been captured and compared to `EcontGateway`'s mapping.
+  against it has been captured and compared to `EcontGateway`'s mapping —
+  `track()` included, despite now having a real caller.
 - **Speedy** has no public sandbox, but a real test account now exists
   (see "Speedy's price quote, fixed and confirmed live" below).
   `cities()`, `offices()`, and `quote()` are confirmed live.
-  `createShipment()`, `label()`, and `track()` remain unverified — no
-  Action calls them yet, and confirming them means creating a real test
-  waybill.
+  `createShipment()` and `label()` remain unverified — no Action calls
+  either yet, and confirming them means creating a real test waybill.
+  `track()` now has a real caller (`SyncShipmentTracking`) but is still
+  unverified against a live payload — `EcontGateway`/`SpeedyGateway`'s own
+  `mapStatus()` vocabulary mapping has never been checked against what
+  either vendor's tracking endpoint actually returns, only against
+  published documentation and `SpeedyGatewayTest.php`'s Saloon-mocked
+  fixtures.
 
 Both classes' docblocks repeat this caveat at the point it matters. Confirm
 against a real sandbox response — the same discipline `CarrierSeeder`

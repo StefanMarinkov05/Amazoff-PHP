@@ -227,10 +227,14 @@ exists ahead of that TTL policy, not because of it.
 
 `AddToCart` and `UpdateCartItemQuantity` re-validate the line they are about
 to write on every call — current price, availability, `min_order_quantity`,
-stock — but never a line they are not touching. `MergeGuestCart` validates
-nothing at all, deliberately: `CreateOrder` is what raises a stale merged
-line, at checkout, not this Action. `reference/write-rules/cart.md`, "A line
-after the catalogue changes underneath it" has the full table.
+stock — but never a line they are not touching. `MergeGuestCart` **caps the
+summed quantity to available stock and to `min_order_quantity`** (fixed
+2026-09-14 — previously validated nothing, letting two independently-valid
+carts sum to a quantity neither alone ever had), while still leaving a
+soft-deleted or missing variation's line untouched, matching `AddToCart`'s
+own "deactivation leaves an existing line alone".
+`reference/write-rules/cart.md`, "A line after the catalogue changes
+underneath it" has the full table.
 
 `AddToCart` and `MergeGuestCart` both lock nothing and instead catch
 `UniqueConstraintViolationException` on `UNIQUE(cart_id,
@@ -280,6 +284,7 @@ a `Coupon` row is single-table with no second writer, decision 10.
 | `RefundPayment` | `payments.status`, `refunded_amount` via `TransitionPaymentStatus`; calls Stripe | optional, `refund_payment` | `RefundNotAllowedException`, `AuthorizationException` |
 | `CreateShipment` | `shipments` | optional, `create_shipment` | `ShipmentNotAllowedException` |
 | `TransitionShipmentStatus` | `shipments.status`, `shipped_at`, `delivered_at`, `raw_status`, `shipment_tracking_events` | optional, `update_shipment` | `IllegalShipmentStatusTransitionException` |
+| `SyncShipmentTracking` | nothing directly; composes `TransitionShipmentStatus` once per courier tracking event, in chronological order | optional — `null` from the scheduled `App\Jobs\SyncShipmentTracking`, a real actor from the panel's "Resync tracking" button; authorizes `update_shipment` itself, up front, before checking `tracking_number` or calling the courier — deliberately not left to `TransitionShipmentStatus`'s own per-event check alone, which can be silently bypassed on a same-status no-op (confirmed live; see the Action's own docblock) | `ShipmentNotTrackableException` (no `tracking_number` yet); lets `CourierUnavailableException` and `IllegalShipmentStatusTransitionException` (per stale event, caught and skipped, never for the caller) pass through as documented in its own docblock |
 | `CreateProductReview` | `product_reviews` | the **reviewer**, required — ownership is proven by the purchase check, not a permission | `ReviewNotAllowedException` |
 | `ApproveProductReview` | `product_reviews.approved` (`true`) | optional, `approve_product_review` | `AuthorizationException` |
 | `UnapproveProductReview` | `product_reviews.approved` (`false`) | optional, `approve_product_review` — the same ability the other direction, §24; there is no separate `unapprove_product_review` permission | `AuthorizationException` |
@@ -305,10 +310,17 @@ The shipment Actions are the *domain* half of slice 8, deliberately split
 from its connector: every courier column is nullable, so a shipment can be
 opened, transitioned and reported on before any Saloon connector exists.
 The connector half now exists (`App\Contracts\CourierGateway`,
-`docs/explanation/couriers.md`), but nothing yet calls it from
-`CreateShipment` — a future `DispatchShipment` Action, not built here, is
-what would create the real vendor shipment and fill in the columns
-`CreateShipment` currently leaves null.
+`docs/explanation/couriers.md`), and `SyncShipmentTracking` is its first
+caller — polling `CourierGateway::track()` and applying whatever it returns
+via `TransitionShipmentStatus`, on a schedule
+(`docs/reference/console-commands.md`'s `shipments:sync-tracking`) and on
+demand (`ViewShipment`'s "Resync tracking" button). What still doesn't
+exist: `DispatchShipment`, which would create the real vendor shipment and
+fill in `tracking_number`/`label_path`/`courier_tracking_url`/
+`shipment_number` — `CreateShipment` still leaves all four null, and
+`SyncShipmentTracking` refuses a shipment with no `tracking_number` yet
+(`ShipmentNotTrackableException`) for exactly that reason. `MarkCodRemitted`
+for COD remittance is also still open.
 
 `CreateOrder` calls `CalculateDeliveryPrice` (a `Support` function, not an
 Action — it writes nothing) whenever it is given a carrier, resolving
@@ -513,6 +525,7 @@ behaviour.
 | `TransitionPaymentStatus` | yes — the refund cap is read and written inside one `payments` lock |
 | `CreateShipment` | yes — same shape as `RecordPayment` |
 | `TransitionShipmentStatus` | yes — wraps the status write and its tracking event |
+| `SyncShipmentTracking` | no — writes nothing itself; each composed `TransitionShipmentStatus` call opens its own |
 | `CreateProductReview` | yes — though the guard is a caught `UNIQUE` violation, not a lock |
 | `RecordInventoryMovement` | no |
 | `SubscribeToNewsletter` | no - one row either way, the UNIQUE index serialises it |
