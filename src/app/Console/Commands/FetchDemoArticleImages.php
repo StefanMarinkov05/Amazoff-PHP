@@ -119,7 +119,7 @@ final class FetchDemoArticleImages extends Command
             $path = $article->main_image_path;
 
             return ! is_string($path) || $path === ''
-                || ! Storage::disk(Article::IMAGE_DISK)->exists($path);
+                || ! Storage::disk(Article::IMAGE_SEED_DISK)->exists($path);
         })->take($limit)->values();
 
         return $needing;
@@ -174,7 +174,14 @@ final class FetchDemoArticleImages extends Command
         }
 
         $bytes = $response->body();
-        $path = Article::IMAGE_DIRECTORY.'/'.$article->slug.'.jpg';
+
+        // The SEED directory, not IMAGE_DIRECTORY: this command produces
+        // committed demo content, and `Article::imageDisk()` routes on that
+        // prefix. Writing an upload-prefixed path here would send seeded
+        // covers to the uploads volume — and it also silently disagreed with
+        // `database/fixtures/demo-articles/*.json`, which has always written
+        // `demo/articles/…`. ADR-0025.
+        $path = Article::IMAGE_SEED_DIRECTORY.'/'.$article->slug.'.jpg';
 
         $this->assertValidImage($bytes, $path);
 
@@ -182,7 +189,7 @@ final class FetchDemoArticleImages extends Command
             return;
         }
 
-        Storage::disk(Article::IMAGE_DISK)->put($path, $bytes);
+        Storage::disk(Article::IMAGE_SEED_DISK)->put($path, $bytes);
         $article->update(['main_image_path' => $path]);
     }
 

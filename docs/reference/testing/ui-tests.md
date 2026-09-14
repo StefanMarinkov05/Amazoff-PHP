@@ -118,6 +118,17 @@ colour they remember has no reason to know which table the fact lives in.
 - Does *not* match a product carrying an unrelated attribute value — the
   match is on the term, not "has any attribute value at all."
 
+**[Added 2026-09-14]** `search` is `#[Url]`-bound and has no `rules()` of
+its own — reachable via a crafted query string, not just by typing — and
+feeds a `LIKE` scan plus a rendered filter chip on every value. Group B2's
+free-text sweep.
+
+- An oversized term hydrated from the query string at mount is truncated
+  to 100 characters.
+- An oversized term typed after mount is truncated the same way —
+  `#[Url]` hydration does not itself go through `updated()`, so both paths
+  needed their own proof.
+
 ### `ProductListDemoOrderTest`
 
 The staff-only "Demo order" sort walks a curated sequence of products, each
@@ -287,6 +298,14 @@ wires up, not their own rules — those are `AddToCartTest`,
 - A coupon that was valid when applied but has since become inapplicable
   (e.g. a price drop takes the cart below the minimum) shows no discount
   on the next render, without the customer ever removing it explicitly.
+
+**[Added 2026-09-14]** `couponCode` had no validation at all before this —
+the only `CartPage` property that reached a database query
+(`Coupon::where('code', ...)`) fully unvalidated. Group B2's free-text
+sweep.
+
+- A code longer than `coupons.code`'s own column width (50) is refused by
+  a form error, and the cart's `coupon_id` is left untouched.
 
 ### `CartBadgeTest`
 
@@ -656,7 +675,27 @@ broker `submit()` validates against, not a stand-in:
   `Livewire::test()` does not route the component through the actual
   HTTP query-string cycle a real visited URL goes through.
 
+**[Added 2026-09-14]** An oversized new password is refused rather than
+hashed unbounded — `Password::defaults()` enforces a minimum but nothing
+caps the maximum, and bcrypt still processes the whole string up to its
+own 72-byte truncation. Also proves the refusal does not consume the
+token, same discipline as the mismatched-confirmation case above.
+`Register`/`ChangePassword`/`Login` (`tests/Feature/Auth/AuthenticationTest.php`)
+each got the equivalent case for their own password field. Group B2's
+free-text sweep.
+
 ### `CheckoutTest` (`tests/Feature/Payment/`)
+
+**[Added 2026-09-14]** Two courier-office-lookup rate-limit cases. The
+lookup reaches a live Econt/Speedy API on every distinct city typed —
+`CachedCourierGateway` only saves repeat calls for the *same* city — so an
+unauthenticated visitor cycling through city names could otherwise drive
+unbounded traffic at the courier. One proves the limit actually trips at
+30/min/IP and stops new calls reaching the fake gateway; the other proves
+a trip with nothing cached yet reads as `courierUnavailable()`, the same
+amber message a genuine courier outage shows, rather than a form error —
+consistent with the existing transient-failure fallback this file already
+documents below. Group B1.
 
 **[Added 2026-09-11]** Two multi-tab cases: four component instances in one
 session all reaching `placeOrder` produce one order, one payment and one

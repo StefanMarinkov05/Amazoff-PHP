@@ -47,9 +47,10 @@ use RuntimeException;
  * an API call per stress product on `demo:fetch-images`'s source would be
  * both pointless and, at this volume, would exhaust any free-tier image
  * API in minutes. The placeholder lives at
- * `storage/app/public/product-images/stress-placeholder.png` — copied
+ * `storage/app/public/demo/stress-placeholder.png` — copied
  * once from `public/images/logo.png` the first time this seeder runs, not
- * committed to git as a duplicate.
+ * committed to git as a duplicate. It sits under the seed prefix because it
+ * is generated fixture content, not an upload; see ADR-0025.
  *
  * Categories, brands, and attributes are **reused from the existing
  * pool**, not created per product — `ProductFactory`'s own default
@@ -79,7 +80,7 @@ class CatalogueStressSeeder extends Seeder
 
     private const PLACEHOLDER_SOURCE = 'public/images/logo.png';
 
-    private const PLACEHOLDER_PATH = 'product-images/stress-placeholder.png';
+    private const PLACEHOLDER_PATH = ProductImage::SEED_DIRECTORY.'/stress-placeholder.png';
 
     public function run(): void
     {
@@ -273,7 +274,7 @@ class CatalogueStressSeeder extends Seeder
      */
     private function ensurePlaceholderImage(): void
     {
-        if (Storage::disk(ProductImage::DISK)->exists(self::PLACEHOLDER_PATH)) {
+        if (Storage::disk(ProductImage::SEED_DISK)->exists(self::PLACEHOLDER_PATH)) {
             return;
         }
 
@@ -283,6 +284,6 @@ class CatalogueStressSeeder extends Seeder
             throw new RuntimeException(self::PLACEHOLDER_SOURCE.' is missing — cannot create the stress placeholder image.');
         }
 
-        Storage::disk(ProductImage::DISK)->put(self::PLACEHOLDER_PATH, (string) file_get_contents($source));
+        Storage::disk(ProductImage::SEED_DISK)->put(self::PLACEHOLDER_PATH, (string) file_get_contents($source));
     }
 }

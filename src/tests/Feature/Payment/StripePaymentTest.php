@@ -10,12 +10,14 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Exceptions\RefundNotAllowedException;
 use App\Exceptions\StripeIntentNotAllowedException;
+use App\Mail\OrderPlaced;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Mail;
 use Stripe\Event as StripeEvent;
 use Stripe\StripeClient;
 
@@ -362,6 +364,26 @@ it('advances an awaiting-payment order to Paid on payment_intent.succeeded', fun
         ->and($payment->order->fresh()->status)->toBe(OrderStatus::Paid)
         // Still reserved: stock moves to sold at Shipped, not at payment.
         ->and(reservedForPayment($payment))->toBe(2);
+});
+
+it('queues the order-placed confirmation for a card order once it reaches Paid', function (): void {
+    // Proves SendOrderPlacedConfirmation actually fires off the
+    // OrderStatusChanged event `TransitionOrderStatus` dispatches, not just
+    // that the status column itself moves to Paid — the assertion the test
+    // above stops short of.
+    Mail::fake();
+
+    $payment = webhookOrderPayment(OrderStatus::AwaitingPayment);
+
+    app(HandleStripeWebhookEvent::class)->handle(stripeEvent('payment_intent.succeeded', [
+        'id' => 'pi_order_effect',
+        'object' => 'payment_intent',
+        'status' => 'succeeded',
+        'amount_received' => 10000,
+        'currency' => 'eur',
+    ], 'evt_paid_confirmation'));
+
+    Mail::assertQueued(OrderPlaced::class, fn (OrderPlaced $mail): bool => $mail->order->is($payment->order));
 });
 
 /*

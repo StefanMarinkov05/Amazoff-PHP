@@ -18,6 +18,9 @@ opinions, no "why" (that's [`../explanation/`](../explanation/) and
   writes, who can call it, what it throws.
 - **[console-commands.md](console-commands.md)** — every custom Artisan
   command and what invokes it.
+- **[deferred-and-reactive-work.md](deferred-and-reactive-work.md)** — the
+  scheduler, the queue/Jobs, and events/listeners in one inventory: what
+  exists, what triggers it, how the three differ.
 - **[permissions.md](permissions.md)** — the role/permission catalogue as
   it exists after `migrate:fresh --seed`.
 - **[tech-stack.md](tech-stack.md)** — everything currently installed, no
@@ -26,6 +29,9 @@ opinions, no "why" (that's [`../explanation/`](../explanation/) and
   route map for a local Docker run.
 - **[demo-showcase-order.md](demo-showcase-order.md)** — the fixed set of
   demo products used for a live walkthrough, and why each was picked.
+- **[todo.md](todo.md)** — the committed forward-looking roadmap (audit
+  logging, localization, courier slice completion, and other deliberately
+  deferred decisions) — distinct from the gitignored working queue.
 
 ## [diagrams/](diagrams/)
 

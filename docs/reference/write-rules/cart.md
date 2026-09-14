@@ -60,7 +60,7 @@ everything they chose.
 | A line's variation force-deleted since the order | skipped — `nullOnDelete()` left `order_items.product_variation_id` null, and a `cart_items` row pointing nowhere violates the foreign key | `RestoreCartFromOrderTest`, "skips a line whose variation was force-deleted" |
 | A line's variation soft-deleted since the order | skipped — a line the customer can neither buy nor fix, the same drop `CalculateCartTotals` already applies to a subtotal | `RestoreCartFromOrderTest`, "skips a line whose variation was soft-deleted since the order" |
 | Some lines dead, some live | the live ones are restored; the dead ones are dropped silently | `RestoreCartFromOrderTest`, "restores the surviving lines when only one of several is dead" |
-| The quantity now exceeds available stock | restored **as it was**, not clamped or refused — revalidated by `UpdateCartItemQuantity` on the next write and by `CreateOrder` at checkout, the same standing `MergeGuestCart` has | `RestoreCartFromOrderTest`, "restores a quantity that now exceeds available stock rather than refusing" |
+| The quantity now exceeds available stock | restored **as it was**, not clamped or refused — revalidated by `UpdateCartItemQuantity` on the next write and by `CreateOrder` at checkout. `MergeGuestCart` no longer shares this standing (fixed 2026-09-14, it now caps); this Action's own choice to leave a restored line unclamped stands independently, for the reason below | `RestoreCartFromOrderTest`, "restores a quantity that now exceeds available stock rather than refusing" |
 | A coupon was redeemed on the order | carried back as a plain `coupon_id`; `RedeemCoupon` re-validates it under a lock at the next checkout | `RestoreCartFromOrderTest`, "carries the coupon back onto the restored cart" |
 
 Nothing here is re-validated beyond the variation still existing. Losing a
@@ -121,13 +121,23 @@ specific line, or never, if the customer does not touch it.
 `UpdateCartItemQuantity` is what fixes the last two, by moving the quantity
 to the side of the new threshold that is legal again.
 
-`MergeGuestCart` shares the "left alone" half of this table but not the
-"refused on write" half — it revalidates nothing at all. A guest line that
-exceeds stock, falls below the minimum, or points at a soft-deleted variation
-merges exactly as stored; `CreateOrder` is what raises it, at checkout, not
-this Action. Measured in `MergeGuestCartTest`: "merges a quantity that
-exceeds available stock", "merges a quantity below the product minimum",
-"merges lines whose variation has since been soft-deleted".
+**Corrected 2026-09-14** — `MergeGuestCart` previously revalidated nothing at
+all, matching the "left alone" row above for every case. Found to be a real
+gap, not a deliberate deferral: two independently-valid carts (each legal
+against the stock it saw when built) can sum to a quantity neither cart
+alone ever had, and the old behaviour let that reach the customer's cart
+page silently, discovered only at checkout. `MergeGuestCart` now caps the
+summed quantity to what is actually available, treating a result below the
+product's own `min_order_quantity` as unpurchasable (0) the same way
+`AddToCart` would refuse it outright — deleting the line rather than
+leaving a quantity nothing else in the app would ever produce. A
+soft-deleted or otherwise missing variation is the one case still left
+alone exactly as before: the catalogue is not consulted for existence, only
+for the cap, so a dead line still survives merge and stays visible on the
+cart page rather than vanishing. Measured in `MergeGuestCartTest`: "caps a
+summed quantity that exceeds available stock", "drops the line entirely
+when the only available stock is below the product minimum", "merges lines
+whose variation has since been soft-deleted".
 
 ## When a merge happens, and the ordering it depends on
 

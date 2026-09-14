@@ -45,3 +45,11 @@ Schedule::command('products:snapshot-prices')->daily()->withoutOverlapping();
 // hold a sold-out item for a day. The sweep is a no-op on an empty result,
 // so a minute's cadence costs one indexed query.
 Schedule::command('orders:expire-unpaid')->everyMinute()->withoutOverlapping();
+
+// Slice 8 — polls Econt/Speedy for tracking updates on every shipment still
+// in transit. Every 5 minutes: frequent enough that a status change is
+// visible same-day, infrequent enough not to hammer either courier's API
+// for shipments that mostly don't change status between polls. Only queues
+// the work here — the actual courier calls happen in
+// App\Jobs\SyncShipmentTracking, one per shipment, run by the worker.
+Schedule::command('shipments:sync-tracking')->everyFiveMinutes()->withoutOverlapping();

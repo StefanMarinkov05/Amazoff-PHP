@@ -43,7 +43,7 @@ beforeEach(function (): void {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
     $this->seed([PermissionSeeder::class, RoleSeeder::class, UserSeeder::class]);
     $this->actingAs(User::where('email', 'admin@example.com')->firstOrFail());
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
 });
 
 it('adds an image through the single-upload form', function (): void {

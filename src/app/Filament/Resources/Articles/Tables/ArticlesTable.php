@@ -31,8 +31,10 @@ class ArticlesTable
             // see CLAUDE.md's N+1 rule.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['articleCategory', 'author']))
             ->columns([
+                // Per-record disk: a seeded cover and an uploaded one live on
+                // different disks, and only the row itself knows which.
                 ImageColumn::make('main_image_path')
-                    ->disk(Article::IMAGE_DISK)
+                    ->disk(fn (Article $record): string => $record->imageDisk())
                     ->label('Image'),
                 TextColumn::make('title')
                     ->searchable()

@@ -25,7 +25,12 @@ use Livewire\Livewire;
 
 function guestCartWith(int $quantity = 1, ?ProductVariation $variation = null): Cart
 {
-    $variation ??= ProductVariation::factory()->create();
+    // Real stock, not a bare factory row: MergeGuestCart caps a merged
+    // quantity at what is actually available, so a variation with no
+    // inventory row at all would cap to 0 and vanish — cartVariation()
+    // (tests/Pest.php) is what every other cart test already uses for
+    // exactly this reason.
+    $variation ??= cartVariation(stock: 100);
 
     /** @var Cart $cart */
     $cart = Cart::create(['session_id' => Session::getId(), 'user_id' => null]);
@@ -61,8 +66,8 @@ it('carries a guest basket through sign-in', function (): void {
 it('sums quantities when both carts hold the same variation', function (): void {
     /** @var User $user */
     $user = User::factory()->create(['password' => 'password', 'is_active' => true]);
-    /** @var ProductVariation $variation */
-    $variation = ProductVariation::factory()->create();
+    // Real stock — see guestCartWith()'s own comment for why.
+    $variation = cartVariation(stock: 100);
 
     // The account already has a basket from a previous visit.
     /** @var Cart $userCart */

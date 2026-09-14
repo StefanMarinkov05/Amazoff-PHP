@@ -37,7 +37,7 @@ class ChangePassword extends Component
     {
         return [
             'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', 'confirmed', 'different:current_password', Password::defaults()],
+            'password' => ['required', 'string', 'max:100', 'confirmed', 'different:current_password', Password::defaults()],
         ];
     }
 

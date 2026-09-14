@@ -16,6 +16,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
+use App\Support\Courier\CourierManager;
 use App\Support\Courier\CourierOffice;
 use App\Support\Courier\CourierTrackingEvent;
 use App\Support\Courier\DeliveryQuote;
@@ -419,12 +420,22 @@ class FakeCourierGateway implements CourierGateway
     /** Makes the *next* offices() call throw, then reverts to fakeOffices — for a test proving a transient failure is tolerated. */
     public bool $failNextOfficesCall = false;
 
+    /** @var Collection<int, CourierTrackingEvent> */
+    public Collection $fakeTrackingEvents;
+
+    public int $trackCalls = 0;
+
+    /** Makes the *next* track() call throw, then reverts to fakeTrackingEvents — same shape as failNextOfficesCall. */
+    public bool $failNextTrackCall = false;
+
     public function __construct()
     {
         $this->fakeOffices = collect([
             new CourierOffice(code: 'OFF1', name: 'Test Office 1', address: 'Main St 1', city: 'Sofia', postcode: '1000'),
             new CourierOffice(code: 'OFF2', name: 'Test Office 2', address: 'Main St 2', city: 'Sofia', postcode: '1000'),
         ]);
+
+        $this->fakeTrackingEvents = collect();
     }
 
     public function code(): string
@@ -467,8 +478,15 @@ class FakeCourierGateway implements CourierGateway
 
     public function track(string $trackingNumber): Collection
     {
-        /** @var Collection<int, CourierTrackingEvent> */
-        return collect();
+        $this->trackCalls++;
+
+        if ($this->failNextTrackCall) {
+            $this->failNextTrackCall = false;
+
+            throw CourierUnavailableException::requestFailed($this->code(), 'track');
+        }
+
+        return $this->fakeTrackingEvents;
     }
 }
 
@@ -497,6 +515,44 @@ function swapFakeCourier(): FakeCourierGateway
 function fakeCourier(): FakeCourierGateway
 {
     return app(FakeCourierGateway::class);
+}
+
+/**
+ * Binds a `CourierManager` double that returns `FakeCourierGateway` for any
+ * carrier, for an Action that constructor-injects the concrete class
+ * (couriers.md's stated convention). Deliberately separate from
+ * `swapFakeCourier()`, which only swaps the `Courier` facade: a facade swap
+ * and a constructor-injected type-hint both resolve `CourierManager::class`
+ * from the container, so making one double serve both roles means every
+ * `checkoutCarrier()`-style caller with a real/random carrier code would
+ * have to route through `CourierManager::for()`'s real driver lookup and
+ * fail on an unregistered code — confirmed by trying exactly that and
+ * breaking `CheckoutTest`'s existing courier coverage. Bound the same way
+ * `fakeStripeIntents()` binds its Mockery double, additively, under its own
+ * class name.
+ */
+function swapFakeCourierManager(): FakeCourierGateway
+{
+    app()->instance(FakeCourierGateway::class, new FakeCourierGateway);
+
+    // CourierManager is final and declares no interface, so it cannot be
+    // Mockery-doubled for a type-hinted constructor parameter. A real
+    // instance with a real 'fake' driver registered is the only way to
+    // satisfy the type hint — the carrier a test uses with this helper
+    // must have code: 'fake' (see fakeCourierCarrier()) for the driver
+    // lookup to reach it.
+    $manager = new CourierManager(app());
+    $manager->extend('fake', fn (): CourierGateway => app(FakeCourierGateway::class));
+
+    app()->instance(CourierManager::class, $manager);
+
+    return app(FakeCourierGateway::class);
+}
+
+/** A carrier resolving through `swapFakeCourierManager()`'s registered 'fake' driver. */
+function fakeCourierCarrier(array $attributes = []): Carrier
+{
+    return Carrier::factory()->create(array_merge(['code' => 'fake', 'is_active' => true], $attributes));
 }
 
 /**

@@ -79,6 +79,24 @@ it('refuses a mismatched password confirmation before ever reaching the broker',
     expect(Password::tokenExists($user, $token))->toBeTrue();
 });
 
+it('refuses an oversized new password rather than hashing it unbounded, without consuming the token', function (): void {
+    // Group B2's free-text sweep: nothing capped this before, and bcrypt
+    // still processes the whole string up to its own 72-byte truncation.
+    $user = User::factory()->create(['email' => 'reset-me@example.com']);
+    $token = Password::createToken($user);
+    $password = str_repeat('a', 101).'1A!';
+
+    Livewire::test(ConfirmPasswordReset::class, ['token' => $token])
+        ->set('email', 'reset-me@example.com')
+        ->set('password', $password)
+        ->set('password_confirmation', $password)
+        ->call('submit')
+        ->assertHasErrors(['password']);
+
+    expect(Password::tokenExists($user, $token))->toBeTrue()
+        ->and(Hash::check($password, $user->fresh()->password))->toBeFalse();
+});
+
 it('invalidates every other session for the account once the reset succeeds', function (): void {
     $user = User::factory()->create(['email' => 'reset-me@example.com']);
     $token = Password::createToken($user);

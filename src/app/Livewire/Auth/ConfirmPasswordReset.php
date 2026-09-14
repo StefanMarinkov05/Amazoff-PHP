@@ -66,7 +66,7 @@ class ConfirmPasswordReset extends Component
     {
         return [
             'email' => ['required', 'string', 'email:rfc', 'max:100'],
-            'password' => ['required', 'string', 'confirmed', PasswordRule::defaults()],
+            'password' => ['required', 'string', 'max:100', 'confirmed', PasswordRule::defaults()],
         ];
     }
 

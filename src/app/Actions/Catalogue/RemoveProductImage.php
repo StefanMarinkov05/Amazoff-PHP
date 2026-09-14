@@ -37,7 +37,11 @@ final class RemoveProductImage
             Gate::forUser($actor)->authorize('delete', $image);
         }
 
+        // Both captured before the delete: `disk()` reads `path`, and after
+        // `$image->delete()` the in-memory model is no longer a safe thing to
+        // ask — same reason `$path` itself is captured here rather than below.
         $path = $image->path;
+        $disk = $image->disk();
 
         DB::transaction(function () use ($image, $actor): void {
             Product::query()
@@ -65,6 +69,6 @@ final class RemoveProductImage
         // After the commit, never inside it. A rollback would otherwise leave
         // the row intact and the file gone, which is the one combination
         // nothing can repair.
-        Storage::disk(ProductImage::DISK)->delete($path);
+        Storage::disk($disk)->delete($path);
     }
 }

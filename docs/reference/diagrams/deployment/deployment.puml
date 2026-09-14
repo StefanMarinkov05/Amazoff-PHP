@@ -9,6 +9,12 @@
 ' (php artisan queue:work) now runs locally too, added when
 ' QUEUE_CONNECTION moved off `sync` for the newsletter double-opt-in flow —
 ' it was missing from this diagram until now.
+' Railway package redrawn again 2026-09-14 for ADR-0025 (split seed/upload
+' media disks): a volume is now mounted on the real web service at
+' /app/storage/app/media, confirmed against the live box (app root is /app,
+' NOT /var/www/html — ADR-0023's original path was stale, see ADR-0025).
+' RailwayWorker/RailwayCron remain PLANNED, not yet created — same caveat
+' this diagram already carried before this revision, unchanged here.
 ' The gap between Local and Forge is the whole point of deploy-and-host.md's
 ' checklist — anything fixed only in docker/nginx/*.conf reaches neither
 ' deployed box. Railway has no such gap: Railpack builds its own image, so
@@ -54,11 +60,12 @@ package "Local development — docker-compose.yml" {
   end note
 }
 
-package "Beta — Railway (ADR-0023 platform, ADR-0024 build)" {
-  node "web service\nRailpack: FrankenPHP + Caddy\nRoot Directory: src" as RailwayWeb
+package "Beta — Railway (ADR-0023 platform, ADR-0024 build, ADR-0025 media)" {
+  node "web service\nRailpack: FrankenPHP + Caddy\nRoot Directory: src\napp root: /app (NOT /var/www/html)" as RailwayWeb
   node "worker service\nqueue:work\n(same repo, same Root Dir)" as RailwayWorker
   node "scheduler service\nschedule:work\n(same repo, same Root Dir)" as RailwayCron
   database "MySQL\n(Railway-managed)" as RailwayDB
+  storage "media volume\nmounted at\n/app/storage/app/media" as RailwayVolume
 
   cloud "Railway edge + proxy\nTLS terminates HERE\nreaches the container over IPv6" as RailwayEdge
 
@@ -66,6 +73,7 @@ package "Beta — Railway (ADR-0023 platform, ADR-0024 build)" {
   RailwayWeb --> RailwayDB
   RailwayWorker --> RailwayDB
   RailwayCron --> RailwayDB
+  RailwayWeb --> RailwayVolume : admin uploads only\n(MEDIA_DISK=media)
 
   note bottom of RailwayEdge
     <b>trustProxies(at: '*') in bootstrap/app.php</b>
@@ -93,11 +101,22 @@ package "Beta — Railway (ADR-0023 platform, ADR-0024 build)" {
     Seed via `railway ssh`, never `railway run`
     (which executes on the operator's own
     machine and cannot reach *.railway.internal).
-    Ephemeral filesystem: the 182 demo images
-    survive redeploys by being IN the repo; an
-    admin-uploaded image does not.
     APP_ENV=demo, never production — three
     seeders refuse when it is 'production'.
+  end note
+
+  note bottom of RailwayVolume
+    ADR-0025. Seeded demo images stay OUT of
+    here — they ship inside the image at
+    storage/app/public/demo/, on the 'public'
+    disk, and survive a redeploy by being IN
+    the container. Only admin-uploaded media
+    (ProductImage::uploadDisk(), 'articles'/
+    'product-images' prefixes) lands on this
+    volume, which is what makes an uploaded
+    image survive a redeploy for the first time.
+    MEDIA_DISK=public is the one-variable
+    rollback if this volume misbehaves.
   end note
 }
 

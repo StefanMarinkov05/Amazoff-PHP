@@ -158,7 +158,7 @@ final class FetchDemoImages extends Command
             $images = $p->productImages;
 
             return $images->contains(
-                fn (ProductImage $img): bool => ! Storage::disk(ProductImage::DISK)->exists($img->path)
+                fn (ProductImage $img): bool => ! Storage::disk(ProductImage::SEED_DISK)->exists($img->path)
             );
         })->take($limit)->values();
 
@@ -179,7 +179,7 @@ final class FetchDemoImages extends Command
         $productImages = $product->productImages;
 
         $missing = $productImages->filter(
-            fn (ProductImage $img): bool => ! Storage::disk(ProductImage::DISK)->exists($img->path)
+            fn (ProductImage $img): bool => ! Storage::disk(ProductImage::SEED_DISK)->exists($img->path)
         );
 
         if ($missing->isEmpty()) {
@@ -248,7 +248,7 @@ final class FetchDemoImages extends Command
             return;
         }
 
-        Storage::disk(ProductImage::DISK)->put($image->path, $bytes);
+        Storage::disk(ProductImage::SEED_DISK)->put($image->path, $bytes);
     }
 
     /**
