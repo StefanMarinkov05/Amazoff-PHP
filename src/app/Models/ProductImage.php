@@ -14,13 +14,22 @@ use Illuminate\Support\Facades\Storage;
 class ProductImage extends Model
 {
     /**
-     * Uploads live on the `public` disk, served through the `storage` symlink.
-     * Named here so the Filament upload field and RemoveProductImage cannot
-     * drift onto different disks. Production swaps this for object storage.
+     * Seeded demo photos, committed to the repository and therefore baked
+     * into the container image. Distinct from the upload disk because
+     * Railway's filesystem is ephemeral: the seed disk must survive a
+     * redeploy by shipping *inside* the image, while uploads survive by
+     * living on a mounted volume. ADR-0025.
      */
-    public const DISK = 'public';
+    public const SEED_DISK = 'public';
 
-    /** Directory within the disk. */
+    /**
+     * Directory within `SEED_DISK`. Also the prefix `disk()` routes on, which
+     * is why it is a constant rather than a convention spelled out in the
+     * fixtures alone — `database/fixtures/demo/*.json` writes paths with it.
+     */
+    public const SEED_DIRECTORY = 'demo';
+
+    /** Directory within the upload disk. Never holds seed content. */
     public const DIRECTORY = 'product-images';
 
     /**
@@ -108,17 +117,54 @@ class ProductImage extends Model
      * ::urlOrDefault()`'s "no image row" fallback never triggers, because a
      * row does exist; it is simply pointing at nothing.
      *
-     * `Storage::exists()` is one extra disk check per image render. Accepted
-     * here rather than optimised away, because a broken image is a worse
-     * failure mode than one stat call — see `explanation/storefront-pages.md`
-     * if this needs revisiting under real load.
+     * `Storage::exists()` is one disk check per image render — still exactly
+     * one after the seed/upload split, because `disk()` resolves by path
+     * prefix rather than probing both disks. Accepted here rather than
+     * optimised away, because a broken image is a worse failure mode than one
+     * stat call. Under a remote `MEDIA_DISK` (S3) that stat becomes a network
+     * round-trip and must be revisited — see `explanation/storefront-pages.md`
+     * and ADR-0025.
      */
     public function servableUrl(): string
     {
-        if (! Storage::disk(self::DISK)->exists($this->path)) {
+        $disk = $this->disk();
+
+        if (! Storage::disk($disk)->exists($this->path)) {
             return asset('images/default-product.png');
         }
 
-        return Storage::disk(self::DISK)->url($this->path);
+        return Storage::disk($disk)->url($this->path);
+    }
+
+    /**
+     * Which disk this row's file lives on, decided by its path prefix.
+     *
+     * Seed content is written with a `demo/` prefix by the demo fixtures and
+     * `demo:fetch-images`; an upload is written under `DIRECTORY`. The prefix
+     * is therefore already an unambiguous record of origin, which is why this
+     * resolves rather than probes: probing both disks would double the
+     * `exists()` call in `servableUrl()` (a network round-trip each under S3)
+     * and would resolve non-deterministically if the same filename existed on
+     * both. ADR-0025.
+     */
+    public function disk(): string
+    {
+        return str_starts_with((string) $this->path, self::SEED_DIRECTORY.'/')
+            ? self::SEED_DISK
+            : self::uploadDisk();
+    }
+
+    /**
+     * Where a new upload is written. A method, not a constant, because it
+     * reads config — `MEDIA_DISK` is what switches the whole application to
+     * object storage, and is also the one-variable rollback to the previous
+     * single-disk behaviour (`MEDIA_DISK=public`).
+     */
+    public static function uploadDisk(): string
+    {
+        /** @var string $disk */
+        $disk = config('filesystems.media_disk');
+
+        return $disk;
     }
 }

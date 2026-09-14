@@ -26,7 +26,7 @@ beforeEach(function (): void {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->seed(PermissionSeeder::class);
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
 });
 
 function imageAttributes(array $overrides = []): array
@@ -132,12 +132,12 @@ it('removes an image that variations were showing', function (): void {
 it('deletes the uploaded file only after the row is gone', function (): void {
     $product = Product::factory()->create();
     $path = ProductImage::DIRECTORY.'/'.UploadedFile::fake()->image('shoe.jpg')->hashName();
-    Storage::disk(ProductImage::DISK)->put($path, 'bytes');
+    Storage::disk(ProductImage::uploadDisk())->put($path, 'bytes');
 
     $image = app(AddProductImage::class)->handle($product, imageAttributes(['path' => $path]), null);
     app(RemoveProductImage::class)->handle($image, null);
 
-    Storage::disk(ProductImage::DISK)->assertMissing($path);
+    Storage::disk(ProductImage::uploadDisk())->assertMissing($path);
 });
 
 /*

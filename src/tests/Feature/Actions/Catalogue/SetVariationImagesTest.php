@@ -30,7 +30,7 @@ beforeEach(function (): void {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->seed(PermissionSeeder::class);
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
 });
 
 /**

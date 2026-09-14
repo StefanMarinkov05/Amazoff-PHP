@@ -28,7 +28,7 @@ class ArticleInfolist
                 TextEntry::make('content')
                     ->columnSpanFull(),
                 ImageEntry::make('main_image_path')
-                    ->disk(Article::IMAGE_DISK)
+                    ->disk(fn (Article $record): string => $record->imageDisk())
                     ->placeholder('-'),
                 TextEntry::make('status')
                     ->badge(),

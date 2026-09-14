@@ -185,23 +185,32 @@ looking at.
 service's start command rather than the entrypoint, so that the worker and
 scheduler services (same image) do not each race to migrate on deploy.
 
-### Uploads are accepted as ephemeral, for now
+### Uploads were accepted as ephemeral — superseded 2026-09-14
+
+**This section originally described a not-yet-hit revisit trigger. The
+trigger has been hit; [ADR-0025](0025-split-seed-and-upload-media-disks.md)
+is the fix.** Kept here, corrected rather than deleted, because the
+original problem statement is still the right context for why ADR-0025
+exists — housekeeping on how this is described, not a reopening of the
+decision itself.
 
 Railway's filesystem is ephemeral: anything written at runtime is lost on
-redeploy. `ProductImage::DISK` and `Article::IMAGE_DISK` are both the
-`public` disk, i.e. `storage/app/public`.
+redeploy. Before ADR-0025, `ProductImage::DISK` and `Article::IMAGE_DISK`
+were both the `public` disk, i.e. `storage/app/public`, for both seeded and
+uploaded content alike.
 
-No volume is mounted. The 182 committed demo images live in the repository
-and therefore inside the image, so the seeded catalogue renders correctly
-after any redeploy. What is lost is an image *uploaded through the admin
-panel* after deploy — and on a demo box, a redeploy resetting to the seeded
-state is closer to desirable than not.
+No volume was mounted. The 182 committed demo images live in the repository
+and therefore inside the image, so the seeded catalogue rendered correctly
+after any redeploy regardless. What was lost was an image *uploaded through
+the admin panel* after deploy.
 
-**Revisit when:** anyone uploads an image they expect to keep. The fix is a
-Railway volume at `/var/www/html/storage/app/public`, or the `s3` disk that
-`config/filesystems.php` already defines. Note that Railway volumes are not
-mounted at build or pre-deploy time, which is why `storage:link` runs in the
-entrypoint rather than in the image.
+**Correction to the original text:** the mount path this section used to
+name, `/var/www/html/storage/app/public`, was never correct for this
+project's actual Railway build — that path belongs to the custom Dockerfile
+[ADR-0024](0024-railpack-over-custom-image.md) replaced. Under Railpack the
+application root is `/app`, confirmed via `railway ssh`; a volume mounted at
+the old path would have attached without error and simply never been read.
+ADR-0025 has the corrected path and the full fix.
 
 ### Known-password admin accounts are accepted, explicitly
 

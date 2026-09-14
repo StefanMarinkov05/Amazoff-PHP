@@ -125,17 +125,29 @@ call as `Brand`, `Tag` and the other lookup tables.
 
 ## Image uploads
 
-`FileUpload` on the images relation manager writes to the `public` disk under
-`product-images/`, both named as constants on `ProductImage` so the upload
-field and `RemoveProductImage` cannot drift onto different disks.
+`FileUpload` on the images relation manager writes to `ProductImage::uploadDisk()`
+under `product-images/` (`ProductImage::DIRECTORY`) — a method, not a fixed
+constant, because it reads `config('filesystems.media_disk')`. Seeded demo
+images live on a separate disk (`ProductImage::SEED_DISK`, `'public'`) under
+`demo/`, baked into the container image rather than uploaded. Which disk a
+given row is actually on is decided by its path prefix,
+`ProductImage::disk()` — display, delete, and the storefront's own
+`servableUrl()` all resolve through it rather than assuming one disk for
+everything. ADR-0025 has the full reasoning; `RemoveProductImage` and every
+Filament display column route through the same method so none of them can
+drift onto a different disk than the row actually lives on.
 
-`storage/app/public` is git-ignored by Laravel's own `.gitignore`, and
-`php artisan storage:link` exposes it at `/storage`. Production replaces the
-disk with object storage; nothing outside `ProductImage::DISK` needs to change.
+`storage/app/public` (seed) and `storage/app/media` (uploads) are both
+git-ignored except their committed subtrees, and `php artisan storage:link`
+exposes both at `/storage` and `/media` respectively. Swapping the upload
+disk for object storage is the one `MEDIA_DISK` environment variable —
+nothing outside `ProductImage::uploadDisk()` needs to change, and the seed
+disk is untouched either way.
 
 `RemoveProductImage` deletes the file **after** the transaction commits. A
 rollback would otherwise leave the row intact and the file gone, which is the
-one combination nothing can repair.
+one combination nothing can repair. It resolves `$image->disk()` *before*
+deleting the row — the model is not safe to query once deleted.
 
 ## Static, checked-in assets
 

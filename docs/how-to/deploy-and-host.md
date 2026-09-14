@@ -127,7 +127,8 @@ is quiet rather than loud.
 | `APP_ENV` | `demo` | **Never `production`.** `app()->isProduction()` matches that literal string, and `UserSeeder`, `SeedDemo` and every `Demo*` seeder refuse to run when it does. `production` here gives an empty shop with nobody able to log in — discovered at seed time, i.e. while presenting. |
 | `APP_DEBUG` | `false` | Independent of `APP_ENV`. Keeps stack traces off a client's screen. |
 | `APP_KEY` | generate once | `php artisan key:generate --show` locally, then paste. Never regenerate — it decrypts existing data. |
-| `APP_URL` | `https://<service>.up.railway.app` | `config/filesystems.php` builds the `public` disk's URL from it, so every product and article image resolves against it. Wrong value = a catalogue of broken images. |
+| `APP_URL` | `https://<service>.up.railway.app` | `config/filesystems.php` builds both the `public` and `media` disks' URLs from it, so every product and article image resolves against it. Wrong value = a catalogue of broken images. |
+| `MEDIA_DISK` | *unset* (defaults to `media`) | ADR-0025. Where an **uploaded** image is written and served from — seeded demo images stay on `public` regardless. Set to `public` as the one-variable rollback if the media volume misbehaves; set to `s3` once object storage is provisioned (needs `league/flysystem-aws-s3-v3` and a populated bucket first). |
 | `SESSION_SECURE_COOKIE` | `true` | Railway serves HTTPS. Pairs with `trustProxies` — see below. |
 | `DB_*` | from the MySQL service | `DB_HOST` is Railway's private hostname, never `127.0.0.1`. |
 | `COUPON_EMAIL_PEPPER` | any long random string | `RedeemCoupon` hashes emails with it. Blank is not a weaker hash, it is a different one than the rows were written with. |
@@ -198,11 +199,14 @@ wrong scheme, and a `Secure` cookie the framework believes it cannot send.
 
 Each of these is recorded with a "revisit when" in ADR-0023 or ADR-0024:
 
-- **Uploads are ephemeral.** No volume is mounted. The 182 committed demo
-  images survive a redeploy by being *in* the repository; an image uploaded
-  through the admin panel afterwards does not. Fix when needed: a Railway
-  volume mounted at the `public` disk's path, or the `s3` disk
-  `config/filesystems.php` already defines.
+- **Uploads survive a redeploy — fixed 2026-09-14, ADR-0025.** A Railway
+  volume mounted at `/app/storage/app/media` (the app root under Railpack is
+  `/app`, not `/var/www/html` — ADR-0023's original note was stale). Seeded
+  demo images still ship *in* the repository on the `public` disk and are
+  unaffected; only admin uploads (`MEDIA_DISK`) moved to the volume. **Only
+  the code + config half of this has shipped as of 2026-09-14 — the volume
+  itself is a deliberate, separate step; confirm with `railway volume list`
+  before assuming an upload will actually survive.**
 - **The seeded admin accounts keep their known passwords** on a public URL.
   Accepted because there is nothing behind it — demo catalogue, demo orders,
   Stripe test keys. It is also what makes §37 #18 demonstrable. Mitigate by

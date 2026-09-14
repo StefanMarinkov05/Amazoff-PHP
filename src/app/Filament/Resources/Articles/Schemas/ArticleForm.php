@@ -44,7 +44,7 @@ class ArticleForm
                     // `filament.default_filesystem_disk` (`local` here), whose
                     // root is storage/app/private — never web-servable, so the
                     // storefront could not render an uploaded cover at all.
-                    ->disk(Article::IMAGE_DISK)
+                    ->disk(Article::imageUploadDisk())
                     ->directory(Article::IMAGE_DIRECTORY)
                     ->acceptedFileTypes(Article::IMAGE_ACCEPTED_MIME_TYPES)
                     ->maxSize(Article::IMAGE_MAX_SIZE_KB)

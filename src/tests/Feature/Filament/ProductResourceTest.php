@@ -449,7 +449,7 @@ it('deletes a product and its variations through the panel', function (): void {
  */
 
 it('accepts an image from the variation\'s own product into the gallery', function (): void {
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
     $product = Product::factory()->create(['is_available' => false]);
     $variation = app(AddProductVariation::class)->handle($product, [
         'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),
@@ -473,7 +473,7 @@ it('accepts an image from the variation\'s own product into the gallery', functi
 });
 
 it('refuses an image from another product rather than writing it to the gallery', function (): void {
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
     $product = Product::factory()->create(['is_available' => false]);
     // Empty gallery, unlike the accepts-its-own-image test above — starting
     // from a gallery that already held this exact image would make the
@@ -521,7 +521,7 @@ it('refuses an image from another product rather than writing it to the gallery'
 });
 
 it('prefills the gallery modal in the stored position order, not by image id', function (): void {
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
     $product = Product::factory()->create(['is_available' => false]);
     $variation = app(AddProductVariation::class)->handle($product, [
         'sku' => fake()->unique()->regexify('[A-Z0-9]{12}'),

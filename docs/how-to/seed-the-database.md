@@ -437,6 +437,32 @@ This command is **not** part of the seed chain — it is not wired into any
 depends on an API key nobody else's environment has. Run it once, by hand,
 after the catalogue exists.
 
+### Seeded images vs. uploaded images (ADR-0025)
+
+Seeded demo images (this command, `demo:fetch-article-images`, and the
+fixture-declared `demo/…` paths) live on the `public` disk, at
+`storage/app/public/demo/`. Anything uploaded through the Filament admin
+panel lands on a separate `media` disk instead, at `storage/app/media/`.
+`ProductImage::disk()`/`Article::imageDisk()` decide which one a given row
+is on by its path prefix — nothing to configure per-row, but it means the
+two trees are genuinely separate on disk, not just conceptually.
+
+**If your working copy predates this split** and you have files under
+`storage/app/public/product-images/` or `storage/app/public/articles/`
+(uploaded through the panel before this change), move them by hand:
+
+```bash
+mkdir -p storage/app/media
+mv storage/app/public/product-images storage/app/media/ 2>/dev/null
+mv storage/app/public/articles storage/app/media/ 2>/dev/null
+php artisan storage:link
+```
+
+These directories are gitignored working state, not committed content, so
+this is a one-time local fixup — there is nothing to migrate on a fresh
+clone, and nothing to migrate on Railway either (the beta had zero
+surviving uploads before this change, confirmed via `railway ssh`).
+
 ## Real Stripe intents
 
 Every `stripe_payment_intent_id` in a freshly seeded database is null.

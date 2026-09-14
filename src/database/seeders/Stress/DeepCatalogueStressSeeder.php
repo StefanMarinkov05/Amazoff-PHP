@@ -88,7 +88,7 @@ class DeepCatalogueStressSeeder extends Seeder
 
     private const PLACEHOLDER_SOURCE = 'public/images/logo.png';
 
-    private const PLACEHOLDER_PATH = 'product-images/stress-placeholder.png';
+    private const PLACEHOLDER_PATH = ProductImage::SEED_DIRECTORY.'/stress-placeholder.png';
 
     public function run(): void
     {
@@ -393,7 +393,7 @@ class DeepCatalogueStressSeeder extends Seeder
      */
     private function ensurePlaceholderImage(): void
     {
-        if (Storage::disk(ProductImage::DISK)->exists(self::PLACEHOLDER_PATH)) {
+        if (Storage::disk(ProductImage::SEED_DISK)->exists(self::PLACEHOLDER_PATH)) {
             return;
         }
 
@@ -403,6 +403,6 @@ class DeepCatalogueStressSeeder extends Seeder
             throw new RuntimeException(self::PLACEHOLDER_SOURCE.' is missing — cannot create the stress placeholder image.');
         }
 
-        Storage::disk(ProductImage::DISK)->put(self::PLACEHOLDER_PATH, (string) file_get_contents($source));
+        Storage::disk(ProductImage::SEED_DISK)->put(self::PLACEHOLDER_PATH, (string) file_get_contents($source));
     }
 }

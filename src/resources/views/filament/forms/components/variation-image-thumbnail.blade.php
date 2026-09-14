@@ -9,9 +9,14 @@
     box instead of a gap that makes the drag target unclear.
 --}}
 @php
+    // The model, not just its `path` column: `servableUrl()` is what knows
+    // which disk a row lives on (seeded vs uploaded, ADR-0025) and it also
+    // falls back to the placeholder when the file behind the row is missing —
+    // a case the raw Storage::url() call this replaced rendered as a broken
+    // image.
     $imageId = $get('image_id');
-    $path = $imageId ? \App\Models\ProductImage::query()->whereKey($imageId)->value('path') : null;
-    $src = $path ? \Illuminate\Support\Facades\Storage::disk(\App\Models\ProductImage::DISK)->url($path) : asset('images/default-product.png');
+    $image = $imageId ? \App\Models\ProductImage::query()->whereKey($imageId)->first() : null;
+    $src = $image?->servableUrl() ?? asset('images/default-product.png');
 @endphp
 
 <img

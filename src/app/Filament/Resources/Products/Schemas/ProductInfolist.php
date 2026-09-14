@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products\Schemas;
 
+use App\Models\Product;
 use App\Models\ProductImage;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
@@ -25,9 +26,16 @@ class ProductInfolist
     {
         return $schema
             ->components([
+                // No ->disk(): this renders N images from a relation, so a
+                // per-record disk closure cannot discriminate per image.
+                // Resolving each to an absolute URL up front sidesteps that —
+                // Filament renders an absolute URL as-is — and reuses
+                // servableUrl()'s own seed/upload routing. ADR-0025.
                 ImageEntry::make('productImages.path')
                     ->label('Images')
-                    ->disk(ProductImage::DISK)
+                    ->getStateUsing(fn (Product $record): array => $record->productImages
+                        ->map(fn (ProductImage $image): string => $image->servableUrl())
+                        ->all())
                     ->stacked()
                     ->circular()
                     ->limit(5)

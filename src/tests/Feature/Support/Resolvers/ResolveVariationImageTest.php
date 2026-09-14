@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 
 beforeEach(function (): void {
-    Storage::fake(ProductImage::DISK);
+    Storage::fake(ProductImage::uploadDisk());
 });
 
 /**
@@ -31,7 +31,7 @@ beforeEach(function (): void {
 function galleryImage(Product $product): ProductImage
 {
     $path = ProductImage::DIRECTORY.'/'.fake()->unique()->slug(2).'.jpg';
-    Storage::disk(ProductImage::DISK)->put($path, 'fake-image-bytes');
+    Storage::disk(ProductImage::uploadDisk())->put($path, 'fake-image-bytes');
 
     return app(AddProductImage::class)->handle($product, [
         'path' => $path,
@@ -77,7 +77,7 @@ it('urlOrDefault resolves the gallery image to a storage URL', function (): void
     app(SetVariationImages::class)->handle($variation, [$image->id], null);
 
     expect(ResolveVariationImage::urlOrDefault($variation))
-        ->toBe(Storage::disk(ProductImage::DISK)->url($image->path));
+        ->toBe(Storage::disk(ProductImage::uploadDisk())->url($image->path));
 });
 
 it('urlOrDefault falls back to the placeholder asset when nothing resolves', function (): void {
@@ -140,5 +140,5 @@ it('ProductImage::servableUrl resolves normally when the file is really there', 
     $real = galleryImage($product);
 
     expect($real->servableUrl())
-        ->toBe(Storage::disk(ProductImage::DISK)->url($real->path));
+        ->toBe(Storage::disk(ProductImage::uploadDisk())->url($real->path));
 });

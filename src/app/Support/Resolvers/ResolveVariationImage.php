@@ -24,7 +24,7 @@ use App\Models\ProductVariation;
  */
 final class ResolveVariationImage
 {
-    /** Checked into `public/`, not `ProductImage::DISK` — it ships with the app, an admin never uploads it. */
+    /** Checked into `public/`, not any storage disk — it ships with the app, an admin never uploads it. */
     public const DEFAULT_PATH = 'images/default-product.png';
 
     /**

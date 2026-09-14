@@ -44,7 +44,7 @@ class ProductImagesRelationManager extends RelationManager
                     ->label('Image')
                     ->image()
                     ->imageEditor()
-                    ->disk(ProductImage::DISK)
+                    ->disk(ProductImage::uploadDisk())
                     ->directory(ProductImage::DIRECTORY)
                     ->acceptedFileTypes(ProductImage::ACCEPTED_MIME_TYPES)
                     ->maxSize(ProductImage::MAX_SIZE_KB)
@@ -92,8 +92,10 @@ class ProductImagesRelationManager extends RelationManager
             ->recordTitleAttribute('path')
             ->defaultSort('sort_order')
             ->columns([
+                // Per-record disk: a seeded row and an uploaded row live on
+                // different disks, and only the row itself knows which.
                 ImageColumn::make('path')
-                    ->disk(ProductImage::DISK)
+                    ->disk(fn (ProductImage $record): string => $record->disk())
                     ->label('Image'),
                 TextColumn::make('alt_text')
                     ->searchable(),
@@ -136,7 +138,7 @@ class ProductImagesRelationManager extends RelationManager
                             ->multiple()
                             ->reorderable()
                             ->image()
-                            ->disk(ProductImage::DISK)
+                            ->disk(ProductImage::uploadDisk())
                             ->directory(ProductImage::DIRECTORY)
                             ->acceptedFileTypes(ProductImage::ACCEPTED_MIME_TYPES)
                             ->maxSize(ProductImage::MAX_SIZE_KB)

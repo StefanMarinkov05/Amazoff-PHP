@@ -172,9 +172,15 @@ class ProductVariationsRelationManager extends RelationManager
             // image per row does.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['images', 'inventory']))
             ->columns([
+                // No ->disk(): N images from a relation, so a per-record disk
+                // closure cannot discriminate per image. Resolved to absolute
+                // URLs up front instead, reusing servableUrl()'s seed/upload
+                // routing. ADR-0025.
                 ImageColumn::make('images.path')
                     ->label('Images')
-                    ->disk(ProductImage::DISK)
+                    ->getStateUsing(fn (ProductVariation $record): array => $record->images
+                        ->map(fn (ProductImage $image): string => $image->servableUrl())
+                        ->all())
                     ->stacked()
                     ->circular()
                     ->limit(3)

@@ -34,10 +34,14 @@ final class ResolveArticleImage
             return null;
         }
 
-        if (! Storage::disk(Article::IMAGE_DISK)->exists($path)) {
+        // Seed covers and uploaded covers live on different disks; the path
+        // prefix decides which, so this stays one `exists()` call. ADR-0025.
+        $disk = $article->imageDisk();
+
+        if (! Storage::disk($disk)->exists($path)) {
             return null;
         }
 
-        return Storage::disk(Article::IMAGE_DISK)->url($path);
+        return Storage::disk($disk)->url($path);
     }
 }

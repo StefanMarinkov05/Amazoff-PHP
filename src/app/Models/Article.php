@@ -21,10 +21,17 @@ use Illuminate\Support\HtmlString;
  */
 class Article extends Model
 {
-    /** Mirrors `ProductImage::DISK` — named so the upload field and any command writing here cannot drift onto a different disk. */
-    public const IMAGE_DISK = 'public';
+    /** Mirrors `ProductImage::SEED_DISK` — seeded cover photos, baked into the container image. ADR-0025. */
+    public const IMAGE_SEED_DISK = 'public';
 
-    /** Directory within `IMAGE_DISK`. Mirrors `ProductImage::DIRECTORY`. */
+    /**
+     * Directory within `IMAGE_SEED_DISK`, and the prefix `imageDisk()` routes
+     * on. Note the extra segment versus `ProductImage::SEED_DIRECTORY`:
+     * `database/fixtures/demo-articles/*.json` writes `demo/articles/…`.
+     */
+    public const IMAGE_SEED_DIRECTORY = 'demo/articles';
+
+    /** Directory within the upload disk. Never holds seed content. Mirrors `ProductImage::DIRECTORY`. */
     public const IMAGE_DIRECTORY = 'articles';
 
     /** See `ProductImage::ACCEPTED_MIME_TYPES` — same reasoning, no SVG in user-facing content. */
@@ -122,5 +129,26 @@ class Article extends Model
     public function articleCategory(): BelongsTo
     {
         return $this->belongsTo(ArticleCategory::class);
+    }
+
+    /**
+     * Which disk this article's cover photo lives on, by path prefix. Same
+     * resolve-don't-probe reasoning as `ProductImage::disk()` — see its
+     * docblock and ADR-0025.
+     */
+    public function imageDisk(): string
+    {
+        return str_starts_with((string) $this->main_image_path, self::IMAGE_SEED_DIRECTORY.'/')
+            ? self::IMAGE_SEED_DISK
+            : self::imageUploadDisk();
+    }
+
+    /** Where a new cover upload is written. Mirrors `ProductImage::uploadDisk()`. */
+    public static function imageUploadDisk(): string
+    {
+        /** @var string $disk */
+        $disk = config('filesystems.media_disk');
+
+        return $disk;
     }
 }
