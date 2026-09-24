@@ -8,7 +8,11 @@ Laravel e-commerce platform with a blog/news module, Stripe and cash-on-delivery
 payments, and Econt/Speedy courier integrations. Internship project, Lumen101
 2026.
 
-**Live demo:** https://onlineshopteamb-production.up.railway.app/
+**Live demo:** https://onlineshopteamb-production.up.railway.app/ (up until
+2026-10-10)
+
+**Product walkthrough:** [`demo/README.md`](demo/README.md) — a
+screenshot-based tour of the whole app, every role, no local setup needed.
 
 Deployed on Railway, provisioned and managed through Railway's MCP server —
 web, worker, and scheduler services on a Railpack build, MySQL, and a
